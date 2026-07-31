@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -135,7 +136,7 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 	return &config, cleanup, nil
 }
 
-func RunInitScripts(scripts []ResourceItem) error {
+func RunInitScripts(scripts []ResourceItem, baseDir string) error {
 	for i, s := range scripts {
 		if s.Source == "" {
 			continue
@@ -159,8 +160,12 @@ func RunInitScripts(scripts []ResourceItem) error {
 			scriptPath = tmpPath
 			cleanup = clean
 		case "file":
-			if _, err := os.Stat(s.Source); os.IsNotExist(err) {
-				return fmt.Errorf("local script file does not exist %s: %w", s.Source, err)
+			if !filepath.IsAbs(s.Source) {
+				scriptPath = filepath.Join(baseDir, s.Source)
+			}
+
+			if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+				return fmt.Errorf("local script file does not exist %s: %w", scriptPath, err)
 			}
 		default:
 			return fmt.Errorf("unsupported type '%s' for init scripts '%s' (must be 'file' or 'folder')", s.Type, s.Name)

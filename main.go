@@ -51,7 +51,8 @@ func main() {
 			if err != nil {
 				return fmt.Errorf("path resolution failed: %w", err)
 			}
-
+			
+			baseDir := filepath.Dir(finalPath)
 			fmt.Printf("Loading configuration from: %s\n", err)
 
 			if configPath == "" {
@@ -79,7 +80,7 @@ func main() {
 
 			if len(config.Bootstrap.Init) > 0 {
 				fmt.Printf("Running bootstrap init scripts...\n")
-				if err := RunInitScripts(config.Bootstrap.Init); err != nil {
+				if err := RunInitScripts(config.Bootstrap.Init, baseDir); err != nil {
 					return fmt.Errorf("init scripts failed: %w", err)
 				}
 			}
