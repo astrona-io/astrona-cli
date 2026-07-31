@@ -3,12 +3,39 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
 
+func ResolveConfigPath(configDirOrURL, fileName string) (string, error) {
+	if strings.HasPrefix(configDirOrURL, "http://") || strings.HasPrefix(configDirOrURL, "https://") {
+		if !strings.HasSuffix(configDirOrURL, ".yaml") && !strings.HasSuffix(configDirOrURL, ".yml") {
+			configDirOrURL = strings.TrimSuffix(configDirOrURL, "/") +"/"+ fileName
+		}
+
+		return configDirOrURL, nil
+	}
+
+	cleanPath := filepath.Clean(configDirOrURL)
+
+	fileInfo, err := os.Stat(cleanPath)
+
+	if err != nil {
+		return "", fmt.Errorf("config path does not exist: %s", cleanPath)
+	}
+
+	if fileInfo.IsDir() {
+		return filepath.Join(cleanPath, fileName), nil
+	}
+
+	return cleanPath, nil
+}
+
 func main() {
 	var configPath string
+	var fileName string
 
 	rootCmd := &cobra.Command{
 		Use: "astrona",
@@ -20,11 +47,18 @@ func main() {
 		Use: "up",
 		Short: "Spin up the lab Kubernetes cluster",
 		RunE:  func(cmd *cobra.Command, args []string) error {
+			finalPath, err := ResolveConfigPath(configPath, fileName)
+			if err != nil {
+				return fmt.Errorf("path resolution failed: %w", err)
+			}
+
+			fmt.Printf("Loading configuration from: %s\n", err)
+
 			if configPath == "" {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
 			}
 
-			config, configCleanup, err := LoadLabConfig(configPath)
+			config, configCleanup, err := LoadLabConfig(finalPath)
 			if err != nil {
 				return fmt.Errorf("failed to load lab config: %w", err)
 			}
@@ -63,16 +97,23 @@ func main() {
 		Use: "down",
 		Short: "Spin up the lab Kubernetes cluster",
 		RunE:  func(cmd *cobra.Command, args []string) error {
+			finalPath, err := ResolveConfigPath(configPath, fileName)
+			if err != nil {
+				return fmt.Errorf("path resolution failed: %w", err)
+			}
+
+			fmt.Printf("Loading configuration from: %s\n", err)
+
 			clusterName := "astrona-lab"
 
-			if configPath != "" {
-				config, _, err := LoadLabConfig(configPath)
+			if finalPath != "" {
+				config, _, err := LoadLabConfig(finalPath)
 				if err == nil && config.Metadata.Name != "" {
 					clusterName = config.Metadata.Name
 				}
 			}
 
-			err := DeleteKindCluster(clusterName)
+			err = DeleteKindCluster(clusterName)
 			if err != nil {
 				return fmt.Errorf("lab teardown failed: %w", err)
 			}
@@ -82,8 +123,10 @@ func main() {
 		},
 	}
 
-	upCmd.Flags().StringVarP(&configPath, "config", "c", "", "Path or URL to the lab configuration YAML file")
-	downCmd.Flags().StringVarP(&configPath, "config", "c", "", "Path or URL to the lab configuration YAML file")
+	upCmd.Flags().StringVarP(&configPath, "config", "c", ".", "Path or URL to the lab configuration YAML file")
+	upCmd.Flags().StringVarP(&fileName, "file", "f", "config.yaml", "Configuration file name override")
+	downCmd.Flags().StringVarP(&configPath, "config", "c", ".", "Path or URL to the lab configuration YAML file")
+	downCmd.Flags().StringVarP(&fileName, "file", "f", "config.yaml", "Configuration file name override")
 
 
 	rootCmd.AddCommand(upCmd)
