@@ -27,6 +27,9 @@ go.work.sum
 # env file
 .env
 
+# user-supplied qemu VM base images (see examples/qemu-basics-01/docs/prerequisites.md)
+examples/**/base.qcow2
+
 # Editor/IDE
 # .idea/
 # .vscode/
