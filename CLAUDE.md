@@ -20,11 +20,9 @@ This is a **local-only, single-user developer tool**, not a service. There is no
 
 One file per concern, all still `package main` at the repo root — no internal packages, this is a small single-binary CLI:
 
-- `main.go` — entry point only: builds the root Cobra command and registers the `lab` and `dev` command groups. If you're new to Go, start here.
-- `cmd_lab.go` — the `astrona lab` parent command: student-facing lab lifecycle (`up`/`down`/`submit`). Owns the shared `--config`/`-c` and `--file`/`-f` persistent flags and wires up its subcommands.
-- `cmd_dev.go` — the `astrona dev` parent command: lab-developer/CI-only tooling (`test`), kept separate from `lab` because a student taking a lab never needs it. Owns its own `--config`/`-c` and `--file`/`-f` persistent flags. Commands are grouped by audience/resource (like `podman container ...`/`podman image ...`) so future groups — `astrona auth ...`, `astrona marketplace ...` — can be added as siblings without colliding.
-- `cmd_up.go`, `cmd_down.go`, `cmd_submit.go` — one file per `astrona lab` subcommand, each exporting a `newXCmd(configPath, fileName *string) *cobra.Command` constructor that receives pointers to `cmd_lab.go`'s flag values. `cmd_submit.go` doesn't grade anything itself — it builds a `Proctor` and calls `Grade`.
-- `cmd_devtest.go` — `astrona dev test`, same `newXCmd(configPath, fileName *string)` pattern, bound to `cmd_dev.go`'s flags instead; also grades through a `Proctor`, never directly. Note: named `cmd_devtest.go`, not `cmd_test.go` — a file ending in `_test.go` is treated as a Go test file and silently excluded from the build.
+- `main.go` — entry point: builds the root Cobra command, owns the shared `--config`/`-c` and `--file`/`-f` persistent flags, and registers all four subcommands directly. If you're new to Go, start here.
+- `cmd_run.go`, `cmd_destroy.go`, `cmd_submit.go` — one file per top-level command (`run`/`destroy`/`submit`), each exporting a `newXCmd(configPath, fileName *string) *cobra.Command` constructor that receives pointers to `main.go`'s root flag values. Flat, podman-`run`-style verbs — no `lab`/`dev` noun to namespace under. `cmd_submit.go` doesn't grade anything itself — it builds a `Proctor` and calls `Grade`.
+- `cmd_devtest.go` — `astrona test`, same `newXCmd(configPath, fileName *string)` pattern; the lab-developer/CI-only command (bootstrap → testing → submit → always teardown), not part of the student flow (`run`/`submit`/`destroy`), but still a flat root command like the rest. Also grades through a `Proctor`, never directly. Note: named `cmd_devtest.go`, not `cmd_test.go` — a file ending in `_test.go` is treated as a Go test file and silently excluded from the build.
 - `config.go` — the shape of `config.yaml` (`LabConfig` and its nested types) plus `ResolveConfigPath` and `LoadLabConfig`.
 - `cluster.go` — container engine detection and `kind` cluster lifecycle (`DetectContainerEngine`, `CreateKindCluster`, `DeleteKindCluster`).
 - `hypervisor.go` — the `qemu` runtime backend: raw `qemu-system-*` process lifecycle (`CreateQEMUVM`, `LoadQEMUHandle`, `DestroyQEMUVM`), binary/accelerator detection, checksum-verified base image acquisition, qcow2 overlay disks, ephemeral per-lab SSH keys, and cloud-init seed generation. Used for labs that need a real VM (kernel-level work, multi-NIC networking) rather than a kind container cluster.
@@ -32,7 +30,7 @@ One file per concern, all still `package main` at the repo root — no internal 
 - `runtime.go` — dispatches on a lab's `runtime.type` (`kind`, default, or `qemu`) via `CreateEnvironment`/`LoadEnvironment`/`DestroyEnvironment`, returning a backend-agnostic `LabEnvironment` (kube context + executor) that every `cmd_*.go` file works with.
 - `scripts.go` — running bootstrap/testing/teardown scripts (`RunInitScripts`), resolving a `ResourceItem`'s source path/URL, and downloading URL scripts to a temp file (`downloadToTemp`).
 - `manifests.go` — `ApplyManifests`, applies bootstrap/testing Kubernetes manifests via `kubectl apply`.
-- `proctor.go` — the `Proctor` type: the sole grading authority. `lab submit` and `dev test` both call `Proctor.Grade`, which runs declarative checks and the optional validation script and returns a PASS/FAIL verdict — no other file reads `config.Validation` directly. It runs locally today (no remote grading service exists yet), but keeping grading behind this one seam means a real remote Proctor can slot in later without changing how `lab`/`dev` call it. See the Proctor doc comment in `proctor.go` for the full reasoning.
+- `proctor.go` — the `Proctor` type: the sole grading authority. `astrona submit` and `astrona test` both call `Proctor.Grade`, which runs declarative checks and the optional validation script and returns a PASS/FAIL verdict — no other file reads `config.Validation` directly. It runs locally today (no remote grading service exists yet), but keeping grading behind this one seam means a real remote Proctor can slot in later without changing how the commands call it. See the Proctor doc comment in `proctor.go` for the full reasoning.
 - `go.mod` — module `astrona`, Go 1.26.5. Dependencies: `spf13/cobra`, `spf13/pflag`, `gopkg.in/yaml.v3`.
 
 Keep it flat like this until there's a real reason (e.g. a second binary or a clearly separable domain) to introduce actual packages; don't add structure the project doesn't need yet.
@@ -63,7 +61,7 @@ go vet ./...
 go test ./...
 ```
 
-Requires `kind` and either `docker` or `podman` on `PATH` to actually run `astrona lab up` / `astrona lab down` on the (default) `kind` runtime — these are shelled out to, not vendored.
+Requires `kind` and either `docker` or `podman` on `PATH` to actually run `astrona run` / `astrona destroy` on the (default) `kind` runtime — these are shelled out to, not vendored.
 
 For labs using the `qemu` runtime (`runtime.type: qemu`), also requires: `qemu-system-x86_64` and/or `qemu-system-aarch64`, `qemu-img`, `ssh`/`ssh-keygen`, and one ISO9660 tool (`mkisofs`/`genisoimage`/`xorriso` on Linux, `hdiutil` on macOS). On macOS: `brew install qemu cdrtools`. An `arch: aarch64` guest additionally needs edk2/AAVMF UEFI firmware on disk — `locateAArch64Firmware` in `hypervisor.go` checks common install paths (Homebrew's `qemu` formula bundles it) or `ASTRONA_QEMU_AARCH64_FIRMWARE` as an override.
 
