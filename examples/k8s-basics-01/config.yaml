@@ -1,0 +1,49 @@
+metadata:
+  name: "k8s-basics-01"
+  docs:
+    prerequisites: "docs/prerequisites.md"
+    examQuestion: "docs/exam-question.md"
+    caseStudy: "docs/case-study.md"
+    guide: "docs/step-by-step-guide.md"
+
+bootstrap:
+  init:
+    - name: "echo"
+      description: ""
+      type: "file"
+      source: "hello.sh"
+
+  manifests:
+    - name: ""
+      description: ""
+      type: "folder"
+      source: ""
+
+testing:
+  manifests:
+    - name: "solution"
+      description: "Applies the reference solution used by 'astrona test' in CI"
+      type: "folder"
+      source: "solution"
+
+validation:
+  checks:
+    - name: "lab-ns namespace exists"
+      type: "resourceExists"
+      resource: "namespace/lab-ns"
+    - name: "hello-config configmap exists"
+      type: "resourceExists"
+      resource: "configmap/hello-config -n lab-ns"
+  script:
+    name: "verify-configmap-content"
+    description: "Custom script check: confirms the configmap's actual content, not just that it exists"
+    type: "file"
+    source: "validate.sh"
+
+teardown:
+  init:
+    - name: "dump-logs"
+      description: "Log that the teardown hook ran"
+      type: "file"
+      source: "teardown/dump-logs.sh"
+  keepCluster: false
