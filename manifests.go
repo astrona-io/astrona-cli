@@ -16,7 +16,7 @@ func ApplyManifests(manifests []ResourceItem, baseDir, kubeContext string) error
 
 	kubectlPath, err := exec.LookPath("kubectl")
 	if err != nil {
-		return fmt.Errorf("kubectl not found in PATH: %v", err)
+		return fmt.Errorf("kubectl not found in PATH: %w", err)
 	}
 
 	for i, m := range manifests {

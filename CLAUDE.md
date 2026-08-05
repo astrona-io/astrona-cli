@@ -36,6 +36,17 @@ One file per concern, all still `package main` at the repo root — no internal 
 
 Keep it flat like this until there's a real reason (e.g. a second binary or a clearly separable domain) to introduce actual packages; don't add structure the project doesn't need yet.
 
+## Suggested reading order (new to Go / new to this repo)
+
+1. `main.go` — smallest file, shows how Cobra wires commands together.
+2. `executor.go` — one interface (`ScriptExecutor`), two implementations. The clearest example in this repo of *why* Go interfaces exist.
+3. `runtime.go` — dispatches on `runtime.type`, returns the same `LabEnvironment` shape regardless of backend.
+4. `config.go` — the YAML shape every command loads.
+5. `cmd_run.go` — shortest, most linear command; read this before the others in `cmd_*.go`.
+6. `scripts.go` / `manifests.go` — what actually runs during bootstrap.
+7. `proctor.go` — the grading seam every "did the lab pass" decision goes through.
+8. `hypervisor.go` last — the most involved file, but broken into small, individually-named steps once you've seen the pattern elsewhere.
+
 ## Security-sensitive areas — extra care required
 
 - **Remote script execution** (`RunInitScripts` in `scripts.go`, `downloadToTemp`): bootstrap/testing/teardown entries of type `url` are downloaded over HTTP(S) and executed with `bash`. There is no checksum, signature, or content verification. Any change here should be evaluated for how it affects trust: prefer HTTPS-only, consider size limits on downloads, and never widen this to execute anything without an explicit, auditable code path.

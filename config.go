@@ -162,3 +162,24 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 
 	return &config, cleanup, nil
 }
+
+// LoadLabForCommand resolves --config/--file, loads the YAML, and returns
+// the lab's base directory for resolving relative script/manifest paths.
+// Shared by every command that requires a valid config to do anything
+// (run, submit, test) — cmd_destroy.go does NOT use this, since destroy
+// must still best-effort tear down even when the config can't be loaded.
+func LoadLabForCommand(configPath, fileName *string) (config *LabConfig, baseDir string, cleanup func(), err error) {
+	finalPath, err := ResolveConfigPath(*configPath, *fileName)
+	if err != nil {
+		return nil, "", func() {}, fmt.Errorf("path resolution failed: %w", err)
+	}
+
+	fmt.Printf("Loading configuration from: %s\n", finalPath)
+
+	config, cleanup, err = LoadLabConfig(finalPath)
+	if err != nil {
+		return nil, "", func() {}, fmt.Errorf("failed to load lab config: %w", err)
+	}
+
+	return config, filepath.Dir(finalPath), cleanup, nil
+}

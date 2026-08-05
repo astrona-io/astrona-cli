@@ -33,7 +33,7 @@ func CreateKindCluster(clusterName string) error {
 
 	kindPath, err := exec.LookPath("kind")
 	if err != nil {
-		return fmt.Errorf("kind not found in PATH: %v", err)
+		return fmt.Errorf("kind not found in PATH: %w", err)
 	}
 
 	fmt.Printf("Creating kind cluster '%s' using %s...\n", clusterName, engine.Name)
@@ -53,7 +53,7 @@ func CreateKindCluster(clusterName string) error {
 func DeleteKindCluster(clusterName string) error {
 	kindPath, err := exec.LookPath("kind")
 	if err != nil {
-		return fmt.Errorf("kind not found in PATH: %v", err)
+		return fmt.Errorf("kind not found in PATH: %w", err)
 	}
 
 	fmt.Printf("Deleting kind cluster '%s'...\n", clusterName)

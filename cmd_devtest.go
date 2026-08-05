@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -24,16 +23,9 @@ func newTestCmd(configPath, fileName *string) *cobra.Command {
 		Short:        "Run the full lab lifecycle for CI: bootstrap, testing, submit, teardown",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			finalPath, err := ResolveConfigPath(*configPath, *fileName)
+			config, baseDir, configCleanup, err := LoadLabForCommand(configPath, fileName)
 			if err != nil {
-				return fmt.Errorf("path resolution failed: %w", err)
-			}
-
-			baseDir := filepath.Dir(finalPath)
-
-			config, configCleanup, err := LoadLabConfig(finalPath)
-			if err != nil {
-				return fmt.Errorf("failed to load lab config: %w", err)
+				return err
 			}
 			defer configCleanup()
 

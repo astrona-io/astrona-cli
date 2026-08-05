@@ -107,7 +107,7 @@ func (p *Proctor) runChecks(checks []ValidationCheck) ([]CheckResult, error) {
 
 	kubectlPath, err := exec.LookPath("kubectl")
 	if err != nil {
-		return nil, fmt.Errorf("kubectl not found in PATH: %v", err)
+		return nil, fmt.Errorf("kubectl not found in PATH: %w", err)
 	}
 
 	results := make([]CheckResult, 0, len(checks))

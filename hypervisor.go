@@ -22,7 +22,7 @@ import (
 // image is a full bootable OS, a much higher blast radius than a script or
 // manifest, so unlike ResourceItem there is no unverified path.
 type QEMUImageSource struct {
-	Type     string `yaml:"type"`     // "file" or "url"
+	Type     string `yaml:"type"` // "file" or "url"
 	Source   string `yaml:"source"`
 	Checksum string `yaml:"checksum"` // required, "sha256:<hex>"
 }
@@ -549,6 +549,55 @@ func waitForSSHReady(h *QEMUHandle, timeout time.Duration) error {
 	return nil
 }
 
+// prepareAArch64Firmware locates the edk2/AAVMF UEFI firmware and creates
+// this VM's writable vars file, returning the pflash -drive args
+// CreateQEMUVM should append. Only called when the guest arch is aarch64
+// (-machine virt has no legacy BIOS, so booting it needs this regardless of
+// guest OS — see locateAArch64Firmware).
+func prepareAArch64Firmware(stateDir string) ([]string, error) {
+	firmwareCode, err := locateAArch64Firmware()
+	if err != nil {
+		return nil, err
+	}
+
+	varsPath, err := createUEFIVars(firmwareCode, stateDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return []string{
+		"-drive", "if=pflash,format=raw,readonly=on,file=" + firmwareCode,
+		"-drive", "if=pflash,format=raw,file=" + varsPath,
+	}, nil
+}
+
+// buildQEMUArgs assembles the qemu-system-* command-line flags from an
+// already-prepared VM: overlay disk, cloud-init seed, ssh port forward, and
+// (for aarch64) the UEFI pflash drives from prepareAArch64Firmware.
+func buildQEMUArgs(clusterName, machineType, accel string, cpus, memoryMB int, firmwareArgs []string, overlayPath, seedPath string, sshPort int, pidfilePath, consolePath string) []string {
+	args := []string{
+		"-name", clusterName,
+		"-machine", machineType,
+		"-accel", accel,
+		"-cpu", "max",
+		"-smp", strconv.Itoa(cpus),
+		"-m", strconv.Itoa(memoryMB),
+	}
+	args = append(args, firmwareArgs...)
+	args = append(args,
+		"-drive", "file="+overlayPath+",if=virtio,format=qcow2",
+		"-drive", "file="+seedPath+",if=virtio,format=raw,readonly=on",
+		"-netdev", fmt.Sprintf("user,id=net0,hostfwd=tcp:127.0.0.1:%d-:22", sshPort),
+		"-device", "virtio-net-pci,netdev=net0",
+		"-display", "none",
+		"-serial", "file:"+consolePath,
+		"-daemonize",
+		"-pidfile", pidfilePath,
+	)
+
+	return args
+}
+
 // CreateQEMUVM boots a new VM for clusterName: acquires and checksum-verifies
 // the base image, creates a disposable overlay disk, generates an ephemeral
 // SSH key, builds a cloud-init seed, launches qemu-system-* detached in the
@@ -621,41 +670,14 @@ func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, er
 	if arch == "aarch64" {
 		machineType = "virt"
 
-		firmwareCode, err := locateAArch64Firmware()
+		fwArgs, err := prepareAArch64Firmware(stateDir)
 		if err != nil {
 			return nil, err
 		}
-
-		varsPath, err := createUEFIVars(firmwareCode, stateDir)
-		if err != nil {
-			return nil, err
-		}
-
-		firmwareArgs = []string{
-			"-drive", "if=pflash,format=raw,readonly=on,file=" + firmwareCode,
-			"-drive", "if=pflash,format=raw,file=" + varsPath,
-		}
+		firmwareArgs = fwArgs
 	}
 
-	args := []string{
-		"-name", clusterName,
-		"-machine", machineType,
-		"-accel", accel,
-		"-cpu", "max",
-		"-smp", strconv.Itoa(cpus),
-		"-m", strconv.Itoa(memoryMB),
-	}
-	args = append(args, firmwareArgs...)
-	args = append(args,
-		"-drive", "file="+overlayPath+",if=virtio,format=qcow2",
-		"-drive", "file="+seedPath+",if=virtio,format=raw,readonly=on",
-		"-netdev", fmt.Sprintf("user,id=net0,hostfwd=tcp:127.0.0.1:%d-:22", sshPort),
-		"-device", "virtio-net-pci,netdev=net0",
-		"-display", "none",
-		"-serial", "file:"+consolePath,
-		"-daemonize",
-		"-pidfile", pidfilePath,
-	)
+	args := buildQEMUArgs(clusterName, machineType, accel, cpus, memoryMB, firmwareArgs, overlayPath, seedPath, sshPort, pidfilePath, consolePath)
 
 	fmt.Printf("Launching qemu VM '%s' (arch=%s accel=%s ssh-port=%d)...\n", clusterName, arch, accel, sshPort)
 

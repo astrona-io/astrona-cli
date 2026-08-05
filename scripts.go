@@ -122,11 +122,13 @@ func joinWithinBaseDir(baseDir, source string) (string, error) {
 	return joined, nil
 }
 
-// downloadToTemp fetches a URL to a temp file and marks it executable. The
-// returned cleanup func removes the temp file once the caller is done.
-// Only https:// URLs are accepted, and the body is capped at maxBytes so an
-// untrusted remote source can't make this CLI write an unbounded amount of
-// data to disk.
+// downloadToTemp fetches a URL to a temp file. The returned cleanup func
+// removes the temp file once the caller is done. Only https:// URLs are
+// accepted, and the body is capped at maxBytes so an untrusted remote
+// source can't make this CLI write an unbounded amount of data to disk.
+// The file is never chmod +x: LocalExecutor runs it as `bash scriptPath`
+// and SSHExecutor pipes it over stdin to `bash -s` — neither ever executes
+// it directly, so there's no reason to set the executable bit.
 func downloadToTemp(url, filePattern string, maxBytes int64) (string, func(), error) {
 	cleanup := func() {}
 
@@ -167,8 +169,6 @@ func downloadToTemp(url, filePattern string, maxBytes int64) (string, func(), er
 		cleanup()
 		return "", func() {}, fmt.Errorf("download from '%s' exceeds %d byte limit", url, maxBytes)
 	}
-
-	os.Chmod(tmpFile.Name(), 0755)
 
 	return tmpFile.Name(), cleanup, nil
 }

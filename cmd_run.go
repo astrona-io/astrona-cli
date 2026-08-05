@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -16,21 +15,13 @@ func newRunCmd(configPath, fileName *string) *cobra.Command {
 		Use:   "run",
 		Short: "Spin up a lab environment",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			finalPath, err := ResolveConfigPath(*configPath, *fileName)
-			if err != nil {
-				return fmt.Errorf("path resolution failed: %w", err)
-			}
-
-			baseDir := filepath.Dir(finalPath)
-			fmt.Printf("Loading configuration from: %s\n", finalPath)
-
 			if *configPath == "" {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
 			}
 
-			config, configCleanup, err := LoadLabConfig(finalPath)
+			config, baseDir, configCleanup, err := LoadLabForCommand(configPath, fileName)
 			if err != nil {
-				return fmt.Errorf("failed to load lab config: %w", err)
+				return err
 			}
 			defer configCleanup()
 
@@ -45,7 +36,7 @@ func newRunCmd(configPath, fileName *string) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("lab setup failed: %w", err)
 			}
-			fmt.Printf("Lab environment is ready")
+			fmt.Printf("Lab environment is ready\n")
 
 			if len(config.Bootstrap.Init) > 0 {
 				fmt.Printf("Running bootstrap init scripts...\n")
@@ -64,7 +55,7 @@ func newRunCmd(configPath, fileName *string) *cobra.Command {
 				}
 			}
 
-			fmt.Printf("\nLab environment is fully loaded and ready!")
+			fmt.Printf("\nLab environment is fully loaded and ready!\n")
 			return nil
 		},
 	}
