@@ -10,9 +10,9 @@ import (
 // environment to the Proctor for grading. This is the "I'm done" entry
 // point a trainee runs by hand — grading itself is owned entirely by
 // Proctor.Grade, not by this command, so run/destroy/submit never read
-// validation.checks/validation.script directly. configPath/fileName are
-// bound to the root command's persistent flags.
-func newSubmitCmd(configPath, fileName *string) *cobra.Command {
+// validation.checks/validation.script directly. flags is bound to the root
+// command's persistent flags.
+func newSubmitCmd(flags *rootFlags) *cobra.Command {
 	var junitPath string
 
 	cmd := &cobra.Command{
@@ -20,7 +20,7 @@ func newSubmitCmd(configPath, fileName *string) *cobra.Command {
 		Short:        "Submit the lab to the Proctor for grading",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, baseDir, configCleanup, err := LoadLabForCommand(configPath, fileName)
+			config, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err
 			}

@@ -11,11 +11,11 @@ import (
 // then always tear down (even on failure) so CI never leaks a cluster. This
 // is a lab-developer/CI concern (proving a lab's reference solution
 // actually passes the Proctor's own checks), not something a student runs
-// while taking the lab. configPath/fileName are bound to the root command's
-// persistent flags. Lives in cmd_devtest.go, not cmd_test.go — a file
-// ending in _test.go is treated as a Go test file and silently excluded
-// from the build.
-func newTestCmd(configPath, fileName *string) *cobra.Command {
+// while taking the lab. flags is bound to the root command's persistent
+// flags. Lives in cmd_devtest.go, not cmd_test.go — a file ending in
+// _test.go is treated as a Go test file and silently excluded from the
+// build.
+func newTestCmd(flags *rootFlags) *cobra.Command {
 	var junitPath string
 
 	cmd := &cobra.Command{
@@ -23,7 +23,7 @@ func newTestCmd(configPath, fileName *string) *cobra.Command {
 		Short:        "Run the full lab lifecycle for CI: bootstrap, testing, submit, teardown",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, baseDir, configCleanup, err := LoadLabForCommand(configPath, fileName)
+			config, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err
 			}

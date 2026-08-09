@@ -7,19 +7,19 @@ import (
 )
 
 // newRunCmd builds `astrona run`: create the lab environment (kind cluster
-// or qemu VM), then run bootstrap (init scripts + apply manifests).
-// configPath/fileName are bound to the root command's persistent
-// --config/--file flags.
-func newRunCmd(configPath, fileName *string) *cobra.Command {
+// or qemu VM), then run bootstrap (init scripts + apply manifests). flags
+// is bound to the root command's persistent --config/--file/--git/--git-ref
+// flags.
+func newRunCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Spin up a lab environment",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if *configPath == "" {
+			if flags.configPath == "" {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
 			}
 
-			config, baseDir, configCleanup, err := LoadLabForCommand(configPath, fileName)
+			config, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err
 			}

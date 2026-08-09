@@ -84,10 +84,28 @@ type LabConfig struct {
 }
 
 // ResolveConfigPath turns whatever the user passed via --config into an
-// actual config file path: a URL is used as-is (or has the file name
-// appended), a directory gets the file name joined on, and a direct file
-// path is used as-is.
-func ResolveConfigPath(configDirOrURL, fileName string) (string, error) {
+// actual config file path. With gitURL set, configDirOrURL changes meaning:
+// gitURL is cloned (or pulled, if already cached) via resolveGitConfigSource,
+// and configDirOrURL becomes the subdirectory within that checkout to use
+// (joined via joinWithinBaseDir, so it can't escape the clone — e.g. "." for
+// the repo root, or "labs/lab-010" for a monorepo-style lab layout).
+// Otherwise a direct URL is used as-is (or has the file name appended), a
+// local directory gets the file name joined on, and a local file path is
+// used as-is.
+func ResolveConfigPath(configDirOrURL, fileName, gitURL, gitRef string) (string, error) {
+	if gitURL != "" {
+		repoDir, err := resolveGitConfigSource(gitURL, gitRef)
+		if err != nil {
+			return "", fmt.Errorf("git source failed: %w", err)
+		}
+
+		subDir, err := joinWithinBaseDir(repoDir, configDirOrURL)
+		if err != nil {
+			return "", fmt.Errorf("--config must stay within the cloned repo: %w", err)
+		}
+		configDirOrURL = subDir
+	}
+
 	if strings.HasPrefix(configDirOrURL, "http://") || strings.HasPrefix(configDirOrURL, "https://") {
 		if !strings.HasSuffix(configDirOrURL, ".yaml") && !strings.HasSuffix(configDirOrURL, ".yml") {
 			configDirOrURL = strings.TrimSuffix(configDirOrURL, "/") + "/" + fileName
@@ -163,13 +181,14 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 	return &config, cleanup, nil
 }
 
-// LoadLabForCommand resolves --config/--file, loads the YAML, and returns
-// the lab's base directory for resolving relative script/manifest paths.
-// Shared by every command that requires a valid config to do anything
-// (run, submit, test) — cmd_destroy.go does NOT use this, since destroy
-// must still best-effort tear down even when the config can't be loaded.
-func LoadLabForCommand(configPath, fileName *string) (config *LabConfig, baseDir string, cleanup func(), err error) {
-	finalPath, err := ResolveConfigPath(*configPath, *fileName)
+// LoadLabForCommand resolves --config/--file (and --git/--git-ref, if set),
+// loads the YAML, and returns the lab's base directory for resolving
+// relative script/manifest paths. Shared by every command that requires a
+// valid config to do anything (run, submit, test) — cmd_destroy.go does NOT
+// use this, since destroy must still best-effort tear down even when the
+// config can't be loaded.
+func LoadLabForCommand(flags *rootFlags) (config *LabConfig, baseDir string, cleanup func(), err error) {
+	finalPath, err := ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef)
 	if err != nil {
 		return nil, "", func() {}, fmt.Errorf("path resolution failed: %w", err)
 	}

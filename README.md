@@ -1,5 +1,7 @@
 # astrona-cli
 
+[![Donate via Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/Astrona.io)
+
 Astrona spins up local Kubernetes labs with [kind](https://kind.sigs.k8s.io/), backed by whichever container runtime you have — Docker or Podman. Everything is driven by a single YAML config per lab.
 
 ## Features
@@ -84,6 +86,10 @@ Run `just` with no arguments to list every recipe.
 - [`kubectl`](https://kubernetes.io/docs/tasks/tools/#kubectl)
 - Docker or Podman
 - [`just`](https://github.com/casey/just) (optional, for the `Justfile` recipes above)
+
+## Support
+
+Astrona is free and built on donations and community support. If it's useful to you, consider [donating via Liberapay](https://liberapay.com/Astrona.io) — thank you to everyone who contributes, sponsors, and helps keep it going.
 
 ## License
 

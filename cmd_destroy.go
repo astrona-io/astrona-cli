@@ -57,13 +57,13 @@ func teardownExecutor(clusterName string, runtimeCfg RuntimeConfig) ScriptExecut
 
 // newDestroyCmd builds `astrona destroy`: run teardown scripts, then tear
 // down the lab environment (unless the config says keepCluster: true).
-// configPath/fileName are bound to the root command's persistent flags.
-func newDestroyCmd(configPath, fileName *string) *cobra.Command {
+// flags is bound to the root command's persistent flags.
+func newDestroyCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "destroy",
 		Short: "Tear down a lab environment",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			finalPath, err := ResolveConfigPath(*configPath, *fileName)
+			finalPath, err := ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef)
 			if err != nil {
 				return fmt.Errorf("path resolution failed: %w", err)
 			}
