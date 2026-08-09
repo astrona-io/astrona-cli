@@ -10,6 +10,8 @@ const (
 	ansiBold   = "\x1b[1m"
 	ansiCyan   = "\x1b[36m"
 	ansiYellow = "\x1b[33m"
+	ansiGreen  = "\x1b[32m"
+	ansiRed    = "\x1b[31m"
 )
 
 // colorsEnabled follows the two conventions a terminal tool is expected to

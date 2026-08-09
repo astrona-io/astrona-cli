@@ -58,6 +58,7 @@ func main() {
 	rootCmd.AddCommand(newDestroyCmd(flags))
 	rootCmd.AddCommand(newSubmitCmd(flags))
 	rootCmd.AddCommand(newTestCmd(flags))
+	rootCmd.AddCommand(newCheckCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
