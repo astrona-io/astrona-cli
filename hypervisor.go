@@ -218,9 +218,20 @@ func verifyChecksum(path, expectedHex string) error {
 // relative "file" sources against baseDir, downloading "url" sources via the
 // same downloadToTemp helper scripts.go uses, or pulling "oci" sources via
 // `oras pull`) and mandatorily verifies its checksum before returning. The
-// returned cleanup only ever removes a downloaded/pulled temp path — a
-// user's own local base image is never deleted, even on a checksum
-// mismatch.
+// returned cleanup only ever removes a downloaded/pulled temp path that
+// isn't also the persistent cache — a user's own local base image, and any
+// image now living in the checksum cache, is never deleted, even on a
+// checksum mismatch of some *other* file.
+//
+// "url"/"oci" sources are checked against imageCacheDir first: since the
+// checksum is mandatory and content-addressed, a previously-verified
+// download/pull can be reused instead of re-fetching the same (often
+// several-hundred-MB-to-multi-GB) image on every single `astrona run`. A
+// cache hit is still re-verified against the checksum before use — the
+// mandatory-checksum invariant (see CLAUDE.md's security-sensitive-areas
+// notes) never gets weakened for any source type or code path, cached or
+// not. "file" sources are never cached — they're already local, nothing to
+// save by copying them.
 func acquireBaseImage(img QEMUImageSource, baseDir, stateDir string) (string, func(), error) {
 	noopCleanup := func() {}
 
@@ -228,15 +239,27 @@ func acquireBaseImage(img QEMUImageSource, baseDir, stateDir string) (string, fu
 		return "", noopCleanup, fmt.Errorf("qemu image '%s' has no checksum: a checksum ('sha256:<hex>') is required for every VM base image", img.Source)
 	}
 
-	_, expectedHex, err := parseChecksum(img.Checksum)
+	algo, expectedHex, err := parseChecksum(img.Checksum)
 	if err != nil {
 		return "", noopCleanup, err
+	}
+
+	sourceType := strings.ToLower(img.Type)
+	cacheable := sourceType == "url" || sourceType == "oci"
+
+	if cacheable {
+		if cachePath, ok, err := cacheHit(algo, expectedHex); err != nil {
+			return "", noopCleanup, err
+		} else if ok {
+			fmt.Printf("Using cached qemu base image (%s:%s)\n", algo, expectedHex[:12])
+			return cachePath, noopCleanup, nil
+		}
 	}
 
 	var path string
 	cleanup := noopCleanup
 
-	switch strings.ToLower(img.Type) {
+	switch sourceType {
 	case "file":
 		resolved, err := joinWithinBaseDir(baseDir, img.Source)
 		if err != nil {
@@ -269,15 +292,115 @@ func acquireBaseImage(img QEMUImageSource, baseDir, stateDir string) (string, fu
 		return "", noopCleanup, err
 	}
 
+	if cacheable {
+		cachePath, err := cachedImagePath(algo, expectedHex)
+		if err != nil {
+			fmt.Printf("[WARN] could not resolve image cache dir, not caching this run: %s\n", err)
+			return path, cleanup, nil
+		}
+		if err := persistToCache(path, cachePath); err != nil {
+			fmt.Printf("[WARN] failed to cache downloaded qemu base image, will re-fetch next run: %s\n", err)
+			return path, cleanup, nil
+		}
+		cleanup() // now duplicated in the cache — the fetched temp copy is redundant
+		return cachePath, noopCleanup, nil
+	}
+
 	return path, cleanup, nil
+}
+
+// imageCacheDir returns (creating if needed) ~/.astrona/cache/images —
+// where checksum-verified qemu base images from "url"/"oci" sources are
+// cached, keyed by their own checksum (see acquireBaseImage).
+func imageCacheDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
+	}
+
+	dir := filepath.Join(home, ".astrona", "cache", "images")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create image cache dir '%s': %w", dir, err)
+	}
+
+	return dir, nil
+}
+
+// cachedImagePath returns where a checksum-verified image would live in the
+// cache. Keyed by algo+digest, so a cache hit is only ever served for the
+// exact bytes a lab's config asked for — two labs (or two revisions of one
+// lab) with different checksums never collide or share an entry.
+func cachedImagePath(algo, hexDigest string) (string, error) {
+	dir, err := imageCacheDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, algo+"-"+hexDigest+".qcow2"), nil
+}
+
+// cacheHit checks whether expectedHex is already in the image cache and, if
+// so, re-verifies it before trusting it — a corrupted or tampered cache
+// entry is never silently booted, it's just treated as a miss (removed, so
+// a slow re-fetch on this run is enough to fix it rather than every run).
+func cacheHit(algo, expectedHex string) (string, bool, error) {
+	cachePath, err := cachedImagePath(algo, expectedHex)
+	if err != nil {
+		return "", false, err
+	}
+
+	if _, err := os.Stat(cachePath); err != nil {
+		return "", false, nil
+	}
+
+	if err := verifyChecksum(cachePath, expectedHex); err != nil {
+		fmt.Printf("[WARN] cached qemu base image failed checksum verification, discarding and re-fetching: %s\n", err)
+		os.Remove(cachePath)
+		return "", false, nil
+	}
+
+	return cachePath, true, nil
+}
+
+// persistToCache copies a checksum-verified image into the cache at
+// cachePath, writing to a same-directory temp file and renaming into place
+// (rename is atomic within one directory) so a concurrent astrona
+// invocation never observes a partially-written cache entry.
+func persistToCache(srcPath, cachePath string) error {
+	tmp, err := os.CreateTemp(filepath.Dir(cachePath), ".cache-*.tmp")
+	if err != nil {
+		return fmt.Errorf("failed to create cache temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath) // no-op once successfully renamed into place
+
+	src, err := os.Open(srcPath)
+	if err != nil {
+		tmp.Close()
+		return fmt.Errorf("failed to open '%s' to cache it: %w", srcPath, err)
+	}
+	defer src.Close()
+
+	if _, err := io.Copy(tmp, src); err != nil {
+		tmp.Close()
+		return fmt.Errorf("failed to copy '%s' into cache: %w", srcPath, err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("failed to finalize cache file: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, cachePath); err != nil {
+		return fmt.Errorf("failed to move cache file into place: %w", err)
+	}
+
+	return nil
 }
 
 // pullOCIImage pulls a qcow2 base image published as an OCI artifact (e.g. a
 // ghcr.io package) via the `oras` CLI — the same shell-out-to-a-trusted-
 // external-binary posture already given to kind/docker/qemu-img, since oras
-// (not our own HTTP client) performs and controls the actual download.
-// Pulled fresh into stateDir on every call (never cached across `astrona
-// run`s), matching the "url" source type's re-download-every-run behavior.
+// (not our own HTTP client) performs and controls the actual download. Only
+// called on an image-cache miss (see acquireBaseImage) — a lab whose
+// checksum is already cached never reaches this function.
 // wantFile (QEMUImageSource.File) picks which *.qcow2 to use when the
 // artifact contains more than one — see findQcow2InPull.
 func pullOCIImage(ref, wantFile, stateDir string) (string, func(), error) {
