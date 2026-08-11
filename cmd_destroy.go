@@ -55,13 +55,47 @@ func teardownExecutor(clusterName string, runtimeCfg RuntimeConfig) ScriptExecut
 	return env.Executor
 }
 
+// tearDownLabEnvironment runs teardown scripts (if any) then destroys
+// clusterName's environment. hardFail controls whether a destroy failure is
+// returned to the caller or just logged — used to make the "test-<lab>"
+// side-destroy (see newDestroyCmd) best-effort so a missing/already-gone
+// test environment never fails `astrona destroy` for the real one.
+func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir string, hardFail bool) error {
+	if len(info.teardown.Init) > 0 {
+		fmt.Printf("Running teardown scripts for '%s'...\n", clusterName)
+		executor := teardownExecutor(clusterName, info.runtime)
+		if err := RunInitScripts(info.teardown.Init, baseDir, executor); err != nil {
+			fmt.Printf("[WARN] teardown scripts failed for '%s': %s\n", clusterName, err)
+		}
+	}
+
+	if info.teardown.KeepCluster {
+		fmt.Printf("keepCluster is set, leaving cluster '%s' running.\n", clusterName)
+		return nil
+	}
+
+	if err := DestroyEnvironment(clusterName, info.runtime); err != nil {
+		if hardFail {
+			return fmt.Errorf("lab teardown failed: %w", err)
+		}
+		fmt.Printf("[WARN] teardown failed for '%s': %s\n", clusterName, err)
+	}
+
+	return nil
+}
+
 // newDestroyCmd builds `astrona destroy`: run teardown scripts, then tear
 // down the lab environment (unless the config says keepCluster: true).
-// flags is bound to the root command's persistent flags.
+// Also best-effort tears down the "test-<lab>" environment `astrona test`
+// uses (see cmd_devtest.go) — a cancelled `astrona test` skips Go's defer
+// cleanup entirely (Ctrl-C kills the process before it runs), so without
+// this a crashed test run would need its own separate cleanup command. One
+// `astrona destroy` is enough to clean up whichever of the two you actually
+// have running. flags is bound to the root command's persistent flags.
 func newDestroyCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "destroy",
-		Short: "Tear down a lab environment",
+		Short: "Tear down a lab environment (both the normal run and any leftover 'astrona test' run)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			finalPath, err := ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef)
 			if err != nil {
@@ -74,21 +108,15 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			info, configCleanup := loadTeardownInfo(finalPath)
 			defer configCleanup()
 
-			if len(info.teardown.Init) > 0 {
-				fmt.Printf("Running teardown scripts...\n")
-				executor := teardownExecutor(info.clusterName, info.runtime)
-				if err := RunInitScripts(info.teardown.Init, baseDir, executor); err != nil {
-					fmt.Printf("[WARN] teardown scripts failed: %s\n", err)
-				}
+			if err := tearDownLabEnvironment(info.clusterName, info, baseDir, true); err != nil {
+				return err
 			}
 
-			if info.teardown.KeepCluster {
-				fmt.Printf("keepCluster is set, leaving cluster '%s' running.\n", info.clusterName)
-				return nil
-			}
-
-			if err := DestroyEnvironment(info.clusterName, info.runtime); err != nil {
-				return fmt.Errorf("lab teardown failed: %w", err)
+			if err := tearDownLabEnvironment("test-"+info.clusterName, info, baseDir, false); err != nil {
+				// tearDownLabEnvironment(hardFail=false) never actually
+				// returns an error, but handle it rather than silently
+				// dropping one if that ever changes.
+				fmt.Printf("[WARN] %s\n", err)
 			}
 
 			fmt.Printf("Lab cluster cleaned up successfully.\n")

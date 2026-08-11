@@ -39,6 +39,19 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			// otherwise).
 			clusterName := "test-" + labName
 
+			// Best-effort clean slate: a cancelled `astrona test` (Ctrl-C)
+			// skips the defer teardown below entirely — Go doesn't run
+			// deferred functions on a signal that kills the process — so a
+			// crashed run can leave clusterName's environment behind.
+			// DestroyEnvironment is already a documented no-op when nothing
+			// exists (DestroyQEMUVM/DeleteKindCluster both tolerate a
+			// missing target), so this makes every `astrona test` start
+			// fresh without needing to first detect whether a leftover
+			// actually exists.
+			if err := DestroyEnvironment(clusterName, config.Runtime); err != nil {
+				fmt.Printf("[WARN] could not clean up a previous '%s' test environment, proceeding anyway: %s\n", clusterName, err)
+			}
+
 			env, err := CreateEnvironment(clusterName, baseDir, config.Runtime)
 			if err != nil {
 				return fmt.Errorf("lab setup failed: %w", err)
