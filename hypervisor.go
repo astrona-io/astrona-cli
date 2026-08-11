@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"os/exec"
@@ -17,14 +18,21 @@ import (
 	"time"
 )
 
-// QEMUImageSource describes the VM base image: a local qcow2 file or a URL
-// to download one. Checksum is mandatory (see acquireBaseImage) — a VM
-// image is a full bootable OS, a much higher blast radius than a script or
-// manifest, so unlike ResourceItem there is no unverified path.
+// QEMUImageSource describes the VM base image: a local qcow2 file, a URL to
+// download one, or an OCI artifact to pull one from. Checksum is mandatory
+// (see acquireBaseImage) — a VM image is a full bootable OS, a much higher
+// blast radius than a script or manifest, so unlike ResourceItem there is no
+// unverified path.
 type QEMUImageSource struct {
-	Type     string `yaml:"type"` // "file" or "url"
+	Type     string `yaml:"type"` // "file", "url", or "oci" (pulled via `oras pull`, e.g. a ghcr.io package)
 	Source   string `yaml:"source"`
 	Checksum string `yaml:"checksum"` // required, "sha256:<hex>"
+	// File selects which *.qcow2 to use when an "oci" artifact contains more
+	// than one (e.g. multiple build variants pushed under the same tag).
+	// Matched against the pulled file's base name; ignored for "file"/"url"
+	// sources. Required only when the artifact is ambiguous — see
+	// findQcow2InPull.
+	File string `yaml:"file"`
 }
 
 // QEMUConfig is the qemu-specific block of a lab's runtime config.
@@ -35,6 +43,14 @@ type QEMUConfig struct {
 	MemoryMB   int             `yaml:"memoryMB"`   // 0 => default 2048
 	DiskSizeGB int             `yaml:"diskSizeGB"` // 0 => use base image's own size
 	SSHPort    int             `yaml:"sshPort"`    // 0 => auto-pick a free host port
+	// Display, when true, opens qemu's normal GUI window (e.g. a desktop
+	// guest you want to actually look at) instead of running headless. Either
+	// way CreateQEMUVM never blocks the CLI and the VM keeps running in the
+	// background after `astrona run` returns — see CreateQEMUVM for why the
+	// two modes launch qemu differently under the hood. Default false
+	// (headless) — right for the SSH-only labs most of this repo's examples
+	// are.
+	Display bool `yaml:"display"`
 }
 
 // QEMUHandle is what a running VM looks like to the rest of the CLI: enough
@@ -52,6 +68,7 @@ type QEMUHandle struct {
 	SSHKeyPath  string
 	KnownHosts  string
 	StateDir    string
+	StartedAt   time.Time // used by `astrona list` to report uptime
 }
 
 const qemuSSHUser = "astrona"
@@ -63,17 +80,38 @@ const qemuSSHUser = "astrona"
 // untrusted URL can make the CLI write to disk before that check runs.
 const maxQEMUImageDownloadBytes = 20 * 1024 * 1024 * 1024
 
+// qemuBaseDir returns (creating if needed) ~/.astrona/qemu — the parent of
+// every lab's per-VM state dir. A visible dotdir under $HOME rather than
+// os.UserCacheDir() (macOS: ~/Library/Caches/astrona, easy to lose track of
+// or have silently swept by a cache-cleaning tool) since this holds live,
+// load-bearing state — a running VM's ephemeral SSH key and its only handle
+// — not disposable cache data. Also what `astrona list` scans to enumerate
+// every qemu lab, running or not.
+func qemuBaseDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
+	}
+
+	dir := filepath.Join(home, ".astrona", "qemu")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create qemu base dir '%s': %w", dir, err)
+	}
+
+	return dir, nil
+}
+
 // qemuStateDir returns (creating if needed) the per-lab directory that holds
 // everything about one qemu VM: overlay disk, cloud-init seed, ephemeral SSH
 // key, known_hosts, pidfile, and the persisted QEMUHandle. 0700 because it
 // holds an SSH private key.
 func qemuStateDir(clusterName string) (string, error) {
-	cacheDir, err := os.UserCacheDir()
+	base, err := qemuBaseDir()
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve user cache dir: %w", err)
+		return "", err
 	}
 
-	dir := filepath.Join(cacheDir, "astrona", "qemu", clusterName)
+	dir := filepath.Join(base, clusterName)
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create qemu state dir '%s': %w", dir, err)
 	}
@@ -178,10 +216,11 @@ func verifyChecksum(path, expectedHex string) error {
 
 // acquireBaseImage resolves a QEMUImageSource to a local file path (joining
 // relative "file" sources against baseDir, downloading "url" sources via the
-// same downloadToTemp helper scripts.go uses) and mandatorily verifies its
-// checksum before returning. The returned cleanup only ever removes a
-// downloaded temp file — a user's own local base image is never deleted,
-// even on a checksum mismatch.
+// same downloadToTemp helper scripts.go uses, or pulling "oci" sources via
+// `oras pull`) and mandatorily verifies its checksum before returning. The
+// returned cleanup only ever removes a downloaded/pulled temp path — a
+// user's own local base image is never deleted, even on a checksum
+// mismatch.
 func acquireBaseImage(img QEMUImageSource, baseDir, stateDir string) (string, func(), error) {
 	noopCleanup := func() {}
 
@@ -214,8 +253,15 @@ func acquireBaseImage(img QEMUImageSource, baseDir, stateDir string) (string, fu
 		}
 		path = tmpPath
 		cleanup = clean
+	case "oci":
+		tmpPath, clean, err := pullOCIImage(img.Source, img.File, stateDir)
+		if err != nil {
+			return "", noopCleanup, err
+		}
+		path = tmpPath
+		cleanup = clean
 	default:
-		return "", noopCleanup, fmt.Errorf("unsupported type '%s' for qemu image (must be 'file' or 'url')", img.Type)
+		return "", noopCleanup, fmt.Errorf("unsupported type '%s' for qemu image (must be 'file', 'url', or 'oci')", img.Type)
 	}
 
 	if err := verifyChecksum(path, expectedHex); err != nil {
@@ -223,9 +269,108 @@ func acquireBaseImage(img QEMUImageSource, baseDir, stateDir string) (string, fu
 		return "", noopCleanup, err
 	}
 
-	_ = stateDir // reserved: image caching by checksum is a possible future optimization, not needed yet
-
 	return path, cleanup, nil
+}
+
+// pullOCIImage pulls a qcow2 base image published as an OCI artifact (e.g. a
+// ghcr.io package) via the `oras` CLI — the same shell-out-to-a-trusted-
+// external-binary posture already given to kind/docker/qemu-img, since oras
+// (not our own HTTP client) performs and controls the actual download.
+// Pulled fresh into stateDir on every call (never cached across `astrona
+// run`s), matching the "url" source type's re-download-every-run behavior.
+// wantFile (QEMUImageSource.File) picks which *.qcow2 to use when the
+// artifact contains more than one — see findQcow2InPull.
+func pullOCIImage(ref, wantFile, stateDir string) (string, func(), error) {
+	noopCleanup := func() {}
+
+	orasPath, err := exec.LookPath("oras")
+	if err != nil {
+		return "", noopCleanup, fmt.Errorf("oras not found in PATH (required to pull qemu image type 'oci'): %w", err)
+	}
+
+	pullDir := filepath.Join(stateDir, "oci-image")
+	os.RemoveAll(pullDir)
+	if err := os.MkdirAll(pullDir, 0700); err != nil {
+		return "", noopCleanup, fmt.Errorf("failed to create OCI pull dir: %w", err)
+	}
+	cleanup := func() { os.RemoveAll(pullDir) }
+
+	cmd := exec.Command(orasPath, "pull", ref, "-o", pullDir)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		cleanup()
+		return "", noopCleanup, fmt.Errorf("failed to pull qemu base image '%s' via oras: %w", ref, err)
+	}
+
+	qcowPath, err := findQcow2InPull(pullDir, wantFile)
+	if err != nil {
+		cleanup()
+		return "", noopCleanup, err
+	}
+
+	return qcowPath, cleanup, nil
+}
+
+// findQcow2InPull walks dir (oras preserves each layer's title annotation as
+// a relative path, e.g. "build/foo.qcow2", so this cannot assume a flat
+// directory) for *.qcow2 files. If wantFile is set, it must match exactly
+// one file's base name — ambiguous or absent matches are an error, never a
+// guess. If wantFile is empty, exactly one *.qcow2 must exist in the whole
+// artifact; more than one requires the lab author to set image.file.
+func findQcow2InPull(dir, wantFile string) (string, error) {
+	var matches []string
+
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(strings.ToLower(d.Name()), ".qcow2") {
+			matches = append(matches, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to read pulled OCI artifact dir '%s': %w", dir, err)
+	}
+
+	if wantFile != "" {
+		var want []string
+		for _, m := range matches {
+			if filepath.Base(m) == wantFile {
+				want = append(want, m)
+			}
+		}
+		switch len(want) {
+		case 0:
+			return "", fmt.Errorf("image.file '%s' not found in pulled OCI artifact (found: %v)", wantFile, relBaseNames(matches))
+		case 1:
+			return want[0], nil
+		default:
+			return "", fmt.Errorf("image.file '%s' matched multiple files in pulled OCI artifact: %v", wantFile, want)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return "", fmt.Errorf("pulled OCI artifact contained no .qcow2 file")
+	case 1:
+		return matches[0], nil
+	default:
+		return "", fmt.Errorf("pulled OCI artifact contains multiple .qcow2 files (%v) — set image.file to pick one", relBaseNames(matches))
+	}
+}
+
+// relBaseNames renders matches as base names for an error message.
+func relBaseNames(matches []string) []string {
+	names := make([]string, len(matches))
+	for i, m := range matches {
+		names[i] = filepath.Base(m)
+	}
+	return names
 }
 
 // createOverlayDisk creates a qcow2 overlay backed by basePath, so the base
@@ -250,15 +395,47 @@ func createOverlayDisk(basePath, stateDir string, diskSizeGB int) (string, error
 	}
 
 	if diskSizeGB > 0 {
-		resizeCmd := exec.Command(qemuImgPath, "resize", overlayPath, fmt.Sprintf("%dG", diskSizeGB))
-		resizeCmd.Stdout = os.Stdout
-		resizeCmd.Stderr = os.Stderr
-		if err := resizeCmd.Run(); err != nil {
-			return "", fmt.Errorf("failed to resize overlay disk to %dG: %w", diskSizeGB, err)
+		baseSize, err := qemuImgVirtualSize(qemuImgPath, basePath)
+		if err != nil {
+			return "", err
+		}
+
+		requested := int64(diskSizeGB) * 1024 * 1024 * 1024
+		if requested <= baseSize {
+			fmt.Printf("[INFO] diskSizeGB %dG <= base image's own %.1fG, skipping resize (overlay already at least that big)\n", diskSizeGB, float64(baseSize)/(1024*1024*1024))
+		} else {
+			resizeCmd := exec.Command(qemuImgPath, "resize", overlayPath, fmt.Sprintf("%dG", diskSizeGB))
+			resizeCmd.Stdout = os.Stdout
+			resizeCmd.Stderr = os.Stderr
+			if err := resizeCmd.Run(); err != nil {
+				return "", fmt.Errorf("failed to resize overlay disk to %dG: %w", diskSizeGB, err)
+			}
 		}
 	}
 
 	return overlayPath, nil
+}
+
+// qemuImgVirtualSize returns basePath's virtual disk size in bytes (qcow2's
+// declared capacity, not the sparse file size on disk) via `qemu-img info
+// --output=json`, so createOverlayDisk can tell a genuine grow request
+// (diskSizeGB > base) from a no-op/shrink one (base already that size or
+// bigger) before ever calling `qemu-img resize` — resize refuses to shrink
+// without --shrink, which would otherwise surface as an opaque exit-status-1.
+func qemuImgVirtualSize(qemuImgPath, basePath string) (int64, error) {
+	out, err := exec.Command(qemuImgPath, "info", "--output=json", basePath).Output()
+	if err != nil {
+		return 0, fmt.Errorf("failed to inspect base image '%s': %w", basePath, err)
+	}
+
+	var info struct {
+		VirtualSize int64 `json:"virtual-size"`
+	}
+	if err := json.Unmarshal(out, &info); err != nil {
+		return 0, fmt.Errorf("failed to parse qemu-img info for '%s': %w", basePath, err)
+	}
+
+	return info.VirtualSize, nil
 }
 
 // generateEphemeralSSHKey creates a fresh ed25519 keypair in stateDir. Never
@@ -295,19 +472,48 @@ func generateEphemeralSSHKey(stateDir string) (privKeyPath, pubKey string, err e
 	return privKeyPath, strings.TrimSpace(string(pubBytes)), nil
 }
 
+// cloudInitHostname derives a valid cloud-init hostname/instance-id from a
+// lab's clusterName (e.g. "qemu-basics-01") instead of a generic hardcoded
+// stand-in, so a VM's identity inside the guest matches the lab that booted
+// it. Lowercases and replaces anything outside [a-z0-9-] with '-', trimming
+// to a conservative 63 chars (the DNS label limit cloud-init's hostname
+// module ultimately writes to /etc/hostname).
+func cloudInitHostname(clusterName string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(clusterName) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('-')
+		}
+	}
+
+	name := strings.Trim(b.String(), "-")
+	if name == "" {
+		return "astrona-lab"
+	}
+	if len(name) > 63 {
+		name = name[:63]
+	}
+
+	return name
+}
+
 // buildCloudInitSeed writes a NoCloud user-data/meta-data pair — creating a
 // passwordless-auth-disabled SSH user with pubKey as its only credential —
 // into a dedicated subdirectory (never the whole stateDir, which also holds
 // the private key and disk images) and packs just those two files into a
 // "cidata"-labeled ISO9660 image via whichever ISO tool is available.
-func buildCloudInitSeed(stateDir, pubKey string) (string, error) {
+func buildCloudInitSeed(stateDir, clusterName, pubKey string) (string, error) {
 	seedSrcDir := filepath.Join(stateDir, "cidata-src")
 	if err := os.MkdirAll(seedSrcDir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create cloud-init seed source dir: %w", err)
 	}
 
+	hostname := cloudInitHostname(clusterName)
+
 	userData := fmt.Sprintf(`#cloud-config
-hostname: astrona-lab
+hostname: %s
 users:
   - name: %s
     sudo: ALL=(ALL) NOPASSWD:ALL
@@ -317,8 +523,8 @@ users:
       - %s
 ssh_pwauth: false
 disable_root: true
-`, qemuSSHUser, pubKey)
-	metaData := "instance-id: astrona-lab\nlocal-hostname: astrona-lab\n"
+`, hostname, qemuSSHUser, pubKey)
+	metaData := fmt.Sprintf("instance-id: %s\nlocal-hostname: %s\n", hostname, hostname)
 
 	userDataPath := filepath.Join(seedSrcDir, "user-data")
 	metaDataPath := filepath.Join(seedSrcDir, "meta-data")
@@ -574,9 +780,21 @@ func prepareAArch64Firmware(stateDir string) ([]string, error) {
 // buildQEMUArgs assembles the qemu-system-* command-line flags from an
 // already-prepared VM: overlay disk, cloud-init seed, ssh port forward, and
 // (for aarch64) the UEFI pflash drives from prepareAArch64Firmware.
-func buildQEMUArgs(clusterName, machineType, accel string, cpus, memoryMB int, firmwareArgs []string, overlayPath, seedPath string, sshPort int, pidfilePath, consolePath string) []string {
+//
+// display picks between two different launch shapes, not just a flag:
+//   - headless (display=false): "-display none -daemonize -pidfile ...".
+//     qemu forks itself into the background after initializing; CreateQEMUVM
+//     recovers the PID by polling pidfilePath (see readPidfile).
+//   - GUI (display=true): no "-display"/"-daemonize"/"-pidfile" at all — qemu
+//     opens its normal platform window (cocoa/gtk/sdl) and CreateQEMUVM
+//     backgrounds it itself instead (detached via SysProcAttr, PID taken
+//     straight from cmd.Process.Pid). -daemonize forks *after* the GUI
+//     toolkit has already initialized a window and event loop, which is
+//     unsafe/flaky for at least Cocoa on macOS — so the GUI path never
+//     daemonizes, it's detached the other way instead.
+func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, firmwareArgs []string, overlayPath, seedPath string, sshPort int, display bool, pidfilePath, consolePath string) []string {
 	args := []string{
-		"-name", clusterName,
+		"-name", processName,
 		"-machine", machineType,
 		"-accel", accel,
 		"-cpu", "max",
@@ -589,13 +807,14 @@ func buildQEMUArgs(clusterName, machineType, accel string, cpus, memoryMB int, f
 		"-drive", "file="+seedPath+",if=virtio,format=raw,readonly=on",
 		"-netdev", fmt.Sprintf("user,id=net0,hostfwd=tcp:127.0.0.1:%d-:22", sshPort),
 		"-device", "virtio-net-pci,netdev=net0",
-		"-display", "none",
 		"-serial", "file:"+consolePath,
-		"-daemonize",
-		"-pidfile", pidfilePath,
 	)
 
-	return args
+	if display {
+		return args
+	}
+
+	return append(args, "-display", "none", "-daemonize", "-pidfile", pidfilePath)
 }
 
 // CreateQEMUVM boots a new VM for clusterName: acquires and checksum-verifies
@@ -603,6 +822,19 @@ func buildQEMUArgs(clusterName, machineType, accel string, cpus, memoryMB int, f
 // SSH key, builds a cloud-init seed, launches qemu-system-* detached in the
 // background, and waits for it to become SSH-ready.
 func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, error) {
+	// Refuse to launch a second VM on top of an already-running one: nothing
+	// below this point checks for an existing process, so without this guard
+	// a repeat `astrona run` (no `astrona destroy` in between) silently
+	// orphans the previous qemu process — it keeps running, invisible to
+	// `astrona list`/`astrona destroy` the moment handle.json is overwritten
+	// with the new instance's PID/port, wasting host resources and (via
+	// leftover known_hosts entries from a now-vanished VM) sometimes
+	// surfacing later as a confusing "host key verification failed" on
+	// `astrona ssh`.
+	if existing, err := LoadQEMUHandle(clusterName); err == nil {
+		return nil, fmt.Errorf("qemu VM for lab '%s' is already running (pid %d, ssh %s@%s:%d) — run 'astrona ssh' to connect to it or 'astrona destroy' to tear it down before starting a new one", clusterName, existing.PID, existing.SSHUser, existing.SSHHost, existing.SSHPort)
+	}
+
 	arch := normalizeArch(cfg.Arch)
 
 	stateDir, err := qemuStateDir(clusterName)
@@ -637,7 +869,7 @@ func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, er
 		return nil, err
 	}
 
-	seedPath, err := buildCloudInitSeed(stateDir, pubKey)
+	seedPath, err := buildCloudInitSeed(stateDir, clusterName, pubKey)
 	if err != nil {
 		return nil, err
 	}
@@ -677,20 +909,46 @@ func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, er
 		firmwareArgs = fwArgs
 	}
 
-	args := buildQEMUArgs(clusterName, machineType, accel, cpus, memoryMB, firmwareArgs, overlayPath, seedPath, sshPort, pidfilePath, consolePath)
+	// Prefixed only for the qemu process's own -name (what `ps`/the window
+	// title show, so an astrona-managed VM is identifiable at the OS level
+	// among any other qemu processes on the machine) — the same relationship
+	// kind has between a cluster's plain name and its "kind-<name>"
+	// kubeconfig context. Every astrona-facing name (this function's
+	// clusterName param, `astrona list`/`astrona ssh`/`astrona destroy`,
+	// QEMUHandle.ClusterName, the state dir) stays unprefixed.
+	processName := "astrona-" + clusterName
 
-	fmt.Printf("Launching qemu VM '%s' (arch=%s accel=%s ssh-port=%d)...\n", clusterName, arch, accel, sshPort)
+	args := buildQEMUArgs(processName, machineType, accel, cpus, memoryMB, firmwareArgs, overlayPath, seedPath, sshPort, cfg.Display, pidfilePath, consolePath)
+
+	fmt.Printf("Launching qemu VM '%s' (arch=%s accel=%s ssh-port=%d display=%v)...\n", clusterName, arch, accel, sshPort, cfg.Display)
 
 	cmd := exec.Command(qemuPath, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to launch qemu VM: %w", err)
-	}
 
-	pid, err := readPidfile(pidfilePath, 5*time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("qemu started but pidfile was not written: %w", err)
+	var pid int
+	if cfg.Display {
+		// Detach qemu into its own session so it isn't tied to astrona's
+		// process group/controlling terminal — it must keep running (and
+		// its window stay open) after `astrona run` returns, the same
+		// non-blocking end result -daemonize gives the headless path.
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+		if err := cmd.Start(); err != nil {
+			return nil, fmt.Errorf("failed to launch qemu VM: %w", err)
+		}
+		pid = cmd.Process.Pid
+		if err := os.WriteFile(pidfilePath, []byte(strconv.Itoa(pid)), 0600); err != nil {
+			return nil, fmt.Errorf("failed to write qemu pidfile: %w", err)
+		}
+	} else {
+		if err := cmd.Run(); err != nil {
+			return nil, fmt.Errorf("failed to launch qemu VM: %w", err)
+		}
+		p, err := readPidfile(pidfilePath, 5*time.Second)
+		if err != nil {
+			return nil, fmt.Errorf("qemu started but pidfile was not written: %w", err)
+		}
+		pid = p
 	}
 
 	handle := &QEMUHandle{
@@ -702,6 +960,7 @@ func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, er
 		SSHKeyPath:  privKeyPath,
 		KnownHosts:  filepath.Join(stateDir, "known_hosts"),
 		StateDir:    stateDir,
+		StartedAt:   time.Now(),
 	}
 
 	if err := writeHandleState(handle); err != nil {

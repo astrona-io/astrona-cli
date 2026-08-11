@@ -107,6 +107,13 @@ func astronaDepChecks() []depCheck {
 			installHint: "usually preinstalled; on Debian/Ubuntu: apt install openssh-client",
 		},
 		{
+			name:        "oras",
+			required:    false,
+			note:        "only needed for runtime.type: qemu with an image source of type 'oci' (pulls the base image from an OCI registry, e.g. ghcr.io)",
+			find:        lookPath("oras"),
+			installHint: "https://oras.land/docs/installation",
+		},
+		{
 			name:     "mkisofs / genisoimage / xorriso / hdiutil",
 			required: false,
 			note:     "only needed for runtime.type: qemu (builds the cloud-init seed image, any one of these works)",

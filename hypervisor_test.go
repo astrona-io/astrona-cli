@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -152,7 +153,7 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 		t.Skip("no ISO build tool found in PATH, skipping cloud-init seed test")
 	}
 
-	isoPath, err := buildCloudInitSeed(dir, pubKey)
+	isoPath, err := buildCloudInitSeed(dir, "qemu-basics-01", pubKey)
 	if err != nil {
 		t.Fatalf("buildCloudInitSeed failed: %v", err)
 	}
@@ -187,5 +188,44 @@ func TestDestroyQEMUVMNoStateIsNoop(t *testing.T) {
 	err := DestroyQEMUVM(name)
 	if err != nil {
 		t.Errorf("expected no-op (nil error) when no state exists, got: %v", err)
+	}
+}
+
+// TestCreateQEMUVMRefusesDuplicate guards against the ghost-VM bug: a repeat
+// `astrona run` (no `astrona destroy` in between) must refuse rather than
+// silently launching a second qemu process on top of one already running for
+// the same lab and overwriting handle.json out from under it. Fakes an
+// "already running" handle.json (PID = this test process, guaranteed alive)
+// so the test never needs a real qemu binary — CreateQEMUVM's guard must
+// fire before anything qemu-specific runs.
+func TestCreateQEMUVMRefusesDuplicate(t *testing.T) {
+	const name = "astrona-test-duplicate-vm-xyz"
+
+	stateDir, err := qemuStateDir(name)
+	if err != nil {
+		t.Fatalf("qemuStateDir failed: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(stateDir) })
+
+	handle := &QEMUHandle{
+		ClusterName: name,
+		PID:         os.Getpid(),
+		SSHHost:     "127.0.0.1",
+		SSHPort:     2222,
+		SSHUser:     qemuSSHUser,
+		SSHKeyPath:  filepath.Join(stateDir, "id_ed25519"),
+		KnownHosts:  filepath.Join(stateDir, "known_hosts"),
+		StateDir:    stateDir,
+	}
+	if err := writeHandleState(handle); err != nil {
+		t.Fatalf("writeHandleState failed: %v", err)
+	}
+
+	_, err = CreateQEMUVM(name, t.TempDir(), &QEMUConfig{})
+	if err == nil {
+		t.Fatal("expected CreateQEMUVM to refuse launching a second VM for an already-running lab, got nil error")
+	}
+	if !strings.Contains(err.Error(), "already running") {
+		t.Errorf("expected error to mention 'already running', got: %v", err)
 	}
 }

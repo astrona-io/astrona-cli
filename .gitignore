@@ -20,6 +20,9 @@ profile.cov
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
+# local build output (`go build -o astrona .`, per CLAUDE.md)
+/astrona
+
 # Go workspace file
 go.work
 go.work.sum
