@@ -4,13 +4,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestNormalizeArch(t *testing.T) {
 	cases := map[string]string{
-		"":        "x86_64",
 		"x86_64":  "x86_64",
 		"amd64":   "x86_64",
 		"aarch64": "aarch64",
@@ -23,6 +23,105 @@ func TestNormalizeArch(t *testing.T) {
 			t.Errorf("normalizeArch(%q) = %q, want %q", in, got, want)
 		}
 	}
+
+	// An unset arch resolves to *this host's own* architecture, not a fixed
+	// default — see normalizeArch's doc comment.
+	if got, want := normalizeArch(""), normalizeArch(runtime.GOARCH); got != want {
+		t.Errorf("normalizeArch(\"\") = %q, want host arch %q", got, want)
+	}
+}
+
+func TestOciArchName(t *testing.T) {
+	cases := map[string]string{
+		"x86_64":  "amd64",
+		"aarch64": "arm64",
+	}
+
+	for in, want := range cases {
+		if got := ociArchName(in); got != want {
+			t.Errorf("ociArchName(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestCacheSlug(t *testing.T) {
+	cases := map[string]string{
+		"ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-base-arm64": "ubuntu-qcow2-image-24.04-base-arm64",
+		"ghcr.io/astrona-io/ubuntu-24.04-server-docker:arm64":    "ubuntu-24.04-server-docker-arm64",
+		"https://example.com/images/debian-12.qcow2":             "debian-12.qcow2",
+		"":                                                       "image",
+		"///":                                                    "image",
+	}
+
+	for in, want := range cases {
+		if got := cacheSlug(in); got != want {
+			t.Errorf("cacheSlug(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestCachedImagePathIncludesSlugAndHash(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	path, err := cachedImagePath("ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-base-arm64", "sha256", "015b0dd5ac43c07e2579c29af7858ce811d204986e399f736111c3c6cc48768f")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	name := filepath.Base(path)
+	if !strings.HasPrefix(name, "ubuntu-qcow2-image-24.04-base-arm64-sha256-") {
+		t.Errorf("got %q, want prefix ubuntu-qcow2-image-24.04-base-arm64-sha256-", name)
+	}
+	if !strings.HasSuffix(name, "015b0dd5ac43.qcow2") {
+		t.Errorf("got %q, want 12-char hash suffix 015b0dd5ac43.qcow2", name)
+	}
+}
+
+func TestResolveChecksum(t *testing.T) {
+	t.Run("single checksum", func(t *testing.T) {
+		got, err := resolveChecksum(QEMUImageSource{Checksum: "sha256:abc"}, "arm64")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "sha256:abc" {
+			t.Errorf("got %q, want sha256:abc", got)
+		}
+	})
+
+	t.Run("checksums map keyed by arch", func(t *testing.T) {
+		img := QEMUImageSource{Checksums: map[string]string{"amd64": "sha256:amd", "arm64": "sha256:arm"}}
+		got, err := resolveChecksum(img, "arm64")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "sha256:arm" {
+			t.Errorf("got %q, want sha256:arm", got)
+		}
+	})
+
+	t.Run("checksums map missing arch entry errors", func(t *testing.T) {
+		img := QEMUImageSource{Checksums: map[string]string{"amd64": "sha256:amd"}}
+		if _, err := resolveChecksum(img, "arm64"); err == nil {
+			t.Fatal("expected error for missing arch entry")
+		}
+	})
+
+	t.Run("both checksum and checksums errors", func(t *testing.T) {
+		img := QEMUImageSource{Checksum: "sha256:abc", Checksums: map[string]string{"arm64": "sha256:arm"}}
+		if _, err := resolveChecksum(img, "arm64"); err == nil {
+			t.Fatal("expected error when both checksum and checksums are set")
+		}
+	})
+
+	t.Run("neither checksum nor checksums means unverified, not an error", func(t *testing.T) {
+		got, err := resolveChecksum(QEMUImageSource{}, "arm64")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "" {
+			t.Errorf("got %q, want empty string (unverified)", got)
+		}
+	})
 }
 
 func TestParseChecksum(t *testing.T) {
@@ -66,15 +165,92 @@ func TestVerifyChecksum(t *testing.T) {
 	}
 }
 
-func TestAcquireBaseImageRequiresChecksum(t *testing.T) {
+// TestAcquireBaseImageWithoutChecksumIsUnverifiedNotAnError locks in the
+// maintainer's explicit choice to make checksum verification optional: a
+// "file" source with no checksum set must still succeed (not error), since
+// resolveChecksum treats an unset checksum as "boot unverified", never as a
+// validation failure.
+func TestAcquireBaseImageWithoutChecksumIsUnverifiedNotAnError(t *testing.T) {
 	dir := t.TempDir()
 	imgPath := filepath.Join(dir, "base.qcow2")
 	os.WriteFile(imgPath, []byte("not a real image"), 0600)
 
-	_, _, err := acquireBaseImage(QEMUImageSource{Type: "file", Source: "base.qcow2"}, dir, dir)
-	if err == nil {
-		t.Fatal("expected error when checksum is empty")
+	path, _, err := acquireBaseImage(QEMUImageSource{Type: "file", Source: "base.qcow2"}, dir, dir, "x86_64")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
+	if path != imgPath {
+		t.Errorf("got path %q, want %q", path, imgPath)
+	}
+}
+
+func TestAcquireBaseImageChecksumMismatchStillFails(t *testing.T) {
+	dir := t.TempDir()
+	imgPath := filepath.Join(dir, "base.qcow2")
+	os.WriteFile(imgPath, []byte("not a real image"), 0600)
+
+	_, _, err := acquireBaseImage(QEMUImageSource{Type: "file", Source: "base.qcow2", Checksum: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}, dir, dir, "x86_64")
+	if err == nil {
+		t.Fatal("expected error when a set checksum doesn't match")
+	}
+}
+
+func TestFindQcow2InPull(t *testing.T) {
+	t.Run("single match with no wantFile", func(t *testing.T) {
+		dir := t.TempDir()
+		os.WriteFile(filepath.Join(dir, "only.qcow2"), nil, 0600)
+
+		got, err := findQcow2InPull(dir, "")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != filepath.Join(dir, "only.qcow2") {
+			t.Errorf("got %q, want only.qcow2", got)
+		}
+	})
+
+	t.Run("ambiguous falls back to image.qcow2 when present", func(t *testing.T) {
+		dir := t.TempDir()
+		os.WriteFile(filepath.Join(dir, "variant-a.qcow2"), nil, 0600)
+		os.WriteFile(filepath.Join(dir, "image.qcow2"), nil, 0600)
+		os.WriteFile(filepath.Join(dir, "variant-b.qcow2"), nil, 0600)
+
+		got, err := findQcow2InPull(dir, "")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != filepath.Join(dir, "image.qcow2") {
+			t.Errorf("got %q, want image.qcow2 fallback", got)
+		}
+	})
+
+	t.Run("ambiguous with no image.qcow2 errors, never guesses", func(t *testing.T) {
+		dir := t.TempDir()
+		os.WriteFile(filepath.Join(dir, "variant-a.qcow2"), nil, 0600)
+		os.WriteFile(filepath.Join(dir, "variant-b.qcow2"), nil, 0600)
+
+		_, err := findQcow2InPull(dir, "")
+		if err == nil {
+			t.Fatal("expected error when ambiguous and no image.qcow2 present")
+		}
+		if !strings.Contains(err.Error(), "image.file") {
+			t.Errorf("expected error to mention image.file, got: %v", err)
+		}
+	})
+
+	t.Run("explicit wantFile always wins over image.qcow2", func(t *testing.T) {
+		dir := t.TempDir()
+		os.WriteFile(filepath.Join(dir, "image.qcow2"), nil, 0600)
+		os.WriteFile(filepath.Join(dir, "picked.qcow2"), nil, 0600)
+
+		got, err := findQcow2InPull(dir, "picked.qcow2")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != filepath.Join(dir, "picked.qcow2") {
+			t.Errorf("got %q, want picked.qcow2", got)
+		}
+	})
 }
 
 func TestPickFreePort(t *testing.T) {

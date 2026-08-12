@@ -19,26 +19,58 @@ import (
 )
 
 // QEMUImageSource describes the VM base image: a local qcow2 file, a URL to
-// download one, or an OCI artifact to pull one from. Checksum is mandatory
-// (see acquireBaseImage) — a VM image is a full bootable OS, a much higher
-// blast radius than a script or manifest, so unlike ResourceItem there is no
-// unverified path.
+// download one, or an OCI artifact to pull one from. Checksum verification
+// (Checksum/Checksums, below) is optional — a maintainer choice, not a
+// technical necessity: a VM base image is a full bootable OS, so booting one
+// unverified means trusting whatever the source currently serves with no
+// protection against it changing later (registries/URLs are mutable). If
+// you skip it, acquireBaseImage still warns on every run and disables
+// caching for that image, rather than doing either silently.
 type QEMUImageSource struct {
-	Type     string `yaml:"type"` // "file", "url", or "oci" (pulled via `oras pull`, e.g. a ghcr.io package)
-	Source   string `yaml:"source"`
-	Checksum string `yaml:"checksum"` // required, "sha256:<hex>"
+	Type string `yaml:"type"` // "file", "url", or "oci" (pulled via `oras pull`, e.g. a ghcr.io package)
+	// Source and File may each contain the literal placeholder "{ARCH}",
+	// substituted (by acquireBaseImage) with the resolved guest arch's OCI
+	// spelling — "amd64" or "arm64" (see ociArchName), never astrona's own
+	// "x86_64"/"aarch64" — before use. The resolved arch is QEMUConfig.Arch
+	// if set, otherwise this host's own architecture (see normalizeArch).
+	// This is what lets one lab config pull the right image on both an
+	// arm64 dev laptop and an amd64 CI runner without editing anything.
+	Source string `yaml:"source"`
+	// Checksum ("sha256:<hex>"), when set, is verified against the exact
+	// bytes booted: for "file"/"url" that's the whole referenced file; for
+	// "oci" it's specifically the single extracted *.qcow2 (via File,
+	// below) — never a hash of the manifest, the whole artifact/tarball, or
+	// any other layer in it. For an "oci" source this is conveniently the
+	// same digest `oras manifest fetch <ref>` prints for that layer (OCI
+	// blobs are content-addressed by this exact digest), so it can be
+	// copied directly from there rather than downloaded-and-hashed by hand.
+	//
+	// At most one of Checksum or Checksums may be set — never both; leaving
+	// both unset is allowed (see QEMUImageSource's doc comment) but treated
+	// differently from Checksums being set with a missing arch entry, which
+	// is still a hard error (resolveChecksum). Checksums exists because a
+	// single Checksum can't be correct for more than one resolved image: use
+	// it (keyed by the same "amd64"/"arm64" spelling {ARCH} resolves to)
+	// whenever Source/File is arch-templated, since a different arch is a
+	// genuinely different file with a genuinely different hash.
+	Checksum  string            `yaml:"checksum"`
+	Checksums map[string]string `yaml:"checksums"`
 	// File selects which *.qcow2 to use when an "oci" artifact contains more
 	// than one (e.g. multiple build variants pushed under the same tag).
 	// Matched against the pulled file's base name; ignored for "file"/"url"
-	// sources. Required only when the artifact is ambiguous — see
-	// findQcow2InPull.
+	// sources. Optional: if omitted and the artifact has exactly one
+	// *.qcow2, that one is used; if omitted and it has several, a file
+	// named exactly "image.qcow2" is used if present (defaultOCIImageFile —
+	// the convention this repo's own published images follow), otherwise
+	// findQcow2InPull errors out and File becomes required to disambiguate.
+	// May also contain "{ARCH}" — see Source.
 	File string `yaml:"file"`
 }
 
 // QEMUConfig is the qemu-specific block of a lab's runtime config.
 type QEMUConfig struct {
 	Image      QEMUImageSource `yaml:"image"`
-	Arch       string          `yaml:"arch"`       // "" default x86_64 | "aarch64" (needs UEFI firmware installed, see locateAArch64Firmware)
+	Arch       string          `yaml:"arch"`       // "" => this host's own architecture (see normalizeArch) | "x86_64"/"amd64" | "aarch64"/"arm64" (needs UEFI firmware installed, see locateAArch64Firmware)
 	CPUs       int             `yaml:"cpus"`       // 0 => default 2
 	MemoryMB   int             `yaml:"memoryMB"`   // 0 => default 2048
 	DiskSizeGB int             `yaml:"diskSizeGB"` // 0 => use base image's own size
@@ -120,15 +152,39 @@ func qemuStateDir(clusterName string) (string, error) {
 }
 
 // normalizeArch maps the handful of spellings a lab author might write to
-// the arch name qemu-system-<arch> and Go's runtime.GOARCH both use.
+// the arch name qemu-system-<arch> and Go's runtime.GOARCH both use. An
+// empty arch (QEMUConfig.Arch not set at all) resolves to *this host's own*
+// architecture — via runtime.GOARCH, which already uses the "amd64"/"arm64"
+// spelling this recurses into — rather than a fixed default, so an
+// unspecified arch boots natively-accelerated (hvf/kvm) on whichever
+// machine astrona happens to run on instead of silently defaulting to
+// x86_64 and falling back to slow TCG emulation on an arm64 dev machine.
 func normalizeArch(arch string) string {
 	switch strings.ToLower(arch) {
-	case "", "x86_64", "amd64":
+	case "":
+		return normalizeArch(runtime.GOARCH)
+	case "x86_64", "amd64":
 		return "x86_64"
 	case "aarch64", "arm64":
 		return "aarch64"
 	default:
 		return strings.ToLower(arch)
+	}
+}
+
+// ociArchName maps astrona's internal qemu arch spelling (normalizeArch's
+// output: "x86_64"/"aarch64") to the "amd64"/"arm64" spelling OCI
+// registries, image tags, and Docker/Go tooling actually use. This is what
+// the "{ARCH}" template variable in QEMUImageSource.Source/File resolves
+// to — never astrona's own "x86_64"/"aarch64" spelling.
+func ociArchName(normalizedArch string) string {
+	switch normalizedArch {
+	case "x86_64":
+		return "amd64"
+	case "aarch64":
+		return "arm64"
+	default:
+		return normalizedArch
 	}
 }
 
@@ -171,6 +227,40 @@ func DetectAccelerator(arch string) string {
 	default:
 		fmt.Printf("[WARN] no known accelerator for this OS: falling back to software emulation (tcg), this will be slow\n")
 		return "tcg"
+	}
+}
+
+// resolveChecksum picks which checksum acquireBaseImage should verify
+// against: the single Checksum field, or — when Source/File is
+// arch-templated — Checksums keyed by ociArch. At most one of
+// Checksum/Checksums may be set; if neither is set, resolveChecksum returns
+// "" (no error) and acquireBaseImage boots the image unverified — see its
+// doc comment for the tradeoff this accepts. If Checksums *is* set but has
+// no entry for ociArch, that's still a hard error (not treated as "unset")
+// — the lab author opted into per-arch pinning, just not for this one, and
+// silently falling back to unverified there would be a more surprising
+// failure mode than just saying so.
+func resolveChecksum(img QEMUImageSource, ociArch string) (string, error) {
+	hasSingle := strings.TrimSpace(img.Checksum) != ""
+	hasMap := len(img.Checksums) > 0
+
+	switch {
+	case hasSingle && hasMap:
+		return "", fmt.Errorf("qemu image '%s' sets both checksum and checksums — use exactly one", img.Source)
+	case hasSingle:
+		return img.Checksum, nil
+	case hasMap:
+		cs, ok := img.Checksums[ociArch]
+		if !ok {
+			keys := make([]string, 0, len(img.Checksums))
+			for k := range img.Checksums {
+				keys = append(keys, k)
+			}
+			return "", fmt.Errorf("qemu image '%s' has no checksums entry for arch '%s' (have: %v)", img.Source, ociArch, keys)
+		}
+		return cs, nil
+	default:
+		return "", nil
 	}
 }
 
@@ -217,38 +307,51 @@ func verifyChecksum(path, expectedHex string) error {
 // acquireBaseImage resolves a QEMUImageSource to a local file path (joining
 // relative "file" sources against baseDir, downloading "url" sources via the
 // same downloadToTemp helper scripts.go uses, or pulling "oci" sources via
-// `oras pull`) and mandatorily verifies its checksum before returning. The
-// returned cleanup only ever removes a downloaded/pulled temp path that
-// isn't also the persistent cache — a user's own local base image, and any
-// image now living in the checksum cache, is never deleted, even on a
-// checksum mismatch of some *other* file.
+// `oras pull`). The returned cleanup only ever removes a downloaded/pulled
+// temp path that isn't also the persistent cache — a user's own local base
+// image, and any image now living in the checksum cache, is never deleted,
+// even on a checksum mismatch of some *other* file.
 //
-// "url"/"oci" sources are checked against imageCacheDir first: since the
-// checksum is mandatory and content-addressed, a previously-verified
-// download/pull can be reused instead of re-fetching the same (often
-// several-hundred-MB-to-multi-GB) image on every single `astrona run`. A
-// cache hit is still re-verified against the checksum before use — the
-// mandatory-checksum invariant (see CLAUDE.md's security-sensitive-areas
-// notes) never gets weakened for any source type or code path, cached or
-// not. "file" sources are never cached — they're already local, nothing to
-// save by copying them.
-func acquireBaseImage(img QEMUImageSource, baseDir, stateDir string) (string, func(), error) {
+// Checksum verification (via resolveChecksum) is optional, not mandatory —
+// a deliberate choice by this project's maintainer, made with the
+// supply-chain tradeoff explained (a VM base image is a full bootable OS;
+// an unverified one trusts whatever the source currently serves, with no
+// protection against it changing later). An unset checksum prints a
+// `[WARN]` every time rather than silently booting an unverified image with
+// no trace, and disables caching for that pull — there's no safe
+// content-address to cache by without a checksum to have verified against,
+// so every run re-fetches. Caching is available as an incentive to set one,
+// not a way to make the unverified path faster. Setting a checksum still
+// gets exactly the same enforcement as before, cached or not.
+func acquireBaseImage(img QEMUImageSource, baseDir, stateDir, hostArch string) (string, func(), error) {
 	noopCleanup := func() {}
 
-	if strings.TrimSpace(img.Checksum) == "" {
-		return "", noopCleanup, fmt.Errorf("qemu image '%s' has no checksum: a checksum ('sha256:<hex>') is required for every VM base image", img.Source)
-	}
+	ociArch := ociArchName(hostArch)
+	source := strings.ReplaceAll(img.Source, "{ARCH}", ociArch)
+	file := strings.ReplaceAll(img.File, "{ARCH}", ociArch)
 
-	algo, expectedHex, err := parseChecksum(img.Checksum)
+	checksum, err := resolveChecksum(img, ociArch)
 	if err != nil {
 		return "", noopCleanup, err
 	}
 
+	verify := checksum != ""
+
+	var algo, expectedHex string
+	if verify {
+		algo, expectedHex, err = parseChecksum(checksum)
+		if err != nil {
+			return "", noopCleanup, err
+		}
+	} else {
+		fmt.Printf("[WARN] qemu image '%s' has no checksum set — booting it unverified and not caching it. Set image.checksum or image.checksums to pin, verify, and cache it.\n", source)
+	}
+
 	sourceType := strings.ToLower(img.Type)
-	cacheable := sourceType == "url" || sourceType == "oci"
+	cacheable := verify && (sourceType == "url" || sourceType == "oci")
 
 	if cacheable {
-		if cachePath, ok, err := cacheHit(algo, expectedHex); err != nil {
+		if cachePath, ok, err := cacheHit(source, algo, expectedHex); err != nil {
 			return "", noopCleanup, err
 		} else if ok {
 			fmt.Printf("Using cached qemu base image (%s:%s)\n", algo, expectedHex[:12])
@@ -261,7 +364,7 @@ func acquireBaseImage(img QEMUImageSource, baseDir, stateDir string) (string, fu
 
 	switch sourceType {
 	case "file":
-		resolved, err := joinWithinBaseDir(baseDir, img.Source)
+		resolved, err := joinWithinBaseDir(baseDir, source)
 		if err != nil {
 			return "", noopCleanup, fmt.Errorf("failed to resolve qemu base image path: %w", err)
 		}
@@ -270,14 +373,14 @@ func acquireBaseImage(img QEMUImageSource, baseDir, stateDir string) (string, fu
 			return "", noopCleanup, fmt.Errorf("qemu base image does not exist: %s", path)
 		}
 	case "url":
-		tmpPath, clean, err := downloadToTemp(img.Source, "astrona-qemu-image-*.img", maxQEMUImageDownloadBytes)
+		tmpPath, clean, err := downloadToTemp(source, "astrona-qemu-image-*.img", maxQEMUImageDownloadBytes)
 		if err != nil {
-			return "", noopCleanup, fmt.Errorf("failed to download qemu base image from %s: %w", img.Source, err)
+			return "", noopCleanup, fmt.Errorf("failed to download qemu base image from %s: %w", source, err)
 		}
 		path = tmpPath
 		cleanup = clean
 	case "oci":
-		tmpPath, clean, err := pullOCIImage(img.Source, img.File, stateDir)
+		tmpPath, clean, err := pullOCIImage(source, file, stateDir)
 		if err != nil {
 			return "", noopCleanup, err
 		}
@@ -287,13 +390,15 @@ func acquireBaseImage(img QEMUImageSource, baseDir, stateDir string) (string, fu
 		return "", noopCleanup, fmt.Errorf("unsupported type '%s' for qemu image (must be 'file', 'url', or 'oci')", img.Type)
 	}
 
-	if err := verifyChecksum(path, expectedHex); err != nil {
-		cleanup()
-		return "", noopCleanup, err
+	if verify {
+		if err := verifyChecksum(path, expectedHex); err != nil {
+			cleanup()
+			return "", noopCleanup, err
+		}
 	}
 
 	if cacheable {
-		cachePath, err := cachedImagePath(algo, expectedHex)
+		cachePath, err := cachedImagePath(source, algo, expectedHex)
 		if err != nil {
 			fmt.Printf("[WARN] could not resolve image cache dir, not caching this run: %s\n", err)
 			return path, cleanup, nil
@@ -326,24 +431,66 @@ func imageCacheDir() (string, error) {
 	return dir, nil
 }
 
+// cacheSlug derives a filesystem-safe, human-readable prefix for a cached
+// image's filename from its resolved source (the OCI ref or URL, with
+// "{ARCH}" already substituted) — e.g.
+// "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-base-arm64" becomes
+// "ubuntu-qcow2-image-24.04-base-arm64", so `ls ~/.astrona/cache/images`
+// shows what an image actually is instead of only a hash. Purely cosmetic:
+// the hash suffix cachedImagePath appends is what actually identifies the
+// entry — this never affects cache lookups' correctness, only readability.
+func cacheSlug(resolvedSource string) string {
+	slug := resolvedSource
+	if i := strings.LastIndex(slug, "/"); i != -1 {
+		slug = slug[i+1:]
+	}
+
+	var b strings.Builder
+	for _, r := range slug {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('-')
+		}
+	}
+
+	trimmed := strings.Trim(b.String(), "-")
+	if trimmed == "" {
+		return "image"
+	}
+	return trimmed
+}
+
 // cachedImagePath returns where a checksum-verified image would live in the
-// cache. Keyed by algo+digest, so a cache hit is only ever served for the
-// exact bytes a lab's config asked for — two labs (or two revisions of one
-// lab) with different checksums never collide or share an entry.
-func cachedImagePath(algo, hexDigest string) (string, error) {
+// cache: cacheSlug(resolvedSource), suffixed with a short hash so the entry
+// is still uniquely keyed by content — two labs (or two revisions of one
+// lab, or two differently-named sources that happen to resolve to the same
+// bytes) never collide, even if their slug matches or their full digest
+// does. The short hash is cosmetic-length only (12 hex chars, same as the
+// "Using cached qemu base image" log line) — verifyChecksum always checks
+// the full digest regardless of what's in the filename.
+func cachedImagePath(resolvedSource, algo, hexDigest string) (string, error) {
 	dir, err := imageCacheDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, algo+"-"+hexDigest+".qcow2"), nil
+
+	shortHash := hexDigest
+	if len(shortHash) > 12 {
+		shortHash = shortHash[:12]
+	}
+
+	name := fmt.Sprintf("%s-%s-%s.qcow2", cacheSlug(resolvedSource), algo, shortHash)
+	return filepath.Join(dir, name), nil
 }
 
 // cacheHit checks whether expectedHex is already in the image cache and, if
 // so, re-verifies it before trusting it — a corrupted or tampered cache
 // entry is never silently booted, it's just treated as a miss (removed, so
 // a slow re-fetch on this run is enough to fix it rather than every run).
-func cacheHit(algo, expectedHex string) (string, bool, error) {
-	cachePath, err := cachedImagePath(algo, expectedHex)
+func cacheHit(resolvedSource, algo, expectedHex string) (string, bool, error) {
+	cachePath, err := cachedImagePath(resolvedSource, algo, expectedHex)
 	if err != nil {
 		return "", false, err
 	}
@@ -435,12 +582,25 @@ func pullOCIImage(ref, wantFile, stateDir string) (string, func(), error) {
 	return qcowPath, cleanup, nil
 }
 
+// defaultOCIImageFile is the base name findQcow2InPull falls back to when
+// image.file isn't set and the artifact has more than one *.qcow2 — the
+// naming convention this repo expects published qcow2-base-image packages
+// to follow: ship the canonical default under this exact name, any other
+// file in the same artifact is a variant the lab author must opt into by
+// name via image.file. Not a heuristic (never "pick the biggest one" or
+// similar) — either this exact name exists, or findQcow2InPull still
+// refuses to guess and asks for image.file.
+const defaultOCIImageFile = "image.qcow2"
+
 // findQcow2InPull walks dir (oras preserves each layer's title annotation as
 // a relative path, e.g. "build/foo.qcow2", so this cannot assume a flat
-// directory) for *.qcow2 files. If wantFile is set, it must match exactly
-// one file's base name — ambiguous or absent matches are an error, never a
-// guess. If wantFile is empty, exactly one *.qcow2 must exist in the whole
-// artifact; more than one requires the lab author to set image.file.
+// directory) for *.qcow2 files.
+//
+//   - wantFile set: must match exactly one file's base name — ambiguous or
+//     absent matches are an error, never a guess.
+//   - wantFile empty, exactly one *.qcow2 in the artifact: use it.
+//   - wantFile empty, more than one: use defaultOCIImageFile if present;
+//     otherwise error out listing candidates and asking for image.file.
 func findQcow2InPull(dir, wantFile string) (string, error) {
 	var matches []string
 
@@ -483,7 +643,12 @@ func findQcow2InPull(dir, wantFile string) (string, error) {
 	case 1:
 		return matches[0], nil
 	default:
-		return "", fmt.Errorf("pulled OCI artifact contains multiple .qcow2 files (%v) — set image.file to pick one", relBaseNames(matches))
+		for _, m := range matches {
+			if filepath.Base(m) == defaultOCIImageFile {
+				return m, nil
+			}
+		}
+		return "", fmt.Errorf("pulled OCI artifact contains multiple .qcow2 files (%v) and none is named '%s' — set image.file to pick one", relBaseNames(matches), defaultOCIImageFile)
 	}
 }
 
@@ -971,7 +1136,7 @@ func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, er
 	}
 	accel := DetectAccelerator(arch)
 
-	basePath, baseCleanup, err := acquireBaseImage(cfg.Image, baseDir, stateDir)
+	basePath, baseCleanup, err := acquireBaseImage(cfg.Image, baseDir, stateDir, arch)
 	if err != nil {
 		return nil, err
 	}
