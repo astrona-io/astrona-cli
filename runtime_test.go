@@ -1,0 +1,34 @@
+package main
+
+import "testing"
+
+// fakeExecutor is a no-op ScriptExecutor for tests that only need to
+// distinguish which one got picked, never actually run anything.
+type fakeExecutor struct{ id string }
+
+func (f fakeExecutor) RunScript(string) error { return nil }
+
+func TestLabEnvironmentExecutorForVM(t *testing.T) {
+	t.Run("vm name resolves to the matching executor", func(t *testing.T) {
+		env := &LabEnvironment{Executors: map[string]ScriptExecutor{
+			"server": fakeExecutor{id: "server"},
+			"client": fakeExecutor{id: "client"},
+		}}
+
+		got, err := env.executorForVM("client")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got.(fakeExecutor).id != "client" {
+			t.Errorf("got %v, want client executor", got)
+		}
+	})
+
+	t.Run("unknown vm name errors", func(t *testing.T) {
+		env := &LabEnvironment{Executors: map[string]ScriptExecutor{"server": fakeExecutor{}}}
+
+		if _, err := env.executorForVM("nonexistent"); err == nil {
+			t.Error("expected error for unknown vm name")
+		}
+	})
+}

@@ -1,0 +1,78 @@
+metadata:
+  name: "qemu-multi-01"
+  docs:
+    prerequisites: "docs/prerequisites.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+    # runtime.qemu is always a list. qemu-basics-01 (this lab's single-VM
+    # sibling) uses the exact same list shape with one entry and no name —
+    # that's what marks it single-VM (isMultiVM in config.go). Here there
+    # are two named entries, so this is a multi-VM lab: each becomes a
+    # fully independent qemu VM under "qemu-multi-01-<name>".
+    - name: "server"
+      image:
+        type: "oci"
+        source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-base-{ARCH}"
+        # checksums:
+        #   arm64: "sha256:015b0dd5ac43c07e2579c29af7858ce811d204986e399f736111c3c6cc48768f"
+      cpus: 1
+      memoryMB: 1024
+      # bootstrap/validation nested here run ONLY on this VM, layered after
+      # the shared root bootstrap/validation below (which run on every VM
+      # in this list, not just this one).
+      bootstrap:
+        init:
+          - name: "server-setup"
+            description: "Runs only on the server VM"
+            type: "file"
+            source: "server-setup.sh"
+      validation:
+        script:
+          name: "verify-server-marker"
+          description: "Confirms the server VM's own bootstrap step ran"
+          type: "file"
+          source: "validate-server.sh"
+
+    - name: "client"
+      image:
+        type: "oci"
+        source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-base-{ARCH}"
+        # checksums:
+        #   arm64: "sha256:015b0dd5ac43c07e2579c29af7858ce811d204986e399f736111c3c6cc48768f"
+      cpus: 1
+      memoryMB: 1024
+      bootstrap:
+        init:
+          - name: "client-setup"
+            description: "Runs only on the client VM"
+            type: "file"
+            source: "client-setup.sh"
+      validation:
+        script:
+          name: "verify-client-marker"
+          description: "Confirms the client VM's own bootstrap step ran"
+          type: "file"
+          source: "validate-client.sh"
+
+# Root bootstrap/validation: since runtime.qemu above names more than one
+# VM, these run once per VM (server, then client — the shared step first,
+# then that VM's own nested one from above) instead of just once. Omit this
+# block entirely if a lab has nothing shared across every VM.
+bootstrap:
+  init:
+    - name: "common-setup"
+      description: "Runs on every VM in runtime.qemu, before each VM's own nested bootstrap"
+      type: "file"
+      source: "common-setup.sh"
+
+validation:
+  script:
+    name: "verify-common-marker"
+    description: "Runs once per VM (server, client) — each gets its own PASS/FAIL row, e.g. \"verify-common-marker (server)\""
+    type: "file"
+    source: "validate-common.sh"
+
+teardown:
+  keepCluster: false

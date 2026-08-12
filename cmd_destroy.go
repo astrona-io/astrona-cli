@@ -42,17 +42,19 @@ func loadTeardownInfo(finalPath string) (teardownInfo, func()) {
 	return info, cleanup
 }
 
-// teardownExecutor picks what runs the teardown scripts: the lab's real
+// teardownEnvironment picks what runs the teardown scripts: the lab's real
 // environment if it's still reachable, otherwise the host shell — teardown
 // scripts should still get a best-effort run even if the cluster/VM is
-// already gone.
-func teardownExecutor(clusterName string, runtimeCfg RuntimeConfig) ScriptExecutor {
+// already gone. Wrapped in a LabEnvironment (rather than returning a bare
+// ScriptExecutor) so RunInitScripts can still resolve per-VM targeting
+// (ResourceItem.VM) for a multi-VM qemu lab's teardown scripts.
+func teardownEnvironment(clusterName string, runtimeCfg RuntimeConfig) *LabEnvironment {
 	env, err := LoadEnvironment(clusterName, runtimeCfg)
 	if err != nil {
 		fmt.Printf("[WARN] could not reach lab environment for teardown scripts, running on host instead: %s\n", err)
-		return LocalExecutor{}
+		return &LabEnvironment{Executor: LocalExecutor{}}
 	}
-	return env.Executor
+	return env
 }
 
 // tearDownLabEnvironment runs teardown scripts (if any) then destroys
@@ -63,8 +65,8 @@ func teardownExecutor(clusterName string, runtimeCfg RuntimeConfig) ScriptExecut
 func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir string, hardFail bool) error {
 	if len(info.teardown.Init) > 0 {
 		fmt.Printf("Running teardown scripts for '%s'...\n", clusterName)
-		executor := teardownExecutor(clusterName, info.runtime)
-		if err := RunInitScripts(info.teardown.Init, baseDir, executor); err != nil {
+		env := teardownEnvironment(clusterName, info.runtime)
+		if err := runOnEveryVM(info.teardown.Init, baseDir, env, info.runtime.QEMU); err != nil {
 			fmt.Printf("[WARN] teardown scripts failed for '%s': %s\n", clusterName, err)
 		}
 	}

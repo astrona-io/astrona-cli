@@ -60,7 +60,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			defer func() {
 				if len(config.Teardown.Init) > 0 {
 					fmt.Printf("Running teardown scripts...\n")
-					if err := RunInitScripts(config.Teardown.Init, baseDir, env.Executor); err != nil {
+					if err := runOnEveryVM(config.Teardown.Init, baseDir, env, config.Runtime.QEMU); err != nil {
 						fmt.Printf("[WARN] teardown scripts failed: %s\n", err)
 					}
 				}
@@ -77,7 +77,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 
 			if len(config.Bootstrap.Init) > 0 {
 				fmt.Printf("Running bootstrap init scripts...\n")
-				if err := RunInitScripts(config.Bootstrap.Init, baseDir, env.Executor); err != nil {
+				if err := runBootstrap(config, baseDir, env); err != nil {
 					return fmt.Errorf("bootstrap init scripts failed: %w", err)
 				}
 			}
@@ -94,7 +94,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 
 			if len(config.Testing.Init) > 0 {
 				fmt.Printf("Running testing init scripts...\n")
-				if err := RunInitScripts(config.Testing.Init, baseDir, env.Executor); err != nil {
+				if err := runOnEveryVM(config.Testing.Init, baseDir, env, config.Runtime.QEMU); err != nil {
 					return fmt.Errorf("testing init scripts failed: %w", err)
 				}
 			}
@@ -110,7 +110,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			fmt.Printf("Submitting to the Proctor...\n")
-			proctor := NewProctor(baseDir, env.KubeContext, env.Executor)
+			proctor := NewProctor(baseDir, env)
 			results, pass, err := proctor.Grade(config)
 			if err != nil {
 				return err

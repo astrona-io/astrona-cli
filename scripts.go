@@ -20,10 +20,12 @@ const maxScriptDownloadBytes = 50 * 1024 * 1024
 // CLI indefinitely.
 const downloadHTTPTimeout = 30 * time.Minute
 
-// RunInitScripts runs a list of bootstrap/testing/teardown scripts in order.
-// Each script is either a local file (resolved relative to baseDir) or a
-// URL (downloaded to a temp file first), then run through executor (bash on
-// the host for kind, SSH into the VM for qemu).
+// RunInitScripts runs a list of bootstrap/testing/teardown scripts in order
+// through a single executor (bash on the host for kind, SSH into one VM for
+// qemu). Each script is either a local file (resolved relative to baseDir)
+// or a URL (downloaded to a temp file first). This is the low-level
+// primitive — see runBootstrap/runOnEveryVM, below, for running against a
+// whole (possibly multi-VM) LabEnvironment instead of one fixed executor.
 func RunInitScripts(scripts []ResourceItem, baseDir string, executor ScriptExecutor) error {
 	for i, s := range scripts {
 		if s.Source == "" {
@@ -66,6 +68,60 @@ func RunInitScripts(scripts []ResourceItem, baseDir string, executor ScriptExecu
 
 		if err != nil {
 			return fmt.Errorf("failed to run script '%s': %w", s.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// runBootstrap runs a lab's bootstrap phase against env: config.Bootstrap.Init
+// once via env.Executor for a single-environment lab (kind, or qemu with no
+// multi-VM list), or — for a multi-VM qemu lab — once per VM (env.Executor
+// is nil precisely then, see LabEnvironment) via that VM's own executor,
+// followed by that VM's own nested QEMUVM.Bootstrap.Init if it has one. The
+// per-VM order (shared first, then that VM's own) means a VM-specific step
+// can assume whatever the shared setup already did.
+func runBootstrap(config *LabConfig, baseDir string, env *LabEnvironment) error {
+	if env.Executor != nil {
+		return RunInitScripts(config.Bootstrap.Init, baseDir, env.Executor)
+	}
+
+	for _, vm := range config.Runtime.QEMU {
+		executor, err := env.executorForVM(vm.Name)
+		if err != nil {
+			return err
+		}
+
+		if err := RunInitScripts(config.Bootstrap.Init, baseDir, executor); err != nil {
+			return fmt.Errorf("vm '%s': %w", vm.Name, err)
+		}
+
+		if vm.Bootstrap != nil {
+			if err := RunInitScripts(vm.Bootstrap.Init, baseDir, executor); err != nil {
+				return fmt.Errorf("vm '%s' bootstrap: %w", vm.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// runOnEveryVM runs scripts once via env.Executor for a single-environment
+// lab, or once per VM (in vms' order) for a multi-VM qemu lab — used for
+// testing.init and teardown.init, neither of which supports a per-VM
+// nested override the way bootstrap.init does via runBootstrap.
+func runOnEveryVM(scripts []ResourceItem, baseDir string, env *LabEnvironment, vms []QEMUVM) error {
+	if env.Executor != nil {
+		return RunInitScripts(scripts, baseDir, env.Executor)
+	}
+
+	for _, vm := range vms {
+		executor, err := env.executorForVM(vm.Name)
+		if err != nil {
+			return err
+		}
+		if err := RunInitScripts(scripts, baseDir, executor); err != nil {
+			return fmt.Errorf("vm '%s': %w", vm.Name, err)
 		}
 	}
 

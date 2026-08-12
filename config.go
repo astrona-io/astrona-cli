@@ -33,11 +33,94 @@ type MetadataConfig struct {
 
 // RuntimeConfig picks which backend runs the lab. An empty/omitted Type
 // means "kind" — every existing lab config with no runtime: block keeps
-// working unchanged. QEMU is defined in hypervisor.go, alongside the rest of
-// the qemu-specific logic it configures.
+// working unchanged.
+//
+// QEMU is always a list — even a single-VM qemu lab is a one-element list,
+// its one entry with no name set (see isMultiVM/QEMUVM). "Extending" a
+// single-VM lab into a multi-VM one is then just appending another list
+// entry (with a name) rather than restructuring the whole block.
 type RuntimeConfig struct {
-	Type string      `yaml:"type"` // "" or "kind" (default) | "qemu"
-	QEMU *QEMUConfig `yaml:"qemu"`
+	Type string   `yaml:"type"` // "" or "kind" (default) | "qemu"
+	QEMU []QEMUVM `yaml:"qemu"`
+}
+
+// QEMUVM is one entry in runtime.qemu — either the lab's only VM (Name
+// unset, the pre-existing single-VM shape every qemu lab used before
+// multi-VM support) or one of several named VMs (isMultiVM). asQEMUConfig
+// converts it to the QEMUConfig shape CreateQEMUVM/LoadQEMUHandle/
+// DestroyQEMUVM (hypervisor.go) already expect — a multi-VM lab reuses that
+// exact single-VM machinery per VM, under the synthesized name
+// "<labName>-<vm.Name>", rather than a parallel code path.
+type QEMUVM struct {
+	Name       string          `yaml:"name"` // "" only valid when this is the list's only entry — see isMultiVM
+	Image      QEMUImageSource `yaml:"image"`
+	Arch       string          `yaml:"arch"`
+	CPUs       int             `yaml:"cpus"`
+	MemoryMB   int             `yaml:"memoryMB"`
+	DiskSizeGB int             `yaml:"diskSizeGB"`
+	SSHPort    int             `yaml:"sshPort"`
+	Display    bool            `yaml:"display"`
+	// Bootstrap and Validation, when set, run only against this one VM —
+	// layered *after* the lab's shared root Bootstrap/Validation (LabConfig
+	// fields), which for a multi-VM lab run against every VM in turn
+	// instead of just once (see scripts.go's runBootstrap and proctor.go's
+	// gradeScripts). Meaningless for a single-VM lab (this is the list's
+	// only entry, root Bootstrap/Validation already cover it) — leave unset
+	// there.
+	Bootstrap  *BootstrapConfig  `yaml:"bootstrap"`
+	Validation *ValidationConfig `yaml:"validation"`
+}
+
+func (vm QEMUVM) asQEMUConfig() *QEMUConfig {
+	return &QEMUConfig{
+		Image:      vm.Image,
+		Arch:       vm.Arch,
+		CPUs:       vm.CPUs,
+		MemoryMB:   vm.MemoryMB,
+		DiskSizeGB: vm.DiskSizeGB,
+		SSHPort:    vm.SSHPort,
+		Display:    vm.Display,
+	}
+}
+
+// isMultiVM decides, from a lab's runtime.qemu list, whether this is a
+// multi-VM lab (2+ entries, or a single entry that names itself) or a
+// single-VM lab (exactly one entry with no name — the shape every qemu lab
+// used before multi-VM support, and still the only shape that runs its
+// root Bootstrap/Validation exactly once rather than once per VM).
+func isMultiVM(vms []QEMUVM) bool {
+	if len(vms) != 1 {
+		return true // 0 is invalid (validateQEMUVMs catches it), 2+ is unambiguous
+	}
+	return strings.TrimSpace(vms[0].Name) != ""
+}
+
+// validateQEMUVMs checks runtime.qemu is well-formed: not empty, and — only
+// once it's actually multi-VM (isMultiVM) — every entry named and no
+// duplicate names. Called from every entry point that reads it
+// (CreateEnvironment/LoadEnvironment/DestroyEnvironment in runtime.go) so a
+// config mistake surfaces the same way regardless of which command catches
+// it first.
+func validateQEMUVMs(vms []QEMUVM) error {
+	if len(vms) == 0 {
+		return fmt.Errorf("runtime.qemu is empty — needs at least one entry")
+	}
+	if !isMultiVM(vms) {
+		return nil
+	}
+
+	seen := make(map[string]bool, len(vms))
+	for _, vm := range vms {
+		if strings.TrimSpace(vm.Name) == "" {
+			return fmt.Errorf("every entry in runtime.qemu needs a name once there's more than one (or the one entry names itself)")
+		}
+		if seen[vm.Name] {
+			return fmt.Errorf("duplicate vm name '%s' in runtime.qemu", vm.Name)
+		}
+		seen[vm.Name] = true
+	}
+
+	return nil
 }
 
 // ResourceItem is a single script or manifest reference used throughout the
@@ -71,6 +154,12 @@ type ValidationCheck struct {
 type ValidationConfig struct {
 	Checks []ValidationCheck `yaml:"checks"`
 	Script *ResourceItem     `yaml:"script"`
+	// Scripts (plural) runs alongside the singular Script above — additive,
+	// not a replacement, so every existing lab's `script:` keeps working
+	// unchanged. Exists for a multi-VM qemu lab, where one Script can only
+	// ever target one VM (ResourceItem.VM): use Scripts to validate more
+	// than one VM's state in a single `astrona submit`.
+	Scripts []ResourceItem `yaml:"scripts"`
 }
 
 // LabConfig is the full shape of a lab's config.yaml.

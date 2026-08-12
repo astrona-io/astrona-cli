@@ -9,7 +9,7 @@ metadata:
 runtime:
   type: "qemu"
   qemu:
-    image:
+  - image:
       type: "oci"
       # {ARCH} must be exactly this case — it's a literal substring match
       # (strings.ReplaceAll(source, "{ARCH}", ociArch)), not case-insensitive

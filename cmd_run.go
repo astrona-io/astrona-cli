@@ -40,7 +40,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 
 			if len(config.Bootstrap.Init) > 0 {
 				fmt.Printf("Running bootstrap init scripts...\n")
-				if err := RunInitScripts(config.Bootstrap.Init, baseDir, env.Executor); err != nil {
+				if err := runBootstrap(config, baseDir, env); err != nil {
 					return fmt.Errorf("init scripts failed: %w", err)
 				}
 			}

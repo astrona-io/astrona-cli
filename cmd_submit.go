@@ -37,7 +37,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			fmt.Printf("Submitting to the Proctor...\n")
-			proctor := NewProctor(baseDir, env.KubeContext, env.Executor)
+			proctor := NewProctor(baseDir, env)
 			results, pass, err := proctor.Grade(config)
 			if err != nil {
 				return err

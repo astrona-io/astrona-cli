@@ -68,6 +68,10 @@ type QEMUImageSource struct {
 }
 
 // QEMUConfig is the qemu-specific block of a lab's runtime config.
+// QEMUConfig is what CreateQEMUVM needs to boot exactly one VM — deliberately
+// unaware of lab orchestration concepts like naming-for-humans or bootstrap/
+// validation scripts. QEMUVM (config.go), one entry in a lab's
+// runtime.qemu list, carries those and converts to this via asQEMUConfig.
 type QEMUConfig struct {
 	Image      QEMUImageSource `yaml:"image"`
 	Arch       string          `yaml:"arch"`       // "" => this host's own architecture (see normalizeArch) | "x86_64"/"amd64" | "aarch64"/"arm64" (needs UEFI firmware installed, see locateAArch64Firmware)

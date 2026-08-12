@@ -28,23 +28,23 @@ type CheckResult struct {
 // directly, and it gives a real remote Proctor service a clean seam to
 // slot into later without changing how lab/dev commands call it.
 type Proctor struct {
-	baseDir     string
-	kubeContext string
-	executor    ScriptExecutor
+	baseDir string
+	env     *LabEnvironment
 }
 
 // NewProctor builds a Proctor scoped to a single lab run: baseDir resolves
-// relative script paths, kubeContext pins every kubectl call to the right
-// cluster, executor runs the validation script (bash on the host for kind,
-// SSH into the VM for qemu).
-func NewProctor(baseDir, kubeContext string, executor ScriptExecutor) *Proctor {
-	return &Proctor{baseDir: baseDir, kubeContext: kubeContext, executor: executor}
+// relative script paths, env provides both the kubectl context every
+// declarative check is pinned to (env.KubeContext) and, via gradeScripts,
+// whichever executor(s) run the validation script(s) — bash on the host for
+// kind, SSH into a VM for qemu (every VM in turn for a multi-VM lab).
+func NewProctor(baseDir string, env *LabEnvironment) *Proctor {
+	return &Proctor{baseDir: baseDir, env: env}
 }
 
-// Grade runs the lab's declarative checks and optional script, printing
-// pytest/robot-style per-case PASS/FAIL lines followed by a summary line,
-// and returns every case's result (for a JUnit report, see junit.go)
-// alongside the Proctor's overall verdict.
+// Grade runs the lab's declarative checks and validation script(s),
+// printing pytest/robot-style per-case PASS/FAIL lines followed by a
+// summary line, and returns every case's result (for a JUnit report, see
+// junit.go) alongside the Proctor's overall verdict.
 func (p *Proctor) Grade(config *LabConfig) ([]CheckResult, bool, error) {
 	start := time.Now()
 
@@ -53,19 +53,11 @@ func (p *Proctor) Grade(config *LabConfig) ([]CheckResult, bool, error) {
 		return nil, false, fmt.Errorf("Proctor checks failed to run: %w", err)
 	}
 
-	if config.Validation.Script != nil {
-		scriptStart := time.Now()
-		scriptPass, err := p.runScript(config.Validation.Script)
-		if err != nil {
-			return nil, false, fmt.Errorf("Proctor script failed to run: %w", err)
-		}
-
-		results = append(results, CheckResult{
-			Name:     "validation script",
-			Pass:     scriptPass,
-			Duration: time.Since(scriptStart),
-		})
+	scriptResults, err := p.gradeScripts(config)
+	if err != nil {
+		return nil, false, fmt.Errorf("Proctor script failed to run: %w", err)
 	}
+	results = append(results, scriptResults...)
 
 	pass := true
 	passed := 0
@@ -118,12 +110,12 @@ func (p *Proctor) runChecks(checks []ValidationCheck) ([]CheckResult, error) {
 
 		switch strings.ToLower(c.Type) {
 		case "resourceexists":
-			args := append([]string{"--context", p.kubeContext, "get"}, strings.Fields(c.Resource)...)
+			args := append([]string{"--context", p.env.KubeContext, "get"}, strings.Fields(c.Resource)...)
 			out, err := exec.Command(kubectlPath, args...).CombinedOutput()
 			result.Pass = err == nil
 			result.Message = strings.TrimSpace(string(out))
 		case "podready":
-			args := append([]string{"--context", p.kubeContext, "wait", "--for=condition=Ready", "--timeout=60s"}, strings.Fields(c.Resource)...)
+			args := append([]string{"--context", p.env.KubeContext, "wait", "--for=condition=Ready", "--timeout=60s"}, strings.Fields(c.Resource)...)
 			out, err := exec.Command(kubectlPath, args...).CombinedOutput()
 			result.Pass = err == nil
 			result.Message = strings.TrimSpace(string(out))
@@ -156,11 +148,89 @@ func (p *Proctor) runChecks(checks []ValidationCheck) ([]CheckResult, error) {
 	return results, nil
 }
 
-// runScript runs the optional custom validation script. Exit code 0 is a
-// pass, non-zero is a fail — a failing lab is a normal outcome, not a Go
-// error, so only a real execution problem (script missing, bash not found)
-// is returned as an error.
-func (p *Proctor) runScript(script *ResourceItem) (bool, error) {
+// gradeScripts runs every validation script this lab defines: the shared
+// root Validation.Script/Scripts once for a single-environment lab
+// (env.Executor != nil), or — for a multi-VM qemu lab — once per VM (in
+// config.Runtime.QEMU's order): the shared root ones again first, then that
+// VM's own nested QEMUVM.Validation.Script/Scripts. Every multi-VM result's
+// name is suffixed "(vmName)" (runValidationBlock) so two VMs running the
+// same shared script don't collide in the report — see the design note in
+// runValidationBlock for why a shared script's result isn't deduplicated.
+func (p *Proctor) gradeScripts(config *LabConfig) ([]CheckResult, error) {
+	if p.env.Executor != nil {
+		return p.runValidationBlock(config.Validation, p.env.Executor, "")
+	}
+
+	var results []CheckResult
+
+	for _, vm := range config.Runtime.QEMU {
+		executor, err := p.env.executorForVM(vm.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		vmResults, err := p.runValidationBlock(config.Validation, executor, vm.Name)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, vmResults...)
+
+		if vm.Validation != nil {
+			ownResults, err := p.runValidationBlock(*vm.Validation, executor, vm.Name)
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, ownResults...)
+		}
+	}
+
+	return results, nil
+}
+
+// runValidationBlock runs val's Script (if set) then Scripts (if any)
+// through executor, in that order. vmSuffix, non-empty only for a multi-VM
+// lab, is appended to each result's name ("name (vmSuffix)") — a shared
+// root Validation block genuinely runs once per VM in that case (not a
+// single shared result), since it's exercising each VM's own independent
+// state, so each run needs its own distinguishable row in the report.
+func (p *Proctor) runValidationBlock(val ValidationConfig, executor ScriptExecutor, vmSuffix string) ([]CheckResult, error) {
+	var results []CheckResult
+
+	scripts := val.Scripts
+	if val.Script != nil {
+		scripts = append([]ResourceItem{*val.Script}, scripts...)
+	}
+
+	for _, script := range scripts {
+		scriptStart := time.Now()
+		scriptPass, err := p.runScript(&script, executor)
+		if err != nil {
+			return nil, err
+		}
+
+		name := script.Name
+		if name == "" {
+			name = "validation script"
+		}
+		if vmSuffix != "" {
+			name = fmt.Sprintf("%s (%s)", name, vmSuffix)
+		}
+
+		results = append(results, CheckResult{
+			Name:     name,
+			Pass:     scriptPass,
+			Duration: time.Since(scriptStart),
+		})
+	}
+
+	return results, nil
+}
+
+// runScript runs a single validation script through executor. Exit code 0
+// is a pass, non-zero is a fail — a failing lab is a normal outcome, not a
+// Go error, so only a real execution problem (script missing, bash not
+// found) is returned as an error.
+func (p *Proctor) runScript(script *ResourceItem, executor ScriptExecutor) (bool, error) {
 	if script == nil || script.Source == "" {
 		return true, nil
 	}
@@ -190,7 +260,7 @@ func (p *Proctor) runScript(script *ResourceItem) (bool, error) {
 	}
 	defer cleanup()
 
-	if err := p.executor.RunScript(scriptPath); err != nil {
+	if err := executor.RunScript(scriptPath); err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
 			return false, nil
 		}
