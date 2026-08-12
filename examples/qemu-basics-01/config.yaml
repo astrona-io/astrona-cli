@@ -1,0 +1,81 @@
+metadata:
+  name: "qemu-basics-01"
+  docs:
+    prerequisites: "docs/prerequisites.md"
+    examQuestion: "docs/exam-question.md"
+    caseStudy: "docs/case-study.md"
+    guide: "docs/step-by-step-guide.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+    image:
+      type: "oci"
+      # {ARCH} must be exactly this case — it's a literal substring match
+      # (strings.ReplaceAll(source, "{ARCH}", ociArch)), not case-insensitive
+      # or a real template engine. Any other casing (e.g. "{arch}") is left
+      # untouched and pulled literally, which 404s (no tag has "{arch}" in
+      # its actual name).
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-base-{ARCH}"
+
+      # file is optional and omitted here on purpose: this artifact has a
+      # single qcow2 layer already named "image.qcow2" (findQcow2InPull's
+      # default), so there's nothing to disambiguate.
+
+      # checksums (plural) instead of a single checksum: source is
+      # arch-templated, and a different arch is a different file with a
+      # different hash. Keyed by the OCI arch spelling {ARCH} resolves to
+      # ("amd64"/"arm64"), never astrona's own "x86_64"/"aarch64".
+      #
+      # checksum/checksums are both optional — booting unverified is a
+      # deliberate choice this project's maintainer can make per image, not
+      # something astrona blocks. Left set here anyway: it's free integrity
+      # pinning against a compromised/since-updated registry, and unverified
+      # images skip the image cache entirely (see acquireBaseImage), so
+      # there's a real perf cost to leaving it out, not just a security one.
+      # checksums:
+      #   arm64: "sha256:015b0dd5ac43c07e2579c29af7858ce811d204986e399f736111c3c6cc48768f"
+        # amd64: no ":24.04-base-amd64" tag published yet (confirmed via
+        # `oras manifest fetch` — 404). Running this lab on an amd64 host
+        # right now fails with a clear "no checksums entry for arch 'amd64'"
+        # from resolveChecksum, not a confusing registry error. Add a real
+        # entry here once that tag exists.
+
+    # arch is intentionally unset here: it defaults to *this host's own*
+    # architecture (arm64 on Apple Silicon, amd64 elsewhere — see
+    # normalizeArch in hypervisor.go), so this boots natively-accelerated
+    # (hvf/kvm) rather than silently falling back to slow TCG emulation, and
+    # so {ARCH} above resolves to whatever this host actually is.
+    cpus: 2
+    memoryMB: 2048
+    # Every `astrona run` creates a fresh disposable qcow2 overlay backed by
+    # the base image above (the base is opened read-only, never written).
+    # diskSizeGB grows the overlay past the base image's own size; omit to
+    # keep the base image's size. The overlay is removed with the rest of
+    # the VM's state on `astrona destroy` — the base image itself is never
+    # touched or deleted.
+    diskSizeGB: 15
+    # false (default) = headless, no window pops up. Set true for a desktop
+    # guest you actually want to look at — either way `astrona run` returns
+    # immediately and the VM keeps running in the background; `astrona list`
+    # shows what's still up, `astrona destroy -c examples/qemu-basics-01`
+    # (or `astrona ssh -c examples/qemu-basics-01` then shut down from
+    # inside) tears it down again.
+    display: false
+
+bootstrap:
+  init:
+    - name: "hello-vm"
+      description: "Prove SSH exec into the VM works and leave a marker file"
+      type: "file"
+      source: "hello-vm.sh"
+
+validation:
+  script:
+    name: "verify-marker-file"
+    description: "Confirms the marker file bootstrap wrote is present with the right content"
+    type: "file"
+    source: "validate.sh"
+
+teardown:
+  keepCluster: false
