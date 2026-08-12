@@ -22,10 +22,13 @@ const downloadHTTPTimeout = 30 * time.Minute
 
 // RunInitScripts runs a list of bootstrap/testing/teardown scripts in order
 // through a single executor (bash on the host for kind, SSH into one VM for
-// qemu). Each script is either a local file (resolved relative to baseDir)
-// or a URL (downloaded to a temp file first). This is the low-level
-// primitive — see runBootstrap/runOnEveryVM, below, for running against a
-// whole (possibly multi-VM) LabEnvironment instead of one fixed executor.
+// qemu). Each script is a local file (resolved relative to baseDir), a local
+// folder (every file inside run in filename order — os.ReadDir already
+// returns entries sorted by name, so numbering them e.g. "01-x.sh", "02-y.sh"
+// controls run order), or a URL (downloaded to a temp file first). This is
+// the low-level primitive — see runBootstrap/runOnEveryVM, below, for
+// running against a whole (possibly multi-VM) LabEnvironment instead of one
+// fixed executor.
 func RunInitScripts(scripts []ResourceItem, baseDir string, executor ScriptExecutor) error {
 	for i, s := range scripts {
 		if s.Source == "" {
@@ -37,37 +40,60 @@ func RunInitScripts(scripts []ResourceItem, baseDir string, executor ScriptExecu
 			fmt.Printf("[INFO] %s\n", s.Description)
 		}
 
-		scriptPath := s.Source
-		var cleanup func() = func() {}
-
 		switch strings.ToLower(s.Type) {
 		case "url":
-			tmpPath, clean, err := downloadToTemp(s.Source, "astrona-script-*.sh", maxScriptDownloadBytes)
+			tmpPath, cleanup, err := downloadToTemp(s.Source, "astrona-script-*.sh", maxScriptDownloadBytes)
 			if err != nil {
 				return fmt.Errorf("failed to download script from %s: %w", s.Source, err)
 			}
 
-			scriptPath = tmpPath
-			cleanup = clean
+			err = executor.RunScript(tmpPath)
+			cleanup()
+
+			if err != nil {
+				return fmt.Errorf("failed to run script '%s': %w", s.Name, err)
+			}
 		case "file":
 			resolved, err := joinWithinBaseDir(baseDir, s.Source)
 			if err != nil {
 				return fmt.Errorf("failed to resolve script path for '%s': %w", s.Name, err)
 			}
-			scriptPath = resolved
 
-			if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-				return fmt.Errorf("local script file does not exist %s: %w", scriptPath, err)
+			if _, err := os.Stat(resolved); os.IsNotExist(err) {
+				return fmt.Errorf("local script file does not exist %s: %w", resolved, err)
+			}
+
+			if err := executor.RunScript(resolved); err != nil {
+				return fmt.Errorf("failed to run script '%s': %w", s.Name, err)
+			}
+		case "folder":
+			resolved, err := joinWithinBaseDir(baseDir, s.Source)
+			if err != nil {
+				return fmt.Errorf("failed to resolve script folder for '%s': %w", s.Name, err)
+			}
+
+			info, err := os.Stat(resolved)
+			if err != nil || !info.IsDir() {
+				return fmt.Errorf("local script folder does not exist or is not a directory: %s", resolved)
+			}
+
+			entries, err := os.ReadDir(resolved)
+			if err != nil {
+				return fmt.Errorf("failed to read script folder '%s': %w", resolved, err)
+			}
+
+			for _, entry := range entries {
+				if entry.IsDir() {
+					continue
+				}
+
+				scriptFile := filepath.Join(resolved, entry.Name())
+				if err := executor.RunScript(scriptFile); err != nil {
+					return fmt.Errorf("failed to run script '%s' in folder '%s': %w", entry.Name(), s.Name, err)
+				}
 			}
 		default:
-			return fmt.Errorf("unsupported type '%s' for init scripts '%s' (must be 'file' or 'folder')", s.Type, s.Name)
-		}
-
-		err := executor.RunScript(scriptPath)
-		cleanup()
-
-		if err != nil {
-			return fmt.Errorf("failed to run script '%s': %w", s.Name, err)
+			return fmt.Errorf("unsupported type '%s' for init scripts '%s' (must be 'file', 'folder', or 'url')", s.Type, s.Name)
 		}
 	}
 

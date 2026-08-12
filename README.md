@@ -10,7 +10,7 @@ Astrona spins up local Kubernetes labs with [kind](https://kind.sigs.k8s.io/), b
 - **Config from anywhere** — point `--config`/`-c` at a local directory, a local file, or an `http(s)://` URL; `--file`/`-f` overrides the config file name (default `config.yaml`).
 - **Bootstrap** — run init scripts (local file or downloaded from a URL) and apply Kubernetes manifests when the lab starts.
 - **Testing stage** — a CI-only stage that applies a reference solution (scripts and/or manifests) to drive the cluster into the "lab completed" state, so validation has something to check.
-- **Proctor grading** — a student never grades their own work: `astrona submit` hands the cluster to the Proctor, which runs declarative checks (`resourceExists`, `podReady`, `command`) and/or a custom pass/fail script and returns a PASS/FAIL verdict — the same component `astrona test` uses in CI to prove a lab's reference solution actually passes. Output is pytest/robot-style: a PASS/FAIL line with timing per check, then a summary line. `--junit-xml=<path>` on `submit`/`test` additionally writes a JUnit XML report for CI systems (GitHub Actions, GitLab CI, Jenkins) to render natively.
+- **Proctor grading** — a student never grades their own work: `astrona submit` hands the cluster to the Proctor, which runs declarative checks (`resourceExists`, `podReady`, `command`) and/or one or more custom pass/fail scripts (`script`/`scripts`) and returns a PASS/FAIL verdict — the same component `astrona test` uses in CI to prove a lab's reference solution actually passes. Output is pytest/robot-style: a PASS/FAIL line with timing per check, then a summary line. `--junit-xml=<path>` on `submit`/`test` additionally writes a JUnit XML report for CI systems (GitHub Actions, GitLab CI, Jenkins) to render natively.
 - **Teardown** — cleanup scripts run before the cluster is deleted, with an optional `keepCluster` flag to leave the cluster running for debugging.
 - **Doc references** — `metadata.docs` points at prerequisites, a formal exam-style question, a softer case-study version, and a step-by-step answer guide, so a marketplace listing or terminal UI always knows which file is canonical instead of guessing.
 
@@ -58,6 +58,13 @@ validation:
   script:                          # optional: goes beyond existence checks, e.g. verifying actual content
     type: "file"
     source: "validate.sh"          # exit 0 = pass, non-zero = fail
+  scripts:                         # optional, additive: more validation scripts, run in order after `script`
+    - name: "check-network"
+      type: "file"
+      source: "validate-network.sh"
+    - name: "check-storage"
+      type: "file"
+      source: "validate-storage.sh"
 
 teardown:
   init:
