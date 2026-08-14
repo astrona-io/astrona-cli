@@ -76,6 +76,43 @@ teardown:
 
 See `examples/k8s-basics-01/` for a complete working example.
 
+## Installation
+
+You can download and install pre-compiled binaries of `astrona-cli` directly from GitHub Releases.
+
+### Quick Install (macOS & Linux)
+
+Run the following command in your terminal to automatically detect your OS and architecture, download the latest binary, and install it to `~/.local/bin/astrona`:
+
+```sh
+mkdir -p ~/.local/bin && \
+OS=$(uname -s | tr '[:upper:]' '[:lower:]') && \
+ARCH=$(uname -m) && \
+[ "$ARCH" = "x86_64" ] && ARCH="amd64" || true && \
+[ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ] && ARCH="arm64" || true && \
+curl -L -o ~/.local/bin/astrona "https://github.com/astrona-io/astrona-cli/releases/latest/download/astrona-${OS}-${ARCH}" && \
+chmod +x ~/.local/bin/astrona
+```
+
+*(Note: Make sure `~/.local/bin` is added to your shell's `PATH` configuration.)*
+
+### Manual Installation
+
+1. Go to the [GitHub Releases](https://github.com/astrona-io/astrona-cli/releases) page.
+2. Download the binary matching your platform and architecture:
+   - macOS (Apple Silicon): `astrona-darwin-arm64`
+   - macOS (Intel): `astrona-darwin-amd64`
+   - Linux (ARM64): `astrona-linux-arm64`
+   - Linux (AMD64): `astrona-linux-amd64`
+3. Make the downloaded binary executable:
+   ```sh
+   chmod +x astrona-<os>-<arch>
+   ```
+4. Move it into your `PATH` (renaming it to `astrona`):
+   ```sh
+   mv astrona-<os>-<arch> ~/.local/bin/astrona
+   ```
+
 ## Developing
 
 A [`Justfile`](./Justfile) wraps the common local dev commands (requires [`just`](https://github.com/casey/just)):
