@@ -26,10 +26,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer configCleanup()
 
-			clusterName := config.Metadata.Name
-			if clusterName == "" {
-				clusterName = "astrona-lab"
-			}
+			clusterName := normalizeClusterName(config.Metadata.Name)
 
 			env, err := LoadEnvironment(clusterName, config.Runtime)
 			if err != nil {

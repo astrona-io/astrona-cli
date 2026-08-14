@@ -291,3 +291,26 @@ func LoadLabForCommand(flags *rootFlags) (config *LabConfig, baseDir string, cle
 
 	return config, filepath.Dir(finalPath), cleanup, nil
 }
+
+// normalizeClusterName prefixes clusterName with "astro-" if it doesn't already
+// start with "astro-".
+func normalizeClusterName(clusterName string) string {
+	if clusterName == "" {
+		clusterName = "astrona-lab"
+	}
+	if !strings.HasPrefix(clusterName, "astro-") {
+		return "astro-" + clusterName
+	}
+	return clusterName
+}
+
+// normalizeTestClusterName prefixes clusterName with "astro-test-" after stripping
+// any existing "astro-" or "test-" prefixes to prevent nested naming.
+func normalizeTestClusterName(clusterName string) string {
+	if clusterName == "" {
+		clusterName = "astrona-lab"
+	}
+	clusterName = strings.TrimPrefix(clusterName, "astro-")
+	clusterName = strings.TrimPrefix(clusterName, "test-")
+	return "astro-test-" + clusterName
+}

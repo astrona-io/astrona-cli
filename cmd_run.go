@@ -27,10 +27,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 
 			fmt.Printf("Initializing Lab: %s\n", config.Metadata.Name)
 
-			clusterName := config.Metadata.Name
-			if clusterName == "" {
-				clusterName = "astrona-lab"
-			}
+			clusterName := normalizeClusterName(config.Metadata.Name)
 
 			env, err := CreateEnvironment(clusterName, baseDir, config.Runtime)
 			if err != nil {

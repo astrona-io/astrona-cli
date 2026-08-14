@@ -110,11 +110,13 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			info, configCleanup := loadTeardownInfo(finalPath)
 			defer configCleanup()
 
-			if err := tearDownLabEnvironment(info.clusterName, info, baseDir, true); err != nil {
+			clusterName := normalizeClusterName(info.clusterName)
+			if err := tearDownLabEnvironment(clusterName, info, baseDir, true); err != nil {
 				return err
 			}
 
-			if err := tearDownLabEnvironment("test-"+info.clusterName, info, baseDir, false); err != nil {
+			testClusterName := normalizeTestClusterName(info.clusterName)
+			if err := tearDownLabEnvironment(testClusterName, info, baseDir, false); err != nil {
 				// tearDownLabEnvironment(hardFail=false) never actually
 				// returns an error, but handle it rather than silently
 				// dropping one if that ever changes.

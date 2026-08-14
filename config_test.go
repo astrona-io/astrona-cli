@@ -55,3 +55,39 @@ func TestValidateQEMUVMs(t *testing.T) {
 		}
 	})
 }
+
+func TestNormalizeClusterName(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"", "astro-astrona-lab"},
+		{"my-lab", "astro-my-lab"},
+		{"astro-my-lab", "astro-my-lab"},
+	}
+
+	for _, c := range cases {
+		if got := normalizeClusterName(c.input); got != c.want {
+			t.Errorf("normalizeClusterName(%q) = %q, want %v", c.input, got, c.want)
+		}
+	}
+}
+
+func TestNormalizeTestClusterName(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"", "astro-test-astrona-lab"},
+		{"my-lab", "astro-test-my-lab"},
+		{"astro-my-lab", "astro-test-my-lab"},
+		{"test-my-lab", "astro-test-my-lab"},
+		{"astro-test-my-lab", "astro-test-my-lab"},
+	}
+
+	for _, c := range cases {
+		if got := normalizeTestClusterName(c.input); got != c.want {
+			t.Errorf("normalizeTestClusterName(%q) = %q, want %v", c.input, got, c.want)
+		}
+	}
+}

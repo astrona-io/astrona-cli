@@ -29,15 +29,11 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer configCleanup()
 
-			labName := config.Metadata.Name
-			if labName == "" {
-				labName = "astrona-lab"
-			}
 			// Prefixed so a CI/dev `test` run never collides with a real
 			// `astrona run` environment for the same lab config running at
 			// the same time (same kind cluster name / same qemu state dir
 			// otherwise).
-			clusterName := "test-" + labName
+			clusterName := normalizeTestClusterName(config.Metadata.Name)
 
 			// Best-effort clean slate: a cancelled `astrona test` (Ctrl-C)
 			// skips the defer teardown below entirely — Go doesn't run
