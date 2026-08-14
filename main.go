@@ -25,12 +25,16 @@ type rootFlags struct {
 	gitRef     string
 }
 
+// Version is the current version of the astrona-cli binary, burnt in at build
+// time via -ldflags "-X main.Version=vX.Y.Z".
+var Version = "developer"
+
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "astrona",
-		Short: "Astrona is the Astrona lab community CLI",
-		Long: "Astrona is the single CLI for the Astrona lab community: spin up local Kubernetes labs, grade them, and (as more groups land) publish and authenticate against the Astrona platform.\n\n" +
-			supportLine(),
+		Use:     "astrona",
+		Short:   "Astrona is the Astrona lab community CLI",
+		Long:    "Astrona is the single CLI for the Astrona lab community: spin up local Kubernetes labs, grade them, and (as more groups land) publish and authenticate against the Astrona platform.\n\n" + supportLine(),
+		Version: Version,
 	}
 
 	// Setting this on rootCmd alone is enough: Cobra falls back to a

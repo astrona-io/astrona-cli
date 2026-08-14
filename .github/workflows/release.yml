@@ -18,10 +18,10 @@ jobs:
         goarch: [amd64, arm64]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
 
@@ -31,10 +31,10 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           BINARY_NAME="astrona-${{ matrix.goos }}-${{ matrix.goarch }}"
-          go build -v -o "$BINARY_NAME" .
+          go build -v -ldflags "-X main.Version=${{ github.ref_name }}" -o "$BINARY_NAME" .
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: astrona-${{ matrix.goos }}-${{ matrix.goarch }}
           path: astrona-${{ matrix.goos }}-${{ matrix.goarch }}
@@ -45,10 +45,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 

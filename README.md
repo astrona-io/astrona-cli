@@ -1,6 +1,6 @@
 # astrona-cli
 
-[![Donate via Liberapay](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/Astrona.io)
+[![Liberapay](https://img.shields.io/badge/Liberapay-Support_Astrona.io-F6C915?logo=liberapay&logoColor=black&style=for-the-badge)](https://liberapay.com/Astrona.io)
 
 Astrona spins up local Kubernetes labs with [kind](https://kind.sigs.k8s.io/), backed by whichever container runtime you have — Docker or Podman. Everything is driven by a single YAML config per lab.
 
