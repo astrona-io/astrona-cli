@@ -60,8 +60,8 @@ hello from the client VM: qemu-multi-01-client
 
 ```
 qemu VMs:
-  ●  qemu-multi-01-client     pid=42726    ssh=astrona@127.0.0.1:61996  uptime=23s
-  ●  qemu-multi-01-server     pid=42642    ssh=astrona@127.0.0.1:61975  uptime=38s
+  ●  qemu-multi-01-client     pid=42726    ssh=student@127.0.0.1:61996  uptime=23s
+  ●  qemu-multi-01-server     pid=42642    ssh=student@127.0.0.1:61975  uptime=38s
 ```
 
 Each VM's name is `<lab name>-<vm name>` — an ordinary qemu lab name as far

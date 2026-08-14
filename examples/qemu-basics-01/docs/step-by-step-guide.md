@@ -31,7 +31,7 @@ This acquires and checksum-verifies your base image, boots the VM, waits for it 
 ssh -i ~/Library/Caches/astrona/qemu/qemu-basics-01/id_ed25519 \
     -p <port-printed-during-lab-up> \
     -o UserKnownHostsFile=~/Library/Caches/astrona/qemu/qemu-basics-01/known_hosts \
-    astrona@127.0.0.1 \
+    student@127.0.0.1 \
     cat /tmp/astrona-lab/marker.txt
 ```
 

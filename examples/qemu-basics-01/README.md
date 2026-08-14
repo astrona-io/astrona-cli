@@ -51,7 +51,7 @@ Expect something like:
 
 ```
 qemu VMs:
-  ●  qemu-basics-01           pid=24313    ssh=astrona@127.0.0.1:54151  uptime=12s
+  ●  qemu-basics-01           pid=24313    ssh=student@127.0.0.1:54151  uptime=12s
 ```
 
 Running this lab a second time (`astrona run` again) while it's already up
@@ -69,7 +69,7 @@ none are left over.
 
 `astrona ssh` takes the lab **name** (as shown by `astrona list`), not
 `--config` — it doesn't need the lab config at all, just the running VM's
-state. Drops you into an interactive shell as the `astrona` user
+state. Drops you into an interactive shell as the `student` user
 (passwordless sudo). Try:
 
 ```sh

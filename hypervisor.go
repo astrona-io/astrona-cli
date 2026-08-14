@@ -107,7 +107,7 @@ type QEMUHandle struct {
 	StartedAt   time.Time // used by `astrona list` to report uptime
 }
 
-const qemuSSHUser = "astrona"
+const qemuSSHUser = "student"
 
 // maxQEMUImageDownloadBytes bounds a downloaded VM base image. Generous
 // compared to maxScriptDownloadBytes since real cloud images run several
