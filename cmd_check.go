@@ -146,6 +146,8 @@ func newCheckCmd() *cobra.Command {
 			missingRequired := 0
 			printedOptionalHeader := false
 
+			fmt.Printf("astrona version: %s\n\n", Version)
+
 			fmt.Println("Required:")
 			for _, c := range checks {
 				if !c.required && !printedOptionalHeader {

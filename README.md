@@ -25,6 +25,7 @@ Flat, podman-`run`-style verbs at the root — no noun to namespace under. `--co
 | `astrona submit` | Submit the current lab state to the Proctor for grading and report its PASS/FAIL verdict. Exit code reflects the result — this is the grading gate, not a self-check. This is the student-facing flow: take a lab, submit for grading. Accepts `--junit-xml=<path>`. |
 | `astrona test` | Full CI pipeline in one shot: bootstrap → testing (apply reference solution) → submit to the Proctor → teardown. Always cleans up, even on failure. A lab author wires this into their own CI to prove the lab's reference solution actually passes the Proctor's own checks before publishing — not part of the student flow. Accepts `--junit-xml=<path>`. Runs against a `test-`-prefixed cluster name so it never collides with a lab you already have up via `astrona run`. |
 | `astrona check` | Check that astrona's dependencies are installed: `kind`, `docker`/`podman`, and `kubectl` are required; the qemu toolchain and `git` are optional (only needed for `runtime.type: qemu` or `--git`) and only warn if missing. Non-zero exit only when a required dependency is missing. |
+| `astrona upgrade` | Check for the latest release on GitHub, download the compiled binary for the active OS and architecture, and atomically replace the current running executable. |
 
 ## Lab config
 

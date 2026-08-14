@@ -1,7 +1,11 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -29,18 +33,57 @@ type rootFlags struct {
 // time via -ldflags "-X main.Version=vX.Y.Z".
 var Version = "developer"
 
+func checkLatestVersion() {
+	client := &http.Client{
+		Timeout: 800 * time.Millisecond,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	resp, err := client.Head("https://github.com/astrona-io/astrona-cli/releases/latest")
+	if err != nil {
+		fmt.Println("[WARN] check version not possible")
+		return
+	}
+	defer resp.Body.Close()
+
+	location := resp.Header.Get("Location")
+	if location == "" {
+		fmt.Println("[WARN] check version not possible")
+		return
+	}
+
+	parts := strings.Split(strings.TrimRight(location, "/"), "/")
+	if len(parts) == 0 {
+		fmt.Println("[WARN] check version not possible")
+		return
+	}
+	latestTag := parts[len(parts)-1]
+
+	if latestTag != "" && latestTag != Version {
+		fmt.Printf("[INFO] A new version of astrona is available: %s (current: %s). Please upgrade!\n\n", latestTag, Version)
+	}
+}
+
 func main() {
 	rootCmd := &cobra.Command{
 		Use:     "astrona",
 		Short:   "Astrona is the Astrona lab community CLI",
 		Long:    "Astrona is the single CLI for the Astrona lab community: spin up local Kubernetes labs, grade them, and (as more groups land) publish and authenticate against the Astrona platform.\n\n" + supportLine(),
 		Version: Version,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if cmd.Name() == "__complete" || cmd.Name() == "help" {
+				return
+			}
+			checkLatestVersion()
+		},
 	}
 
 	// Setting this on rootCmd alone is enough: Cobra falls back to a
 	// parent's HelpTemplate for any subcommand that doesn't set its own,
 	// so this banner shows on every `--help` screen in the tree.
-	rootCmd.SetHelpTemplate(banner() + "\n\n" + helpTemplateBody)
+	rootCmd.SetHelpTemplate(banner() + "\nVersion: " + Version + "\n\n" + helpTemplateBody)
 
 	// Flat, podman-run-style verbs at the root — no `lab`/`dev` noun to
 	// namespace under. --config/-c, --file/-f, --git, and --git-ref are
@@ -65,6 +108,7 @@ func main() {
 	rootCmd.AddCommand(newCheckCmd())
 	rootCmd.AddCommand(newListCmd())
 	rootCmd.AddCommand(newSSHCmd())
+	rootCmd.AddCommand(newUpgradeCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
