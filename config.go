@@ -52,14 +52,15 @@ type RuntimeConfig struct {
 // exact single-VM machinery per VM, under the synthesized name
 // "<labName>-<vm.Name>", rather than a parallel code path.
 type QEMUVM struct {
-	Name       string          `yaml:"name"` // "" only valid when this is the list's only entry — see isMultiVM
-	Image      QEMUImageSource `yaml:"image"`
-	Arch       string          `yaml:"arch"`
-	CPUs       int             `yaml:"cpus"`
-	MemoryMB   int             `yaml:"memoryMB"`
-	DiskSizeGB int             `yaml:"diskSizeGB"`
-	SSHPort    int             `yaml:"sshPort"`
-	Display    bool            `yaml:"display"`
+	Name            string          `yaml:"name"` // "" only valid when this is the list's only entry — see isMultiVM
+	Image           QEMUImageSource `yaml:"image"`
+	Arch            string          `yaml:"arch"`
+	CPUs            int             `yaml:"cpus"`
+	MemoryMB        int             `yaml:"memoryMB"`
+	DiskSizeGB      int             `yaml:"diskSizeGB"`
+	SSHPort         int             `yaml:"sshPort"`
+	Display         bool            `yaml:"display"`
+	SSHPasswordAuth bool            `yaml:"sshPasswordAuth"`
 	// Bootstrap and Validation, when set, run only against this one VM —
 	// layered *after* the lab's shared root Bootstrap/Validation (LabConfig
 	// fields), which for a multi-VM lab run against every VM in turn
@@ -73,13 +74,14 @@ type QEMUVM struct {
 
 func (vm QEMUVM) asQEMUConfig() *QEMUConfig {
 	return &QEMUConfig{
-		Image:      vm.Image,
-		Arch:       vm.Arch,
-		CPUs:       vm.CPUs,
-		MemoryMB:   vm.MemoryMB,
-		DiskSizeGB: vm.DiskSizeGB,
-		SSHPort:    vm.SSHPort,
-		Display:    vm.Display,
+		Image:           vm.Image,
+		Arch:            vm.Arch,
+		CPUs:            vm.CPUs,
+		MemoryMB:        vm.MemoryMB,
+		DiskSizeGB:      vm.DiskSizeGB,
+		SSHPort:         vm.SSHPort,
+		Display:         vm.Display,
+		SSHPasswordAuth: vm.SSHPasswordAuth,
 	}
 }
 

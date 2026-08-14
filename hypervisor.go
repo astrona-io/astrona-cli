@@ -86,7 +86,8 @@ type QEMUConfig struct {
 	// two modes launch qemu differently under the hood. Default false
 	// (headless) — right for the SSH-only labs most of this repo's examples
 	// are.
-	Display bool `yaml:"display"`
+	Display         bool `yaml:"display"`
+	SSHPasswordAuth bool `yaml:"sshPasswordAuth"` // If true, cloud-init enables password SSH authentication (ssh_pwauth: true)
 }
 
 // QEMUHandle is what a running VM looks like to the rest of the CLI: enough
@@ -791,12 +792,12 @@ func cloudInitHostname(clusterName string) string {
 	return name
 }
 
-// buildCloudInitSeed writes a NoCloud user-data/meta-data pair — creating a
-// passwordless-auth-disabled SSH user with pubKey as its only credential —
+// buildCloudInitSeed writes a NoCloud user-data/meta-data pair — creating an
+// SSH user with pubKey as its credential (and optionally password auth enabled) —
 // into a dedicated subdirectory (never the whole stateDir, which also holds
 // the private key and disk images) and packs just those two files into a
 // "cidata"-labeled ISO9660 image via whichever ISO tool is available.
-func buildCloudInitSeed(stateDir, clusterName, pubKey string) (string, error) {
+func buildCloudInitSeed(stateDir, clusterName, pubKey string, passwordAuth bool) (string, error) {
 	seedSrcDir := filepath.Join(stateDir, "cidata-src")
 	if err := os.MkdirAll(seedSrcDir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create cloud-init seed source dir: %w", err)
@@ -804,18 +805,25 @@ func buildCloudInitSeed(stateDir, clusterName, pubKey string) (string, error) {
 
 	hostname := cloudInitHostname(clusterName)
 
+	sshPwAuth := "false"
+	lockPasswd := "true"
+	if passwordAuth {
+		sshPwAuth = "true"
+		lockPasswd = "false"
+	}
+
 	userData := fmt.Sprintf(`#cloud-config
 hostname: %s
 users:
   - name: %s
     sudo: ALL=(ALL) NOPASSWD:ALL
     shell: /bin/bash
-    lock_passwd: true
+    lock_passwd: %s
     ssh_authorized_keys:
       - %s
-ssh_pwauth: false
+ssh_pwauth: %s
 disable_root: true
-`, hostname, qemuSSHUser, pubKey)
+`, hostname, qemuSSHUser, lockPasswd, pubKey, sshPwAuth)
 	metaData := fmt.Sprintf("instance-id: %s\nlocal-hostname: %s\n", hostname, hostname)
 
 	userDataPath := filepath.Join(seedSrcDir, "user-data")
@@ -1161,7 +1169,7 @@ func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, er
 		return nil, err
 	}
 
-	seedPath, err := buildCloudInitSeed(stateDir, clusterName, pubKey)
+	seedPath, err := buildCloudInitSeed(stateDir, clusterName, pubKey, cfg.SSHPasswordAuth)
 	if err != nil {
 		return nil, err
 	}

@@ -49,8 +49,8 @@ func TestCacheSlug(t *testing.T) {
 		"ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-base-arm64": "ubuntu-qcow2-image-24.04-base-arm64",
 		"ghcr.io/astrona-io/ubuntu-24.04-server-docker:arm64":    "ubuntu-24.04-server-docker-arm64",
 		"https://example.com/images/debian-12.qcow2":             "debian-12.qcow2",
-		"":                                                       "image",
-		"///":                                                    "image",
+		"":    "image",
+		"///": "image",
 	}
 
 	for in, want := range cases {
@@ -329,7 +329,7 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 		t.Skip("no ISO build tool found in PATH, skipping cloud-init seed test")
 	}
 
-	isoPath, err := buildCloudInitSeed(dir, "qemu-basics-01", pubKey)
+	isoPath, err := buildCloudInitSeed(dir, "qemu-basics-01", pubKey, false)
 	if err != nil {
 		t.Fatalf("buildCloudInitSeed failed: %v", err)
 	}
@@ -347,6 +347,36 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 	}
 	if len(entries) != 2 {
 		t.Errorf("expected exactly 2 files (user-data, meta-data) in seed source dir, got %d", len(entries))
+	}
+
+	// Read user-data and verify password auth is disabled
+	dataBytes, err := os.ReadFile(filepath.Join(seedSrcDir, "user-data"))
+	if err != nil {
+		t.Fatalf("failed to read user-data: %v", err)
+	}
+	dataStr := string(dataBytes)
+	if !strings.Contains(dataStr, "ssh_pwauth: false") {
+		t.Errorf("expected ssh_pwauth: false, got: %s", dataStr)
+	}
+	if !strings.Contains(dataStr, "lock_passwd: true") {
+		t.Errorf("expected lock_passwd: true, got: %s", dataStr)
+	}
+
+	// Build with passwordAuth = true
+	_, err = buildCloudInitSeed(dir, "qemu-basics-01", pubKey, true)
+	if err != nil {
+		t.Fatalf("buildCloudInitSeed with passwordAuth=true failed: %v", err)
+	}
+	dataBytes, err = os.ReadFile(filepath.Join(seedSrcDir, "user-data"))
+	if err != nil {
+		t.Fatalf("failed to read user-data: %v", err)
+	}
+	dataStr = string(dataBytes)
+	if !strings.Contains(dataStr, "ssh_pwauth: true") {
+		t.Errorf("expected ssh_pwauth: true, got: %s", dataStr)
+	}
+	if !strings.Contains(dataStr, "lock_passwd: false") {
+		t.Errorf("expected lock_passwd: false, got: %s", dataStr)
 	}
 }
 

@@ -67,6 +67,11 @@ func checkLatestVersion() {
 }
 
 func main() {
+	if askpassPass := os.Getenv("ASTRONA_INTERNAL_ASKPASS"); askpassPass != "" {
+		fmt.Println(askpassPass)
+		os.Exit(0)
+	}
+
 	rootCmd := &cobra.Command{
 		Use:     "astrona",
 		Short:   "Astrona is the Astrona lab community CLI",
