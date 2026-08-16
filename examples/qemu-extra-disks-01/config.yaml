@@ -1,0 +1,53 @@
+metadata:
+  name: "qemu-extra-disks-01"
+  docs:
+    prerequisites: "docs/prerequisites.md"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "oci"
+      source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-base-{ARCH}"
+      # checksums:
+      #   arm64: "sha256:015b0dd5ac43c07e2579c29af7858ce811d204986e399f736111c3c6cc48768f"
+    cpus: 2
+    memoryMB: 2048
+    # Main disk: the VM's root filesystem, backed by the base image above.
+    diskSizeGB: 10
+    # extraDisks attaches additional blank disks alongside the main one —
+    # /dev/vdb, /dev/vdc, ... in the guest, in this list order. Unlike the
+    # main disk there's no base image to size or format itself from: each
+    # entry needs its own sizeGB, and boots as raw zeroed blocks with no
+    # partition table — exactly what you want for practicing fdisk/parted,
+    # LVM (pvcreate/vgcreate/lvcreate), or mkfs by hand in bootstrap/
+    # validation scripts, without ever risking the VM's own root disk.
+    extraDisks:
+      # A blank disk for partitioning/LVM practice — this lab's bootstrap
+      # leaves it untouched; the validation script checks the student (or,
+      # here, the bootstrap script standing in for one) partitioned it.
+      - sizeGB: 5
+        serial: "scratch1"
+      # A second blank disk, pre-formatted ext4 by bootstrap below, to show
+      # the "already formatted, ready to mount" variant of the same feature.
+      - sizeGB: 2
+        format: "raw"
+        serial: "scratch2"
+    display: false
+
+bootstrap:
+  init:
+    - name: "prepare-disks"
+      description: "Partition /dev/disk/by-id/virtio-scratch1 and format /dev/disk/by-id/virtio-scratch2 as ext4"
+      type: "file"
+      source: "prepare-disks.sh"
+
+validation:
+  script:
+    name: "verify-disks"
+    description: "Confirms the scratch partition and the ext4 filesystem both exist and are mounted"
+    type: "file"
+    source: "validate.sh"
+
+teardown:
+  keepCluster: false

@@ -58,6 +58,7 @@ type QEMUVM struct {
 	CPUs            int             `yaml:"cpus"`
 	MemoryMB        int             `yaml:"memoryMB"`
 	DiskSizeGB      int             `yaml:"diskSizeGB"`
+	ExtraDisks      []QEMUExtraDisk `yaml:"extraDisks"`
 	SSHPort         int             `yaml:"sshPort"`
 	Display         bool            `yaml:"display"`
 	SSHPasswordAuth bool            `yaml:"sshPasswordAuth"`
@@ -79,6 +80,7 @@ func (vm QEMUVM) asQEMUConfig() *QEMUConfig {
 		CPUs:            vm.CPUs,
 		MemoryMB:        vm.MemoryMB,
 		DiskSizeGB:      vm.DiskSizeGB,
+		ExtraDisks:      vm.ExtraDisks,
 		SSHPort:         vm.SSHPort,
 		Display:         vm.Display,
 		SSHPasswordAuth: vm.SSHPasswordAuth,
