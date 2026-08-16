@@ -67,6 +67,40 @@ type QEMUImageSource struct {
 	File string `yaml:"file"`
 }
 
+// QEMUExtraDisk describes one additional blank disk attached alongside the
+// main (base-image-backed) disk — e.g. a scratch disk for practicing
+// partitioning, LVM, or filesystem formatting without touching the VM's
+// root filesystem. Unlike the main disk, an extra disk has no base image to
+// size or format itself from, so SizeGB is required and it always starts
+// unformatted (raw zeroed blocks) — whatever the lab's bootstrap/validation
+// scripts do to it (fdisk, pvcreate, mkfs.ext4, ...) is up to the lab, not
+// astrona. Disposable like the main overlay disk: recreated blank on every
+// `astrona run`, deleted with the rest of the VM's state dir on
+// `astrona destroy`.
+type QEMUExtraDisk struct {
+	SizeGB int `yaml:"sizeGB"` // required, > 0 — no base image to inherit a size from
+	// Format is the qcow2/raw image the disk file itself is stored as on the
+	// host — not a guest filesystem. "" => "qcow2" (default, sparse/thin on
+	// the host); "raw" pre-allocates SizeGB up front. Either way the guest
+	// sees an entirely blank block device with no partition table.
+	Format string `yaml:"format"`
+	// Serial, when set, is exposed to the guest as the virtio-blk device's
+	// serial number — lets a bootstrap/validation script target a stable
+	// path like /dev/disk/by-id/virtio-<serial> instead of relying on
+	// /dev/vdb-style enumeration order, which isn't guaranteed stable across
+	// multiple extra disks.
+	Serial string `yaml:"serial"`
+}
+
+// qemuExtraDiskSpec is the resolved (defaulted, validated, on-disk) form of
+// a QEMUExtraDisk that buildQEMUArgs consumes — mirrors how overlayPath is
+// the resolved form of QEMUConfig.Image/DiskSizeGB.
+type qemuExtraDiskSpec struct {
+	Path   string
+	Format string
+	Serial string
+}
+
 // QEMUConfig is the qemu-specific block of a lab's runtime config.
 // QEMUConfig is what CreateQEMUVM needs to boot exactly one VM — deliberately
 // unaware of lab orchestration concepts like naming-for-humans or bootstrap/
@@ -78,7 +112,10 @@ type QEMUConfig struct {
 	CPUs       int             `yaml:"cpus"`       // 0 => default 2
 	MemoryMB   int             `yaml:"memoryMB"`   // 0 => default 2048
 	DiskSizeGB int             `yaml:"diskSizeGB"` // 0 => use base image's own size
-	SSHPort    int             `yaml:"sshPort"`    // 0 => auto-pick a free host port
+	// ExtraDisks attaches additional blank disks (/dev/vdb, /dev/vdc, ... in
+	// the guest, in list order) alongside the main disk — see QEMUExtraDisk.
+	ExtraDisks []QEMUExtraDisk `yaml:"extraDisks"`
+	SSHPort    int             `yaml:"sshPort"` // 0 => auto-pick a free host port
 	// Display, when true, opens qemu's normal GUI window (e.g. a desktop
 	// guest you want to actually look at) instead of running headless. Either
 	// way CreateQEMUVM never blocks the CLI and the VM keeps running in the
@@ -709,6 +746,57 @@ func createOverlayDisk(basePath, stateDir string, diskSizeGB int) (string, error
 	return overlayPath, nil
 }
 
+// createExtraDisk creates one blank (no backing file) disk for cfg.ExtraDisks[index]
+// — validated and defaulted by the caller — sized disk.SizeGB, in stateDir.
+// Unlike createOverlayDisk there's no base image to back or resize against:
+// the disk starts empty every time, same disposable-per-run posture as the
+// main overlay disk.
+func createExtraDisk(stateDir string, index int, format string, sizeGB int) (string, error) {
+	qemuImgPath, err := exec.LookPath("qemu-img")
+	if err != nil {
+		return "", fmt.Errorf("qemu-img not found in PATH: %w", err)
+	}
+
+	path := filepath.Join(stateDir, fmt.Sprintf("extra-disk-%d.%s", index, format))
+	os.Remove(path)
+
+	cmd := exec.Command(qemuImgPath, "create", "-f", format, path, fmt.Sprintf("%dG", sizeGB))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to create extra disk %d (%dG, %s): %w", index, sizeGB, format, err)
+	}
+
+	return path, nil
+}
+
+// resolveExtraDisks validates and creates every disk in cfg.ExtraDisks,
+// returning the resolved specs buildQEMUArgs needs.
+func resolveExtraDisks(stateDir string, disks []QEMUExtraDisk) ([]qemuExtraDiskSpec, error) {
+	specs := make([]qemuExtraDiskSpec, 0, len(disks))
+	for i, d := range disks {
+		if d.SizeGB <= 0 {
+			return nil, fmt.Errorf("runtime.qemu extraDisks[%d]: sizeGB must be > 0 (got %d) — an extra disk has no base image to inherit a size from", i, d.SizeGB)
+		}
+
+		format := d.Format
+		if format == "" {
+			format = "qcow2"
+		} else if format != "qcow2" && format != "raw" {
+			return nil, fmt.Errorf("runtime.qemu extraDisks[%d]: format must be 'qcow2' or 'raw' (got %q)", i, d.Format)
+		}
+
+		path, err := createExtraDisk(stateDir, i, format, d.SizeGB)
+		if err != nil {
+			return nil, err
+		}
+
+		specs = append(specs, qemuExtraDiskSpec{Path: path, Format: format, Serial: d.Serial})
+	}
+
+	return specs, nil
+}
+
 // qemuImgVirtualSize returns basePath's virtual disk size in bytes (qcow2's
 // declared capacity, not the sparse file size on disk) via `qemu-img info
 // --output=json`, so createOverlayDisk can tell a genuine grow request
@@ -1092,7 +1180,7 @@ func prepareAArch64Firmware(stateDir string) ([]string, error) {
 //     toolkit has already initialized a window and event loop, which is
 //     unsafe/flaky for at least Cocoa on macOS — so the GUI path never
 //     daemonizes, it's detached the other way instead.
-func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, firmwareArgs []string, overlayPath, seedPath string, sshPort int, display bool, pidfilePath, consolePath string) []string {
+func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, firmwareArgs []string, overlayPath, seedPath string, extraDisks []qemuExtraDiskSpec, sshPort int, display bool, pidfilePath, consolePath string) []string {
 	args := []string{
 		"-name", processName,
 		"-machine", machineType,
@@ -1105,6 +1193,23 @@ func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, f
 	args = append(args,
 		"-drive", "file="+overlayPath+",if=virtio,format=qcow2",
 		"-drive", "file="+seedPath+",if=virtio,format=raw,readonly=on",
+	)
+	// Unlike the main/seed disks above, extra disks are wired up as a
+	// separate -drive (if=none, so qemu doesn't auto-attach a device for it)
+	// plus an explicit -device virtio-blk-pci: "serial" isn't a block-format
+	// option -drive's combined if=virtio shorthand accepts (qemu rejects it
+	// with "Block format 'qcow2' does not support the option 'serial'"), it's
+	// a property of the virtio-blk device itself.
+	for i, d := range extraDisks {
+		driveID := fmt.Sprintf("extradisk%d", i)
+		args = append(args, "-drive", fmt.Sprintf("file=%s,if=none,id=%s,format=%s", d.Path, driveID, d.Format))
+		deviceArg := "virtio-blk-pci,drive=" + driveID
+		if d.Serial != "" {
+			deviceArg += ",serial=" + d.Serial
+		}
+		args = append(args, "-device", deviceArg)
+	}
+	args = append(args,
 		"-netdev", fmt.Sprintf("user,id=net0,hostfwd=tcp:127.0.0.1:%d-:22", sshPort),
 		"-device", "virtio-net-pci,netdev=net0",
 		"-serial", "file:"+consolePath,
@@ -1164,6 +1269,11 @@ func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, er
 		return nil, err
 	}
 
+	extraDisks, err := resolveExtraDisks(stateDir, cfg.ExtraDisks)
+	if err != nil {
+		return nil, err
+	}
+
 	privKeyPath, pubKey, err := generateEphemeralSSHKey(stateDir)
 	if err != nil {
 		return nil, err
@@ -1218,7 +1328,7 @@ func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, er
 	// QEMUHandle.ClusterName, the state dir) stays unprefixed.
 	processName := "astrona-" + clusterName
 
-	args := buildQEMUArgs(processName, machineType, accel, cpus, memoryMB, firmwareArgs, overlayPath, seedPath, sshPort, cfg.Display, pidfilePath, consolePath)
+	args := buildQEMUArgs(processName, machineType, accel, cpus, memoryMB, firmwareArgs, overlayPath, seedPath, extraDisks, sshPort, cfg.Display, pidfilePath, consolePath)
 
 	fmt.Printf("Launching qemu VM '%s' (arch=%s accel=%s ssh-port=%d display=%v)...\n", clusterName, arch, accel, sshPort, cfg.Display)
 
