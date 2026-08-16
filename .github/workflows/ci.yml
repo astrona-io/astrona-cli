@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./...
+
+  e2e:
+    name: E2E (kind runtime)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Build astrona
+        run: go build -o astrona .
+
+      - name: Install kubectl
+        run: |
+          version="$(curl -L -s https://dl.k8s.io/release/stable.txt)"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+      - name: Install kind
+        run: go install sigs.k8s.io/kind@v0.32.0
+
+      - name: astrona check
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          ./astrona check
+
+      # Docker is already available on GitHub-hosted ubuntu-latest runners,
+      # which is all the kind runtime needs — no nested virtualization
+      # required. The qemu runtime is intentionally not exercised here:
+      # GitHub-hosted runners have no /dev/kvm, so a qemu-backed lab would
+      # fall back to slow, flaky software emulation instead of a real e2e
+      # signal.
+      - name: astrona test (k8s-basics-01)
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          ./astrona test -c examples/k8s-basics-01 --junit-xml=junit-k8s-basics-01.xml
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-junit-report
+          path: junit-k8s-basics-01.xml
