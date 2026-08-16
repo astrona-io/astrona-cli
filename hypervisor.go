@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,8 +26,12 @@ import (
 // technical necessity: a VM base image is a full bootable OS, so booting one
 // unverified means trusting whatever the source currently serves with no
 // protection against it changing later (registries/URLs are mutable). If
-// you skip it, acquireBaseImage still warns on every run and disables
-// caching for that image, rather than doing either silently.
+// you skip it, acquireBaseImage still warns on every run, but does cache the
+// image (keyed by source, not content) — a cheap best-effort freshness check
+// (HTTP ETag/Last-Modified for "url", the OCI manifest digest for "oci")
+// decides whether to reuse the cached copy or re-fetch, and a failed
+// freshness check (e.g. offline) falls back to the cached copy rather than
+// erroring, with a warning either way. See unverifiedCacheHit.
 type QEMUImageSource struct {
 	Type string `yaml:"type"` // "file", "url", or "oci" (pulled via `oras pull`, e.g. a ghcr.io package)
 	// Source and File may each contain the literal placeholder "{ARCH}",
@@ -360,11 +366,11 @@ func verifyChecksum(path, expectedHex string) error {
 // an unverified one trusts whatever the source currently serves, with no
 // protection against it changing later). An unset checksum prints a
 // `[WARN]` every time rather than silently booting an unverified image with
-// no trace, and disables caching for that pull — there's no safe
-// content-address to cache by without a checksum to have verified against,
-// so every run re-fetches. Caching is available as an incentive to set one,
-// not a way to make the unverified path faster. Setting a checksum still
-// gets exactly the same enforcement as before, cached or not.
+// no trace. It's still cached — see unverifiedCacheHit — just keyed by
+// source and kept fresh by a cheap online check instead of by content
+// address, since there's no checksum to address by. Setting a checksum
+// still gets exactly the same enforcement as before, cached the same way as
+// always (content-addressed, re-verified on every hit).
 func acquireBaseImage(img QEMUImageSource, baseDir, stateDir, hostArch string) (string, func(), error) {
 	noopCleanup := func() {}
 
@@ -378,6 +384,8 @@ func acquireBaseImage(img QEMUImageSource, baseDir, stateDir, hostArch string) (
 	}
 
 	verify := checksum != ""
+	sourceType := strings.ToLower(img.Type)
+	networkSourced := sourceType == "url" || sourceType == "oci"
 
 	var algo, expectedHex string
 	if verify {
@@ -385,19 +393,32 @@ func acquireBaseImage(img QEMUImageSource, baseDir, stateDir, hostArch string) (
 		if err != nil {
 			return "", noopCleanup, err
 		}
-	} else {
-		fmt.Printf("[WARN] qemu image '%s' has no checksum set — booting it unverified and not caching it. Set image.checksum or image.checksums to pin, verify, and cache it.\n", source)
+	} else if networkSourced {
+		fmt.Printf("[WARN] qemu image '%s' has no checksum set — booting it unverified. Set image.checksum or image.checksums to pin and verify it. Reusing/refreshing the local cache by best-effort online check instead (see `astrona images list`).\n", source)
 	}
 
-	sourceType := strings.ToLower(img.Type)
-	cacheable := verify && (sourceType == "url" || sourceType == "oci")
-
-	if cacheable {
+	if verify && networkSourced {
 		if cachePath, ok, err := cacheHit(source, algo, expectedHex); err != nil {
 			return "", noopCleanup, err
 		} else if ok {
 			fmt.Printf("Using cached qemu base image (%s:%s)\n", algo, expectedHex[:12])
 			return cachePath, noopCleanup, nil
+		}
+	}
+
+	// unverifiedMeta, when non-nil, means "fetch (or re-fetch) and cache
+	// under these paths" — a nil hitPath alongside it means there was
+	// nothing usable cached yet; a non-empty hitPath alongside it means
+	// there was a cached copy but the freshness check says it's stale.
+	// unverifiedMeta nil with hitPath set means the cached copy is either
+	// still fresh or unreachable-but-present — either way, boot it as-is.
+	var unverifiedMeta *imageCacheMeta
+	var unverifiedDataPath, unverifiedMetaPath string
+	if !verify && networkSourced {
+		var hitPath string
+		hitPath, unverifiedDataPath, unverifiedMetaPath, unverifiedMeta = unverifiedCacheHit(source, sourceType)
+		if unverifiedMeta == nil {
+			return hitPath, noopCleanup, nil
 		}
 	}
 
@@ -439,7 +460,7 @@ func acquireBaseImage(img QEMUImageSource, baseDir, stateDir, hostArch string) (
 		}
 	}
 
-	if cacheable {
+	if verify && networkSourced {
 		cachePath, err := cachedImagePath(source, algo, expectedHex)
 		if err != nil {
 			fmt.Printf("[WARN] could not resolve image cache dir, not caching this run: %s\n", err)
@@ -449,8 +470,27 @@ func acquireBaseImage(img QEMUImageSource, baseDir, stateDir, hostArch string) (
 			fmt.Printf("[WARN] failed to cache downloaded qemu base image, will re-fetch next run: %s\n", err)
 			return path, cleanup, nil
 		}
+		finalizeImageCacheMeta(cachePath, cachePath+".meta.json", &imageCacheMeta{
+			Source:   source,
+			Type:     sourceType,
+			Verified: true,
+			SHA256:   expectedHex,
+		})
 		cleanup() // now duplicated in the cache — the fetched temp copy is redundant
 		return cachePath, noopCleanup, nil
+	}
+
+	if !verify && networkSourced && unverifiedMeta != nil {
+		if err := persistToCache(path, unverifiedDataPath); err != nil {
+			fmt.Printf("[WARN] failed to cache qemu base image, will re-fetch/re-check next run: %s\n", err)
+			return path, cleanup, nil
+		}
+		if sum, err := sha256File(unverifiedDataPath); err == nil {
+			unverifiedMeta.SHA256 = sum
+		}
+		finalizeImageCacheMeta(unverifiedDataPath, unverifiedMetaPath, unverifiedMeta)
+		cleanup()
+		return unverifiedDataPath, noopCleanup, nil
 	}
 
 	return path, cleanup, nil
@@ -582,6 +622,287 @@ func persistToCache(srcPath, cachePath string) error {
 	}
 
 	return nil
+}
+
+// imageCacheMeta is the sidecar (<entry>.meta.json, next to <entry>.qcow2 in
+// imageCacheDir) astrona writes for every cache entry it creates — both the
+// long-standing checksum-verified kind (Verified: true) and the
+// source-keyed unverified kind this struct was added for (Verified: false).
+// It exists purely for `astrona images list` and, for unverified entries,
+// to remember what to compare a freshness check's result against next time
+// (ETag/LastModified for "url", the manifest Digest for "oci"). It is never
+// itself trusted for verification — verifyChecksum always re-reads the
+// actual cached file for that; SHA256 here is informational only for the
+// unverified path (still checksum-derived and enforced on the verified
+// path, same as always).
+type imageCacheMeta struct {
+	Source       string    `json:"source"`
+	Type         string    `json:"type"`
+	Verified     bool      `json:"verified"`
+	ETag         string    `json:"etag,omitempty"`
+	LastModified string    `json:"lastModified,omitempty"`
+	Digest       string    `json:"digest,omitempty"`
+	SHA256       string    `json:"sha256,omitempty"`
+	SizeBytes    int64     `json:"sizeBytes,omitempty"`
+	CachedAt     time.Time `json:"cachedAt"`
+}
+
+// loadImageCacheMeta reads a cache entry's sidecar metadata file. A missing
+// file is not an error (nil, nil) — a cache entry can predate this field, or
+// its own metadata write can have failed on a previous run without that
+// being fatal to the cache entry itself (see finalizeImageCacheMeta).
+func loadImageCacheMeta(metaPath string) (*imageCacheMeta, error) {
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to read image cache metadata '%s': %w", metaPath, err)
+	}
+
+	var m imageCacheMeta
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, fmt.Errorf("failed to parse image cache metadata '%s': %w", metaPath, err)
+	}
+	return &m, nil
+}
+
+// saveImageCacheMeta writes meta to metaPath via the same write-to-temp-then-
+// rename pattern persistToCache uses for the image data itself, so a
+// concurrent astrona invocation never observes a half-written metadata file.
+func saveImageCacheMeta(metaPath string, meta *imageCacheMeta) error {
+	data, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to encode image cache metadata: %w", err)
+	}
+
+	tmp := metaPath + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
+		return fmt.Errorf("failed to write image cache metadata: %w", err)
+	}
+	if err := os.Rename(tmp, metaPath); err != nil {
+		return fmt.Errorf("failed to move image cache metadata into place: %w", err)
+	}
+	return nil
+}
+
+// finalizeImageCacheMeta fills in the fields only known once dataPath exists
+// on disk (its size, and "now" as the cache time) and saves meta to
+// metaPath. Best-effort by design, matching persistToCache's own
+// error-handling: a metadata write failure only degrades `astrona images
+// list`'s output for this entry, it never invalidates the cached image data
+// itself, so it's logged and swallowed rather than propagated.
+func finalizeImageCacheMeta(dataPath, metaPath string, meta *imageCacheMeta) {
+	if info, err := os.Stat(dataPath); err == nil {
+		meta.SizeBytes = info.Size()
+	}
+	meta.CachedAt = time.Now()
+
+	if err := saveImageCacheMeta(metaPath, meta); err != nil {
+		fmt.Printf("[WARN] failed to save image cache metadata: %s\n", err)
+	}
+}
+
+// sha256File hashes path's contents, returning the lowercase hex digest.
+// Used to record an unverified cache entry's own content hash for display
+// (imageCacheMeta.SHA256) — informational only, never re-checked the way a
+// verified entry's checksum is by cacheHit.
+func sha256File(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to open '%s' to hash it: %w", path, err)
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", fmt.Errorf("failed to read '%s' to hash it: %w", path, err)
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// unverifiedCacheKey derives a short, stable, content-independent id from
+// resolvedSource alone — there's no checksum to content-address this cache
+// entry by (that's the whole reason it exists: acquireBaseImage's
+// unverified path), so identity is the source string itself.
+func unverifiedCacheKey(resolvedSource string) string {
+	sum := sha256.Sum256([]byte(resolvedSource))
+	return hex.EncodeToString(sum[:])[:12]
+}
+
+// unverifiedCachePaths returns where a source-keyed (checksum-less) cache
+// entry for resolvedSource would live: its image data and its metadata
+// sidecar. Suffixed "-unverified-" so these entries are visually distinct
+// from checksum-keyed ones (cachedImagePath) when browsing the cache dir by
+// hand, and so the two naming schemes can never collide.
+func unverifiedCachePaths(resolvedSource string) (dataPath, metaPath string, err error) {
+	dir, err := imageCacheDir()
+	if err != nil {
+		return "", "", err
+	}
+
+	base := fmt.Sprintf("%s-unverified-%s", cacheSlug(resolvedSource), unverifiedCacheKey(resolvedSource))
+	dataPath = filepath.Join(dir, base+".qcow2")
+	metaPath = filepath.Join(dir, base+".meta.json")
+	return dataPath, metaPath, nil
+}
+
+// freshnessCheckTimeout bounds how long acquireBaseImage waits on a
+// best-effort online freshness check (an HTTPS HEAD for "url", `oras
+// manifest fetch --descriptor` for "oci") before treating the host as
+// offline and falling back to whatever's cached — short on purpose, since
+// an unreachable host should fail fast into that fallback rather than make
+// every `astrona run` hang for the full download timeout just to find out.
+const freshnessCheckTimeout = 15 * time.Second
+
+// checkURLFreshness performs a lightweight HTTPS HEAD request — never a GET
+// — to compare against a cached entry's stored ETag/Last-Modified without
+// downloading the (potentially multi-GB) body. fresh is only ever true when
+// prior is non-nil and at least one of ETag/Last-Modified matches what the
+// server reports now; a source with neither header (some plain static file
+// servers) can never report fresh — every run treats it as changed and
+// re-downloads, which is correct given astrona has no other signal to trust.
+func checkURLFreshness(source string, prior *imageCacheMeta) (fresh bool, etag, lastModified string, err error) {
+	if !strings.HasPrefix(source, "https://") {
+		return false, "", "", fmt.Errorf("refusing to check non-https URL '%s': only https:// sources are allowed", source)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), freshnessCheckTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, source, nil)
+	if err != nil {
+		return false, "", "", fmt.Errorf("failed to build freshness check request for '%s': %w", source, err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false, "", "", fmt.Errorf("failed to reach '%s' to check for updates: %w", source, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, "", "", fmt.Errorf("server returned status checking '%s': %s", source, resp.Status)
+	}
+
+	etag = resp.Header.Get("ETag")
+	lastModified = resp.Header.Get("Last-Modified")
+
+	if prior != nil {
+		if etag != "" && prior.ETag != "" {
+			fresh = etag == prior.ETag
+		} else if lastModified != "" && prior.LastModified != "" {
+			fresh = lastModified == prior.LastModified
+		}
+	}
+
+	return fresh, etag, lastModified, nil
+}
+
+// orasDescriptor is the subset of `oras manifest fetch --descriptor`'s JSON
+// output checkOCIFreshness needs. That command fetches only the manifest's
+// own descriptor (a few hundred bytes: digest, size, mediaType) rather than
+// the manifest body or any blob/layer — the cheapest way to learn "has this
+// ref moved" ORAS offers, deliberately not a full `oras pull`.
+type orasDescriptor struct {
+	Digest string `json:"digest"`
+}
+
+// checkOCIFreshness resolves ref's current manifest digest via `oras
+// manifest fetch --descriptor` and compares it against prior's stored
+// digest. fresh is only true when prior is non-nil and its digest matches.
+func checkOCIFreshness(ref string, prior *imageCacheMeta) (fresh bool, digest string, err error) {
+	orasPath, lookErr := exec.LookPath("oras")
+	if lookErr != nil {
+		return false, "", fmt.Errorf("oras not found in PATH (required to check qemu image type 'oci' for updates): %w", lookErr)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), freshnessCheckTimeout)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, orasPath, "manifest", "fetch", "--descriptor", ref).Output()
+	if err != nil {
+		return false, "", fmt.Errorf("failed to resolve manifest digest for '%s': %w", ref, err)
+	}
+
+	var desc orasDescriptor
+	if err := json.Unmarshal(out, &desc); err != nil {
+		return false, "", fmt.Errorf("failed to parse oras manifest descriptor for '%s': %w", ref, err)
+	}
+	if desc.Digest == "" {
+		return false, "", fmt.Errorf("oras returned no digest for '%s'", ref)
+	}
+
+	if prior != nil {
+		fresh = desc.Digest == prior.Digest
+	}
+
+	return fresh, desc.Digest, nil
+}
+
+// unverifiedCacheHit is acquireBaseImage's decision point for a
+// checksum-less "url"/"oci" image source: reuse the cache, or fetch (and
+// cache) again. It never errors — a freshness check failure (offline,
+// timeout, source briefly unreachable) is exactly the case this exists to
+// tolerate, not a reason to abort `astrona run`.
+//
+// Returns either:
+//   - a non-empty hitPath and a nil meta: boot hitPath as-is (fresh cache
+//     hit, or a stale/unreachable check with a cached copy to fall back on).
+//   - an empty hitPath and a non-nil meta: nothing usable is cached (or the
+//     cache is confirmed stale); acquireBaseImage should fetch normally and
+//     then persist the result at dataPath/metaPath using the returned meta
+//     (pre-filled with whatever ETag/Last-Modified/Digest this check learned,
+//     so that gets recorded even though this run still had to fetch).
+func unverifiedCacheHit(source, sourceType string) (hitPath, dataPath, metaPath string, meta *imageCacheMeta) {
+	dataPath, metaPath, err := unverifiedCachePaths(source)
+	if err != nil {
+		fmt.Printf("[WARN] could not resolve image cache dir, not caching this run: %s\n", err)
+		return "", "", "", nil
+	}
+
+	_, statErr := os.Stat(dataPath)
+	haveCache := statErr == nil
+
+	prior, loadErr := loadImageCacheMeta(metaPath)
+	if loadErr != nil {
+		fmt.Printf("[WARN] could not read image cache metadata, treating as uncached: %s\n", loadErr)
+		prior = nil
+	}
+
+	var fresh bool
+	var etag, lastModified, digest string
+	var checkErr error
+	if sourceType == "url" {
+		fresh, etag, lastModified, checkErr = checkURLFreshness(source, prior)
+	} else {
+		fresh, digest, checkErr = checkOCIFreshness(source, prior)
+	}
+
+	next := &imageCacheMeta{
+		Source:       source,
+		Type:         sourceType,
+		ETag:         etag,
+		LastModified: lastModified,
+		Digest:       digest,
+	}
+
+	switch {
+	case checkErr != nil && haveCache:
+		fmt.Printf("[WARN] could not check '%s' for updates (%s) — using cached qemu base image: %s\n", source, checkErr, dataPath)
+		return dataPath, "", "", nil
+	case checkErr != nil:
+		fmt.Printf("[WARN] could not check '%s' for updates (%s), no local cache — fetching now\n", source, checkErr)
+		return "", dataPath, metaPath, next
+	case fresh && haveCache:
+		fmt.Printf("Using cached qemu base image (unverified, up to date as of last check): %s\n", dataPath)
+		return dataPath, "", "", nil
+	default:
+		if haveCache {
+			fmt.Printf("Newer qemu base image available at '%s' — downloading and refreshing the cache\n", source)
+		}
+		return "", dataPath, metaPath, next
+	}
 }
 
 // pullOCIImage pulls a qcow2 base image published as an OCI artifact (e.g. a
