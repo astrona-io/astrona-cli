@@ -73,29 +73,29 @@ func destroyByDiscovery() error {
 	}
 	rows := append(qemuRows, collectKindRows()...)
 
-	var real, test []labRow
+	var realLabs, test []labRow
 	for _, r := range rows {
 		if strings.HasPrefix(r.name, "astro-test-") {
 			test = append(test, r)
 		} else {
-			real = append(real, r)
+			realLabs = append(realLabs, r)
 		}
 	}
 
-	if len(real) > 1 {
+	if len(realLabs) > 1 {
 		var names []string
-		for _, r := range real {
+		for _, r := range realLabs {
 			names = append(names, fmt.Sprintf("  %s (%s)", r.name, r.runtime))
 		}
 		return fmt.Errorf("no lab config found and multiple astrona labs are running — specify which to destroy with -c/--file/--git:\n%s", strings.Join(names, "\n"))
 	}
 
-	if len(real) == 0 && len(test) == 0 {
+	if len(realLabs) == 0 && len(test) == 0 {
 		fmt.Printf("No astrona labs currently running — nothing to destroy.\n")
 		return nil
 	}
 
-	for _, r := range real {
+	for _, r := range realLabs {
 		fmt.Printf("No lab config found — auto-detected the only running astrona lab: '%s' (%s runtime). Destroying it (teardown scripts skipped, config unknown)...\n", r.name, r.runtime)
 		if err := DestroyEnvironment(r.name, RuntimeConfig{Type: r.runtime}); err != nil {
 			return fmt.Errorf("failed to destroy '%s': %w", r.name, err)
