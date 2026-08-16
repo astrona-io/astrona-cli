@@ -1,0 +1,94 @@
+version: "2"
+run:
+  timeout: 5m
+  tests: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  # "none" instead of the (default) "standard" preset — otherwise
+  # golangci-lint silently re-adds errcheck et al. regardless of what's
+  # listed below. Everything this project wants linted is explicit here.
+  default: none
+  enable:
+    # correctness
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - errorlint
+    - copyloopvar
+    # style/naming — cheap, high-signal, no opinion on formatting
+    - misspell
+    - predeclared
+    - errname
+    - asciicheck # non-ASCII identifiers (trojan-source class attacks)
+    - bidichk    # dangerous bidirectional Unicode (CVE-2021-42574 class)
+    # security — this CLI shells out to external binaries and touches the
+    # filesystem/network on every run (see CLAUDE.md's security-sensitive
+    # areas), so this is the linter category that matters most here
+    - gosec
+    - nolintlint
+
+  # Deliberately NOT enabled, with default: none above meaning they simply
+  # never run (nothing to "disable"): wsl_v5/funlen/gocyclo/nestif/dupl/
+  # goconst are blanket style opinions that fight this codebase's existing,
+  # already-agreed conventions (flat, longer functions; some repetition
+  # across cmd_*.go is clearer than forcing DRY — see CLAUDE.md) rather than
+  # catch bugs. paralleltest doesn't fit a single-user local dev tool's
+  # tests. noctx would mean threading context.Context everywhere for a CLI
+  # whose HTTP calls already carry a request-level http.Client{Timeout:...}.
+  # errcheck is excluded too: this project's established cleanup pattern
+  # (deferred best-effort Close/Remove on a temp resource) is to not check
+  # that error — see the "Cleanup" convention in CLAUDE.md. nilerr and
+  # durationcheck are both real linters but false-positive on specific
+  # existing, intentional code here (a deliberate cache-miss-on-any-stat-
+  # error, and the stdlib's own canonical h/m/s duration-breakdown idiom) —
+  # revisit per-linter if that code changes rather than blanket-enabling.
+
+  settings:
+    gosec:
+      excludes:
+        # G204 (subprocess launched with variable): this is exactly the
+        # pattern CLAUDE.md calls out as the safe one — exec.Command with an
+        # argument slice, never a shell string. gosec can't tell that apart
+        # from an unsafe `sh -c` call, so it fires on every legitimate
+        # os/exec call this tool makes to kind/docker/podman/kubectl/qemu/
+        # ssh/git/oras. Reviewed and accepted — see CLAUDE.md's "Subprocess
+        # execution" section.
+        - G204
+        # G304 (file inclusion via variable): every local script/manifest/
+        # config path here is resolved through joinWithinBaseDir first
+        # (path-traversal guard) — the variable gosec is warning about is
+        # already validated by the time it reaches os.Open/os.ReadFile.
+        - G304
+        # G104 (unhandled error): this project's established pattern for
+        # best-effort cleanup (deferred Close/Remove/RemoveAll on a temp
+        # resource) is to not check the error — see the "Cleanup" convention
+        # in CLAUDE.md. Not silent failure of anything that matters.
+        - G104
+        # G301/G302/G306 (file/dir permission bits): the specific 0755/0644
+        # cases gosec flags here are an intentionally-executable downloaded
+        # binary and a human-readable JUnit report, not sensitive data.
+        - G301
+        - G302
+        - G306
+        # G107 (HTTP request with variable URL): the one place this fires
+        # (cmd_upgrade.go) builds the URL from a fixed, hardcoded
+        # "https://github.com/astrona-io/..." template with only the
+        # release tag/OS/arch substituted — not an arbitrary host.
+        - G107
+        # G703 (path traversal via taint analysis): fires on
+        # ASTRONA_QEMU_AARCH64_FIRMWARE, a local env var the user sets
+        # themselves on their own machine to point at their own file — same
+        # trust level as PATH, not a cross-boundary traversal.
+        - G703
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+
+formatters:
+  enable:
+    - gofmt

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -261,7 +262,8 @@ func (p *Proctor) runScript(script *ResourceItem, executor ScriptExecutor) (bool
 	defer cleanup()
 
 	if err := executor.RunScript(scriptPath); err != nil {
-		if _, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to run validation script: %w", err)
