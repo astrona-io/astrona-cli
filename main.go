@@ -112,6 +112,7 @@ func main() {
 	rootCmd.AddCommand(newTestCmd(flags))
 	rootCmd.AddCommand(newCheckCmd())
 	rootCmd.AddCommand(newListCmd())
+	rootCmd.AddCommand(newImagesCmd())
 	rootCmd.AddCommand(newSSHCmd())
 	rootCmd.AddCommand(newUpgradeCmd())
 
