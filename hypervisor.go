@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -107,6 +108,66 @@ type qemuExtraDiskSpec struct {
 	Serial string
 }
 
+// QEMUNetworkDef declares one named virtual network segment at the
+// runtime.networks level — the CIDR range every VM joining it (via its own
+// runtime.qemu[].networks entry, QEMUNetwork below) must fall inside.
+// Segments are declared once here rather than left to emerge purely from
+// VMs repeating a name, so a typo'd segment name or an out-of-range VM
+// `ipv4:` is a clear config error (resolveNetworkTopology) instead of
+// silently creating a second, disconnected segment or a VM guessing wrong
+// about its own subnet — and declaring the range once here, rather than on
+// every VM, is also what lets a VM's own `ipv4:` be a bare address instead
+// of repeating the /prefix. Optional at the lab level: a qemu lab with no
+// VM-to-VM networking needs no runtime.networks entry at all.
+type QEMUNetworkDef struct {
+	Name string `yaml:"name"`
+	CIDR string `yaml:"cidr"` // e.g. "10.10.1.0/24" — every VM's ipv4: on this segment must fall inside it, and it must not overlap any other declared segment's CIDR
+}
+
+// QEMUNetwork attaches one additional NIC to a VM, joining a segment already
+// declared in runtime.networks (QEMUNetworkDef) by Name. Every VM always
+// also gets one implicit NIC (net0: qemu's "user"/SLIRP backend, host-
+// forwarded for SSH) regardless of this list; Networks adds NIC1, NIC2, ...
+// on top of that one. astrona's qemu networking backend is a point-to-point
+// loopback TCP socket per segment (qemu "-netdev socket,listen=.../
+// connect=..."), not a shared multi-party segment — see
+// resolveNetworkTopology — so exactly two VMs may join any one segment. A
+// lab with three VMs where only one (a "jump host") needs to straddle two
+// segments just gives that one VM two entries with different Names — that
+// VM ends up with two extra NICs, the other two VMs with one each, and no
+// NIC at all is shared between VMs that don't list a common Name.
+type QEMUNetwork struct {
+	Name string `yaml:"name"` // must match a runtime.networks[].name
+	// IPv4 is a bare address, e.g. "10.10.1.2" — no "/prefix": the segment
+	// already declared its CIDR range once in runtime.networks, so this VM's
+	// prefix length is inherited from there rather than repeated on every
+	// VM. Required (this segment has no DHCP server, so cloud-init needs an
+	// explicit static address) and must fall inside the declared range.
+	IPv4 string `yaml:"ipv4"`
+}
+
+// qemuNetworkSpec is the resolved (validated, port/role/MAC-derived) form of
+// one VM's QEMUNetwork entry that buildQEMUArgs and buildCloudInitSeed
+// consume — see resolveNetworkTopology.
+type qemuNetworkSpec struct {
+	Name string
+	IP   string // guest-side static CIDR address — the VM's authored bare ipv4: plus the segment's declared prefix length, combined by resolveNetworkTopology
+	Port int    // shared loopback TCP port both VMs on this segment rendezvous on
+	Role string // "listen" | "connect" — see resolveNetworkTopology
+	MAC  string
+}
+
+// QEMUNetworkStatus is what a resolved qemuNetworkSpec looks like once
+// persisted into QEMUHandle — just what `astrona list`/a future `astrona
+// ssh` need to display, without the listen/connect role (an implementation
+// detail of how the NIC reaches its segment, not something a human asks
+// about).
+type QEMUNetworkStatus struct {
+	Name string
+	IP   string
+	MAC  string
+}
+
 // QEMUConfig is the qemu-specific block of a lab's runtime config.
 // QEMUConfig is what CreateQEMUVM needs to boot exactly one VM — deliberately
 // unaware of lab orchestration concepts like naming-for-humans or bootstrap/
@@ -149,6 +210,11 @@ type QEMUHandle struct {
 	KnownHosts  string
 	StateDir    string
 	StartedAt   time.Time // used by `astrona list` to report uptime
+	// Networks records the additional NICs (beyond the implicit host-only
+	// mgmt NIC above) this VM was booted with — persisted here, same as
+	// every other field, so `astrona list` can show NIC count/IPs from a
+	// separate process invocation without needing the lab's config.yaml.
+	Networks []QEMUNetworkStatus
 }
 
 const qemuSSHUser = "student"
@@ -1118,6 +1184,166 @@ func resolveExtraDisks(stateDir string, disks []QEMUExtraDisk) ([]qemuExtraDiskS
 	return specs, nil
 }
 
+// deriveNetworkPort deterministically derives the loopback TCP port a named
+// virtual network segment rendezvouses on, scoped to labName so two
+// different labs using the same segment name (e.g. both calling it
+// "server-net") never collide, and stable across the separate CreateQEMUVM
+// calls that boot each VM in a multi-VM lab (see createMultiQEMUEnvironment)
+// so the segment's two VMs agree on where to meet without any coordination
+// beyond listing the same name in their own config.
+func deriveNetworkPort(labName, networkName string) int {
+	sum := sha256.Sum256([]byte(labName + "/" + networkName))
+	return 20000 + int(binary.BigEndian.Uint16(sum[0:2]))%20000
+}
+
+// deriveMAC derives a stable, locally-administered MAC address for one NIC,
+// keyed by everything that should make it unique (lab, VM, and which NIC —
+// "mgmt" for the implicit net0, or the segment name for an additional one).
+// Deterministic so re-running the same lab produces the same addresses,
+// which is what lets buildCloudInitSeed's network-config match interfaces by
+// MAC reliably across boots. 52:54:00 is QEMU/KVM's own registered OUI
+// prefix, so a generated MAC still reads as "some qemu VM's NIC" the way
+// qemu's own auto-assigned ones do.
+func deriveMAC(labName, clusterName, nicKey string) string {
+	sum := sha256.Sum256([]byte(labName + "/" + clusterName + "/" + nicKey))
+	return fmt.Sprintf("52:54:00:%02x:%02x:%02x", sum[0], sum[1], sum[2])
+}
+
+// cidrsOverlap reports whether a and b share any address. Correct for any
+// two CIDR blocks (not just equal-sized ones): CIDR ranges are always
+// hierarchically aligned, so two of them overlap iff at least one's network
+// address falls inside the other.
+func cidrsOverlap(a, b *net.IPNet) bool {
+	return a.Contains(b.IP) || b.Contains(a.IP)
+}
+
+// resolveNetworkTopology validates a lab's runtime.networks declarations and
+// every VM's own networks: references against them, then assigns each
+// segment's two VMs a loopback TCP listen/connect role and a shared
+// rendezvous port. Returns each VM's resolved NIC specs (buildQEMUArgs/
+// buildCloudInitSeed's input), keyed by VM name — "" for a single-VM lab,
+// matching QEMUVM.Name there.
+//
+// astrona's qemu networking backend is a plain loopback TCP socket per
+// segment (qemu "-netdev socket,listen=.../connect=..."), not a shared
+// multi-party one (multicast was tried and dropped: it doesn't reliably
+// deliver on loopback on every host/OS this tool targets) — so a segment
+// must be joined by exactly two VMs. The VM that declares a segment first
+// (in the lab's own runtime.qemu order) always becomes the listener; since
+// CreateEnvironment/createMultiQEMUEnvironment launch VMs strictly in that
+// same order, one at a time, waiting for each to become SSH-ready before
+// starting the next, the listener's socket is already open — set up at qemu
+// process launch, long before its own guest OS finishes booting — by the
+// time any later VM's connector tries to reach it.
+func resolveNetworkTopology(labName string, defs []QEMUNetworkDef, vms []QEMUVM) (map[string][]qemuNetworkSpec, error) {
+	declared := make(map[string]*net.IPNet, len(defs))
+	declaredOrder := make([]string, 0, len(defs))
+
+	for i, d := range defs {
+		name := strings.TrimSpace(d.Name)
+		if name == "" {
+			return nil, fmt.Errorf("runtime.networks[%d]: name is required", i)
+		}
+		if _, exists := declared[name]; exists {
+			return nil, fmt.Errorf("runtime.networks[%d]: duplicate network name '%s'", i, name)
+		}
+		_, ipNet, err := net.ParseCIDR(d.CIDR)
+		if err != nil {
+			return nil, fmt.Errorf("runtime.networks[%d] ('%s'): cidr '%s' is not a valid CIDR range (e.g. \"10.10.1.0/24\"): %w", i, name, d.CIDR, err)
+		}
+		for _, other := range declaredOrder {
+			if cidrsOverlap(ipNet, declared[other]) {
+				return nil, fmt.Errorf("runtime.networks: '%s' (%s) overlaps '%s' (%s)", name, ipNet, other, declared[other])
+			}
+		}
+		declared[name] = ipNet
+		declaredOrder = append(declaredOrder, name)
+	}
+
+	if len(declaredOrder) > 0 {
+		summary := make([]string, len(declaredOrder))
+		for i, name := range declaredOrder {
+			summary[i] = fmt.Sprintf("%s=%s", name, declared[name])
+		}
+		fmt.Printf("Networks: %s\n", strings.Join(summary, ", "))
+	}
+
+	segOrder := make([]string, 0)
+	segMembers := make(map[string][]string) // segment name -> VM names, first-seen order
+
+	for _, vm := range vms {
+		seen := make(map[string]bool, len(vm.Networks))
+		for i, n := range vm.Networks {
+			name := strings.TrimSpace(n.Name)
+			if name == "" {
+				return nil, fmt.Errorf("runtime.qemu vm '%s' networks[%d]: name is required", vm.Name, i)
+			}
+			if seen[name] {
+				return nil, fmt.Errorf("runtime.qemu vm '%s' networks[%d]: duplicate network name '%s' on this VM", vm.Name, i, name)
+			}
+			seen[name] = true
+
+			ipNet, ok := declared[name]
+			if !ok {
+				return nil, fmt.Errorf("runtime.qemu vm '%s' networks[%d]: network '%s' is not declared in runtime.networks (declared: %v) — add it there first, with the CIDR range this VM's ipv4: should fall inside", vm.Name, i, name, declaredOrder)
+			}
+
+			ipv4 := strings.TrimSpace(n.IPv4)
+			if ipv4 == "" {
+				return nil, fmt.Errorf("runtime.qemu vm '%s' networks[%d] ('%s'): ipv4 is required — this segment has no DHCP server", vm.Name, i, name)
+			}
+			vmIP := net.ParseIP(ipv4)
+			if vmIP == nil || vmIP.To4() == nil {
+				return nil, fmt.Errorf("runtime.qemu vm '%s' networks[%d] ('%s'): ipv4 '%s' must be a plain IPv4 address (e.g. \"10.10.1.2\") — no /prefix, that's inherited from runtime.networks['%s']'s declared cidr", vm.Name, i, name, n.IPv4, name)
+			}
+			if !ipNet.Contains(vmIP) {
+				return nil, fmt.Errorf("runtime.qemu vm '%s' networks[%d] ('%s'): ipv4 '%s' is not inside runtime.networks['%s']'s declared range %s", vm.Name, i, name, ipv4, name, ipNet)
+			}
+
+			if _, ok := segMembers[name]; !ok {
+				segOrder = append(segOrder, name)
+			}
+			segMembers[name] = append(segMembers[name], vm.Name)
+		}
+	}
+
+	segPort := make(map[string]int, len(segOrder))
+	segListener := make(map[string]string, len(segOrder))
+	for _, name := range segOrder {
+		members := segMembers[name]
+		if len(members) != 2 {
+			return nil, fmt.Errorf("runtime.networks '%s' is joined by %d VM(s) (%v) — astrona's qemu networking backend supports exactly 2 VMs per segment (point-to-point)", name, len(members), members)
+		}
+		segPort[name] = deriveNetworkPort(labName, name)
+		segListener[name] = members[0]
+	}
+
+	result := make(map[string][]qemuNetworkSpec, len(vms))
+	for _, vm := range vms {
+		for _, n := range vm.Networks {
+			name := strings.TrimSpace(n.Name)
+			role := "connect"
+			if segListener[name] == vm.Name {
+				role = "listen"
+			}
+			// The declared segment's prefix length, not anything authored on
+			// this VM, is what turns its bare ipv4: back into the CIDR form
+			// cloud-init's network-config (and QEMUHandle.Networks, for
+			// `astrona list`) actually need.
+			ones, _ := declared[name].Mask.Size()
+			result[vm.Name] = append(result[vm.Name], qemuNetworkSpec{
+				Name: name,
+				IP:   fmt.Sprintf("%s/%d", strings.TrimSpace(n.IPv4), ones),
+				Port: segPort[name],
+				Role: role,
+				MAC:  deriveMAC(labName, vm.Name, name),
+			})
+		}
+	}
+
+	return result, nil
+}
+
 // qemuImgVirtualSize returns basePath's virtual disk size in bytes (qcow2's
 // declared capacity, not the sparse file size on disk) via `qemu-img info
 // --output=json`, so createOverlayDisk can tell a genuine grow request
@@ -1202,11 +1428,16 @@ func cloudInitHostname(clusterName string) string {
 }
 
 // buildCloudInitSeed writes a NoCloud user-data/meta-data pair — creating an
-// SSH user with pubKey as its credential (and optionally password auth enabled) —
-// into a dedicated subdirectory (never the whole stateDir, which also holds
-// the private key and disk images) and packs just those two files into a
-// "cidata"-labeled ISO9660 image via whichever ISO tool is available.
-func buildCloudInitSeed(stateDir, clusterName, pubKey string, passwordAuth bool) (string, error) {
+// SSH user with pubKey as its credential (and optionally password auth
+// enabled) — plus, when this VM has any extra NICs, a network-config file
+// giving each one (mgmt included) a fixed address via MAC match: mgmt stays
+// on the existing DHCP-via-SLIRP behavior, every entry in networks gets its
+// authored static IP, since the multicast segments they ride have no DHCP
+// server of their own. All written into a dedicated subdirectory (never the
+// whole stateDir, which also holds the private key and disk images) and
+// packed into a "cidata"-labeled ISO9660 image via whichever ISO tool is
+// available.
+func buildCloudInitSeed(stateDir, clusterName, pubKey string, passwordAuth bool, mgmtMAC string, networks []qemuNetworkSpec) (string, error) {
 	seedSrcDir := filepath.Join(stateDir, "cidata-src")
 	if err := os.MkdirAll(seedSrcDir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create cloud-init seed source dir: %w", err)
@@ -1245,10 +1476,30 @@ disable_root: true
 		return "", fmt.Errorf("failed to write cloud-init meta-data: %w", err)
 	}
 
+	files := []string{userDataPath, metaDataPath}
+
+	// Only written when there's at least one extra NIC — with none, leaving
+	// network-config out entirely preserves cloud-init's existing default
+	// (DHCP on every interface, unchanged from before Networks existed).
+	if len(networks) > 0 {
+		var netCfg strings.Builder
+		netCfg.WriteString("version: 2\nethernets:\n")
+		fmt.Fprintf(&netCfg, "  mgmt:\n    match:\n      macaddress: \"%s\"\n    dhcp4: true\n", mgmtMAC)
+		for i, n := range networks {
+			fmt.Fprintf(&netCfg, "  net%d:\n    match:\n      macaddress: \"%s\"\n    addresses: [\"%s\"]\n", i+1, n.MAC, n.IP)
+		}
+
+		networkConfigPath := filepath.Join(seedSrcDir, "network-config")
+		if err := os.WriteFile(networkConfigPath, []byte(netCfg.String()), 0600); err != nil {
+			return "", fmt.Errorf("failed to write cloud-init network-config: %w", err)
+		}
+		files = append(files, networkConfigPath)
+	}
+
 	isoPath := filepath.Join(stateDir, "seed.iso")
 	os.Remove(isoPath)
 
-	tool, args, err := isoBuildCommand(seedSrcDir, userDataPath, metaDataPath, isoPath)
+	tool, args, err := isoBuildCommand(seedSrcDir, files, isoPath)
 	if err != nil {
 		return "", err
 	}
@@ -1266,17 +1517,19 @@ disable_root: true
 // isoBuildCommand picks the first available ISO9660 tool. hdiutil (macOS
 // builtin) takes a source directory rather than an explicit file list, which
 // is exactly why buildCloudInitSeed uses a dedicated seedSrcDir containing
-// only user-data/meta-data — pointing hdiutil at the whole stateDir would
-// bundle the SSH private key and disk images into the seed ISO.
-func isoBuildCommand(seedSrcDir, userDataPath, metaDataPath, isoPath string) (string, []string, error) {
+// only user-data/meta-data(/network-config) — pointing hdiutil at the whole
+// stateDir would bundle the SSH private key and disk images into the seed
+// ISO. files is user-data and meta-data, plus network-config when this VM
+// has any extra NICs (buildCloudInitSeed decides that, not this function).
+func isoBuildCommand(seedSrcDir string, files []string, isoPath string) (string, []string, error) {
 	if path, err := exec.LookPath("mkisofs"); err == nil {
-		return path, []string{"-output", isoPath, "-volid", "CIDATA", "-joliet", "-rock", userDataPath, metaDataPath}, nil
+		return path, append([]string{"-output", isoPath, "-volid", "CIDATA", "-joliet", "-rock"}, files...), nil
 	}
 	if path, err := exec.LookPath("genisoimage"); err == nil {
-		return path, []string{"-output", isoPath, "-volid", "CIDATA", "-joliet", "-rock", userDataPath, metaDataPath}, nil
+		return path, append([]string{"-output", isoPath, "-volid", "CIDATA", "-joliet", "-rock"}, files...), nil
 	}
 	if path, err := exec.LookPath("xorriso"); err == nil {
-		return path, []string{"-as", "genisoimage", "-output", isoPath, "-volid", "CIDATA", "-joliet", "-rock", userDataPath, metaDataPath}, nil
+		return path, append([]string{"-as", "genisoimage", "-output", isoPath, "-volid", "CIDATA", "-joliet", "-rock"}, files...), nil
 	}
 	if path, err := exec.LookPath("hdiutil"); err == nil {
 		return path, []string{"makehybrid", "-o", isoPath, "-iso", "-joliet", "-default-volume-name", "CIDATA", seedSrcDir}, nil
@@ -1487,8 +1740,9 @@ func prepareAArch64Firmware(stateDir string) ([]string, error) {
 }
 
 // buildQEMUArgs assembles the qemu-system-* command-line flags from an
-// already-prepared VM: overlay disk, cloud-init seed, ssh port forward, and
-// (for aarch64) the UEFI pflash drives from prepareAArch64Firmware.
+// already-prepared VM: overlay disk, cloud-init seed, ssh port forward, any
+// extra NICs (networks), and (for aarch64) the UEFI pflash drives from
+// prepareAArch64Firmware.
 //
 // display picks between two different launch shapes, not just a flag:
 //   - headless (display=false): "-display none -daemonize -pidfile ...".
@@ -1501,7 +1755,7 @@ func prepareAArch64Firmware(stateDir string) ([]string, error) {
 //     toolkit has already initialized a window and event loop, which is
 //     unsafe/flaky for at least Cocoa on macOS — so the GUI path never
 //     daemonizes, it's detached the other way instead.
-func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, firmwareArgs []string, overlayPath, seedPath string, extraDisks []qemuExtraDiskSpec, sshPort int, display bool, pidfilePath, consolePath string) []string {
+func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, firmwareArgs []string, overlayPath, seedPath string, extraDisks []qemuExtraDiskSpec, sshPort int, mgmtMAC string, networks []qemuNetworkSpec, display bool, pidfilePath, consolePath string) []string {
 	args := []string{
 		"-name", processName,
 		"-machine", machineType,
@@ -1532,9 +1786,27 @@ func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, f
 	}
 	args = append(args,
 		"-netdev", fmt.Sprintf("user,id=net0,hostfwd=tcp:127.0.0.1:%d-:22", sshPort),
-		"-device", "virtio-net-pci,netdev=net0",
-		"-serial", "file:"+consolePath,
+		"-device", "virtio-net-pci,netdev=net0,mac="+mgmtMAC,
 	)
+	// Each entry in networks is an additional NIC on a loopback TCP socket,
+	// not qemu's own "user" backend — that's what lets a segment's two VMs
+	// (see resolveNetworkTopology) reach each other directly, which "user"
+	// networking never allows (it's a private, host-only NAT segment per
+	// VM). "listen"/"connect" here mirror the role resolveNetworkTopology
+	// already assigned this NIC; both sides always bind/connect to
+	// 127.0.0.1, so this traffic never reaches a real NIC/LAN.
+	for i, n := range networks {
+		devID := fmt.Sprintf("net%d", i+1)
+		netdevOpt := fmt.Sprintf("socket,id=%s,connect=127.0.0.1:%d", devID, n.Port)
+		if n.Role == "listen" {
+			netdevOpt = fmt.Sprintf("socket,id=%s,listen=127.0.0.1:%d", devID, n.Port)
+		}
+		args = append(args,
+			"-netdev", netdevOpt,
+			"-device", fmt.Sprintf("virtio-net-pci,netdev=%s,mac=%s", devID, n.MAC),
+		)
+	}
+	args = append(args, "-serial", "file:"+consolePath)
 
 	if display {
 		return args
@@ -1545,9 +1817,20 @@ func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, f
 
 // CreateQEMUVM boots a new VM for clusterName: acquires and checksum-verifies
 // the base image, creates a disposable overlay disk, generates an ephemeral
-// SSH key, builds a cloud-init seed, launches qemu-system-* detached in the
-// background, and waits for it to become SSH-ready.
-func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, error) {
+// SSH key, builds a cloud-init seed (wiring in any extra NICs from
+// networks), launches qemu-system-* detached in the background, and waits
+// for it to become SSH-ready.
+//
+// labName is the lab's own name — equal to clusterName for a single-VM lab,
+// but the shared, un-suffixed lab name for a multi-VM one (clusterName there
+// is "<labName>-<vm.Name>", see createMultiQEMUEnvironment). It's folded
+// into this VM's own NIC MACs (deriveMAC) so they stay unique per lab.
+//
+// networks is this VM's own slice of a whole-lab resolution
+// (resolveNetworkTopology, called once up front by the caller — CreateEnvironment
+// — since assigning listen/connect roles needs to see every VM in the lab
+// at once, not just this one) — nil for a VM with no networks: entries.
+func CreateQEMUVM(clusterName, labName, baseDir string, cfg *QEMUConfig, networks []qemuNetworkSpec) (*QEMUHandle, error) {
 	// Refuse to launch a second VM on top of an already-running one: nothing
 	// below this point checks for an existing process, so without this guard
 	// a repeat `astrona run` (no `astrona destroy` in between) silently
@@ -1600,7 +1883,9 @@ func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, er
 		return nil, err
 	}
 
-	seedPath, err := buildCloudInitSeed(stateDir, clusterName, pubKey, cfg.SSHPasswordAuth)
+	mgmtMAC := deriveMAC(labName, clusterName, "mgmt")
+
+	seedPath, err := buildCloudInitSeed(stateDir, clusterName, pubKey, cfg.SSHPasswordAuth, mgmtMAC, networks)
 	if err != nil {
 		return nil, err
 	}
@@ -1649,9 +1934,9 @@ func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, er
 	// QEMUHandle.ClusterName, the state dir) stays unprefixed.
 	processName := "astrona-" + clusterName
 
-	args := buildQEMUArgs(processName, machineType, accel, cpus, memoryMB, firmwareArgs, overlayPath, seedPath, extraDisks, sshPort, cfg.Display, pidfilePath, consolePath)
+	args := buildQEMUArgs(processName, machineType, accel, cpus, memoryMB, firmwareArgs, overlayPath, seedPath, extraDisks, sshPort, mgmtMAC, networks, cfg.Display, pidfilePath, consolePath)
 
-	fmt.Printf("Launching qemu VM '%s' (arch=%s accel=%s ssh-port=%d display=%v)...\n", clusterName, arch, accel, sshPort, cfg.Display)
+	fmt.Printf("Launching qemu VM '%s' (arch=%s accel=%s ssh-port=%d nics=%d display=%v)...\n", clusterName, arch, accel, sshPort, 1+len(networks), cfg.Display)
 
 	cmd := exec.Command(qemuPath, args...)
 	cmd.Stdout = os.Stdout
@@ -1682,6 +1967,11 @@ func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, er
 		pid = p
 	}
 
+	networkStatus := make([]QEMUNetworkStatus, len(networks))
+	for i, n := range networks {
+		networkStatus[i] = QEMUNetworkStatus{Name: n.Name, IP: n.IP, MAC: n.MAC}
+	}
+
 	handle := &QEMUHandle{
 		ClusterName: clusterName,
 		PID:         pid,
@@ -1692,6 +1982,7 @@ func CreateQEMUVM(clusterName, baseDir string, cfg *QEMUConfig) (*QEMUHandle, er
 		KnownHosts:  filepath.Join(stateDir, "known_hosts"),
 		StateDir:    stateDir,
 		StartedAt:   time.Now(),
+		Networks:    networkStatus,
 	}
 
 	if err := writeHandleState(handle); err != nil {

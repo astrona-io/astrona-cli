@@ -87,8 +87,16 @@ func CreateEnvironment(name, baseDir string, cfg RuntimeConfig) (*LabEnvironment
 		if err := validateQEMUVMs(cfg.QEMU); err != nil {
 			return nil, err
 		}
+		// Resolved once, up front, for every VM in the lab together — a
+		// segment's listen/connect role assignment (resolveNetworkTopology)
+		// needs to see all of them at once, not just the one CreateQEMUVM
+		// call is about to boot.
+		networks, err := resolveNetworkTopology(name, cfg.Networks, cfg.QEMU)
+		if err != nil {
+			return nil, err
+		}
 		if !isMultiVM(cfg.QEMU) {
-			handle, err := CreateQEMUVM(name, baseDir, cfg.QEMU[0].asQEMUConfig())
+			handle, err := CreateQEMUVM(name, name, baseDir, cfg.QEMU[0].asQEMUConfig(), networks[cfg.QEMU[0].Name])
 			if err != nil {
 				return nil, err
 			}
@@ -99,7 +107,7 @@ func CreateEnvironment(name, baseDir string, cfg RuntimeConfig) (*LabEnvironment
 				Executor:    sshExecutorFor(handle),
 			}, nil
 		}
-		return createMultiQEMUEnvironment(name, baseDir, cfg.QEMU)
+		return createMultiQEMUEnvironment(name, baseDir, cfg.QEMU, networks)
 	default:
 		return nil, fmt.Errorf("unsupported runtime type '%s'", runtimeType)
 	}
@@ -116,12 +124,12 @@ func CreateEnvironment(name, baseDir string, cfg RuntimeConfig) (*LabEnvironment
 // torn down before returning the error — a half-started multi-VM lab never
 // lingers as a set of ghost VMs the caller doesn't know exist yet (nothing
 // has been returned to it to run `astrona destroy` against).
-func createMultiQEMUEnvironment(name, baseDir string, vms []QEMUVM) (*LabEnvironment, error) {
+func createMultiQEMUEnvironment(name, baseDir string, vms []QEMUVM, networks map[string][]qemuNetworkSpec) (*LabEnvironment, error) {
 	executors := make(map[string]ScriptExecutor, len(vms))
 	var started []string
 
 	for _, vm := range vms {
-		handle, err := CreateQEMUVM(name+"-"+vm.Name, baseDir, vm.asQEMUConfig())
+		handle, err := CreateQEMUVM(name+"-"+vm.Name, name, baseDir, vm.asQEMUConfig(), networks[vm.Name])
 		if err != nil {
 			for _, s := range started {
 				if derr := DestroyQEMUVM(name + "-" + s); derr != nil {

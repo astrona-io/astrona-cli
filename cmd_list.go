@@ -22,6 +22,7 @@ type labRow struct {
 	runtime string
 	status  string
 	uptime  string
+	nics    string
 	details string
 }
 
@@ -64,9 +65,9 @@ func printLabTable(rows []labRow) {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 4, 3, ' ', 0)
-	fmt.Fprintln(w, "NAME\tRUNTIME\tSTATUS\tUPTIME\tDETAILS")
+	fmt.Fprintln(w, "NAME\tRUNTIME\tSTATUS\tUPTIME\tNICS\tDETAILS")
 	for _, r := range rows {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", r.name, r.runtime, r.status, r.uptime, r.details)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", r.name, r.runtime, r.status, r.uptime, r.nics, r.details)
 	}
 	w.Flush()
 }
@@ -124,6 +125,7 @@ func collectQEMURows() ([]labRow, int, error) {
 			runtime: "qemu",
 			status:  "Running",
 			uptime:  uptime,
+			nics:    formatNICs(h),
 			details: fmt.Sprintf("ssh %s@%s -p %d", h.SSHUser, h.SSHHost, h.SSHPort),
 		})
 	}
@@ -180,6 +182,7 @@ func collectKindRows() []labRow {
 			runtime: "kind",
 			status:  "Running",
 			uptime:  uptime,
+			nics:    "-", // kind's networking is the container engine's pod/service network, not a per-lab NIC concept astrona owns
 			details: "kubectl --context kind-" + name,
 		})
 	}
@@ -217,6 +220,20 @@ func containerStartedAt(engine ContainerEngine, containerName string) (time.Time
 	}
 
 	return time.Time{}, fmt.Errorf("failed to parse container start time '%s': %w", trimmed, lastErr)
+}
+
+// formatNICs summarizes a qemu VM's NICs: the implicit mgmt NIC (net0,
+// host-only, always present — it's astrona's only control channel for
+// bootstrap/validate/ssh/submit/destroy, not part of a lab's own topology)
+// spelled out by name rather than folded into a bare count, plus every
+// extra NIC's segment name and static IP.
+func formatNICs(h QEMUHandle) string {
+	parts := make([]string, 0, 1+len(h.Networks))
+	parts = append(parts, "mgmt")
+	for _, n := range h.Networks {
+		parts = append(parts, fmt.Sprintf("%s=%s", n.Name, n.IP))
+	}
+	return fmt.Sprintf("%d (%s)", len(parts), strings.Join(parts, ", "))
 }
 
 // formatUptime renders d as the coarsest human unit that fits (Xh Ym, Xm Ys,

@@ -325,11 +325,11 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 		t.Error("expected non-empty public key")
 	}
 
-	if _, _, err := isoBuildCommand(dir, "x", "y", filepath.Join(dir, "seed.iso")); err != nil {
+	if _, _, err := isoBuildCommand(dir, []string{"x", "y"}, filepath.Join(dir, "seed.iso")); err != nil {
 		t.Skip("no ISO build tool found in PATH, skipping cloud-init seed test")
 	}
 
-	isoPath, err := buildCloudInitSeed(dir, "qemu-basics-01", pubKey, false)
+	isoPath, err := buildCloudInitSeed(dir, "qemu-basics-01", pubKey, false, "52:54:00:00:00:00", nil)
 	if err != nil {
 		t.Fatalf("buildCloudInitSeed failed: %v", err)
 	}
@@ -363,7 +363,7 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 	}
 
 	// Build with passwordAuth = true
-	_, err = buildCloudInitSeed(dir, "qemu-basics-01", pubKey, true)
+	_, err = buildCloudInitSeed(dir, "qemu-basics-01", pubKey, true, "52:54:00:00:00:00", nil)
 	if err != nil {
 		t.Fatalf("buildCloudInitSeed with passwordAuth=true failed: %v", err)
 	}
@@ -427,7 +427,7 @@ func TestCreateQEMUVMRefusesDuplicate(t *testing.T) {
 		t.Fatalf("writeHandleState failed: %v", err)
 	}
 
-	_, err = CreateQEMUVM(name, t.TempDir(), &QEMUConfig{})
+	_, err = CreateQEMUVM(name, name, t.TempDir(), &QEMUConfig{}, nil)
 	if err == nil {
 		t.Fatal("expected CreateQEMUVM to refuse launching a second VM for an already-running lab, got nil error")
 	}

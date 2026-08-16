@@ -42,6 +42,10 @@ type MetadataConfig struct {
 type RuntimeConfig struct {
 	Type string   `yaml:"type"` // "" or "kind" (default) | "qemu"
 	QEMU []QEMUVM `yaml:"qemu"`
+	// Networks declares every named virtual network segment this lab's VMs
+	// can join — see QEMUNetworkDef (hypervisor.go). Optional: a qemu lab
+	// with no VM-to-VM networking needs no entry here.
+	Networks []QEMUNetworkDef `yaml:"networks"`
 }
 
 // QEMUVM is one entry in runtime.qemu — either the lab's only VM (Name
@@ -52,16 +56,23 @@ type RuntimeConfig struct {
 // exact single-VM machinery per VM, under the synthesized name
 // "<labName>-<vm.Name>", rather than a parallel code path.
 type QEMUVM struct {
-	Name            string          `yaml:"name"` // "" only valid when this is the list's only entry — see isMultiVM
-	Image           QEMUImageSource `yaml:"image"`
-	Arch            string          `yaml:"arch"`
-	CPUs            int             `yaml:"cpus"`
-	MemoryMB        int             `yaml:"memoryMB"`
-	DiskSizeGB      int             `yaml:"diskSizeGB"`
-	ExtraDisks      []QEMUExtraDisk `yaml:"extraDisks"`
-	SSHPort         int             `yaml:"sshPort"`
-	Display         bool            `yaml:"display"`
-	SSHPasswordAuth bool            `yaml:"sshPasswordAuth"`
+	Name       string          `yaml:"name"` // "" only valid when this is the list's only entry — see isMultiVM
+	Image      QEMUImageSource `yaml:"image"`
+	Arch       string          `yaml:"arch"`
+	CPUs       int             `yaml:"cpus"`
+	MemoryMB   int             `yaml:"memoryMB"`
+	DiskSizeGB int             `yaml:"diskSizeGB"`
+	ExtraDisks []QEMUExtraDisk `yaml:"extraDisks"`
+	// Networks attaches additional NICs to segments declared in the lab's
+	// top-level runtime.networks — see QEMUNetwork (hypervisor.go). Every VM
+	// always also gets an implicit host-only mgmt NIC regardless of this
+	// list. Resolved lab-wide by resolveNetworkTopology, not by
+	// asQEMUConfig below — assigning a segment's listen/connect roles needs
+	// to see every VM in the lab at once, not just this one.
+	Networks        []QEMUNetwork `yaml:"networks"`
+	SSHPort         int           `yaml:"sshPort"`
+	Display         bool          `yaml:"display"`
+	SSHPasswordAuth bool          `yaml:"sshPasswordAuth"`
 	// Bootstrap and Validation, when set, run only against this one VM —
 	// layered *after* the lab's shared root Bootstrap/Validation (LabConfig
 	// fields), which for a multi-VM lab run against every VM in turn
