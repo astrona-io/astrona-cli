@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -17,19 +20,23 @@ type teardownInfo struct {
 }
 
 // loadTeardownInfo tries to load finalPath for the extra info destroy can
-// use (cluster name, teardown scripts, runtime type), but never fails: a
-// missing or broken config just means destroy falls back to defaults.
-func loadTeardownInfo(finalPath string) (teardownInfo, func()) {
+// use (cluster name, teardown scripts, runtime type). It returns the load
+// error rather than swallowing it — a missing/unreadable config means
+// destroy can't trust the fallback "astrona-lab" name (nothing may actually
+// be running under that name), so the caller must fall back to discovery
+// (destroyByDiscovery) instead of silently "destroying" a name that was
+// never real. See newDestroyCmd.
+func loadTeardownInfo(finalPath string) (teardownInfo, func(), error) {
 	info := teardownInfo{clusterName: "astrona-lab"}
 	cleanup := func() {}
 
 	if finalPath == "" {
-		return info, cleanup
+		return info, cleanup, fmt.Errorf("no config path resolved")
 	}
 
 	config, configCleanup, err := LoadLabConfig(finalPath)
 	if err != nil {
-		return info, cleanup
+		return info, cleanup, err
 	}
 	cleanup = configCleanup
 
@@ -39,7 +46,142 @@ func loadTeardownInfo(finalPath string) (teardownInfo, func()) {
 	info.teardown = config.Teardown
 	info.runtime = config.Runtime
 
-	return info, cleanup
+	return info, cleanup, nil
+}
+
+// destroyByDiscovery is the fallback path for `astrona destroy` when no lab
+// config could be resolved/loaded (wrong cwd, forgotten -c, forgotten
+// --git/--git-ref — see the CLAUDE.md note on this bug). Rather than
+// guessing a default cluster name that may not correspond to anything
+// actually running (the old, silently-wrong behavior), it reuses the same
+// live-discovery `astrona list` already does (collectQEMURows/
+// collectKindRows — no config needed, qemu handle.json + kind container
+// labels are enough) and destroys what it finds:
+//   - exactly one non-test lab running: destroy it (best-effort — no config
+//     means no teardown scripts to run, and keepCluster can't be honored).
+//   - any "astro-test-" leftovers (from a crashed/Ctrl-C'd `astrona test` —
+//     see cmd_devtest.go) are always cleaned up best-effort alongside,
+//     regardless of count, since those are unconditionally disposable.
+//   - zero non-test labs: nothing to destroy, not an error.
+//   - 2+ non-test labs: refuse to guess which one — that's a destructive
+//     choice this tool won't make silently — and tell the user to pick one
+//     with -c/--file/--git.
+func destroyByDiscovery() error {
+	qemuRows, _, err := collectQEMURows()
+	if err != nil {
+		return fmt.Errorf("auto-discovery of running labs failed: %w", err)
+	}
+	rows := append(qemuRows, collectKindRows()...)
+
+	var realLabs, test []labRow
+	for _, r := range rows {
+		if strings.HasPrefix(r.name, "astro-test-") {
+			test = append(test, r)
+		} else {
+			realLabs = append(realLabs, r)
+		}
+	}
+
+	if len(realLabs) > 1 {
+		var names []string
+		for _, r := range realLabs {
+			names = append(names, fmt.Sprintf("  %s (%s)", r.name, r.runtime))
+		}
+		return fmt.Errorf("no lab config found and multiple astrona labs are running — specify which to destroy with -c/--file/--git:\n%s", strings.Join(names, "\n"))
+	}
+
+	if len(realLabs) == 0 && len(test) == 0 {
+		fmt.Printf("No astrona labs currently running — nothing to destroy.\n")
+		return nil
+	}
+
+	for _, r := range realLabs {
+		fmt.Printf("No lab config found — auto-detected the only running astrona lab: '%s' (%s runtime). Destroying it (teardown scripts skipped, config unknown)...\n", r.name, r.runtime)
+		if err := DestroyEnvironment(r.name, RuntimeConfig{Type: r.runtime}); err != nil {
+			return fmt.Errorf("failed to destroy '%s': %w", r.name, err)
+		}
+	}
+	for _, r := range test {
+		fmt.Printf("Cleaning up leftover test lab '%s' (%s runtime)...\n", r.name, r.runtime)
+		if err := DestroyEnvironment(r.name, RuntimeConfig{Type: r.runtime}); err != nil {
+			fmt.Printf("[WARN] failed to destroy leftover test lab '%s': %s\n", r.name, err)
+		}
+	}
+
+	fmt.Printf("Lab cluster cleaned up successfully.\n")
+	return nil
+}
+
+// destroyByName tears down exactly the named lab, bypassing config
+// resolution entirely — e.g. `astrona destroy astro-my-lab` after
+// `astrona list` (list already prints the exact prefixed name to pass
+// here). No config to read means no teardown scripts and no keepCluster
+// check, same trade-off as destroyByDiscovery. Checks qemu state and kind
+// clusters directly rather than reusing collectQEMURows (which skips a
+// stale/dead qemu VM's leftover state dir) — a name-targeted destroy should
+// still clean that up.
+func destroyByName(name string) error {
+	foundQemu := qemuStateExists(name)
+	foundKind := kindClusterExists(name)
+
+	if !foundQemu && !foundKind {
+		return fmt.Errorf("no astrona lab named '%s' found (checked qemu state and kind clusters) — run `astrona list` to see what's actually running", name)
+	}
+
+	var errs []string
+	if foundQemu {
+		if err := DestroyQEMUVM(name); err != nil {
+			errs = append(errs, fmt.Sprintf("qemu: %s", err))
+		}
+	}
+	if foundKind {
+		if err := DeleteKindCluster(name); err != nil {
+			errs = append(errs, fmt.Sprintf("kind: %s", err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to destroy '%s': %s", name, strings.Join(errs, "; "))
+	}
+
+	fmt.Printf("Lab '%s' cleaned up successfully.\n", name)
+	return nil
+}
+
+// qemuStateExists checks ~/.astrona/qemu/<name>/handle.json directly rather
+// than calling qemuStateDir (which MkdirAll's the dir as a side effect —
+// wrong for a plain existence check).
+func qemuStateExists(name string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(filepath.Join(home, ".astrona", "qemu", name, "handle.json"))
+	return err == nil
+}
+
+// kindClusterExists mirrors collectKindRows' own lookup (container engine,
+// kind's own cluster label, "-control-plane" suffix) for a single name
+// rather than the whole list.
+func kindClusterExists(name string) bool {
+	engine, err := DetectContainerEngine()
+	if err != nil {
+		return false
+	}
+
+	out, err := exec.Command(engine.Path, "ps", "-a",
+		"--filter", "label=io.x-k8s.kind.cluster",
+		"--format", "{{.Names}}").Output()
+	if err != nil {
+		return false
+	}
+
+	target := name + "-control-plane"
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if strings.TrimSpace(line) == target {
+			return true
+		}
+	}
+	return false
 }
 
 // teardownEnvironment picks what runs the teardown scripts: the lab's real
@@ -96,19 +238,35 @@ func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir strin
 // have running. flags is bound to the root command's persistent flags.
 func newDestroyCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "destroy",
+		Use:   "destroy [lab-name]",
 		Short: "Tear down a lab environment (both the normal run and any leftover 'astrona test' run)",
+		Long: "Tear down a lab environment (both the normal run and any leftover 'astrona test' run).\n\n" +
+			"With no lab-name, resolves the lab config the same way `run`/`submit` do (-c/--file/--git/--git-ref) " +
+			"and falls back to auto-discovering running labs if that fails.\n\n" +
+			"With a lab-name (the exact name `astrona list` prints, e.g. 'astro-my-lab'), destroys that lab " +
+			"directly — no config needed, so -c/--file/--git/--git-ref are ignored and any teardown scripts are skipped.",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 1 {
+				return destroyByName(args[0])
+			}
+
 			finalPath, err := ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef)
 			if err != nil {
-				return fmt.Errorf("path resolution failed: %w", err)
+				fmt.Printf("[WARN] path resolution failed (%s) — falling back to auto-discovery of running astrona labs\n", err)
+				return destroyByDiscovery()
 			}
 
 			fmt.Printf("Loading configuration from: %s\n", finalPath)
 
 			baseDir := filepath.Dir(finalPath)
-			info, configCleanup := loadTeardownInfo(finalPath)
+			info, configCleanup, loadErr := loadTeardownInfo(finalPath)
 			defer configCleanup()
+
+			if loadErr != nil {
+				fmt.Printf("[WARN] could not load lab config from '%s' (%s) — falling back to auto-discovery of running astrona labs\n", finalPath, loadErr)
+				return destroyByDiscovery()
+			}
 
 			clusterName := normalizeClusterName(info.clusterName)
 			if err := tearDownLabEnvironment(clusterName, info, baseDir, true); err != nil {
