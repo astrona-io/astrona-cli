@@ -1,0 +1,97 @@
+metadata:
+  name: "qemu-jumphost-01"
+  docs:
+    prerequisites: "docs/prerequisites.md"
+
+runtime:
+  type: "qemu"
+  # runtime.networks declares every named virtual network segment this lab's
+  # VMs can join, and the CIDR range each one lives in — declared once,
+  # here, rather than left to emerge purely from VMs repeating a name. A VM
+  # under runtime.qemu[] below joins one by listing the same name under its
+  # own networks: with a bare ipv4: address (no /prefix — that's inherited
+  # from the range declared here) that must fall inside it; a typo'd name or
+  # an out-of-range ipv4: is a config error, not a silently broken segment.
+  #
+  # Topology this lab builds:
+  #
+  #   client (10.10.1.10) --client-net-- jumphost --server-net-- server (10.20.1.10)
+  #                                    (10.10.1.1)  (10.20.1.1)
+  #
+  # client only has a NIC on client-net; server only has one on
+  # server-net. jumphost is the only VM with a foot on both segments, so
+  # it's the only one that can reach both client and server — client and
+  # server can't reach each other directly at all, exactly the "server
+  # only reachable via a jump host" shape this config demonstrates.
+  networks:
+    - name: "client-net"
+      cidr: "10.10.1.0/24"
+    - name: "server-net"
+      cidr: "10.20.1.0/24"
+  qemu:
+    # Every VM below also gets an implicit, host-only "mgmt" NIC regardless
+    # of its own networks: list — that's what `astrona run`/`astrona ssh`
+    # use to reach it over SSH (127.0.0.1:<forwarded-port>), same as every
+    # other qemu lab. networks: adds NICs *on top of* that one.
+    - name: "client"
+      image:
+        type: "oci"
+        source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-base-{ARCH}"
+      cpus: 1
+      memoryMB: 1024
+      networks:
+        - name: "client-net"
+          ipv4: "10.10.1.10"
+      validation:
+        script:
+          name: "verify-client-network"
+          description: "client can reach jumphost over client-net but not server directly"
+          type: "file"
+          source: "validate-client.sh"
+
+    - name: "jumphost"
+      image:
+        type: "oci"
+        source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-base-{ARCH}"
+      cpus: 1
+      memoryMB: 1024
+      # Two entries, two names => two extra NICs on this one VM — this is
+      # the only config difference between a single-homed VM and a
+      # multi-homed one like a jump host.
+      networks:
+        - name: "client-net"
+          ipv4: "10.10.1.1"
+        - name: "server-net"
+          ipv4: "10.20.1.1"
+      validation:
+        script:
+          name: "verify-jumphost-network"
+          description: "jumphost can reach both client and server, one NIC each"
+          type: "file"
+          source: "validate-jumphost.sh"
+
+    - name: "server"
+      image:
+        type: "oci"
+        source: "ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-base-{ARCH}"
+      cpus: 1
+      memoryMB: 1024
+      networks:
+        - name: "server-net"
+          ipv4: "10.20.1.10"
+      validation:
+        script:
+          name: "verify-server-network"
+          description: "server can reach jumphost over server-net but not client directly"
+          type: "file"
+          source: "validate-server.sh"
+
+bootstrap:
+  init:
+    - name: "common-setup"
+      description: "Runs on every VM before each VM's own nested bootstrap"
+      type: "file"
+      source: "common-setup.sh"
+
+teardown:
+  keepCluster: false

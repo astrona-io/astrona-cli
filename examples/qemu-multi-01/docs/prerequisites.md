@@ -15,18 +15,24 @@ something runs — root-level (top of `config.yaml`, same as
 nested under a `runtime.qemu[]` entry's own `bootstrap:`/`validation:` runs
 only on that VM. See [`../README.md`](../README.md) for the details.
 
-## Important: the two VMs cannot reach each other over the network
+## Important: the two VMs in *this* lab still can't reach each other
 
-Each VM gets qemu's `-netdev user` (SLIRP) networking — the same
+Each VM here only has qemu's implicit `-netdev user` (SLIRP) NIC — the same
 NAT-to-host-only setup `qemu-basics-01` uses. That's an independent, private
 network segment *per VM*, with a host-forwarded SSH port and nothing else.
 The server VM and the client VM in this lab **cannot** `curl`/`ping`/SSH each
 other directly — only the host (astrona itself, via SSH) can reach either
 one. This lab doesn't attempt inter-VM networking: both VMs independently
 prove they were bootstrapped correctly, which is what `runtime.qemu.vms`
-itself is demonstrating. A lab that genuinely needs VM-to-VM traffic would
-need a different qemu network backend (e.g. a bridge or `-netdev socket`) —
-not something this example (or astrona's current qemu runtime) sets up.
+itself is demonstrating.
+
+That said, inter-VM networking **is** now something astrona's qemu runtime
+supports — just not something this particular lab opts into. Declare a
+segment under `runtime.networks` (name + CIDR range), then add a
+`networks:` entry to two `runtime.qemu[]` VMs to give each one an extra NIC
+on it; see [`../qemu-jumphost-01`](../qemu-jumphost-01), which uses that to
+build a three-VM topology where a "jump host" VM bridges two
+otherwise-disconnected segments.
 
 ## Running it
 
