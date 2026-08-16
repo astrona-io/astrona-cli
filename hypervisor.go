@@ -438,6 +438,61 @@ func verifyChecksum(path, expectedHex string) error {
 // still gets exactly the same enforcement as before, cached the same way as
 // always (content-addressed, re-verified on every hit).
 func acquireBaseImage(img QEMUImageSource, baseDir, stateDir, hostArch string) (string, func(), error) {
+	path, cleanup, err := acquireBaseImageUnchecked(img, baseDir, stateDir, hostArch)
+	if err != nil {
+		return path, cleanup, err
+	}
+
+	if err := rejectEmbeddedBackingFile(path); err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+
+	return path, cleanup, nil
+}
+
+// rejectEmbeddedBackingFile refuses any base image that is itself a qcow2
+// delta/overlay (declares its own backing file) rather than a flattened,
+// self-contained image. Two reasons, not one: (1) correctness — a delta
+// references a file that almost certainly doesn't exist on this machine
+// (it was some publisher's local build artifact), so qemu fails opening it
+// with a confusing "Could not open backing file" error deep inside
+// createOverlayDisk instead of a clear one here; (2) security — nothing
+// upstream of this point verifies a pulled/downloaded qcow2's own internal
+// backing-file reference, and a relative one resolves against this image's
+// *own* directory (~/.astrona/cache/images on this machine). A malicious or
+// compromised source could otherwise point it at another file that happens
+// to exist there, and qemu would silently boot from that file's contents
+// instead of the image the user thinks they fetched. Checksum verification
+// (resolveChecksum) only covers the top-level file's bytes, not what it
+// chains to — this closes that gap. Applies uniformly to file/url/oci
+// sources, verified or not, cached or freshly fetched.
+func rejectEmbeddedBackingFile(path string) error {
+	qemuImgPath, err := exec.LookPath("qemu-img")
+	if err != nil {
+		return fmt.Errorf("qemu-img not found in PATH: %w", err)
+	}
+
+	out, err := exec.Command(qemuImgPath, "info", "--output=json", path).Output()
+	if err != nil {
+		return fmt.Errorf("failed to inspect qemu base image '%s': %w", path, err)
+	}
+
+	var info struct {
+		BackingFilename string `json:"backing-filename"`
+	}
+	if err := json.Unmarshal(out, &info); err != nil {
+		return fmt.Errorf("failed to parse qemu-img info for '%s': %w", path, err)
+	}
+
+	if info.BackingFilename != "" {
+		return fmt.Errorf("qemu base image '%s' is not a flattened image — it has its own backing file (%q) left over from however it was built, which won't exist on this machine. This isn't fixable locally: the image needs to be rebuilt with 'qemu-img convert' (flattening the backing chain into one self-contained file) and republished at its source. If this came from a local cache, delete it so a corrected image can be re-fetched: %s", path, info.BackingFilename, path)
+	}
+
+	return nil
+}
+
+func acquireBaseImageUnchecked(img QEMUImageSource, baseDir, stateDir, hostArch string) (string, func(), error) {
 	noopCleanup := func() {}
 
 	ociArch := ociArchName(hostArch)
@@ -1008,7 +1063,85 @@ func pullOCIImage(ref, wantFile, stateDir string) (string, func(), error) {
 		return "", noopCleanup, err
 	}
 
+	flattenedPath, err := flattenIfDelta(qcowPath, stateDir)
+	if err != nil {
+		cleanup()
+		return "", noopCleanup, err
+	}
+	if flattenedPath != qcowPath {
+		return flattenedPath, func() {
+			os.Remove(flattenedPath)
+			cleanup()
+		}, nil
+	}
+
 	return qcowPath, cleanup, nil
+}
+
+// flattenIfDelta inspects a freshly pulled qcowPath for its own embedded
+// backing file (see rejectEmbeddedBackingFile) and, if present and its
+// sibling data is sitting right there in the same pulled OCI artifact
+// directory, flattens the two into one self-contained image via `qemu-img
+// convert` — rather than caching only the picked file and silently
+// discarding the sibling it depends on when the pull dir is cleaned up
+// (exactly what broke ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-lfcs-arm64:
+// it ships base.qcow2 + a lab-specific image.qcow2 delta backed by it, as a
+// deliberate space-saving pattern — findQcow2InPull's naming convention
+// picks image.qcow2 and, before this, the base.qcow2 it depends on never
+// made it into the cache).
+//
+// Returns qcowPath unchanged if it isn't a delta, or if it is one but its
+// backing sibling genuinely isn't present in the pulled artifact — the
+// latter is a real, unresolvable problem (not this astrona-io image's
+// pattern), left for rejectEmbeddedBackingFile (acquireBaseImage) to reject
+// with an actionable error rather than silently guessing.
+func flattenIfDelta(qcowPath, stateDir string) (string, error) {
+	qemuImgPath, err := exec.LookPath("qemu-img")
+	if err != nil {
+		return "", fmt.Errorf("qemu-img not found in PATH: %w", err)
+	}
+
+	out, err := exec.Command(qemuImgPath, "info", "--output=json", qcowPath).Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect pulled qemu image '%s': %w", qcowPath, err)
+	}
+	var info struct {
+		BackingFilename string `json:"backing-filename"`
+	}
+	if err := json.Unmarshal(out, &info); err != nil {
+		return "", fmt.Errorf("failed to parse qemu-img info for '%s': %w", qcowPath, err)
+	}
+	if info.BackingFilename == "" {
+		return qcowPath, nil
+	}
+
+	// qcow2 backing-file references are resolved relative to the image's own
+	// directory unless already absolute.
+	backingPath := info.BackingFilename
+	if !filepath.IsAbs(backingPath) {
+		backingPath = filepath.Join(filepath.Dir(qcowPath), backingPath)
+	}
+	if _, err := os.Stat(backingPath); err != nil {
+		return qcowPath, nil
+	}
+
+	flattenedFile, err := os.CreateTemp(stateDir, "astrona-flattened-*.qcow2")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file for flattening pulled qemu image: %w", err)
+	}
+	flattenedPath := flattenedFile.Name()
+	flattenedFile.Close()
+	os.Remove(flattenedPath) // qemu-img convert refuses to overwrite an existing file
+
+	cmd := exec.Command(qemuImgPath, "convert", "-O", "qcow2", qcowPath, flattenedPath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		os.Remove(flattenedPath)
+		return "", fmt.Errorf("failed to flatten pulled qemu image '%s' (backed by '%s'): %w", qcowPath, backingPath, err)
+	}
+
+	return flattenedPath, nil
 }
 
 // defaultOCIImageFile is the base name findQcow2InPull falls back to when
