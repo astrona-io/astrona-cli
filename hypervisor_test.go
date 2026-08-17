@@ -171,6 +171,8 @@ func TestVerifyChecksum(t *testing.T) {
 // resolveChecksum treats an unset checksum as "boot unverified", never as a
 // validation failure.
 func TestAcquireBaseImageWithoutChecksumIsUnverifiedNotAnError(t *testing.T) {
+	requireQEMUImg(t)
+
 	dir := t.TempDir()
 	imgPath := filepath.Join(dir, "base.qcow2")
 	os.WriteFile(imgPath, []byte("not a real image"), 0600)
@@ -185,6 +187,8 @@ func TestAcquireBaseImageWithoutChecksumIsUnverifiedNotAnError(t *testing.T) {
 }
 
 func TestAcquireBaseImageChecksumMismatchStillFails(t *testing.T) {
+	requireQEMUImg(t)
+
 	dir := t.TempDir()
 	imgPath := filepath.Join(dir, "base.qcow2")
 	os.WriteFile(imgPath, []byte("not a real image"), 0600)
