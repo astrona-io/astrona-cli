@@ -90,6 +90,21 @@ func main() {
 	// so this banner shows on every `--help` screen in the tree.
 	rootCmd.SetHelpTemplate(banner() + "\nVersion: " + Version + "\n\n" + helpTemplateBody)
 
+	// A RunE error (a real runtime failure — bad config, a broken image, a
+	// failed exec.Command) has nothing to do with how the command was
+	// invoked, so dumping the full flags/usage block after it is just noise
+	// for the operator trying to read the actual error. SilenceUsage on
+	// rootCmd is inherited by every subcommand (Cobra only needs it false on
+	// either the leaf or root to print), so this is the one place to set it.
+	// A genuine flag mistake (unknown flag, bad value) still shows usage —
+	// that error path is routed through FlagErrorFunc instead, which prints
+	// it manually before returning.
+	rootCmd.SilenceUsage = true
+	rootCmd.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
+		cmd.Println(cmd.UsageString())
+		return err
+	})
+
 	// Flat, podman-run-style verbs at the root — no `lab`/`dev` noun to
 	// namespace under. --config/-c, --file/-f, --git, and --git-ref are
 	// persistent flags here so every subcommand shares them without
