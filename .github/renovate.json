@@ -1,0 +1,23 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "postUpdateOptions": [
+    "gomodTidy",
+    "gomodUpdateImportPaths"
+  ],
+  "packageRules": [
+    {
+      "description": "Ensure Go updates are compatible with the Go version defined in go.mod",
+      "matchManagers": ["gomod"],
+      "constraintsFiltering": "strict"
+    },
+    {
+      "description": "Group golang.org/x packages to reduce PR noise",
+      "matchManagers": ["gomod"],
+      "matchPackagePatterns": ["^golang\\.org/x/"],
+      "groupName": "golang.org/x packages"
+    }
+  ]
+}
