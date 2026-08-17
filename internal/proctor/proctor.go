@@ -1,4 +1,4 @@
-package main
+package proctor
 
 import (
 	"errors"
@@ -7,6 +7,11 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"astrona/internal/config"
+	"astrona/internal/executor"
+	"astrona/internal/runtime"
+	"astrona/internal/scripts"
 )
 
 // CheckResult is the outcome of a single check: did it pass, what did the
@@ -30,7 +35,7 @@ type CheckResult struct {
 // slot into later without changing how lab/dev commands call it.
 type Proctor struct {
 	baseDir string
-	env     *LabEnvironment
+	env     *runtime.LabEnvironment
 }
 
 // NewProctor builds a Proctor scoped to a single lab run: baseDir resolves
@@ -38,7 +43,7 @@ type Proctor struct {
 // declarative check is pinned to (env.KubeContext) and, via gradeScripts,
 // whichever executor(s) run the validation script(s) — bash on the host for
 // kind, SSH into a VM for qemu (every VM in turn for a multi-VM lab).
-func NewProctor(baseDir string, env *LabEnvironment) *Proctor {
+func NewProctor(baseDir string, env *runtime.LabEnvironment) *Proctor {
 	return &Proctor{baseDir: baseDir, env: env}
 }
 
@@ -46,15 +51,15 @@ func NewProctor(baseDir string, env *LabEnvironment) *Proctor {
 // printing pytest/robot-style per-case PASS/FAIL lines followed by a
 // summary line, and returns every case's result (for a JUnit report, see
 // junit.go) alongside the Proctor's overall verdict.
-func (p *Proctor) Grade(config *LabConfig) ([]CheckResult, bool, error) {
+func (p *Proctor) Grade(cfg *config.LabConfig) ([]CheckResult, bool, error) {
 	start := time.Now()
 
-	results, err := p.runChecks(config.Validation.Checks)
+	results, err := p.runChecks(cfg.Validation.Checks)
 	if err != nil {
 		return nil, false, fmt.Errorf("Proctor checks failed to run: %w", err)
 	}
 
-	scriptResults, err := p.gradeScripts(config)
+	scriptResults, err := p.gradeScripts(cfg)
 	if err != nil {
 		return nil, false, fmt.Errorf("Proctor script failed to run: %w", err)
 	}
@@ -93,7 +98,7 @@ func formatDuration(d time.Duration) string {
 // runChecks runs each declarative check against the cluster. It does not
 // stop at the first failure — it collects every result so Grade can report
 // everything at once.
-func (p *Proctor) runChecks(checks []ValidationCheck) ([]CheckResult, error) {
+func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, error) {
 	if len(checks) == 0 {
 		return nil, nil
 	}
@@ -157,20 +162,20 @@ func (p *Proctor) runChecks(checks []ValidationCheck) ([]CheckResult, error) {
 // name is suffixed "(vmName)" (runValidationBlock) so two VMs running the
 // same shared script don't collide in the report — see the design note in
 // runValidationBlock for why a shared script's result isn't deduplicated.
-func (p *Proctor) gradeScripts(config *LabConfig) ([]CheckResult, error) {
+func (p *Proctor) gradeScripts(cfg *config.LabConfig) ([]CheckResult, error) {
 	if p.env.Executor != nil {
-		return p.runValidationBlock(config.Validation, p.env.Executor, "")
+		return p.runValidationBlock(cfg.Validation, p.env.Executor, "")
 	}
 
 	var results []CheckResult
 
-	for _, vm := range config.Runtime.QEMU {
-		executor, err := p.env.executorForVM(vm.Name)
+	for _, vm := range cfg.Runtime.QEMU {
+		executor, err := p.env.ExecutorForVM(vm.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		vmResults, err := p.runValidationBlock(config.Validation, executor, vm.Name)
+		vmResults, err := p.runValidationBlock(cfg.Validation, executor, vm.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -194,22 +199,22 @@ func (p *Proctor) gradeScripts(config *LabConfig) ([]CheckResult, error) {
 // root Validation block genuinely runs once per VM in that case (not a
 // single shared result), since it's exercising each VM's own independent
 // state, so each run needs its own distinguishable row in the report.
-func (p *Proctor) runValidationBlock(val ValidationConfig, executor ScriptExecutor, vmSuffix string) ([]CheckResult, error) {
+func (p *Proctor) runValidationBlock(val config.ValidationConfig, executor executor.ScriptExecutor, vmSuffix string) ([]CheckResult, error) {
 	var results []CheckResult
 
-	scripts := val.Scripts
+	scriptsList := val.Scripts
 	if val.Script != nil {
-		scripts = append([]ResourceItem{*val.Script}, scripts...)
+		scriptsList = append([]config.ResourceItem{*val.Script}, scriptsList...)
 	}
 
-	for _, script := range scripts {
+	for _, scriptItem := range scriptsList {
 		scriptStart := time.Now()
-		scriptPass, err := p.runScript(&script, executor)
+		scriptPass, err := p.runScript(&scriptItem, executor)
 		if err != nil {
 			return nil, err
 		}
 
-		name := script.Name
+		name := scriptItem.Name
 		if name == "" {
 			name = "validation script"
 		}
@@ -231,7 +236,7 @@ func (p *Proctor) runValidationBlock(val ValidationConfig, executor ScriptExecut
 // is a pass, non-zero is a fail — a failing lab is a normal outcome, not a
 // Go error, so only a real execution problem (script missing, bash not
 // found) is returned as an error.
-func (p *Proctor) runScript(script *ResourceItem, executor ScriptExecutor) (bool, error) {
+func (p *Proctor) runScript(script *config.ResourceItem, executor executor.ScriptExecutor) (bool, error) {
 	if script == nil || script.Source == "" {
 		return true, nil
 	}
@@ -241,14 +246,14 @@ func (p *Proctor) runScript(script *ResourceItem, executor ScriptExecutor) (bool
 
 	switch strings.ToLower(script.Type) {
 	case "url":
-		tmpPath, clean, err := downloadToTemp(script.Source, "astrona-validate-*.sh", maxScriptDownloadBytes)
+		tmpPath, clean, err := config.DownloadToTemp(script.Source, "astrona-validate-*.sh", scripts.MaxScriptDownloadBytes)
 		if err != nil {
 			return false, fmt.Errorf("failed to download validation script from %s: %w", script.Source, err)
 		}
 		scriptPath = tmpPath
 		cleanup = clean
 	case "file":
-		resolved, err := joinWithinBaseDir(p.baseDir, scriptPath)
+		resolved, err := config.JoinWithinBaseDir(p.baseDir, scriptPath)
 		if err != nil {
 			return false, fmt.Errorf("failed to resolve validation script path: %w", err)
 		}

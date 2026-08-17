@@ -1,9 +1,11 @@
-package main
+package junit
 
 import (
 	"encoding/xml"
 	"fmt"
 	"os"
+
+	"astrona/internal/proctor"
 )
 
 // junitTestSuite/junitTestCase/junitFailure mirror the de facto JUnit XML
@@ -34,7 +36,7 @@ type junitFailure struct {
 // WriteJUnitReport writes results as a JUnit XML report to path, for a
 // CI system to render as native test results rather than just an exit
 // code. suiteName is the lab's cluster name.
-func WriteJUnitReport(path, suiteName string, results []CheckResult) error {
+func WriteJUnitReport(path, suiteName string, results []proctor.CheckResult) error {
 	suite := junitTestSuite{
 		Name:  suiteName,
 		Tests: len(results),

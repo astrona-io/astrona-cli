@@ -3,6 +3,11 @@ package main
 import (
 	"fmt"
 
+	"astrona/internal/config"
+	"astrona/internal/junit"
+	"astrona/internal/proctor"
+	"astrona/internal/runtime"
+
 	"github.com/spf13/cobra"
 )
 
@@ -20,28 +25,28 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 		Short:        "Submit the lab to the Proctor for grading",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			config, baseDir, configCleanup, err := LoadLabForCommand(flags)
+			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err
 			}
 			defer configCleanup()
 
-			clusterName := normalizeClusterName(config.Metadata.Name)
+			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
 
-			env, err := LoadEnvironment(clusterName, config.Runtime)
+			env, err := runtime.LoadEnvironment(clusterName, cfg.Runtime)
 			if err != nil {
 				return fmt.Errorf("could not find a running lab environment: %w", err)
 			}
 
 			fmt.Printf("Submitting to the Proctor...\n")
-			proctor := NewProctor(baseDir, env)
-			results, pass, err := proctor.Grade(config)
+			pr := proctor.NewProctor(baseDir, env)
+			results, pass, err := pr.Grade(cfg)
 			if err != nil {
 				return err
 			}
 
 			if junitPath != "" {
-				if err := WriteJUnitReport(junitPath, clusterName, results); err != nil {
+				if err := junit.WriteJUnitReport(junitPath, clusterName, results); err != nil {
 					fmt.Printf("[WARN] failed to write JUnit report: %s\n", err)
 				}
 			}

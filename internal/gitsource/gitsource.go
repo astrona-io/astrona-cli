@@ -1,4 +1,4 @@
-package main
+package gitsource
 
 import (
 	"crypto/sha256"
@@ -123,10 +123,10 @@ func cloneOrUpdateGitRepo(url, ref, destDir string) error {
 	return nil
 }
 
-// resolveGitConfigSource clones/updates url@ref into its cache dir and
+// ResolveGitConfigSource clones/updates url@ref into its cache dir and
 // returns that local path — callers treat the result exactly like any
 // other local --config directory, no special-casing needed downstream.
-func resolveGitConfigSource(url, ref string) (string, error) {
+func ResolveGitConfigSource(url, ref string) (string, error) {
 	destDir, err := gitCacheDir(url, ref)
 	if err != nil {
 		return "", err

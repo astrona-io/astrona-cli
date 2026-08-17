@@ -1,15 +1,18 @@
-package main
+package manifests
 
 import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"astrona/internal/config"
+	"astrona/internal/scripts"
 )
 
 // ApplyManifests runs `kubectl apply -f` for each manifest, always pinned
 // to kubeContext explicitly rather than relying on whatever context is
 // currently active.
-func ApplyManifests(manifests []ResourceItem, baseDir, kubeContext string) error {
+func ApplyManifests(manifests []config.ResourceItem, baseDir, kubeContext string) error {
 	if len(manifests) == 0 {
 		return nil
 	}
@@ -24,7 +27,7 @@ func ApplyManifests(manifests []ResourceItem, baseDir, kubeContext string) error
 			continue
 		}
 
-		path, err := resolveLocalSource(m, baseDir)
+		path, err := scripts.ResolveLocalSource(m, baseDir)
 		if err != nil {
 			return fmt.Errorf("failed to resolve manifest source for '%s': %w", m.Name, err)
 		}

@@ -1,6 +1,13 @@
-package main
+package runtime
 
-import "fmt"
+import (
+	"fmt"
+
+	"astrona/internal/cluster"
+	"astrona/internal/config"
+	"astrona/internal/executor"
+	"astrona/internal/hypervisor"
+)
 
 // RuntimeType is which backend a lab runs on.
 type RuntimeType string
@@ -13,7 +20,7 @@ const (
 // resolveRuntimeType reads cfg.Type, defaulting an empty value to kind so
 // every existing lab config (no runtime: block at all) keeps working
 // unchanged.
-func resolveRuntimeType(cfg RuntimeConfig) (RuntimeType, error) {
+func resolveRuntimeType(cfg config.RuntimeConfig) (RuntimeType, error) {
 	switch cfg.Type {
 	case "", string(RuntimeKind):
 		return RuntimeKind, nil
@@ -29,26 +36,26 @@ func resolveRuntimeType(cfg RuntimeConfig) (RuntimeType, error) {
 //
 // Executor is the single executor for a single-environment lab — kind, or
 // qemu with a one-entry, unnamed runtime.qemu list. Executors is populated
-// instead, keyed by VM name, for a multi-VM qemu lab (isMultiVM); Executor
+// instead, keyed by VM name, for a multi-VM qemu lab (IsMultiVM); Executor
 // is left nil in that case specifically, so "is this lab multi-VM" can
 // always be answered by checking which field is set, without re-consulting
-// the config. Every orchestration call site (scripts.go's runBootstrap/
-// runOnEveryVM, proctor.go's gradeScripts) branches on env.Executor != nil
+// the config. Every orchestration call site (scripts.go's RunBootstrap/
+// RunOnEveryVM, proctor.go's gradeScripts) branches on env.Executor != nil
 // for exactly this reason.
 type LabEnvironment struct {
 	Type        RuntimeType
 	Name        string
-	KubeContext string                    // "kind-"+name for kind; "" for qemu (no kubectl-reachable cluster this pass)
-	Executor    ScriptExecutor            // LocalExecutor for kind; SSHExecutor for a single-VM qemu lab; nil for multi-VM qemu
-	Executors   map[string]ScriptExecutor // vm name -> SSHExecutor; only set for a multi-VM qemu lab
+	KubeContext string                             // "kind-"+name for kind; "" for qemu (no kubectl-reachable cluster this pass)
+	Executor    executor.ScriptExecutor            // LocalExecutor for kind; SSHExecutor for a single-VM qemu lab; nil for multi-VM qemu
+	Executors   map[string]executor.ScriptExecutor // vm name -> SSHExecutor; only set for a multi-VM qemu lab
 }
 
-// executorForVM looks up name in Executors — only ever called once a
+// ExecutorForVM looks up name in Executors — only ever called once a
 // caller already knows it's dealing with a multi-VM lab and which VM it
 // wants (runtime.qemu's own list is always the source of the name), so a
 // miss here means Executors and the VM list it was built from have gone
 // out of sync, not a config authoring mistake.
-func (env *LabEnvironment) executorForVM(name string) (ScriptExecutor, error) {
+func (env *LabEnvironment) ExecutorForVM(name string) (executor.ScriptExecutor, error) {
 	executor, ok := env.Executors[name]
 	if !ok {
 		return nil, fmt.Errorf("no vm named '%s' in this lab's environment (have: %v)", name, vmNames(env.Executors))
@@ -56,7 +63,7 @@ func (env *LabEnvironment) executorForVM(name string) (ScriptExecutor, error) {
 	return executor, nil
 }
 
-func vmNames(executors map[string]ScriptExecutor) []string {
+func vmNames(executors map[string]executor.ScriptExecutor) []string {
 	names := make([]string, 0, len(executors))
 	for name := range executors {
 		names = append(names, name)
@@ -65,8 +72,8 @@ func vmNames(executors map[string]ScriptExecutor) []string {
 }
 
 // CreateEnvironment brings up a fresh lab environment: a kind cluster, or —
-// for qemu — one VM or several named ones (runtime.qemu, see isMultiVM).
-func CreateEnvironment(name, baseDir string, cfg RuntimeConfig) (*LabEnvironment, error) {
+// for qemu — one VM or several named ones (runtime.qemu, see IsMultiVM).
+func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig) (*LabEnvironment, error) {
 	runtimeType, err := resolveRuntimeType(cfg)
 	if err != nil {
 		return nil, err
@@ -74,29 +81,29 @@ func CreateEnvironment(name, baseDir string, cfg RuntimeConfig) (*LabEnvironment
 
 	switch runtimeType {
 	case RuntimeKind:
-		if err := CreateKindCluster(name); err != nil {
+		if err := cluster.CreateKindCluster(name); err != nil {
 			return nil, err
 		}
 		return &LabEnvironment{
 			Type:        RuntimeKind,
 			Name:        name,
 			KubeContext: "kind-" + name,
-			Executor:    LocalExecutor{},
+			Executor:    executor.LocalExecutor{},
 		}, nil
 	case RuntimeQEMU:
-		if err := validateQEMUVMs(cfg.QEMU); err != nil {
+		if err := config.ValidateQEMUVMs(cfg.QEMU); err != nil {
 			return nil, err
 		}
 		// Resolved once, up front, for every VM in the lab together — a
-		// segment's listen/connect role assignment (resolveNetworkTopology)
+		// segment's listen/connect role assignment (ResolveNetworkTopology)
 		// needs to see all of them at once, not just the one CreateQEMUVM
 		// call is about to boot.
-		networks, err := resolveNetworkTopology(name, cfg.Networks, cfg.QEMU)
+		networks, err := hypervisor.ResolveNetworkTopology(name, cfg.Networks, cfg.QEMU)
 		if err != nil {
 			return nil, err
 		}
-		if !isMultiVM(cfg.QEMU) {
-			handle, err := CreateQEMUVM(name, name, baseDir, cfg.QEMU[0].asQEMUConfig(), networks[cfg.QEMU[0].Name])
+		if !config.IsMultiVM(cfg.QEMU) {
+			handle, err := hypervisor.CreateQEMUVM(name, name, baseDir, cfg.QEMU[0].AsQEMUConfig(), networks[cfg.QEMU[0].Name])
 			if err != nil {
 				return nil, err
 			}
@@ -124,15 +131,15 @@ func CreateEnvironment(name, baseDir string, cfg RuntimeConfig) (*LabEnvironment
 // torn down before returning the error — a half-started multi-VM lab never
 // lingers as a set of ghost VMs the caller doesn't know exist yet (nothing
 // has been returned to it to run `astrona destroy` against).
-func createMultiQEMUEnvironment(name, baseDir string, vms []QEMUVM, networks map[string][]qemuNetworkSpec) (*LabEnvironment, error) {
-	executors := make(map[string]ScriptExecutor, len(vms))
+func createMultiQEMUEnvironment(name, baseDir string, vms []config.QEMUVM, networks map[string][]hypervisor.QEMUNetworkSpec) (*LabEnvironment, error) {
+	executors := make(map[string]executor.ScriptExecutor, len(vms))
 	var started []string
 
 	for _, vm := range vms {
-		handle, err := CreateQEMUVM(name+"-"+vm.Name, name, baseDir, vm.asQEMUConfig(), networks[vm.Name])
+		handle, err := hypervisor.CreateQEMUVM(name+"-"+vm.Name, name, baseDir, vm.AsQEMUConfig(), networks[vm.Name])
 		if err != nil {
 			for _, s := range started {
-				if derr := DestroyQEMUVM(name + "-" + s); derr != nil {
+				if derr := hypervisor.DestroyQEMUVM(name + "-" + s); derr != nil {
 					fmt.Printf("[WARN] failed to roll back vm '%s' after vm '%s' failed to start: %s\n", s, vm.Name, derr)
 				}
 			}
@@ -149,7 +156,7 @@ func createMultiQEMUEnvironment(name, baseDir string, vms []QEMUVM, networks map
 // `astrona submit` (always) and `astrona destroy` (when it has a loadable config),
 // which run in a separate process invocation from whatever ran
 // CreateEnvironment.
-func LoadEnvironment(name string, cfg RuntimeConfig) (*LabEnvironment, error) {
+func LoadEnvironment(name string, cfg config.RuntimeConfig) (*LabEnvironment, error) {
 	runtimeType, err := resolveRuntimeType(cfg)
 	if err != nil {
 		return nil, err
@@ -164,14 +171,14 @@ func LoadEnvironment(name string, cfg RuntimeConfig) (*LabEnvironment, error) {
 			Type:        RuntimeKind,
 			Name:        name,
 			KubeContext: "kind-" + name,
-			Executor:    LocalExecutor{},
+			Executor:    executor.LocalExecutor{},
 		}, nil
 	case RuntimeQEMU:
-		if err := validateQEMUVMs(cfg.QEMU); err != nil {
+		if err := config.ValidateQEMUVMs(cfg.QEMU); err != nil {
 			return nil, err
 		}
-		if !isMultiVM(cfg.QEMU) {
-			handle, err := LoadQEMUHandle(name)
+		if !config.IsMultiVM(cfg.QEMU) {
+			handle, err := hypervisor.LoadQEMUHandle(name)
 			if err != nil {
 				return nil, err
 			}
@@ -182,9 +189,9 @@ func LoadEnvironment(name string, cfg RuntimeConfig) (*LabEnvironment, error) {
 				Executor:    sshExecutorFor(handle),
 			}, nil
 		}
-		executors := make(map[string]ScriptExecutor, len(cfg.QEMU))
+		executors := make(map[string]executor.ScriptExecutor, len(cfg.QEMU))
 		for _, vm := range cfg.QEMU {
-			handle, err := LoadQEMUHandle(name + "-" + vm.Name)
+			handle, err := hypervisor.LoadQEMUHandle(name + "-" + vm.Name)
 			if err != nil {
 				return nil, fmt.Errorf("vm '%s': %w", vm.Name, err)
 			}
@@ -202,7 +209,7 @@ func LoadEnvironment(name string, cfg RuntimeConfig) (*LabEnvironment, error) {
 // VM is attempted even if one fails, so one stuck VM never blocks the rest
 // from being torn down; failures are collected into a single returned error
 // naming every VM that failed, not just the first.
-func DestroyEnvironment(name string, cfg RuntimeConfig) error {
+func DestroyEnvironment(name string, cfg config.RuntimeConfig) error {
 	runtimeType, err := resolveRuntimeType(cfg)
 	if err != nil {
 		return err
@@ -210,17 +217,17 @@ func DestroyEnvironment(name string, cfg RuntimeConfig) error {
 
 	switch runtimeType {
 	case RuntimeKind:
-		return DeleteKindCluster(name)
+		return cluster.DeleteKindCluster(name)
 	case RuntimeQEMU:
 		// An empty cfg.QEMU (config missing/unreadable at destroy time —
 		// see cmd_destroy.go's loadTeardownInfo, which never fails) can't
 		// tell multi-VM from single-VM apart; DestroyQEMUVM(name) is the
 		// same best-effort fallback the single-VM path always was, rather
 		// than silently no-op-ing an empty VM list.
-		if isMultiVM(cfg.QEMU) && len(cfg.QEMU) > 0 {
+		if config.IsMultiVM(cfg.QEMU) && len(cfg.QEMU) > 0 {
 			var failed []string
 			for _, vm := range cfg.QEMU {
-				if err := DestroyQEMUVM(name + "-" + vm.Name); err != nil {
+				if err := hypervisor.DestroyQEMUVM(name + "-" + vm.Name); err != nil {
 					failed = append(failed, fmt.Sprintf("%s: %s", vm.Name, err))
 				}
 			}
@@ -229,14 +236,14 @@ func DestroyEnvironment(name string, cfg RuntimeConfig) error {
 			}
 			return nil
 		}
-		return DestroyQEMUVM(name)
+		return hypervisor.DestroyQEMUVM(name)
 	default:
 		return fmt.Errorf("unsupported runtime type '%s'", runtimeType)
 	}
 }
 
-func sshExecutorFor(h *QEMUHandle) SSHExecutor {
-	return SSHExecutor{
+func sshExecutorFor(h *config.QEMUHandle) executor.SSHExecutor {
+	return executor.SSHExecutor{
 		Host:       h.SSHHost,
 		Port:       h.SSHPort,
 		User:       h.SSHUser,
