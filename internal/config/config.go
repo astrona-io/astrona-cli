@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"fmt"
@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"astrona/internal/gitsource"
 
 	"gopkg.in/yaml.v3"
 )
@@ -36,7 +38,7 @@ type MetadataConfig struct {
 // working unchanged.
 //
 // QEMU is always a list — even a single-VM qemu lab is a one-element list,
-// its one entry with no name set (see isMultiVM/QEMUVM). "Extending" a
+// its one entry with no name set (see IsMultiVM/QEMUVM). "Extending" a
 // single-VM lab into a multi-VM one is then just appending another list
 // entry (with a name) rather than restructuring the whole block.
 type RuntimeConfig struct {
@@ -50,13 +52,13 @@ type RuntimeConfig struct {
 
 // QEMUVM is one entry in runtime.qemu — either the lab's only VM (Name
 // unset, the pre-existing single-VM shape every qemu lab used before
-// multi-VM support) or one of several named VMs (isMultiVM). asQEMUConfig
+// multi-VM support) or one of several named VMs (IsMultiVM). AsQEMUConfig
 // converts it to the QEMUConfig shape CreateQEMUVM/LoadQEMUHandle/
 // DestroyQEMUVM (hypervisor.go) already expect — a multi-VM lab reuses that
 // exact single-VM machinery per VM, under the synthesized name
 // "<labName>-<vm.Name>", rather than a parallel code path.
 type QEMUVM struct {
-	Name       string          `yaml:"name"` // "" only valid when this is the list's only entry — see isMultiVM
+	Name       string          `yaml:"name"` // "" only valid when this is the list's only entry — see IsMultiVM
 	Image      QEMUImageSource `yaml:"image"`
 	Arch       string          `yaml:"arch"`
 	CPUs       int             `yaml:"cpus"`
@@ -67,7 +69,7 @@ type QEMUVM struct {
 	// top-level runtime.networks — see QEMUNetwork (hypervisor.go). Every VM
 	// always also gets an implicit host-only mgmt NIC regardless of this
 	// list. Resolved lab-wide by resolveNetworkTopology, not by
-	// asQEMUConfig below — assigning a segment's listen/connect roles needs
+	// AsQEMUConfig below — assigning a segment's listen/connect roles needs
 	// to see every VM in the lab at once, not just this one.
 	Networks        []QEMUNetwork `yaml:"networks"`
 	SSHPort         int           `yaml:"sshPort"`
@@ -84,7 +86,7 @@ type QEMUVM struct {
 	Validation *ValidationConfig `yaml:"validation"`
 }
 
-func (vm QEMUVM) asQEMUConfig() *QEMUConfig {
+func (vm QEMUVM) AsQEMUConfig() *QEMUConfig {
 	return &QEMUConfig{
 		Image:           vm.Image,
 		Arch:            vm.Arch,
@@ -98,29 +100,29 @@ func (vm QEMUVM) asQEMUConfig() *QEMUConfig {
 	}
 }
 
-// isMultiVM decides, from a lab's runtime.qemu list, whether this is a
+// IsMultiVM decides, from a lab's runtime.qemu list, whether this is a
 // multi-VM lab (2+ entries, or a single entry that names itself) or a
 // single-VM lab (exactly one entry with no name — the shape every qemu lab
 // used before multi-VM support, and still the only shape that runs its
 // root Bootstrap/Validation exactly once rather than once per VM).
-func isMultiVM(vms []QEMUVM) bool {
+func IsMultiVM(vms []QEMUVM) bool {
 	if len(vms) != 1 {
-		return true // 0 is invalid (validateQEMUVMs catches it), 2+ is unambiguous
+		return true // 0 is invalid (ValidateQEMUVMs catches it), 2+ is unambiguous
 	}
 	return strings.TrimSpace(vms[0].Name) != ""
 }
 
-// validateQEMUVMs checks runtime.qemu is well-formed: not empty, and — only
-// once it's actually multi-VM (isMultiVM) — every entry named and no
+// ValidateQEMUVMs checks runtime.qemu is well-formed: not empty, and — only
+// once it's actually multi-VM (IsMultiVM) — every entry named and no
 // duplicate names. Called from every entry point that reads it
 // (CreateEnvironment/LoadEnvironment/DestroyEnvironment in runtime.go) so a
 // config mistake surfaces the same way regardless of which command catches
 // it first.
-func validateQEMUVMs(vms []QEMUVM) error {
+func ValidateQEMUVMs(vms []QEMUVM) error {
 	if len(vms) == 0 {
 		return fmt.Errorf("runtime.qemu is empty — needs at least one entry")
 	}
-	if !isMultiVM(vms) {
+	if !IsMultiVM(vms) {
 		return nil
 	}
 
@@ -198,12 +200,12 @@ type LabConfig struct {
 // used as-is.
 func ResolveConfigPath(configDirOrURL, fileName, gitURL, gitRef string) (string, error) {
 	if gitURL != "" {
-		repoDir, err := resolveGitConfigSource(gitURL, gitRef)
+		repoDir, err := gitsource.ResolveGitConfigSource(gitURL, gitRef)
 		if err != nil {
 			return "", fmt.Errorf("git source failed: %w", err)
 		}
 
-		subDir, err := joinWithinBaseDir(repoDir, configDirOrURL)
+		subDir, err := JoinWithinBaseDir(repoDir, configDirOrURL)
 		if err != nil {
 			return "", fmt.Errorf("--config must stay within the cloned repo: %w", err)
 		}
@@ -285,31 +287,9 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 	return &config, cleanup, nil
 }
 
-// LoadLabForCommand resolves --config/--file (and --git/--git-ref, if set),
-// loads the YAML, and returns the lab's base directory for resolving
-// relative script/manifest paths. Shared by every command that requires a
-// valid config to do anything (run, submit, test) — cmd_destroy.go does NOT
-// use this, since destroy must still best-effort tear down even when the
-// config can't be loaded.
-func LoadLabForCommand(flags *rootFlags) (config *LabConfig, baseDir string, cleanup func(), err error) {
-	finalPath, err := ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef)
-	if err != nil {
-		return nil, "", func() {}, fmt.Errorf("path resolution failed: %w", err)
-	}
-
-	fmt.Printf("Loading configuration from: %s\n", finalPath)
-
-	config, cleanup, err = LoadLabConfig(finalPath)
-	if err != nil {
-		return nil, "", func() {}, fmt.Errorf("failed to load lab config: %w", err)
-	}
-
-	return config, filepath.Dir(finalPath), cleanup, nil
-}
-
-// normalizeClusterName prefixes clusterName with "astro-" if it doesn't already
+// NormalizeClusterName prefixes clusterName with "astro-" if it doesn't already
 // start with "astro-".
-func normalizeClusterName(clusterName string) string {
+func NormalizeClusterName(clusterName string) string {
 	if clusterName == "" {
 		clusterName = "astrona-lab"
 	}
@@ -319,9 +299,9 @@ func normalizeClusterName(clusterName string) string {
 	return clusterName
 }
 
-// normalizeTestClusterName prefixes clusterName with "astro-test-" after stripping
+// NormalizeTestClusterName prefixes clusterName with "astro-test-" after stripping
 // any existing "astro-" or "test-" prefixes to prevent nested naming.
-func normalizeTestClusterName(clusterName string) string {
+func NormalizeTestClusterName(clusterName string) string {
 	if clusterName == "" {
 		clusterName = "astrona-lab"
 	}

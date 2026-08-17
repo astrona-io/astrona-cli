@@ -1,4 +1,4 @@
-package main
+package hypervisor
 
 import (
 	"context"
@@ -19,202 +19,28 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"astrona/internal/config"
 )
 
-// QEMUImageSource describes the VM base image: a local qcow2 file, a URL to
-// download one, or an OCI artifact to pull one from. Checksum verification
-// (Checksum/Checksums, below) is optional — a maintainer choice, not a
-// technical necessity: a VM base image is a full bootable OS, so booting one
-// unverified means trusting whatever the source currently serves with no
-// protection against it changing later (registries/URLs are mutable). If
-// you skip it, acquireBaseImage still warns on every run, but does cache the
-// image (keyed by source, not content) — a cheap best-effort freshness check
-// (HTTP ETag/Last-Modified for "url", the OCI manifest digest for "oci")
-// decides whether to reuse the cached copy or re-fetch, and a failed
-// freshness check (e.g. offline) falls back to the cached copy rather than
-// erroring, with a warning either way. See unverifiedCacheHit.
-type QEMUImageSource struct {
-	Type string `yaml:"type"` // "file", "url", or "oci" (pulled via `oras pull`, e.g. a ghcr.io package)
-	// Source and File may each contain the literal placeholder "{ARCH}",
-	// substituted (by acquireBaseImage) with the resolved guest arch's OCI
-	// spelling — "amd64" or "arm64" (see ociArchName), never astrona's own
-	// "x86_64"/"aarch64" — before use. The resolved arch is QEMUConfig.Arch
-	// if set, otherwise this host's own architecture (see normalizeArch).
-	// This is what lets one lab config pull the right image on both an
-	// arm64 dev laptop and an amd64 CI runner without editing anything.
-	Source string `yaml:"source"`
-	// Checksum ("sha256:<hex>"), when set, is verified against the exact
-	// bytes booted: for "file"/"url" that's the whole referenced file; for
-	// "oci" it's specifically the single extracted *.qcow2 (via File,
-	// below) — never a hash of the manifest, the whole artifact/tarball, or
-	// any other layer in it. For an "oci" source this is conveniently the
-	// same digest `oras manifest fetch <ref>` prints for that layer (OCI
-	// blobs are content-addressed by this exact digest), so it can be
-	// copied directly from there rather than downloaded-and-hashed by hand.
-	//
-	// At most one of Checksum or Checksums may be set — never both; leaving
-	// both unset is allowed (see QEMUImageSource's doc comment) but treated
-	// differently from Checksums being set with a missing arch entry, which
-	// is still a hard error (resolveChecksum). Checksums exists because a
-	// single Checksum can't be correct for more than one resolved image: use
-	// it (keyed by the same "amd64"/"arm64" spelling {ARCH} resolves to)
-	// whenever Source/File is arch-templated, since a different arch is a
-	// genuinely different file with a genuinely different hash.
-	Checksum  string            `yaml:"checksum"`
-	Checksums map[string]string `yaml:"checksums"`
-	// File selects which *.qcow2 to use when an "oci" artifact contains more
-	// than one (e.g. multiple build variants pushed under the same tag).
-	// Matched against the pulled file's base name; ignored for "file"/"url"
-	// sources. Optional: if omitted and the artifact has exactly one
-	// *.qcow2, that one is used; if omitted and it has several, a file
-	// named exactly "image.qcow2" is used if present (defaultOCIImageFile —
-	// the convention this repo's own published images follow), otherwise
-	// findQcow2InPull errors out and File becomes required to disambiguate.
-	// May also contain "{ARCH}" — see Source.
-	File string `yaml:"file"`
-}
-
-// QEMUExtraDisk describes one additional blank disk attached alongside the
-// main (base-image-backed) disk — e.g. a scratch disk for practicing
-// partitioning, LVM, or filesystem formatting without touching the VM's
-// root filesystem. Unlike the main disk, an extra disk has no base image to
-// size or format itself from, so SizeGB is required and it always starts
-// unformatted (raw zeroed blocks) — whatever the lab's bootstrap/validation
-// scripts do to it (fdisk, pvcreate, mkfs.ext4, ...) is up to the lab, not
-// astrona. Disposable like the main overlay disk: recreated blank on every
-// `astrona run`, deleted with the rest of the VM's state dir on
-// `astrona destroy`.
-type QEMUExtraDisk struct {
-	SizeGB int `yaml:"sizeGB"` // required, > 0 — no base image to inherit a size from
-	// Format is the qcow2/raw image the disk file itself is stored as on the
-	// host — not a guest filesystem. "" => "qcow2" (default, sparse/thin on
-	// the host); "raw" pre-allocates SizeGB up front. Either way the guest
-	// sees an entirely blank block device with no partition table.
-	Format string `yaml:"format"`
-	// Serial, when set, is exposed to the guest as the virtio-blk device's
-	// serial number — lets a bootstrap/validation script target a stable
-	// path like /dev/disk/by-id/virtio-<serial> instead of relying on
-	// /dev/vdb-style enumeration order, which isn't guaranteed stable across
-	// multiple extra disks.
-	Serial string `yaml:"serial"`
-}
-
 // qemuExtraDiskSpec is the resolved (defaulted, validated, on-disk) form of
-// a QEMUExtraDisk that buildQEMUArgs consumes — mirrors how overlayPath is
-// the resolved form of QEMUConfig.Image/DiskSizeGB.
+// a config.QEMUExtraDisk that buildQEMUArgs consumes — mirrors how overlayPath is
+// the resolved form of config.QEMUConfig.Image/DiskSizeGB.
 type qemuExtraDiskSpec struct {
 	Path   string
 	Format string
 	Serial string
 }
 
-// QEMUNetworkDef declares one named virtual network segment at the
-// runtime.networks level — the CIDR range every VM joining it (via its own
-// runtime.qemu[].networks entry, QEMUNetwork below) must fall inside.
-// Segments are declared once here rather than left to emerge purely from
-// VMs repeating a name, so a typo'd segment name or an out-of-range VM
-// `ipv4:` is a clear config error (resolveNetworkTopology) instead of
-// silently creating a second, disconnected segment or a VM guessing wrong
-// about its own subnet — and declaring the range once here, rather than on
-// every VM, is also what lets a VM's own `ipv4:` be a bare address instead
-// of repeating the /prefix. Optional at the lab level: a qemu lab with no
-// VM-to-VM networking needs no runtime.networks entry at all.
-type QEMUNetworkDef struct {
-	Name string `yaml:"name"`
-	CIDR string `yaml:"cidr"` // e.g. "10.10.1.0/24" — every VM's ipv4: on this segment must fall inside it, and it must not overlap any other declared segment's CIDR
-}
-
-// QEMUNetwork attaches one additional NIC to a VM, joining a segment already
-// declared in runtime.networks (QEMUNetworkDef) by Name. Every VM always
-// also gets one implicit NIC (net0: qemu's "user"/SLIRP backend, host-
-// forwarded for SSH) regardless of this list; Networks adds NIC1, NIC2, ...
-// on top of that one. astrona's qemu networking backend is a point-to-point
-// loopback TCP socket per segment (qemu "-netdev socket,listen=.../
-// connect=..."), not a shared multi-party segment — see
-// resolveNetworkTopology — so exactly two VMs may join any one segment. A
-// lab with three VMs where only one (a "jump host") needs to straddle two
-// segments just gives that one VM two entries with different Names — that
-// VM ends up with two extra NICs, the other two VMs with one each, and no
-// NIC at all is shared between VMs that don't list a common Name.
-type QEMUNetwork struct {
-	Name string `yaml:"name"` // must match a runtime.networks[].name
-	// IPv4 is a bare address, e.g. "10.10.1.2" — no "/prefix": the segment
-	// already declared its CIDR range once in runtime.networks, so this VM's
-	// prefix length is inherited from there rather than repeated on every
-	// VM. Required (this segment has no DHCP server, so cloud-init needs an
-	// explicit static address) and must fall inside the declared range.
-	IPv4 string `yaml:"ipv4"`
-}
-
-// qemuNetworkSpec is the resolved (validated, port/role/MAC-derived) form of
-// one VM's QEMUNetwork entry that buildQEMUArgs and buildCloudInitSeed
-// consume — see resolveNetworkTopology.
-type qemuNetworkSpec struct {
+// QEMUNetworkSpec is the resolved (validated, port/role/MAC-derived) form of
+// one VM's config.QEMUNetwork entry that buildQEMUArgs and buildCloudInitSeed
+// consume — see ResolveNetworkTopology.
+type QEMUNetworkSpec struct {
 	Name string
-	IP   string // guest-side static CIDR address — the VM's authored bare ipv4: plus the segment's declared prefix length, combined by resolveNetworkTopology
+	IP   string // guest-side static CIDR address — the VM's authored bare ipv4: plus the segment's declared prefix length, combined by ResolveNetworkTopology
 	Port int    // shared loopback TCP port both VMs on this segment rendezvous on
-	Role string // "listen" | "connect" — see resolveNetworkTopology
+	Role string // "listen" | "connect" — see ResolveNetworkTopology
 	MAC  string
-}
-
-// QEMUNetworkStatus is what a resolved qemuNetworkSpec looks like once
-// persisted into QEMUHandle — just what `astrona list`/a future `astrona
-// ssh` need to display, without the listen/connect role (an implementation
-// detail of how the NIC reaches its segment, not something a human asks
-// about).
-type QEMUNetworkStatus struct {
-	Name string
-	IP   string
-	MAC  string
-}
-
-// QEMUConfig is the qemu-specific block of a lab's runtime config.
-// QEMUConfig is what CreateQEMUVM needs to boot exactly one VM — deliberately
-// unaware of lab orchestration concepts like naming-for-humans or bootstrap/
-// validation scripts. QEMUVM (config.go), one entry in a lab's
-// runtime.qemu list, carries those and converts to this via asQEMUConfig.
-type QEMUConfig struct {
-	Image      QEMUImageSource `yaml:"image"`
-	Arch       string          `yaml:"arch"`       // "" => this host's own architecture (see normalizeArch) | "x86_64"/"amd64" | "aarch64"/"arm64" (needs UEFI firmware installed, see locateAArch64Firmware)
-	CPUs       int             `yaml:"cpus"`       // 0 => default 2
-	MemoryMB   int             `yaml:"memoryMB"`   // 0 => default 2048
-	DiskSizeGB int             `yaml:"diskSizeGB"` // 0 => use base image's own size
-	// ExtraDisks attaches additional blank disks (/dev/vdb, /dev/vdc, ... in
-	// the guest, in list order) alongside the main disk — see QEMUExtraDisk.
-	ExtraDisks []QEMUExtraDisk `yaml:"extraDisks"`
-	SSHPort    int             `yaml:"sshPort"` // 0 => auto-pick a free host port
-	// Display, when true, opens qemu's normal GUI window (e.g. a desktop
-	// guest you want to actually look at) instead of running headless. Either
-	// way CreateQEMUVM never blocks the CLI and the VM keeps running in the
-	// background after `astrona run` returns — see CreateQEMUVM for why the
-	// two modes launch qemu differently under the hood. Default false
-	// (headless) — right for the SSH-only labs most of this repo's examples
-	// are.
-	Display         bool `yaml:"display"`
-	SSHPasswordAuth bool `yaml:"sshPasswordAuth"` // If true, cloud-init enables password SSH authentication (ssh_pwauth: true)
-}
-
-// QEMUHandle is what a running VM looks like to the rest of the CLI: enough
-// to SSH in and to tear it down later, possibly from a separate process
-// invocation (astrona run, then later astrona submit/destroy). It is persisted to
-// StateDir/handle.json because — unlike a kind cluster, whose state is owned
-// by the container engine and queryable by name from any process — a raw
-// qemu process has no such registry of its own.
-type QEMUHandle struct {
-	ClusterName string
-	PID         int
-	SSHHost     string
-	SSHPort     int
-	SSHUser     string
-	SSHKeyPath  string
-	KnownHosts  string
-	StateDir    string
-	StartedAt   time.Time // used by `astrona list` to report uptime
-	// Networks records the additional NICs (beyond the implicit host-only
-	// mgmt NIC above) this VM was booted with — persisted here, same as
-	// every other field, so `astrona list` can show NIC count/IPs from a
-	// separate process invocation without needing the lab's config.yaml.
-	Networks []QEMUNetworkStatus
 }
 
 const qemuSSHUser = "student"
@@ -226,14 +52,14 @@ const qemuSSHUser = "student"
 // untrusted URL can make the CLI write to disk before that check runs.
 const maxQEMUImageDownloadBytes = 20 * 1024 * 1024 * 1024
 
-// qemuBaseDir returns (creating if needed) ~/.astrona/qemu — the parent of
+// QEMUBaseDir returns (creating if needed) ~/.astrona/qemu — the parent of
 // every lab's per-VM state dir. A visible dotdir under $HOME rather than
 // os.UserCacheDir() (macOS: ~/Library/Caches/astrona, easy to lose track of
 // or have silently swept by a cache-cleaning tool) since this holds live,
 // load-bearing state — a running VM's ephemeral SSH key and its only handle
 // — not disposable cache data. Also what `astrona list` scans to enumerate
 // every qemu lab, running or not.
-func qemuBaseDir() (string, error) {
+func QEMUBaseDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
@@ -249,10 +75,10 @@ func qemuBaseDir() (string, error) {
 
 // qemuStateDir returns (creating if needed) the per-lab directory that holds
 // everything about one qemu VM: overlay disk, cloud-init seed, ephemeral SSH
-// key, known_hosts, pidfile, and the persisted QEMUHandle. 0700 because it
+// key, known_hosts, pidfile, and the persisted config.QEMUHandle. 0700 because it
 // holds an SSH private key.
 func qemuStateDir(clusterName string) (string, error) {
-	base, err := qemuBaseDir()
+	base, err := QEMUBaseDir()
 	if err != nil {
 		return "", err
 	}
@@ -267,7 +93,7 @@ func qemuStateDir(clusterName string) (string, error) {
 
 // normalizeArch maps the handful of spellings a lab author might write to
 // the arch name qemu-system-<arch> and Go's runtime.GOARCH both use. An
-// empty arch (QEMUConfig.Arch not set at all) resolves to *this host's own*
+// empty arch (config.QEMUConfig.Arch not set at all) resolves to *this host's own*
 // architecture — via runtime.GOARCH, which already uses the "amd64"/"arm64"
 // spelling this recurses into — rather than a fixed default, so an
 // unspecified arch boots natively-accelerated (hvf/kvm) on whichever
@@ -289,7 +115,7 @@ func normalizeArch(arch string) string {
 // ociArchName maps astrona's internal qemu arch spelling (normalizeArch's
 // output: "x86_64"/"aarch64") to the "amd64"/"arm64" spelling OCI
 // registries, image tags, and Docker/Go tooling actually use. This is what
-// the "{ARCH}" template variable in QEMUImageSource.Source/File resolves
+// the "{ARCH}" template variable in config.QEMUImageSource.Source/File resolves
 // to — never astrona's own "x86_64"/"aarch64" spelling.
 func ociArchName(normalizedArch string) string {
 	switch normalizedArch {
@@ -354,7 +180,7 @@ func DetectAccelerator(arch string) string {
 // — the lab author opted into per-arch pinning, just not for this one, and
 // silently falling back to unverified there would be a more surprising
 // failure mode than just saying so.
-func resolveChecksum(img QEMUImageSource, ociArch string) (string, error) {
+func resolveChecksum(img config.QEMUImageSource, ociArch string) (string, error) {
 	hasSingle := strings.TrimSpace(img.Checksum) != ""
 	hasMap := len(img.Checksums) > 0
 
@@ -418,7 +244,7 @@ func verifyChecksum(path, expectedHex string) error {
 	return nil
 }
 
-// acquireBaseImage resolves a QEMUImageSource to a local file path (joining
+// acquireBaseImage resolves a config.QEMUImageSource to a local file path (joining
 // relative "file" sources against baseDir, downloading "url" sources via the
 // same downloadToTemp helper scripts.go uses, or pulling "oci" sources via
 // `oras pull`). The returned cleanup only ever removes a downloaded/pulled
@@ -437,7 +263,7 @@ func verifyChecksum(path, expectedHex string) error {
 // address, since there's no checksum to address by. Setting a checksum
 // still gets exactly the same enforcement as before, cached the same way as
 // always (content-addressed, re-verified on every hit).
-func acquireBaseImage(img QEMUImageSource, baseDir, stateDir, hostArch string) (string, func(), error) {
+func acquireBaseImage(img config.QEMUImageSource, baseDir, stateDir, hostArch string) (string, func(), error) {
 	path, cleanup, err := acquireBaseImageUnchecked(img, baseDir, stateDir, hostArch)
 	if err != nil {
 		return path, cleanup, err
@@ -492,7 +318,7 @@ func rejectEmbeddedBackingFile(path string) error {
 	return nil
 }
 
-func acquireBaseImageUnchecked(img QEMUImageSource, baseDir, stateDir, hostArch string) (string, func(), error) {
+func acquireBaseImageUnchecked(img config.QEMUImageSource, baseDir, stateDir, hostArch string) (string, func(), error) {
 	noopCleanup := func() {}
 
 	ociArch := ociArchName(hostArch)
@@ -533,7 +359,7 @@ func acquireBaseImageUnchecked(img QEMUImageSource, baseDir, stateDir, hostArch 
 	// there was a cached copy but the freshness check says it's stale.
 	// unverifiedMeta nil with hitPath set means the cached copy is either
 	// still fresh or unreachable-but-present — either way, boot it as-is.
-	var unverifiedMeta *imageCacheMeta
+	var unverifiedMeta *ImageCacheMeta
 	var unverifiedDataPath, unverifiedMetaPath string
 	if !verify && networkSourced {
 		var hitPath string
@@ -548,7 +374,7 @@ func acquireBaseImageUnchecked(img QEMUImageSource, baseDir, stateDir, hostArch 
 
 	switch sourceType {
 	case "file":
-		resolved, err := joinWithinBaseDir(baseDir, source)
+		resolved, err := config.JoinWithinBaseDir(baseDir, source)
 		if err != nil {
 			return "", noopCleanup, fmt.Errorf("failed to resolve qemu base image path: %w", err)
 		}
@@ -557,7 +383,7 @@ func acquireBaseImageUnchecked(img QEMUImageSource, baseDir, stateDir, hostArch 
 			return "", noopCleanup, fmt.Errorf("qemu base image does not exist: %s", path)
 		}
 	case "url":
-		tmpPath, clean, err := downloadToTemp(source, "astrona-qemu-image-*.img", maxQEMUImageDownloadBytes)
+		tmpPath, clean, err := config.DownloadToTemp(source, "astrona-qemu-image-*.img", maxQEMUImageDownloadBytes)
 		if err != nil {
 			return "", noopCleanup, fmt.Errorf("failed to download qemu base image from %s: %w", source, err)
 		}
@@ -591,7 +417,7 @@ func acquireBaseImageUnchecked(img QEMUImageSource, baseDir, stateDir, hostArch 
 			fmt.Printf("[WARN] failed to cache downloaded qemu base image, will re-fetch next run: %s\n", err)
 			return path, cleanup, nil
 		}
-		finalizeImageCacheMeta(cachePath, cachePath+".meta.json", &imageCacheMeta{
+		finalizeImageCacheMeta(cachePath, cachePath+".meta.json", &ImageCacheMeta{
 			Source:   source,
 			Type:     sourceType,
 			Verified: true,
@@ -617,10 +443,10 @@ func acquireBaseImageUnchecked(img QEMUImageSource, baseDir, stateDir, hostArch 
 	return path, cleanup, nil
 }
 
-// imageCacheDir returns (creating if needed) ~/.astrona/cache/images —
+// ImageCacheDir returns (creating if needed) ~/.astrona/cache/images —
 // where checksum-verified qemu base images from "url"/"oci" sources are
 // cached, keyed by their own checksum (see acquireBaseImage).
-func imageCacheDir() (string, error) {
+func ImageCacheDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
@@ -674,7 +500,7 @@ func cacheSlug(resolvedSource string) string {
 // "Using cached qemu base image" log line) — verifyChecksum always checks
 // the full digest regardless of what's in the filename.
 func cachedImagePath(resolvedSource, algo, hexDigest string) (string, error) {
-	dir, err := imageCacheDir()
+	dir, err := ImageCacheDir()
 	if err != nil {
 		return "", err
 	}
@@ -745,8 +571,8 @@ func persistToCache(srcPath, cachePath string) error {
 	return nil
 }
 
-// imageCacheMeta is the sidecar (<entry>.meta.json, next to <entry>.qcow2 in
-// imageCacheDir) astrona writes for every cache entry it creates — both the
+// ImageCacheMeta is the sidecar (<entry>.meta.json, next to <entry>.qcow2 in
+// ImageCacheDir) astrona writes for every cache entry it creates — both the
 // long-standing checksum-verified kind (Verified: true) and the
 // source-keyed unverified kind this struct was added for (Verified: false).
 // It exists purely for `astrona images list` and, for unverified entries,
@@ -756,7 +582,7 @@ func persistToCache(srcPath, cachePath string) error {
 // actual cached file for that; SHA256 here is informational only for the
 // unverified path (still checksum-derived and enforced on the verified
 // path, same as always).
-type imageCacheMeta struct {
+type ImageCacheMeta struct {
 	Source       string    `json:"source"`
 	Type         string    `json:"type"`
 	Verified     bool      `json:"verified"`
@@ -768,11 +594,11 @@ type imageCacheMeta struct {
 	CachedAt     time.Time `json:"cachedAt"`
 }
 
-// loadImageCacheMeta reads a cache entry's sidecar metadata file. A missing
+// LoadImageCacheMeta reads a cache entry's sidecar metadata file. A missing
 // file is not an error (nil, nil) — a cache entry can predate this field, or
 // its own metadata write can have failed on a previous run without that
 // being fatal to the cache entry itself (see finalizeImageCacheMeta).
-func loadImageCacheMeta(metaPath string) (*imageCacheMeta, error) {
+func LoadImageCacheMeta(metaPath string) (*ImageCacheMeta, error) {
 	data, err := os.ReadFile(metaPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -781,7 +607,7 @@ func loadImageCacheMeta(metaPath string) (*imageCacheMeta, error) {
 		return nil, fmt.Errorf("failed to read image cache metadata '%s': %w", metaPath, err)
 	}
 
-	var m imageCacheMeta
+	var m ImageCacheMeta
 	if err := json.Unmarshal(data, &m); err != nil {
 		return nil, fmt.Errorf("failed to parse image cache metadata '%s': %w", metaPath, err)
 	}
@@ -791,7 +617,7 @@ func loadImageCacheMeta(metaPath string) (*imageCacheMeta, error) {
 // saveImageCacheMeta writes meta to metaPath via the same write-to-temp-then-
 // rename pattern persistToCache uses for the image data itself, so a
 // concurrent astrona invocation never observes a half-written metadata file.
-func saveImageCacheMeta(metaPath string, meta *imageCacheMeta) error {
+func saveImageCacheMeta(metaPath string, meta *ImageCacheMeta) error {
 	data, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to encode image cache metadata: %w", err)
@@ -813,7 +639,7 @@ func saveImageCacheMeta(metaPath string, meta *imageCacheMeta) error {
 // error-handling: a metadata write failure only degrades `astrona images
 // list`'s output for this entry, it never invalidates the cached image data
 // itself, so it's logged and swallowed rather than propagated.
-func finalizeImageCacheMeta(dataPath, metaPath string, meta *imageCacheMeta) {
+func finalizeImageCacheMeta(dataPath, metaPath string, meta *ImageCacheMeta) {
 	if info, err := os.Stat(dataPath); err == nil {
 		meta.SizeBytes = info.Size()
 	}
@@ -826,7 +652,7 @@ func finalizeImageCacheMeta(dataPath, metaPath string, meta *imageCacheMeta) {
 
 // sha256File hashes path's contents, returning the lowercase hex digest.
 // Used to record an unverified cache entry's own content hash for display
-// (imageCacheMeta.SHA256) — informational only, never re-checked the way a
+// (ImageCacheMeta.SHA256) — informational only, never re-checked the way a
 // verified entry's checksum is by cacheHit.
 func sha256File(path string) (string, error) {
 	f, err := os.Open(path)
@@ -857,7 +683,7 @@ func unverifiedCacheKey(resolvedSource string) string {
 // from checksum-keyed ones (cachedImagePath) when browsing the cache dir by
 // hand, and so the two naming schemes can never collide.
 func unverifiedCachePaths(resolvedSource string) (dataPath, metaPath string, err error) {
-	dir, err := imageCacheDir()
+	dir, err := ImageCacheDir()
 	if err != nil {
 		return "", "", err
 	}
@@ -883,7 +709,7 @@ const freshnessCheckTimeout = 15 * time.Second
 // server reports now; a source with neither header (some plain static file
 // servers) can never report fresh — every run treats it as changed and
 // re-downloads, which is correct given astrona has no other signal to trust.
-func checkURLFreshness(source string, prior *imageCacheMeta) (fresh bool, etag, lastModified string, err error) {
+func checkURLFreshness(source string, prior *ImageCacheMeta) (fresh bool, etag, lastModified string, err error) {
 	if !strings.HasPrefix(source, "https://") {
 		return false, "", "", fmt.Errorf("refusing to check non-https URL '%s': only https:// sources are allowed", source)
 	}
@@ -932,7 +758,7 @@ type orasDescriptor struct {
 // checkOCIFreshness resolves ref's current manifest digest via `oras
 // manifest fetch --descriptor` and compares it against prior's stored
 // digest. fresh is only true when prior is non-nil and its digest matches.
-func checkOCIFreshness(ref string, prior *imageCacheMeta) (fresh bool, digest string, err error) {
+func checkOCIFreshness(ref string, prior *ImageCacheMeta) (fresh bool, digest string, err error) {
 	orasPath, lookErr := exec.LookPath("oras")
 	if lookErr != nil {
 		return false, "", fmt.Errorf("oras not found in PATH (required to check qemu image type 'oci' for updates): %w", lookErr)
@@ -975,7 +801,7 @@ func checkOCIFreshness(ref string, prior *imageCacheMeta) (fresh bool, digest st
 //     then persist the result at dataPath/metaPath using the returned meta
 //     (pre-filled with whatever ETag/Last-Modified/Digest this check learned,
 //     so that gets recorded even though this run still had to fetch).
-func unverifiedCacheHit(source, sourceType string) (hitPath, dataPath, metaPath string, meta *imageCacheMeta) {
+func unverifiedCacheHit(source, sourceType string) (hitPath, dataPath, metaPath string, meta *ImageCacheMeta) {
 	dataPath, metaPath, err := unverifiedCachePaths(source)
 	if err != nil {
 		fmt.Printf("[WARN] could not resolve image cache dir, not caching this run: %s\n", err)
@@ -985,7 +811,7 @@ func unverifiedCacheHit(source, sourceType string) (hitPath, dataPath, metaPath 
 	_, statErr := os.Stat(dataPath)
 	haveCache := statErr == nil
 
-	prior, loadErr := loadImageCacheMeta(metaPath)
+	prior, loadErr := LoadImageCacheMeta(metaPath)
 	if loadErr != nil {
 		fmt.Printf("[WARN] could not read image cache metadata, treating as uncached: %s\n", loadErr)
 		prior = nil
@@ -1000,7 +826,7 @@ func unverifiedCacheHit(source, sourceType string) (hitPath, dataPath, metaPath 
 		fresh, digest, checkErr = checkOCIFreshness(source, prior)
 	}
 
-	next := &imageCacheMeta{
+	next := &ImageCacheMeta{
 		Source:       source,
 		Type:         sourceType,
 		ETag:         etag,
@@ -1032,7 +858,7 @@ func unverifiedCacheHit(source, sourceType string) (hitPath, dataPath, metaPath 
 // (not our own HTTP client) performs and controls the actual download. Only
 // called on an image-cache miss (see acquireBaseImage) — a lab whose
 // checksum is already cached never reaches this function.
-// wantFile (QEMUImageSource.File) picks which *.qcow2 to use when the
+// wantFile (config.QEMUImageSource.File) picks which *.qcow2 to use when the
 // artifact contains more than one — see findQcow2InPull.
 func pullOCIImage(ref, wantFile, stateDir string) (string, func(), error) {
 	noopCleanup := func() {}
@@ -1292,7 +1118,7 @@ func createExtraDisk(stateDir string, index int, format string, sizeGB int) (str
 
 // resolveExtraDisks validates and creates every disk in cfg.ExtraDisks,
 // returning the resolved specs buildQEMUArgs needs.
-func resolveExtraDisks(stateDir string, disks []QEMUExtraDisk) ([]qemuExtraDiskSpec, error) {
+func resolveExtraDisks(stateDir string, disks []config.QEMUExtraDisk) ([]qemuExtraDiskSpec, error) {
 	specs := make([]qemuExtraDiskSpec, 0, len(disks))
 	for i, d := range disks {
 		if d.SizeGB <= 0 {
@@ -1350,12 +1176,12 @@ func cidrsOverlap(a, b *net.IPNet) bool {
 	return a.Contains(b.IP) || b.Contains(a.IP)
 }
 
-// resolveNetworkTopology validates a lab's runtime.networks declarations and
+// ResolveNetworkTopology validates a lab's runtime.networks declarations and
 // every VM's own networks: references against them, then assigns each
 // segment's two VMs a loopback TCP listen/connect role and a shared
 // rendezvous port. Returns each VM's resolved NIC specs (buildQEMUArgs/
 // buildCloudInitSeed's input), keyed by VM name — "" for a single-VM lab,
-// matching QEMUVM.Name there.
+// matching config.QEMUVM.Name there.
 //
 // astrona's qemu networking backend is a plain loopback TCP socket per
 // segment (qemu "-netdev socket,listen=.../connect=..."), not a shared
@@ -1368,7 +1194,7 @@ func cidrsOverlap(a, b *net.IPNet) bool {
 // starting the next, the listener's socket is already open — set up at qemu
 // process launch, long before its own guest OS finishes booting — by the
 // time any later VM's connector tries to reach it.
-func resolveNetworkTopology(labName string, defs []QEMUNetworkDef, vms []QEMUVM) (map[string][]qemuNetworkSpec, error) {
+func ResolveNetworkTopology(labName string, defs []config.QEMUNetworkDef, vms []config.QEMUVM) (map[string][]QEMUNetworkSpec, error) {
 	declared := make(map[string]*net.IPNet, len(defs))
 	declaredOrder := make([]string, 0, len(defs))
 
@@ -1451,7 +1277,7 @@ func resolveNetworkTopology(labName string, defs []QEMUNetworkDef, vms []QEMUVM)
 		segListener[name] = members[0]
 	}
 
-	result := make(map[string][]qemuNetworkSpec, len(vms))
+	result := make(map[string][]QEMUNetworkSpec, len(vms))
 	for _, vm := range vms {
 		for _, n := range vm.Networks {
 			name := strings.TrimSpace(n.Name)
@@ -1461,10 +1287,10 @@ func resolveNetworkTopology(labName string, defs []QEMUNetworkDef, vms []QEMUVM)
 			}
 			// The declared segment's prefix length, not anything authored on
 			// this VM, is what turns its bare ipv4: back into the CIDR form
-			// cloud-init's network-config (and QEMUHandle.Networks, for
+			// cloud-init's network-config (and config.QEMUHandle.Networks, for
 			// `astrona list`) actually need.
 			ones, _ := declared[name].Mask.Size()
-			result[vm.Name] = append(result[vm.Name], qemuNetworkSpec{
+			result[vm.Name] = append(result[vm.Name], QEMUNetworkSpec{
 				Name: name,
 				IP:   fmt.Sprintf("%s/%d", strings.TrimSpace(n.IPv4), ones),
 				Port: segPort[name],
@@ -1570,7 +1396,7 @@ func cloudInitHostname(clusterName string) string {
 // whole stateDir, which also holds the private key and disk images) and
 // packed into a "cidata"-labeled ISO9660 image via whichever ISO tool is
 // available.
-func buildCloudInitSeed(stateDir, clusterName, pubKey string, passwordAuth bool, mgmtMAC string, networks []qemuNetworkSpec) (string, error) {
+func buildCloudInitSeed(stateDir, clusterName, pubKey string, passwordAuth bool, mgmtMAC string, networks []QEMUNetworkSpec) (string, error) {
 	seedSrcDir := filepath.Join(stateDir, "cidata-src")
 	if err := os.MkdirAll(seedSrcDir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create cloud-init seed source dir: %w", err)
@@ -1768,9 +1594,9 @@ func readPidfile(path string, timeout time.Duration) (int, error) {
 	return 0, fmt.Errorf("timed out waiting for pidfile '%s'", path)
 }
 
-// writeHandleState persists a QEMUHandle so a later, separate process
+// writeHandleState persists a config.QEMUHandle so a later, separate process
 // invocation (astrona submit, astrona destroy) can rediscover this VM.
-func writeHandleState(h *QEMUHandle) error {
+func writeHandleState(h *config.QEMUHandle) error {
 	data, err := json.MarshalIndent(h, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal qemu VM state: %w", err)
@@ -1784,9 +1610,9 @@ func writeHandleState(h *QEMUHandle) error {
 	return nil
 }
 
-// processAlive checks whether pid refers to a live process, without sending
+// ProcessAlive checks whether pid refers to a live process, without sending
 // a real signal (signal 0 is the standard "does this pid exist" probe).
-func processAlive(pid int) bool {
+func ProcessAlive(pid int) bool {
 	if pid <= 0 {
 		return false
 	}
@@ -1802,7 +1628,7 @@ func processAlive(pid int) bool {
 // sshRun runs remoteCmd on the VM over SSH, used only for internal
 // readiness polling (waitForSSHReady) — actual lab scripts run through
 // SSHExecutor.
-func sshRun(h *QEMUHandle, remoteCmd string) error {
+func sshRun(h *config.QEMUHandle, remoteCmd string) error {
 	args := []string{
 		"-i", h.SSHKeyPath,
 		"-p", strconv.Itoa(h.SSHPort),
@@ -1838,7 +1664,7 @@ func pollUntil(timeout time.Duration, check func() error) error {
 // waitForSSHReady blocks until the VM accepts SSH connections and cloud-init
 // has finished provisioning it — the second gate requires the base image to
 // actually have cloud-init installed, standard on official cloud images.
-func waitForSSHReady(h *QEMUHandle, timeout time.Duration) error {
+func waitForSSHReady(h *config.QEMUHandle, timeout time.Duration) error {
 	if err := pollUntil(timeout, func() error { return sshRun(h, "true") }); err != nil {
 		return fmt.Errorf("timed out waiting for SSH to become available on %s:%d: %w", h.SSHHost, h.SSHPort, err)
 	}
@@ -1888,7 +1714,7 @@ func prepareAArch64Firmware(stateDir string) ([]string, error) {
 //     toolkit has already initialized a window and event loop, which is
 //     unsafe/flaky for at least Cocoa on macOS — so the GUI path never
 //     daemonizes, it's detached the other way instead.
-func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, firmwareArgs []string, overlayPath, seedPath string, extraDisks []qemuExtraDiskSpec, sshPort int, mgmtMAC string, networks []qemuNetworkSpec, display bool, pidfilePath, consolePath string) []string {
+func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, firmwareArgs []string, overlayPath, seedPath string, extraDisks []qemuExtraDiskSpec, sshPort int, mgmtMAC string, networks []QEMUNetworkSpec, display bool, pidfilePath, consolePath string) []string {
 	args := []string{
 		"-name", processName,
 		"-machine", machineType,
@@ -1923,9 +1749,9 @@ func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, f
 	)
 	// Each entry in networks is an additional NIC on a loopback TCP socket,
 	// not qemu's own "user" backend — that's what lets a segment's two VMs
-	// (see resolveNetworkTopology) reach each other directly, which "user"
+	// (see ResolveNetworkTopology) reach each other directly, which "user"
 	// networking never allows (it's a private, host-only NAT segment per
-	// VM). "listen"/"connect" here mirror the role resolveNetworkTopology
+	// VM). "listen"/"connect" here mirror the role ResolveNetworkTopology
 	// already assigned this NIC; both sides always bind/connect to
 	// 127.0.0.1, so this traffic never reaches a real NIC/LAN.
 	for i, n := range networks {
@@ -1960,10 +1786,10 @@ func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, f
 // into this VM's own NIC MACs (deriveMAC) so they stay unique per lab.
 //
 // networks is this VM's own slice of a whole-lab resolution
-// (resolveNetworkTopology, called once up front by the caller — CreateEnvironment
+// (ResolveNetworkTopology, called once up front by the caller — CreateEnvironment
 // — since assigning listen/connect roles needs to see every VM in the lab
 // at once, not just this one) — nil for a VM with no networks: entries.
-func CreateQEMUVM(clusterName, labName, baseDir string, cfg *QEMUConfig, networks []qemuNetworkSpec) (*QEMUHandle, error) {
+func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, networks []QEMUNetworkSpec) (*config.QEMUHandle, error) {
 	// Refuse to launch a second VM on top of an already-running one: nothing
 	// below this point checks for an existing process, so without this guard
 	// a repeat `astrona run` (no `astrona destroy` in between) silently
@@ -2064,7 +1890,7 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *QEMUConfig, network
 	// kind has between a cluster's plain name and its "kind-<name>"
 	// kubeconfig context. Every astrona-facing name (this function's
 	// clusterName param, `astrona list`/`astrona ssh`/`astrona destroy`,
-	// QEMUHandle.ClusterName, the state dir) stays unprefixed.
+	// config.QEMUHandle.ClusterName, the state dir) stays unprefixed.
 	processName := "astrona-" + clusterName
 
 	args := buildQEMUArgs(processName, machineType, accel, cpus, memoryMB, firmwareArgs, overlayPath, seedPath, extraDisks, sshPort, mgmtMAC, networks, cfg.Display, pidfilePath, consolePath)
@@ -2100,12 +1926,12 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *QEMUConfig, network
 		pid = p
 	}
 
-	networkStatus := make([]QEMUNetworkStatus, len(networks))
+	networkStatus := make([]config.QEMUNetworkStatus, len(networks))
 	for i, n := range networks {
-		networkStatus[i] = QEMUNetworkStatus{Name: n.Name, IP: n.IP, MAC: n.MAC}
+		networkStatus[i] = config.QEMUNetworkStatus{Name: n.Name, IP: n.IP, MAC: n.MAC}
 	}
 
-	handle := &QEMUHandle{
+	handle := &config.QEMUHandle{
 		ClusterName: clusterName,
 		PID:         pid,
 		SSHHost:     "127.0.0.1",
@@ -2133,7 +1959,7 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *QEMUConfig, network
 // LoadQEMUHandle rediscovers an already-running VM for clusterName from its
 // persisted state — used by `astrona submit`/`astrona destroy` which run in
 // a separate process from the `astrona run` that created the VM.
-func LoadQEMUHandle(clusterName string) (*QEMUHandle, error) {
+func LoadQEMUHandle(clusterName string) (*config.QEMUHandle, error) {
 	stateDir, err := qemuStateDir(clusterName)
 	if err != nil {
 		return nil, err
@@ -2148,12 +1974,12 @@ func LoadQEMUHandle(clusterName string) (*QEMUHandle, error) {
 		return nil, fmt.Errorf("failed to read qemu VM state: %w", err)
 	}
 
-	var h QEMUHandle
+	var h config.QEMUHandle
 	if err := json.Unmarshal(data, &h); err != nil {
 		return nil, fmt.Errorf("failed to parse qemu VM state: %w", err)
 	}
 
-	if !processAlive(h.PID) {
+	if !ProcessAlive(h.PID) {
 		return nil, fmt.Errorf("qemu VM for lab '%s' is not running (stale state, pid %d not found) — run 'astrona run' again", clusterName, h.PID)
 	}
 
@@ -2181,7 +2007,7 @@ func DestroyQEMUVM(clusterName string) error {
 		return fmt.Errorf("failed to read qemu VM state: %w", err)
 	}
 
-	var h QEMUHandle
+	var h config.QEMUHandle
 	if err := json.Unmarshal(data, &h); err != nil {
 		return fmt.Errorf("failed to parse qemu VM state: %w", err)
 	}
@@ -2191,13 +2017,13 @@ func DestroyQEMUVM(clusterName string) error {
 			_ = process.Signal(syscall.SIGTERM)
 
 			for i := 0; i < 50; i++ {
-				if !processAlive(h.PID) {
+				if !ProcessAlive(h.PID) {
 					break
 				}
 				time.Sleep(100 * time.Millisecond)
 			}
 
-			if processAlive(h.PID) {
+			if ProcessAlive(h.PID) {
 				_ = process.Kill()
 			}
 		}

@@ -9,6 +9,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"astrona/internal/hypervisor"
+
 	"github.com/spf13/cobra"
 )
 
@@ -43,7 +45,7 @@ func newImagesListCmd() *cobra.Command {
 }
 
 // imageCacheEntry is one row of `astrona images list` — a cached *.qcow2 in
-// imageCacheDir plus whatever its sidecar imageCacheMeta could tell us about
+// ImageCacheDir plus whatever its sidecar ImageCacheMeta could tell us about
 // it. legacy is true for a *.qcow2 with no (or unreadable) sidecar — only
 // possible for a cache entry written before finalizeImageCacheMeta existed,
 // or one whose metadata write previously failed; the image data itself is
@@ -59,13 +61,13 @@ type imageCacheEntry struct {
 	cachedAt  time.Time
 }
 
-// listImageCache walks imageCacheDir for *.qcow2 entries and pairs each with
+// listImageCache walks ImageCacheDir for *.qcow2 entries and pairs each with
 // its <name>.qcow2.meta.json (verified entries) or <name>.meta.json
 // (unverified entries — see unverifiedCachePaths) sidecar, falling back to a
 // legacy row (file stat only) when no sidecar is present or it fails to
 // parse.
 func listImageCache() ([]imageCacheEntry, error) {
-	dir, err := imageCacheDir()
+	dir, err := hypervisor.ImageCacheDir()
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +101,7 @@ func listImageCache() ([]imageCacheEntry, error) {
 		// (verified, see finalizeImageCacheMeta's cachePath+".meta.json"
 		// call) and unverifiedCachePaths' "<slug>-unverified-<hash>.qcow2"
 		// both just append it, so one lookup covers both.
-		if meta, err := loadImageCacheMeta(dataPath + ".meta.json"); err == nil && meta != nil {
+		if meta, err := hypervisor.LoadImageCacheMeta(dataPath + ".meta.json"); err == nil && meta != nil {
 			entry.source = meta.Source
 			entry.imageType = meta.Type
 			entry.verified = meta.Verified

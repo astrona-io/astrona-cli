@@ -1,4 +1,4 @@
-package main
+package config
 
 import "testing"
 
@@ -15,42 +15,42 @@ func TestIsMultiVM(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := isMultiVM(c.vms); got != c.want {
-			t.Errorf("isMultiVM(%s) = %v, want %v", c.name, got, c.want)
+		if got := IsMultiVM(c.vms); got != c.want {
+			t.Errorf("IsMultiVM(%s) = %v, want %v", c.name, got, c.want)
 		}
 	}
 }
 
 func TestValidateQEMUVMs(t *testing.T) {
 	t.Run("empty errors", func(t *testing.T) {
-		if err := validateQEMUVMs(nil); err == nil {
+		if err := ValidateQEMUVMs(nil); err == nil {
 			t.Error("expected error for empty runtime.qemu")
 		}
 	})
 
 	t.Run("single unnamed entry is fine", func(t *testing.T) {
-		if err := validateQEMUVMs([]QEMUVM{{Name: ""}}); err != nil {
+		if err := ValidateQEMUVMs([]QEMUVM{{Name: ""}}); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
 	t.Run("well-formed multi-VM is fine", func(t *testing.T) {
 		vms := []QEMUVM{{Name: "server"}, {Name: "client"}}
-		if err := validateQEMUVMs(vms); err != nil {
+		if err := ValidateQEMUVMs(vms); err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 	})
 
 	t.Run("missing name errors once multi-VM", func(t *testing.T) {
 		vms := []QEMUVM{{Name: "server"}, {Name: "  "}}
-		if err := validateQEMUVMs(vms); err == nil {
+		if err := ValidateQEMUVMs(vms); err == nil {
 			t.Error("expected error for unnamed vm")
 		}
 	})
 
 	t.Run("duplicate name errors", func(t *testing.T) {
 		vms := []QEMUVM{{Name: "server"}, {Name: "server"}}
-		if err := validateQEMUVMs(vms); err == nil {
+		if err := ValidateQEMUVMs(vms); err == nil {
 			t.Error("expected error for duplicate vm name")
 		}
 	})
@@ -67,8 +67,8 @@ func TestNormalizeClusterName(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := normalizeClusterName(c.input); got != c.want {
-			t.Errorf("normalizeClusterName(%q) = %q, want %v", c.input, got, c.want)
+		if got := NormalizeClusterName(c.input); got != c.want {
+			t.Errorf("NormalizeClusterName(%q) = %q, want %v", c.input, got, c.want)
 		}
 	}
 }
@@ -86,8 +86,8 @@ func TestNormalizeTestClusterName(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if got := normalizeTestClusterName(c.input); got != c.want {
-			t.Errorf("normalizeTestClusterName(%q) = %q, want %v", c.input, got, c.want)
+		if got := NormalizeTestClusterName(c.input); got != c.want {
+			t.Errorf("NormalizeTestClusterName(%q) = %q, want %v", c.input, got, c.want)
 		}
 	}
 }
