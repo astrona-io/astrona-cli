@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strconv"
 
+	"astrona/internal/hypervisor"
+
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +38,7 @@ func newSSHCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
 
-			handle, err := LoadQEMUHandle(name)
+			handle, err := hypervisor.LoadQEMUHandle(name)
 			if err != nil {
 				return err
 			}

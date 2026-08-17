@@ -3,6 +3,11 @@ package main
 import (
 	"fmt"
 
+	"astrona/internal/config"
+	"astrona/internal/manifests"
+	"astrona/internal/runtime"
+	"astrona/internal/scripts"
+
 	"github.com/spf13/cobra"
 )
 
@@ -19,35 +24,35 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
 			}
 
-			config, baseDir, configCleanup, err := LoadLabForCommand(flags)
+			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err
 			}
 			defer configCleanup()
 
-			fmt.Printf("Initializing Lab: %s\n", config.Metadata.Name)
+			fmt.Printf("Initializing Lab: %s\n", cfg.Metadata.Name)
 
-			clusterName := normalizeClusterName(config.Metadata.Name)
+			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
 
-			env, err := CreateEnvironment(clusterName, baseDir, config.Runtime)
+			env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime)
 			if err != nil {
 				return fmt.Errorf("lab setup failed: %w", err)
 			}
 			fmt.Printf("Lab environment is ready\n")
 
-			if len(config.Bootstrap.Init) > 0 {
+			if len(cfg.Bootstrap.Init) > 0 {
 				fmt.Printf("Running bootstrap init scripts...\n")
-				if err := runBootstrap(config, baseDir, env); err != nil {
+				if err := scripts.RunBootstrap(cfg, baseDir, env); err != nil {
 					return fmt.Errorf("init scripts failed: %w", err)
 				}
 			}
 
-			if len(config.Bootstrap.Manifests) > 0 {
+			if len(cfg.Bootstrap.Manifests) > 0 {
 				if env.KubeContext == "" {
 					return fmt.Errorf("bootstrap.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
 				}
 				fmt.Printf("Applying bootstrap manifests...\n")
-				if err := ApplyManifests(config.Bootstrap.Manifests, baseDir, env.KubeContext); err != nil {
+				if err := manifests.ApplyManifests(cfg.Bootstrap.Manifests, baseDir, env.KubeContext); err != nil {
 					return fmt.Errorf("bootstrap manifests failed: %w", err)
 				}
 			}

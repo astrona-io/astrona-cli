@@ -31,7 +31,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           BINARY_NAME="astrona-${{ matrix.goos }}-${{ matrix.goarch }}"
-          go build -v -ldflags "-X main.Version=${{ github.ref_name }}" -o "$BINARY_NAME" .
+          go build -v -ldflags "-X main.Version=${{ github.ref_name }}" -o "$BINARY_NAME" ./cmd/astrona
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7

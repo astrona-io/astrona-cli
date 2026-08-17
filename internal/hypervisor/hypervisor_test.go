@@ -1,4 +1,4 @@
-package main
+package hypervisor
 
 import (
 	"os"
@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"astrona/internal/config"
 )
 
 func TestNormalizeArch(t *testing.T) {
@@ -79,7 +81,7 @@ func TestCachedImagePathIncludesSlugAndHash(t *testing.T) {
 
 func TestResolveChecksum(t *testing.T) {
 	t.Run("single checksum", func(t *testing.T) {
-		got, err := resolveChecksum(QEMUImageSource{Checksum: "sha256:abc"}, "arm64")
+		got, err := resolveChecksum(config.QEMUImageSource{Checksum: "sha256:abc"}, "arm64")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -89,7 +91,7 @@ func TestResolveChecksum(t *testing.T) {
 	})
 
 	t.Run("checksums map keyed by arch", func(t *testing.T) {
-		img := QEMUImageSource{Checksums: map[string]string{"amd64": "sha256:amd", "arm64": "sha256:arm"}}
+		img := config.QEMUImageSource{Checksums: map[string]string{"amd64": "sha256:amd", "arm64": "sha256:arm"}}
 		got, err := resolveChecksum(img, "arm64")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -100,21 +102,21 @@ func TestResolveChecksum(t *testing.T) {
 	})
 
 	t.Run("checksums map missing arch entry errors", func(t *testing.T) {
-		img := QEMUImageSource{Checksums: map[string]string{"amd64": "sha256:amd"}}
+		img := config.QEMUImageSource{Checksums: map[string]string{"amd64": "sha256:amd"}}
 		if _, err := resolveChecksum(img, "arm64"); err == nil {
 			t.Fatal("expected error for missing arch entry")
 		}
 	})
 
 	t.Run("both checksum and checksums errors", func(t *testing.T) {
-		img := QEMUImageSource{Checksum: "sha256:abc", Checksums: map[string]string{"arm64": "sha256:arm"}}
+		img := config.QEMUImageSource{Checksum: "sha256:abc", Checksums: map[string]string{"arm64": "sha256:arm"}}
 		if _, err := resolveChecksum(img, "arm64"); err == nil {
 			t.Fatal("expected error when both checksum and checksums are set")
 		}
 	})
 
 	t.Run("neither checksum nor checksums means unverified, not an error", func(t *testing.T) {
-		got, err := resolveChecksum(QEMUImageSource{}, "arm64")
+		got, err := resolveChecksum(config.QEMUImageSource{}, "arm64")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -177,7 +179,7 @@ func TestAcquireBaseImageWithoutChecksumIsUnverifiedNotAnError(t *testing.T) {
 	imgPath := filepath.Join(dir, "base.qcow2")
 	os.WriteFile(imgPath, []byte("not a real image"), 0600)
 
-	path, _, err := acquireBaseImage(QEMUImageSource{Type: "file", Source: "base.qcow2"}, dir, dir, "x86_64")
+	path, _, err := acquireBaseImage(config.QEMUImageSource{Type: "file", Source: "base.qcow2"}, dir, dir, "x86_64")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -193,7 +195,7 @@ func TestAcquireBaseImageChecksumMismatchStillFails(t *testing.T) {
 	imgPath := filepath.Join(dir, "base.qcow2")
 	os.WriteFile(imgPath, []byte("not a real image"), 0600)
 
-	_, _, err := acquireBaseImage(QEMUImageSource{Type: "file", Source: "base.qcow2", Checksum: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}, dir, dir, "x86_64")
+	_, _, err := acquireBaseImage(config.QEMUImageSource{Type: "file", Source: "base.qcow2", Checksum: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}, dir, dir, "x86_64")
 	if err == nil {
 		t.Fatal("expected error when a set checksum doesn't match")
 	}
@@ -268,10 +270,10 @@ func TestPickFreePort(t *testing.T) {
 }
 
 func TestProcessAlive(t *testing.T) {
-	if !processAlive(os.Getpid()) {
+	if !ProcessAlive(os.Getpid()) {
 		t.Error("expected current process to be alive")
 	}
-	if processAlive(0) {
+	if ProcessAlive(0) {
 		t.Error("expected pid 0 to be reported not alive")
 	}
 }
@@ -417,7 +419,7 @@ func TestCreateQEMUVMRefusesDuplicate(t *testing.T) {
 	}
 	t.Cleanup(func() { os.RemoveAll(stateDir) })
 
-	handle := &QEMUHandle{
+	handle := &config.QEMUHandle{
 		ClusterName: name,
 		PID:         os.Getpid(),
 		SSHHost:     "127.0.0.1",
@@ -431,7 +433,7 @@ func TestCreateQEMUVMRefusesDuplicate(t *testing.T) {
 		t.Fatalf("writeHandleState failed: %v", err)
 	}
 
-	_, err = CreateQEMUVM(name, name, t.TempDir(), &QEMUConfig{}, nil)
+	_, err = CreateQEMUVM(name, name, t.TempDir(), &config.QEMUConfig{}, nil)
 	if err == nil {
 		t.Fatal("expected CreateQEMUVM to refuse launching a second VM for an already-running lab, got nil error")
 	}

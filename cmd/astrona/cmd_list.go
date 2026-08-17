@@ -10,6 +10,10 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"astrona/internal/cluster"
+	"astrona/internal/config"
+	"astrona/internal/hypervisor"
+
 	"github.com/spf13/cobra"
 )
 
@@ -78,7 +82,7 @@ func printLabTable(rows []labRow) {
 // mean the VM is still up, LoadQEMUHandle's processAlive check is the only
 // source of truth.
 func collectQEMURows() ([]labRow, int, error) {
-	base, err := qemuBaseDir()
+	base, err := hypervisor.QEMUBaseDir()
 	if err != nil {
 		return nil, 0, err
 	}
@@ -105,12 +109,12 @@ func collectQEMURows() ([]labRow, int, error) {
 			continue
 		}
 
-		var h QEMUHandle
+		var h config.QEMUHandle
 		if err := json.Unmarshal(data, &h); err != nil {
 			continue
 		}
 
-		if !processAlive(h.PID) {
+		if !hypervisor.ProcessAlive(h.PID) {
 			stale++
 			continue
 		}
@@ -149,7 +153,7 @@ func collectQEMURows() ([]labRow, int, error) {
 // Filtered to show only names starting with the "astro-" prefix, so only
 // astrona-generated kind clusters are listed.
 func collectKindRows() []labRow {
-	engine, err := DetectContainerEngine()
+	engine, err := cluster.DetectContainerEngine()
 	if err != nil {
 		return nil
 	}
@@ -202,7 +206,7 @@ var containerTimeLayouts = []string{
 // containerStartedAt reads a container's start time via `docker`/`podman
 // inspect` (same `-f`/Go-template syntax for both), used to derive a kind
 // cluster's uptime from its control-plane container.
-func containerStartedAt(engine ContainerEngine, containerName string) (time.Time, error) {
+func containerStartedAt(engine cluster.ContainerEngine, containerName string) (time.Time, error) {
 	out, err := exec.Command(engine.Path, "inspect", "-f", "{{.State.StartedAt}}", containerName).Output()
 	if err != nil {
 		return time.Time{}, fmt.Errorf("failed to inspect container '%s': %w", containerName, err)
@@ -227,7 +231,7 @@ func containerStartedAt(engine ContainerEngine, containerName string) (time.Time
 // bootstrap/validate/ssh/submit/destroy, not part of a lab's own topology)
 // spelled out by name rather than folded into a bare count, plus every
 // extra NIC's segment name and static IP.
-func formatNICs(h QEMUHandle) string {
+func formatNICs(h config.QEMUHandle) string {
 	parts := make([]string, 0, 1+len(h.Networks))
 	parts = append(parts, "mgmt")
 	for _, n := range h.Networks {
