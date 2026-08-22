@@ -115,14 +115,44 @@ ping -c1 10.20.1.10   # -> server, NOT reachable — no shared segment
 exit
 ```
 
-(A real SSH jump — `ssh -J jumphost server` — would additionally need
-`client`'s public key trusted by `server`, which this lab doesn't set up:
-it's demonstrating the network segmentation a jump host relies on, not
-building a full bastion-host auth chain. A lab that wanted that could add
-it in `client`'s bootstrap, copying its own pubkey into `jumphost`'s and
-`server`'s `authorized_keys`.)
+## 5. Prove the trust half, too: `ssh client` / `ssh server` from jumphost
 
-## 5. Grade all three
+```sh
+./astrona ssh qemu-jumphost-01-jumphost
+ssh client hostname   # no password prompt, no manual key setup
+ssh server hostname   # same
+exit
+```
+
+This is what `sshAccess` on `jumphost` in [`config.yaml`](config.yaml) buys
+over the network segmentation alone — the two ping checks above prove
+jumphost *can reach* client/server; this proves it can also *log into* them,
+with no manual key copying:
+
+```yaml
+    - name: "jumphost"
+      networks: [...]
+      sshAccess:
+        - "client"
+        - "server"
+```
+
+astrona generates one dedicated ed25519 keypair for jumphost — never the
+same key astrona itself uses for `astrona ssh` into any VM, and never
+written to the host's disk at all — embeds the private half straight into
+jumphost's own cloud-init seed, and appends the public half to client's and
+server's `ssh_authorized_keys`. It also writes a `~/.ssh/config` Host entry
+per target inside jumphost, which is why `ssh client` (not
+`ssh student@10.10.1.10 -i ...`) is enough. `validate-jumphost.sh`'s last
+two checks assert exactly this — a `sshAccess` typo or a target with no
+shared network segment fails config validation before any VM boots (see
+`ResolveInterVMTrust`'s error messages), not silently at grading time.
+
+A real SSH jump — `ssh -J jumphost server` from the host itself — would
+still need the host's own key trusted by both hops; `sshAccess` wires up
+trust *between* VMs in the lab, not from the host through them.
+
+## 6. Grade all three
 
 ```sh
 ./astrona submit -c examples/qemu-jumphost-01
@@ -130,20 +160,24 @@ it in `client`'s bootstrap, copying its own pubkey into `jumphost`'s and
 
 ```
   PASS  verify-client-network (client) (2.1s)
-  PASS  verify-jumphost-network (jumphost) (0.1s)
+  PASS  verify-jumphost-network (jumphost) (0.3s)
   PASS  verify-server-network (server) (2.1s)
 
-3 passed, 0 failed in 4.2s
+3 passed, 0 failed in 4.5s
 
 PROCTOR: PASS
 ```
 
-Each VM's validation script pings its expected-reachable neighbor (must
-succeed) and its expected-unreachable one (must fail) — so a config
-mistake that accidentally bridges `client` and `server`, or fails to bridge
-`jumphost` to one of them, fails grading instead of going unnoticed.
+`verify-client-network`/`verify-server-network` each ping their
+expected-reachable neighbor (must succeed) and their expected-unreachable
+one (must fail) — so a config mistake that accidentally bridges `client`
+and `server`, or fails to bridge `jumphost` to one of them, fails grading
+instead of going unnoticed. `verify-jumphost-network` additionally runs
+`ssh client hostname` and `ssh server hostname` from jumphost, so a
+`sshAccess` regression (a stale/wrong `authorized_keys` entry, a broken
+`~/.ssh/config` alias) fails grading the same way.
 
-## 6. Tear down all three
+## 7. Tear down all three
 
 ```sh
 ./astrona destroy -c examples/qemu-jumphost-01
@@ -179,6 +213,24 @@ mistake that accidentally bridges `client` and `server`, or fails to bridge
   separate process (`astrona list`) can show NIC/IP info without
   re-reading `config.yaml`.
 - `cmd_list.go`'s `NICS` column.
+- `QEMUVM.SSHAccess`/`ResolveInterVMTrust` (`config.go`/`hypervisor.go`) —
+  the `sshAccess:` schema and the whole-lab pass behind it: for each source
+  VM's `sshAccess` entries, generates one dedicated ed25519 keypair
+  (`generateInMemorySSHKeyPair` — never written to the host's disk, unlike
+  the per-VM host-access key `generateEphemeralSSHKey` already generates),
+  validates the source and target actually share a `runtime.networks`
+  segment (`sharedSegmentIP`), and returns each VM's `InterVMTrust` —
+  called once by `createMultiQEMUEnvironment`, same call-before-any-VM-boots
+  reasoning as `resolveNetworkTopology`, since a target's
+  `authorized_keys` must already carry its source's public key by the time
+  cloud-init runs on that target's first boot.
+- `buildCloudInitSeed`'s `trust` parameter — appends each `InterVMTrust`'s
+  extra public keys to that VM's `ssh_authorized_keys:`, and, only for a
+  VM that's itself a `sshAccess` source, an appended `runcmd:` block
+  (`interVMRuncmd`) installing its private key plus a `~/.ssh/config` Host
+  alias per target. A `runcmd`, deliberately not `write_files`: cloud-init's
+  default module order runs `write_files` *before* the `users`/`ssh`
+  modules that create the guest user and its `$HOME`.
 
 Because astrona's networking backend is point-to-point (a loopback TCP
 socket per segment, not a shared multi-party one), a segment may only ever
