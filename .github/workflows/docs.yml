@@ -43,6 +43,17 @@ jobs:
       - name: Deploy dev docs
         run: uv run --with-requirements docs/requirements.txt mike deploy --push --update-aliases dev
 
+      # mike only writes the root redirect (index.html) once a default
+      # version is set. Before the first release tag, nothing has ever set
+      # one — so the site root 404s even though /dev/ works fine. Guarded so
+      # a later main push never re-points root back to dev after a real
+      # release has already set it to latest.
+      - name: Set default version if none exists yet
+        run: |
+          if ! uv run --with-requirements docs/requirements.txt mike list 2>/dev/null | grep -q 'latest'; then
+            uv run --with-requirements docs/requirements.txt mike set-default --push dev
+          fi
+
   # One pinned, permanently-browsable doc version per release tag, with
   # `latest` following the newest one — mirrors release.yml's own
   # `push: tags: v*` trigger so a doc version always exists for every
