@@ -335,7 +335,7 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 		t.Skip("no ISO build tool found in PATH, skipping cloud-init seed test")
 	}
 
-	isoPath, err := buildCloudInitSeed(dir, "qemu-basics-01", pubKey, false, "52:54:00:00:00:00", nil)
+	isoPath, err := buildCloudInitSeed(dir, "qemu-basics-01", pubKey, false, "52:54:00:00:00:00", nil, nil)
 	if err != nil {
 		t.Fatalf("buildCloudInitSeed failed: %v", err)
 	}
@@ -369,7 +369,7 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 	}
 
 	// Build with passwordAuth = true
-	_, err = buildCloudInitSeed(dir, "qemu-basics-01", pubKey, true, "52:54:00:00:00:00", nil)
+	_, err = buildCloudInitSeed(dir, "qemu-basics-01", pubKey, true, "52:54:00:00:00:00", nil, nil)
 	if err != nil {
 		t.Fatalf("buildCloudInitSeed with passwordAuth=true failed: %v", err)
 	}
@@ -383,6 +383,78 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 	}
 	if !strings.Contains(dataStr, "lock_passwd: false") {
 		t.Errorf("expected lock_passwd: false, got: %s", dataStr)
+	}
+}
+
+func TestResolveInterVMTrust(t *testing.T) {
+	if _, err := exec.LookPath("ssh-keygen"); err != nil {
+		t.Skip("ssh-keygen not found in PATH, skipping")
+	}
+
+	jumphost := config.QEMUVM{
+		Name: "jumphost",
+		Networks: []config.QEMUNetwork{
+			{Name: "client-net", IPv4: "10.10.1.1"},
+			{Name: "server-net", IPv4: "10.20.1.1"},
+		},
+		SSHAccess: []string{"client", "server"},
+	}
+	client := config.QEMUVM{
+		Name:     "client",
+		Networks: []config.QEMUNetwork{{Name: "client-net", IPv4: "10.10.1.10"}},
+	}
+	server := config.QEMUVM{
+		Name:     "server",
+		Networks: []config.QEMUNetwork{{Name: "server-net", IPv4: "10.20.1.10"}},
+	}
+
+	trust, err := ResolveInterVMTrust([]config.QEMUVM{jumphost, client, server})
+	if err != nil {
+		t.Fatalf("ResolveInterVMTrust failed: %v", err)
+	}
+
+	jh := trust["jumphost"]
+	if jh.privateKey == "" {
+		t.Error("expected jumphost to have a generated private key")
+	}
+	if jh.accessTargets["client"] != "10.10.1.10" {
+		t.Errorf("expected jumphost -> client IP 10.10.1.10, got %q", jh.accessTargets["client"])
+	}
+	if jh.accessTargets["server"] != "10.20.1.10" {
+		t.Errorf("expected jumphost -> server IP 10.20.1.10, got %q", jh.accessTargets["server"])
+	}
+
+	if len(trust["client"].extraAuthorizedKeys) != 1 {
+		t.Fatalf("expected client to trust exactly 1 extra key (jumphost's), got %d", len(trust["client"].extraAuthorizedKeys))
+	}
+	if !strings.HasPrefix(trust["client"].extraAuthorizedKeys[0], "ssh-ed25519 ") {
+		t.Errorf("expected client's trusted key to be a public ed25519 key, got %q", trust["client"].extraAuthorizedKeys[0])
+	}
+	if trust["client"].privateKey != "" {
+		t.Error("expected client (a sshAccess target only) to have no private key of its own")
+	}
+
+	// Unknown target name.
+	if _, err := ResolveInterVMTrust([]config.QEMUVM{
+		{Name: "a", SSHAccess: []string{"nonexistent"}},
+		{Name: "b"},
+	}); err == nil {
+		t.Error("expected error for sshAccess referencing an unknown vm")
+	}
+
+	// Self-reference.
+	if _, err := ResolveInterVMTrust([]config.QEMUVM{
+		{Name: "a", SSHAccess: []string{"a"}},
+	}); err == nil {
+		t.Error("expected error for sshAccess referencing itself")
+	}
+
+	// No shared network segment.
+	if _, err := ResolveInterVMTrust([]config.QEMUVM{
+		{Name: "a", SSHAccess: []string{"b"}, Networks: []config.QEMUNetwork{{Name: "net-a", IPv4: "10.0.1.1"}}},
+		{Name: "b", Networks: []config.QEMUNetwork{{Name: "net-b", IPv4: "10.0.2.1"}}},
+	}); err == nil {
+		t.Error("expected error for sshAccess between VMs with no shared network segment")
 	}
 }
 
@@ -433,7 +505,7 @@ func TestCreateQEMUVMRefusesDuplicate(t *testing.T) {
 		t.Fatalf("writeHandleState failed: %v", err)
 	}
 
-	_, err = CreateQEMUVM(name, name, t.TempDir(), &config.QEMUConfig{}, nil)
+	_, err = CreateQEMUVM(name, name, t.TempDir(), &config.QEMUConfig{}, nil, nil)
 	if err == nil {
 		t.Fatal("expected CreateQEMUVM to refuse launching a second VM for an already-running lab, got nil error")
 	}

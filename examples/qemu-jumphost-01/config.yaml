@@ -63,6 +63,19 @@ runtime:
           ipv4: "10.10.1.1"
         - name: "server-net"
           ipv4: "10.20.1.1"
+      # sshAccess is the trust half of "jump host": astrona generates a
+      # dedicated ed25519 keypair for jumphost, embeds the private half into
+      # jumphost's own cloud-init seed (never written to the host's disk),
+      # and appends the public half to client's and server's
+      # ssh_authorized_keys — plus a ~/.ssh/config Host entry per target
+      # here, so `ssh client` / `ssh server` from inside jumphost just work,
+      # no manual key copying required. Requires jumphost to already share a
+      # runtime.networks segment with each target (it does — client-net and
+      # server-net above); sshAccess only wires up trust over connectivity
+      # that already exists.
+      sshAccess:
+        - "client"
+        - "server"
       validation:
         script:
           name: "verify-jumphost-network"

@@ -71,10 +71,24 @@ type QEMUVM struct {
 	// list. Resolved lab-wide by resolveNetworkTopology, not by
 	// AsQEMUConfig below — assigning a segment's listen/connect roles needs
 	// to see every VM in the lab at once, not just this one.
-	Networks        []QEMUNetwork `yaml:"networks"`
-	SSHPort         int           `yaml:"sshPort"`
-	Display         bool          `yaml:"display"`
-	SSHPasswordAuth bool          `yaml:"sshPasswordAuth"`
+	Networks []QEMUNetwork `yaml:"networks"`
+	// SSHAccess names other VMs (by their runtime.qemu Name, from this same
+	// list) this VM's ssh-user should be able to SSH into without a
+	// password — e.g. a jump host reaching the hosts behind it.
+	// hypervisor.ResolveInterVMTrust generates one dedicated ed25519
+	// keypair per source VM (never the host's own per-VM access key, and
+	// never written to the host's disk at all — the private half goes
+	// straight into this VM's cloud-init seed, the public half into every
+	// named target's), plus a ~/.ssh/config Host entry per target so `ssh
+	// <target-vm-name>` just works from inside this VM. Both VMs must
+	// already share a runtime.networks segment — sshAccess wires up trust
+	// over a path that has to exist already, it doesn't create connectivity
+	// of its own. Only meaningful once this is a multi-VM lab (IsMultiVM);
+	// leave unset otherwise.
+	SSHAccess       []string `yaml:"sshAccess"`
+	SSHPort         int      `yaml:"sshPort"`
+	Display         bool     `yaml:"display"`
+	SSHPasswordAuth bool     `yaml:"sshPasswordAuth"`
 	// Bootstrap and Validation, when set, run only against this one VM —
 	// layered *after* the lab's shared root Bootstrap/Validation (LabConfig
 	// fields), which for a multi-VM lab run against every VM in turn

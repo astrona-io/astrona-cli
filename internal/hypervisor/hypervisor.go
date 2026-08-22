@@ -3,6 +3,7 @@ package hypervisor
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -15,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -1325,38 +1327,206 @@ func qemuImgVirtualSize(qemuImgPath, basePath string) (int64, error) {
 	return info.VirtualSize, nil
 }
 
+// runSSHKeygen invokes `ssh-keygen -t ed25519 -N ""` writing the keypair to
+// privKeyPath(+".pub"), removing anything already there first. The shared
+// low-level step behind both generateEphemeralSSHKey (a VM's own host-access
+// key, persisted for the VM's lifetime) and generateInMemorySSHKeyPair (a
+// lab's inter-VM sshAccess trust, never persisted) — the two differ only in
+// where privKeyPath lives and what happens to it afterward.
+func runSSHKeygen(privKeyPath, comment string) (pubKey string, err error) {
+	os.Remove(privKeyPath)
+	os.Remove(privKeyPath + ".pub")
+
+	keygenPath, err := exec.LookPath("ssh-keygen")
+	if err != nil {
+		return "", fmt.Errorf("ssh-keygen not found in PATH: %w", err)
+	}
+
+	cmd := exec.Command(keygenPath, "-t", "ed25519", "-N", "", "-f", privKeyPath, "-C", comment)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to generate SSH key ('%s'): %w", comment, err)
+	}
+
+	pubBytes, err := os.ReadFile(privKeyPath + ".pub")
+	if err != nil {
+		return "", fmt.Errorf("failed to read generated SSH public key: %w", err)
+	}
+
+	return strings.TrimSpace(string(pubBytes)), nil
+}
+
 // generateEphemeralSSHKey creates a fresh ed25519 keypair in stateDir. Never
 // reused across labs or runs — DestroyQEMUVM removes the whole state dir, so
 // the key never outlives its VM.
 func generateEphemeralSSHKey(stateDir string) (privKeyPath, pubKey string, err error) {
 	privKeyPath = filepath.Join(stateDir, "id_ed25519")
-	pubKeyPath := privKeyPath + ".pub"
 
-	os.Remove(privKeyPath)
-	os.Remove(pubKeyPath)
-
-	keygenPath, err := exec.LookPath("ssh-keygen")
+	pubKey, err = runSSHKeygen(privKeyPath, "astrona-lab")
 	if err != nil {
-		return "", "", fmt.Errorf("ssh-keygen not found in PATH: %w", err)
-	}
-
-	cmd := exec.Command(keygenPath, "-t", "ed25519", "-N", "", "-f", privKeyPath, "-C", "astrona-lab")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return "", "", fmt.Errorf("failed to generate ephemeral SSH key: %w", err)
+		return "", "", err
 	}
 
 	if err := os.Chmod(privKeyPath, 0600); err != nil {
 		return "", "", fmt.Errorf("failed to set permissions on SSH private key: %w", err)
 	}
 
-	pubBytes, err := os.ReadFile(pubKeyPath)
+	return privKeyPath, pubKey, nil
+}
+
+// generateInMemorySSHKeyPair generates an ed25519 keypair into a throwaway
+// temp dir and returns both halves as strings, removing the temp dir before
+// returning — used for a lab's inter-VM sshAccess trust, where neither half
+// needs to persist on the host: the private half is embedded straight into
+// its source VM's cloud-init seed, the public half into every target's (see
+// ResolveInterVMTrust).
+func generateInMemorySSHKeyPair() (privateKey, publicKey string, err error) {
+	tmpDir, err := os.MkdirTemp("", "astrona-ssh-key-*")
 	if err != nil {
-		return "", "", fmt.Errorf("failed to read generated SSH public key: %w", err)
+		return "", "", fmt.Errorf("failed to create temp dir for SSH key generation: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	privPath := filepath.Join(tmpDir, "id_ed25519")
+	pubKey, err := runSSHKeygen(privPath, "astrona-lab-internal")
+	if err != nil {
+		return "", "", err
 	}
 
-	return privKeyPath, strings.TrimSpace(string(pubBytes)), nil
+	privBytes, err := os.ReadFile(privPath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to read generated inter-VM SSH private key: %w", err)
+	}
+
+	return string(privBytes), pubKey, nil
+}
+
+// InterVMTrust is what buildCloudInitSeed needs, for one VM, to wire up the
+// sshAccess edges (config.QEMUVM.SSHAccess) that VM participates in — as a
+// source (privateKey + a ~/.ssh/config Host entry per accessTargets entry)
+// and/or as a target (extraAuthorizedKeys: one public key per other VM
+// granted access to it). Always non-nil for a VM that ResolveInterVMTrust
+// ran over, even when both are empty (a VM with no sshAccess edges at all in
+// either direction) — buildCloudInitSeed treats that as a no-op, not a
+// special case.
+type InterVMTrust struct {
+	privateKey          string            // this VM's own generated private key, PEM — "" if it grants itself no sshAccess
+	accessTargets       map[string]string // target VM name -> its bare IP on the segment shared with this VM (only when privateKey != "")
+	extraAuthorizedKeys []string          // public keys of every other VM this VM has granted sshAccess to
+}
+
+// ResolveInterVMTrust computes every VM's InterVMTrust for a lab, from the
+// lab's own runtime.qemu list — called once, for the whole lab, before any
+// VM boots (same reason ResolveNetworkTopology is): a target's
+// authorized_keys must already include its source's public key by the time
+// cloud-init runs on that target's first boot, regardless of which VM in
+// vms actually boots first.
+//
+// A sshAccess edge requires its two VMs share a runtime.networks segment
+// (checked directly against each VM's own Networks list — astrona's
+// point-to-point qemu networking backend means at most one shared segment
+// is possible per pair, see ResolveNetworkTopology) since sshAccess wires up
+// trust over a path that has to already exist, not connectivity of its own.
+func ResolveInterVMTrust(vms []config.QEMUVM) (map[string]*InterVMTrust, error) {
+	byName := make(map[string]config.QEMUVM, len(vms))
+	trust := make(map[string]*InterVMTrust, len(vms))
+	for _, vm := range vms {
+		byName[vm.Name] = vm
+		trust[vm.Name] = &InterVMTrust{}
+	}
+
+	for _, vm := range vms {
+		if len(vm.SSHAccess) == 0 {
+			continue
+		}
+
+		privKey, pubKey, err := generateInMemorySSHKeyPair()
+		if err != nil {
+			return nil, fmt.Errorf("runtime.qemu vm '%s': failed to generate sshAccess key: %w", vm.Name, err)
+		}
+
+		t := trust[vm.Name]
+		t.privateKey = privKey
+		t.accessTargets = make(map[string]string, len(vm.SSHAccess))
+
+		for _, targetName := range vm.SSHAccess {
+			if targetName == vm.Name {
+				return nil, fmt.Errorf("runtime.qemu vm '%s': sshAccess cannot reference itself", vm.Name)
+			}
+			target, ok := byName[targetName]
+			if !ok {
+				return nil, fmt.Errorf("runtime.qemu vm '%s': sshAccess references unknown vm '%s'", vm.Name, targetName)
+			}
+
+			ip, err := sharedSegmentIP(vm, target)
+			if err != nil {
+				return nil, fmt.Errorf("runtime.qemu vm '%s': sshAccess to '%s': %w", vm.Name, targetName, err)
+			}
+			t.accessTargets[targetName] = ip
+
+			trust[targetName].extraAuthorizedKeys = append(trust[targetName].extraAuthorizedKeys, pubKey)
+		}
+	}
+
+	return trust, nil
+}
+
+// sharedSegmentIP finds the one runtime.networks segment both source and
+// target join and returns target's bare ipv4 address on it — the address
+// source's guest OS can actually reach target at. Errors when they share no
+// segment at all: sshAccess can only ever grant trust over connectivity
+// that already exists, not create it.
+func sharedSegmentIP(source, target config.QEMUVM) (string, error) {
+	targetIPs := make(map[string]string, len(target.Networks))
+	for _, n := range target.Networks {
+		targetIPs[strings.TrimSpace(n.Name)] = strings.TrimSpace(n.IPv4)
+	}
+	for _, n := range source.Networks {
+		if ip, ok := targetIPs[strings.TrimSpace(n.Name)]; ok {
+			return ip, nil
+		}
+	}
+	return "", fmt.Errorf("vm '%s' and vm '%s' don't share a runtime.networks segment — sshAccess needs both VMs on the same one", source.Name, target.Name)
+}
+
+// interVMRuncmd renders the cloud-config `runcmd:` block that installs
+// trust's inter-VM access identity (private key + one ~/.ssh/config Host
+// alias per accessTargets entry) — only called when trust.privateKey != "".
+//
+// Deliberately a runcmd, not write_files: cloud-init's default module order
+// runs write_files before users-groups/ssh, i.e. before qemuSSHUser (and its
+// $HOME) exist yet — files staged there earlier would land with the wrong
+// owner, or under a directory NoCloud's module skips because it thinks it's
+// already there. runcmd is one of the very last modules, well after the user
+// and its ~/.ssh (owned, mode 700, built by cloud-init's own ssh module)
+// already exist. Key/config content travels as base64 inside the runcmd
+// string, sidestepping any YAML quoting/escaping pitfall a raw heredoc would
+// have to worry about.
+func interVMRuncmd(trust *InterVMTrust) string {
+	targetNames := make([]string, 0, len(trust.accessTargets))
+	for name := range trust.accessTargets {
+		targetNames = append(targetNames, name)
+	}
+	sort.Strings(targetNames)
+
+	var sshConfig strings.Builder
+	for _, name := range targetNames {
+		fmt.Fprintf(&sshConfig, "Host %s\n  HostName %s\n  User %s\n  IdentityFile /home/%s/.ssh/id_ed25519_internal\n  StrictHostKeyChecking accept-new\n\n",
+			name, trust.accessTargets[name], qemuSSHUser, qemuSSHUser)
+	}
+
+	var b strings.Builder
+	b.WriteString("runcmd:\n")
+	fmt.Fprintf(&b, "  - install -d -m 700 -o %s -g %s /home/%s/.ssh\n", qemuSSHUser, qemuSSHUser, qemuSSHUser)
+	fmt.Fprintf(&b, "  - \"echo %s | base64 -d > /home/%s/.ssh/id_ed25519_internal\"\n", base64.StdEncoding.EncodeToString([]byte(trust.privateKey)), qemuSSHUser)
+	fmt.Fprintf(&b, "  - chmod 600 /home/%s/.ssh/id_ed25519_internal\n", qemuSSHUser)
+	fmt.Fprintf(&b, "  - chown %s:%s /home/%s/.ssh/id_ed25519_internal\n", qemuSSHUser, qemuSSHUser, qemuSSHUser)
+	fmt.Fprintf(&b, "  - \"echo %s | base64 -d > /home/%s/.ssh/config\"\n", base64.StdEncoding.EncodeToString([]byte(sshConfig.String())), qemuSSHUser)
+	fmt.Fprintf(&b, "  - chmod 600 /home/%s/.ssh/config\n", qemuSSHUser)
+	fmt.Fprintf(&b, "  - chown %s:%s /home/%s/.ssh/config\n", qemuSSHUser, qemuSSHUser, qemuSSHUser)
+
+	return b.String()
 }
 
 // cloudInitHostname derives a valid cloud-init hostname/instance-id from a
@@ -1396,7 +1566,14 @@ func cloudInitHostname(clusterName string) string {
 // whole stateDir, which also holds the private key and disk images) and
 // packed into a "cidata"-labeled ISO9660 image via whichever ISO tool is
 // available.
-func buildCloudInitSeed(stateDir, clusterName, pubKey string, passwordAuth bool, mgmtMAC string, networks []QEMUNetworkSpec) (string, error) {
+//
+// trust layers this VM's inter-VM sshAccess wiring (ResolveInterVMTrust) on
+// top: extra ssh_authorized_keys entries for every other VM granted access
+// to this one, and — only when this VM is itself a sshAccess source — an
+// appended runcmd block installing its access identity (interVMRuncmd). Pass
+// nil for a VM with no sshAccess edges in either direction (e.g. every VM in
+// a single-VM lab).
+func buildCloudInitSeed(stateDir, clusterName, pubKey string, passwordAuth bool, mgmtMAC string, networks []QEMUNetworkSpec, trust *InterVMTrust) (string, error) {
 	seedSrcDir := filepath.Join(stateDir, "cidata-src")
 	if err := os.MkdirAll(seedSrcDir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create cloud-init seed source dir: %w", err)
@@ -1411,7 +1588,13 @@ func buildCloudInitSeed(stateDir, clusterName, pubKey string, passwordAuth bool,
 		lockPasswd = "false"
 	}
 
-	userData := fmt.Sprintf(`#cloud-config
+	authorizedKeys := []string{pubKey}
+	if trust != nil {
+		authorizedKeys = append(authorizedKeys, trust.extraAuthorizedKeys...)
+	}
+
+	var userDataBuf strings.Builder
+	fmt.Fprintf(&userDataBuf, `#cloud-config
 hostname: %s
 users:
   - name: %s
@@ -1419,10 +1602,17 @@ users:
     shell: /bin/bash
     lock_passwd: %s
     ssh_authorized_keys:
-      - %s
-ssh_pwauth: %s
-disable_root: true
-`, hostname, qemuSSHUser, lockPasswd, pubKey, sshPwAuth)
+`, hostname, qemuSSHUser, lockPasswd)
+	for _, k := range authorizedKeys {
+		fmt.Fprintf(&userDataBuf, "      - %s\n", k)
+	}
+	fmt.Fprintf(&userDataBuf, "ssh_pwauth: %s\ndisable_root: true\n", sshPwAuth)
+
+	if trust != nil && trust.privateKey != "" {
+		userDataBuf.WriteString(interVMRuncmd(trust))
+	}
+
+	userData := userDataBuf.String()
 	metaData := fmt.Sprintf("instance-id: %s\nlocal-hostname: %s\n", hostname, hostname)
 
 	userDataPath := filepath.Join(seedSrcDir, "user-data")
@@ -1789,7 +1979,12 @@ func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, f
 // (ResolveNetworkTopology, called once up front by the caller — CreateEnvironment
 // — since assigning listen/connect roles needs to see every VM in the lab
 // at once, not just this one) — nil for a VM with no networks: entries.
-func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, networks []QEMUNetworkSpec) (*config.QEMUHandle, error) {
+//
+// trust is this VM's own entry in a whole-lab resolution (ResolveInterVMTrust,
+// same call-once-up-front reasoning as networks) — nil for a lab that never
+// calls ResolveInterVMTrust (a single-VM lab, where sshAccess is
+// meaningless).
+func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, networks []QEMUNetworkSpec, trust *InterVMTrust) (*config.QEMUHandle, error) {
 	// Refuse to launch a second VM on top of an already-running one: nothing
 	// below this point checks for an existing process, so without this guard
 	// a repeat `astrona run` (no `astrona destroy` in between) silently
@@ -1844,7 +2039,7 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 
 	mgmtMAC := deriveMAC(labName, clusterName, "mgmt")
 
-	seedPath, err := buildCloudInitSeed(stateDir, clusterName, pubKey, cfg.SSHPasswordAuth, mgmtMAC, networks)
+	seedPath, err := buildCloudInitSeed(stateDir, clusterName, pubKey, cfg.SSHPasswordAuth, mgmtMAC, networks, trust)
 	if err != nil {
 		return nil, err
 	}

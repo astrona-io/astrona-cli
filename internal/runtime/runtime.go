@@ -103,7 +103,10 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig) (*LabEnvi
 			return nil, err
 		}
 		if !config.IsMultiVM(cfg.QEMU) {
-			handle, err := hypervisor.CreateQEMUVM(name, name, baseDir, cfg.QEMU[0].AsQEMUConfig(), networks[cfg.QEMU[0].Name])
+			if len(cfg.QEMU[0].SSHAccess) > 0 {
+				return nil, fmt.Errorf("runtime.qemu vm sshAccess needs a multi-VM lab (name this VM and add another) — nothing for it to reach in a single-VM lab")
+			}
+			handle, err := hypervisor.CreateQEMUVM(name, name, baseDir, cfg.QEMU[0].AsQEMUConfig(), networks[cfg.QEMU[0].Name], nil)
 			if err != nil {
 				return nil, err
 			}
@@ -132,11 +135,21 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig) (*LabEnvi
 // lingers as a set of ghost VMs the caller doesn't know exist yet (nothing
 // has been returned to it to run `astrona destroy` against).
 func createMultiQEMUEnvironment(name, baseDir string, vms []config.QEMUVM, networks map[string][]hypervisor.QEMUNetworkSpec) (*LabEnvironment, error) {
+	// Resolved once, up front, for every VM in the lab together — same
+	// reasoning as networks above: a target's authorized_keys must already
+	// carry its source's public key by the time cloud-init runs on that
+	// target's first boot, regardless of which VM in vms actually boots
+	// first.
+	trust, err := hypervisor.ResolveInterVMTrust(vms)
+	if err != nil {
+		return nil, err
+	}
+
 	executors := make(map[string]executor.ScriptExecutor, len(vms))
 	var started []string
 
 	for _, vm := range vms {
-		handle, err := hypervisor.CreateQEMUVM(name+"-"+vm.Name, name, baseDir, vm.AsQEMUConfig(), networks[vm.Name])
+		handle, err := hypervisor.CreateQEMUVM(name+"-"+vm.Name, name, baseDir, vm.AsQEMUConfig(), networks[vm.Name], trust[vm.Name])
 		if err != nil {
 			for _, s := range started {
 				if derr := hypervisor.DestroyQEMUVM(name + "-" + s); derr != nil {
