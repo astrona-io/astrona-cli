@@ -154,6 +154,49 @@ func destroyByName(name string) error {
 	return nil
 }
 
+// destroyByPattern handles a glob-style lab-name argument (e.g.
+// 'astro-qemu-jumphost-*') — matched with filepath.Match against every
+// currently-running lab name (qemu + kind, same discovery `astrona list`
+// uses), then torn down one by one via destroyByName. Refuses to guess
+// silently: an unmatched pattern is an error, not a no-op, since a typo'd
+// glob should never look like a successful cleanup.
+func destroyByPattern(pattern string) error {
+	qemuRows, _, err := collectQEMURows()
+	if err != nil {
+		return fmt.Errorf("auto-discovery of running labs failed: %w", err)
+	}
+	rows := append(qemuRows, collectKindRows()...)
+
+	var matched []string
+	for _, r := range rows {
+		ok, err := filepath.Match(pattern, r.name)
+		if err != nil {
+			return fmt.Errorf("invalid pattern '%s': %w", pattern, err)
+		}
+		if ok {
+			matched = append(matched, r.name)
+		}
+	}
+
+	if len(matched) == 0 {
+		return fmt.Errorf("no astrona labs matched pattern '%s' — run `astrona list` to see what's actually running", pattern)
+	}
+
+	fmt.Printf("Pattern '%s' matched %d lab(s): %s\n", pattern, len(matched), strings.Join(matched, ", "))
+
+	var errs []string
+	for _, name := range matched {
+		if err := destroyByName(name); err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to destroy %d of %d matched lab(s):\n%s", len(errs), len(matched), strings.Join(errs, "\n"))
+	}
+
+	return nil
+}
+
 // qemuStateExists checks ~/.astrona/qemu/<name>/handle.json directly rather
 // than calling qemuStateDir (which MkdirAll's the dir as a side effect —
 // wrong for a plain existence check).
@@ -245,16 +288,22 @@ func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir strin
 // have running. flags is bound to the root command's persistent flags.
 func newDestroyCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "destroy [lab-name]",
+		Use:   "destroy [lab-name|pattern]",
 		Short: "Tear down a lab environment (both the normal run and any leftover 'astrona test' run)",
 		Long: "Tear down a lab environment (both the normal run and any leftover 'astrona test' run).\n\n" +
 			"With no lab-name, resolves the lab config the same way `run`/`submit` do (-c/--file/--git/--git-ref) " +
 			"and falls back to auto-discovering running labs if that fails.\n\n" +
 			"With a lab-name (the exact name `astrona list` prints, e.g. 'astro-my-lab'), destroys that lab " +
-			"directly — no config needed, so -c/--file/--git/--git-ref are ignored and any teardown scripts are skipped.",
+			"directly — no config needed, so -c/--file/--git/--git-ref are ignored and any teardown scripts are skipped.\n\n" +
+			"With a glob pattern (contains *, ?, or [), matches against all currently-running lab names " +
+			"(same list `astrona list` shows) and destroys every match — e.g. `astrona destroy 'astro-qemu-jumphost-*'` " +
+			"(quote it so your shell doesn't expand the glob itself). No config needed, same trade-offs as a single name.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 1 {
+				if strings.ContainsAny(args[0], "*?[") {
+					return destroyByPattern(args[0])
+				}
 				return destroyByName(args[0])
 			}
 
