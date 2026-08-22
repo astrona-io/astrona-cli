@@ -1,6 +1,6 @@
 site_name: Astrona CLI
 site_description: Local Kubernetes lab environments with kind and qemu, graded by the Astrona Proctor.
-site_url: https://astrona-io.github.io/
+site_url: https://cli.astrona.io/
 repo_url: https://github.com/astrona-io/astrona-cli
 repo_name: astrona-io/astrona-cli
 edit_uri: edit/main/docs/
