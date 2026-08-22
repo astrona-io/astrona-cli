@@ -315,7 +315,7 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 
 	dir := t.TempDir()
 
-	privKeyPath, pubKey, err := generateEphemeralSSHKey(dir)
+	privKeyPath, pubKey, err := generateEphemeralSSHKey(dir, studentKeyFilename)
 	if err != nil {
 		t.Fatalf("generateEphemeralSSHKey failed: %v", err)
 	}
@@ -335,7 +335,7 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 		t.Skip("no ISO build tool found in PATH, skipping cloud-init seed test")
 	}
 
-	isoPath, err := buildCloudInitSeed(dir, "qemu-basics-01", pubKey, false, "52:54:00:00:00:00", nil, nil)
+	isoPath, err := buildCloudInitSeed(dir, "qemu-basics-01", pubKey, pubKey, false, "52:54:00:00:00:00", nil, nil)
 	if err != nil {
 		t.Fatalf("buildCloudInitSeed failed: %v", err)
 	}
@@ -369,7 +369,7 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 	}
 
 	// Build with passwordAuth = true
-	_, err = buildCloudInitSeed(dir, "qemu-basics-01", pubKey, true, "52:54:00:00:00:00", nil, nil)
+	_, err = buildCloudInitSeed(dir, "qemu-basics-01", pubKey, pubKey, true, "52:54:00:00:00:00", nil, nil)
 	if err != nil {
 		t.Fatalf("buildCloudInitSeed with passwordAuth=true failed: %v", err)
 	}
