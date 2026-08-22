@@ -37,3 +37,15 @@ test:
 
 # Format check, vet, and test — run before committing
 check: fmt vet test
+
+# Generate the CLI reference markdown (docs/reference/cli/) from the actual command tree
+docs-gen-cli:
+    go run ./cmd/astrona docgen --output docs/reference/cli
+
+# Serve the docs site locally with live reload (uses uv — no persistent venv to manage)
+docs: docs-gen-cli
+    uv run --with-requirements docs/requirements.txt mkdocs serve
+
+# Build the docs site statically (used by CI) — fails on broken nav/links
+build-docs: docs-gen-cli
+    uv run --with-requirements docs/requirements.txt mkdocs build --strict
