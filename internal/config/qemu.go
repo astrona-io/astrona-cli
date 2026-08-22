@@ -58,14 +58,20 @@ type QEMUConfig struct {
 
 // QEMUHandle is what a running VM looks like to the rest of the CLI.
 type QEMUHandle struct {
-	ClusterName string              `json:"clusterName"`
-	PID         int                 `json:"pid"`
-	SSHHost     string              `json:"sshHost"`
-	SSHPort     int                 `json:"sshPort"`
-	SSHUser     string              `json:"sshUser"`
-	SSHKeyPath  string              `json:"sshKeyPath"`
-	KnownHosts  string              `json:"knownHosts"`
-	StateDir    string              `json:"stateDir"`
-	StartedAt   time.Time           `json:"startedAt"`
-	Networks    []QEMUNetworkStatus `json:"networks"`
+	ClusterName string `json:"clusterName"`
+	PID         int    `json:"pid"`
+	SSHHost     string `json:"sshHost"`
+	SSHPort     int    `json:"sshPort"`
+	SSHUser     string `json:"sshUser"`
+	SSHKeyPath  string `json:"sshKeyPath"`
+	// AdminUser/AdminKeyPath are a second, dedicated superuser identity the
+	// CLI uses to run init/bootstrap/testing/teardown scripts (see
+	// sshExecutorFor in internal/runtime/runtime.go), independent of
+	// SSHUser/SSHKeyPath which `astrona ssh` uses for the human operator.
+	AdminUser    string              `json:"adminUser"`
+	AdminKeyPath string              `json:"adminKeyPath"`
+	KnownHosts   string              `json:"knownHosts"`
+	StateDir     string              `json:"stateDir"`
+	StartedAt    time.Time           `json:"startedAt"`
+	Networks     []QEMUNetworkStatus `json:"networks"`
 }

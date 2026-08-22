@@ -48,7 +48,7 @@ teardown: {}     # TeardownConfig
 | `networks` | list | `{name, ipv4}` — attaches a NIC to a `runtime.networks` segment |
 | `sshAccess` | list of strings | Other VM names this VM can SSH into passwordlessly (multi-VM only) |
 | `sshPort` | int | Host-side forwarded SSH port |
-| `sshPasswordAuth` | bool | Enable password auth in addition to key auth |
+| `sshPasswordAuth` | bool | Enable password auth in addition to key auth, for the `student` account only — the `astrona` automation account (see [Runtimes](../concepts/runtimes.md)) is always key-auth only |
 | `display` | bool | Show a QEMU display window |
 | `bootstrap` | BootstrapConfig | Runs only against this VM, after the shared root `bootstrap` (multi-VM only) |
 | `validation` | ValidationConfig | Runs only against this VM, after the shared root `validation` (multi-VM only) |

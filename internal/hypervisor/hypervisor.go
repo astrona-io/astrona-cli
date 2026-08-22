@@ -47,6 +47,20 @@ type QEMUNetworkSpec struct {
 
 const qemuSSHUser = "student"
 
+// adminSSHUser is a second, dedicated superuser account the Astrona CLI
+// itself uses to run init/bootstrap/testing/teardown scripts (see
+// sshExecutorFor in internal/runtime/runtime.go) — kept independent of
+// qemuSSHUser so a lab can lock down the human-facing student account
+// (drop its sudo, disable password auth, etc.) later without breaking the
+// CLI's own automation. It authenticates with its own ephemeral keypair
+// (see adminKeyFilename) and is never used for `astrona ssh`.
+const adminSSHUser = "astrona"
+
+const (
+	studentKeyFilename = "id_ed25519"
+	adminKeyFilename   = "id_ed25519_admin"
+)
+
 // maxQEMUImageDownloadBytes bounds a downloaded VM base image. Generous
 // compared to maxScriptDownloadBytes since real cloud images run several
 // GB, but still bounded rather than unlimited — checksum verification
@@ -1357,11 +1371,11 @@ func runSSHKeygen(privKeyPath, comment string) (pubKey string, err error) {
 	return strings.TrimSpace(string(pubBytes)), nil
 }
 
-// generateEphemeralSSHKey creates a fresh ed25519 keypair in stateDir. Never
-// reused across labs or runs — DestroyQEMUVM removes the whole state dir, so
-// the key never outlives its VM.
-func generateEphemeralSSHKey(stateDir string) (privKeyPath, pubKey string, err error) {
-	privKeyPath = filepath.Join(stateDir, "id_ed25519")
+// generateEphemeralSSHKey creates a fresh ed25519 keypair in stateDir, named
+// filename(+".pub"). Never reused across labs or runs — DestroyQEMUVM
+// removes the whole state dir, so the key never outlives its VM.
+func generateEphemeralSSHKey(stateDir, filename string) (privKeyPath, pubKey string, err error) {
+	privKeyPath = filepath.Join(stateDir, filename)
 
 	pubKey, err = runSSHKeygen(privKeyPath, "astrona-lab")
 	if err != nil {
@@ -1573,7 +1587,7 @@ func cloudInitHostname(clusterName string) string {
 // appended runcmd block installing its access identity (interVMRuncmd). Pass
 // nil for a VM with no sshAccess edges in either direction (e.g. every VM in
 // a single-VM lab).
-func buildCloudInitSeed(stateDir, clusterName, pubKey string, passwordAuth bool, mgmtMAC string, networks []QEMUNetworkSpec, trust *InterVMTrust) (string, error) {
+func buildCloudInitSeed(stateDir, clusterName, pubKey, adminPubKey string, passwordAuth bool, mgmtMAC string, networks []QEMUNetworkSpec, trust *InterVMTrust) (string, error) {
 	seedSrcDir := filepath.Join(stateDir, "cidata-src")
 	if err := os.MkdirAll(seedSrcDir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create cloud-init seed source dir: %w", err)
@@ -1606,6 +1620,16 @@ users:
 	for _, k := range authorizedKeys {
 		fmt.Fprintf(&userDataBuf, "      - %s\n", k)
 	}
+	// Dedicated superuser the CLI's own scripts run as (see adminSSHUser).
+	// Always locked to key auth only, independent of passwordAuth/lockPasswd
+	// above, which only govern the human-facing qemuSSHUser account.
+	fmt.Fprintf(&userDataBuf, `  - name: %s
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - %s
+`, adminSSHUser, adminPubKey)
 	fmt.Fprintf(&userDataBuf, "ssh_pwauth: %s\ndisable_root: true\n", sshPwAuth)
 
 	if trust != nil && trust.privateKey != "" {
@@ -2032,14 +2056,19 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 		return nil, err
 	}
 
-	privKeyPath, pubKey, err := generateEphemeralSSHKey(stateDir)
+	privKeyPath, pubKey, err := generateEphemeralSSHKey(stateDir, studentKeyFilename)
+	if err != nil {
+		return nil, err
+	}
+
+	adminKeyPath, adminPubKey, err := generateEphemeralSSHKey(stateDir, adminKeyFilename)
 	if err != nil {
 		return nil, err
 	}
 
 	mgmtMAC := deriveMAC(labName, clusterName, "mgmt")
 
-	seedPath, err := buildCloudInitSeed(stateDir, clusterName, pubKey, cfg.SSHPasswordAuth, mgmtMAC, networks, trust)
+	seedPath, err := buildCloudInitSeed(stateDir, clusterName, pubKey, adminPubKey, cfg.SSHPasswordAuth, mgmtMAC, networks, trust)
 	if err != nil {
 		return nil, err
 	}
@@ -2127,16 +2156,18 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 	}
 
 	handle := &config.QEMUHandle{
-		ClusterName: clusterName,
-		PID:         pid,
-		SSHHost:     "127.0.0.1",
-		SSHPort:     sshPort,
-		SSHUser:     qemuSSHUser,
-		SSHKeyPath:  privKeyPath,
-		KnownHosts:  filepath.Join(stateDir, "known_hosts"),
-		StateDir:    stateDir,
-		StartedAt:   time.Now(),
-		Networks:    networkStatus,
+		ClusterName:  clusterName,
+		PID:          pid,
+		SSHHost:      "127.0.0.1",
+		SSHPort:      sshPort,
+		SSHUser:      qemuSSHUser,
+		SSHKeyPath:   privKeyPath,
+		AdminUser:    adminSSHUser,
+		AdminKeyPath: adminKeyPath,
+		KnownHosts:   filepath.Join(stateDir, "known_hosts"),
+		StateDir:     stateDir,
+		StartedAt:    time.Now(),
+		Networks:     networkStatus,
 	}
 
 	if err := writeHandleState(handle); err != nil {

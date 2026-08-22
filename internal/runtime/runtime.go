@@ -255,12 +255,17 @@ func DestroyEnvironment(name string, cfg config.RuntimeConfig) error {
 	}
 }
 
+// sshExecutorFor builds the executor init/bootstrap/testing/teardown scripts
+// run under. Deliberately uses the VM's dedicated adminSSHUser identity
+// (h.AdminUser/h.AdminKeyPath), not h.SSHUser/h.SSHKeyPath — the latter is
+// the human-facing account `astrona ssh` connects as, which a lab may lock
+// down independently without affecting the CLI's own script execution.
 func sshExecutorFor(h *config.QEMUHandle) executor.SSHExecutor {
 	return executor.SSHExecutor{
 		Host:       h.SSHHost,
 		Port:       h.SSHPort,
-		User:       h.SSHUser,
-		KeyPath:    h.SSHKeyPath,
+		User:       h.AdminUser,
+		KeyPath:    h.AdminKeyPath,
 		KnownHosts: h.KnownHosts,
 	}
 }
