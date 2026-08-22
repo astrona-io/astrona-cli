@@ -1,0 +1,83 @@
+name: Docs
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  # Rolling "dev" docs, rebuilt from the tip of main on every push — the
+  # bleeding-edge doc set, distinct from any tagged release version.
+  deploy-dev:
+    name: Deploy dev docs (main)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Generate CLI reference
+        run: go run ./cmd/astrona docgen --output docs/reference/cli
+
+      - name: Configure git for mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages --depth=1 || true
+
+      - name: Deploy dev docs
+        run: uv run --with-requirements docs/requirements.txt mike deploy --push --update-aliases dev
+
+  # One pinned, permanently-browsable doc version per release tag, with
+  # `latest` following the newest one — mirrors release.yml's own
+  # `push: tags: v*` trigger so a doc version always exists for every
+  # released binary version.
+  deploy-release:
+    name: Deploy versioned docs (tag)
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Generate CLI reference
+        run: go run ./cmd/astrona docgen --output docs/reference/cli
+
+      - name: Configure git for mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages --depth=1 || true
+
+      - name: Deploy versioned docs
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          uv run --with-requirements docs/requirements.txt mike deploy --push --update-aliases "$VERSION" latest
+          uv run --with-requirements docs/requirements.txt mike set-default --push latest

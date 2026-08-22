@@ -1,0 +1,90 @@
+site_name: Astrona CLI
+site_description: Local Kubernetes lab environments with kind and qemu, graded by the Astrona Proctor.
+site_url: https://astrona-io.github.io/
+repo_url: https://github.com/astrona-io/astrona-cli
+repo_name: astrona-io/astrona-cli
+edit_uri: edit/main/docs/
+copyright: Astrona.io — Apache License 2.0
+
+docs_dir: docs
+
+theme:
+  name: material
+  logo: assets/logo.svg
+  favicon: assets/favicon.svg
+  palette:
+    scheme: slate
+    primary: black
+    accent: amber
+  # Matches astrona.io's system-font stack exactly (no webfont fetch) —
+  # set as raw CSS custom properties in extra_css instead.
+  font: false
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+    - content.action.edit
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  version:
+    provider: mike
+    default: latest
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/astrona-io/astrona-cli
+    - icon: fontawesome/solid/globe
+      link: https://astrona.io
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quickstart: getting-started/quickstart.md
+  - Concepts:
+      - Runtimes (kind vs qemu): concepts/runtimes.md
+      - Lab Lifecycle: concepts/lab-lifecycle.md
+      - Grading: concepts/grading.md
+  - Guides:
+      - Authoring a Lab: guides/authoring-a-lab.md
+      - CI Integration: guides/ci-integration.md
+      - Remote Config Sources: guides/remote-config.md
+  - Reference:
+      - Lab Config Schema: reference/lab-config.md
+      - CLI Reference:
+          - reference/cli/astrona.md
+          - reference/cli/astrona_run.md
+          - reference/cli/astrona_destroy.md
+          - reference/cli/astrona_submit.md
+          - reference/cli/astrona_test.md
+          - reference/cli/astrona_check.md
+          - reference/cli/astrona_list.md
+          - reference/cli/astrona_images.md
+          - reference/cli/astrona_images_list.md
+          - reference/cli/astrona_ssh.md
+          - reference/cli/astrona_upgrade.md
+  - Contributing: contributing.md

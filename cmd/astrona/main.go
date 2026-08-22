@@ -66,19 +66,17 @@ func checkLatestVersion() {
 	}
 }
 
-func main() {
-	if askpassPass := os.Getenv("ASTRONA_INTERNAL_ASKPASS"); askpassPass != "" {
-		fmt.Println(askpassPass)
-		os.Exit(0)
-	}
-
+// newRootCmd builds the full astrona command tree. It's factored out of
+// main() so cmd/docgen can construct the identical tree (same Use/Short/Long
+// and flags Cobra's own doc generator reads) without duplicating it.
+func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:     "astrona",
 		Short:   "Astrona is the Astrona lab community CLI",
 		Long:    "Astrona is the single CLI for the Astrona lab community: spin up local Kubernetes labs, grade them, and (as more groups land) publish and authenticate against the Astrona platform.\n\n" + supportLine(),
 		Version: Version,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			if cmd.Name() == "__complete" || cmd.Name() == "help" {
+			if cmd.Name() == "__complete" || cmd.Name() == "help" || cmd.Name() == "docgen" {
 				return
 			}
 			checkLatestVersion()
@@ -115,7 +113,6 @@ func main() {
 	// repo to use (default "." — the repo root). --git itself takes any URL
 	// `git clone` accepts (https://, git@host:, ssh://) — the transport,
 	// including SSH auth via your own agent/keys, is entirely git's own.
-	flags := &rootFlags{}
 	rootCmd.PersistentFlags().StringVarP(&flags.configPath, "config", "c", ".", "Path or URL to the lab config directory (with --git: a subdirectory within the cloned repo)")
 	rootCmd.PersistentFlags().StringVarP(&flags.fileName, "file", "f", "config.yaml", "Configuration file name override")
 	rootCmd.PersistentFlags().StringVar(&flags.gitURL, "git", "", "Git repository URL to clone/pull (https://, git@host:, or ssh://) — --config then selects a subdirectory within it")
@@ -130,6 +127,18 @@ func main() {
 	rootCmd.AddCommand(newImagesCmd())
 	rootCmd.AddCommand(newSSHCmd())
 	rootCmd.AddCommand(newUpgradeCmd())
+	rootCmd.AddCommand(newDocgenCmd(flags))
+
+	return rootCmd
+}
+
+func main() {
+	if askpassPass := os.Getenv("ASTRONA_INTERNAL_ASKPASS"); askpassPass != "" {
+		fmt.Println(askpassPass)
+		os.Exit(0)
+	}
+
+	rootCmd := newRootCmd(&rootFlags{})
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
