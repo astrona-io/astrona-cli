@@ -96,6 +96,24 @@ func RunInitScripts(scripts []config.ResourceItem, baseDir string, executor exec
 	return nil
 }
 
+// HasBootstrapInit reports whether RunBootstrap would actually run anything
+// for cfg: either the shared root bootstrap.init, or (for a qemu lab) any
+// VM's own nested bootstrap.init. Callers gate the "Running bootstrap init
+// scripts..." message and the RunBootstrap call itself on this — checking
+// len(cfg.Bootstrap.Init) alone misses labs that put all their setup in a
+// per-VM nested block with nothing at the root, silently skipping it.
+func HasBootstrapInit(cfg *config.LabConfig) bool {
+	if len(cfg.Bootstrap.Init) > 0 {
+		return true
+	}
+	for _, vm := range cfg.Runtime.QEMU {
+		if vm.Bootstrap != nil && len(vm.Bootstrap.Init) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // RunBootstrap runs a lab's bootstrap phase against env: config.Bootstrap.Init
 // once via env.Executor for a single-environment lab (kind, or qemu with no
 // multi-VM list), or — for a multi-VM qemu lab — once per VM (env.Executor
