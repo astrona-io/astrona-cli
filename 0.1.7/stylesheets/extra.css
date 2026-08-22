@@ -1,0 +1,97 @@
+/*
+ * astrona.io palette, applied to Material's slate (dark) scheme.
+ * Source of truth: computed styles + --custom-properties read live from
+ * https://astrona.io on 2026-08-22. Keep in sync if the site's palette
+ * changes.
+ */
+
+:root {
+  --astrona-bg: #0b0d10;
+  --astrona-panel: #14181d;
+  --astrona-panel-strong: #181d23;
+  --astrona-text: #ece9e1;
+  --astrona-muted: #8a9099;
+  --astrona-accent: #ffb000; /* amber */
+  --astrona-accent-ink: #1a1200;
+  --astrona-accent-2: #5ec8ff; /* cyan */
+  --astrona-accent-3: #4fd1c5; /* teal */
+  --astrona-accent-4: #b48cff; /* purple */
+  --astrona-border: rgba(236, 233, 225, 0.12);
+  --astrona-radius: 4px;
+
+  --md-text-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --md-code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* astrona.io is dark-only — pin Material's slate scheme to the site palette
+   regardless of the reader's OS theme preference. */
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: var(--astrona-bg);
+  --md-default-fg-color: var(--astrona-text);
+  --md-default-fg-color--light: var(--astrona-muted);
+  --md-default-fg-color--lighter: rgba(236, 233, 225, 0.32);
+  --md-default-fg-color--lightest: var(--astrona-border);
+
+  --md-primary-fg-color: var(--astrona-panel);
+  --md-primary-bg-color: var(--astrona-text);
+
+  --md-accent-fg-color: var(--astrona-accent);
+  --md-accent-fg-color--transparent: rgba(255, 176, 0, 0.1);
+  --md-accent-bg-color: var(--astrona-accent-ink);
+
+  --md-typeset-color: var(--astrona-text);
+  --md-typeset-a-color: var(--astrona-accent-2);
+
+  --md-code-bg-color: var(--astrona-panel);
+  --md-code-fg-color: var(--astrona-text);
+
+  --md-footer-bg-color: var(--astrona-panel);
+  --md-footer-bg-color--dark: var(--astrona-bg);
+  --md-footer-fg-color: var(--astrona-text);
+  --md-footer-fg-color--light: var(--astrona-muted);
+}
+
+/* astrona.io uses sharp 4px corners, not Material's default rounded cards. */
+.md-typeset .admonition,
+.md-typeset details,
+.md-typeset code,
+.md-typeset pre > code,
+.md-search__form,
+.md-tabs__item,
+.md-typeset table:not([class]) {
+  border-radius: var(--astrona-radius);
+}
+
+.md-header {
+  border-bottom: 1px solid var(--astrona-border);
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3 {
+  font-weight: 600;
+}
+
+/* Eyebrow labels, matching the "— SECTION LABEL" convention used across
+   astrona.io section headers. Use on a page as: <p class="eyebrow">Guides</p> */
+.eyebrow {
+  font-family: var(--md-code-font);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--astrona-muted);
+}
+
+.eyebrow::before {
+  content: "— ";
+  color: var(--astrona-accent);
+}
+
+.md-typeset .admonition.note,
+.md-typeset .admonition.tip {
+  border-color: var(--astrona-accent-2);
+}
+
+.md-typeset .admonition.warning {
+  border-color: var(--astrona-accent);
+}
