@@ -10,6 +10,9 @@ import (
 	"strings"
 	"text/template"
 
+	"astrona/internal/content"
+	"astrona/internal/gitsource"
+
 	"github.com/spf13/cobra"
 )
 
@@ -22,6 +25,102 @@ func newContentCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newContentInitCmd())
+	cmd.AddCommand(newContentValidateCmd())
+
+	return cmd
+}
+
+// isGitSource reports whether source names a git remote rather than a local
+// folder path — the same set of transports gitsource/git itself accepts
+// (https://, git@host:, ssh://), plus a bare ".git" suffix for other
+// transports (e.g. git://, file://). A local path is never mistaken for a
+// remote just because it contains "@" or ":" elsewhere.
+func isGitSource(source string) bool {
+	return strings.HasPrefix(source, "https://") ||
+		strings.HasPrefix(source, "http://") ||
+		strings.HasPrefix(source, "git@") ||
+		strings.HasPrefix(source, "ssh://") ||
+		strings.HasSuffix(source, ".git")
+}
+
+// newContentValidateCmd builds `astrona content validate <type> <source>` which
+// validates a lab config directory (ATS) or course section directory (ATP).
+// source is either a local folder path (validated as-is) or a git repository
+// URL (cloned/updated via the same gitsource cache used by --git elsewhere in
+// this CLI), optionally pinned to a branch or tag with --git-ref.
+func newContentValidateCmd() *cobra.Command {
+	var gitRef string
+
+	cmd := &cobra.Command{
+		Use:   "validate <type> <source>",
+		Short: "Validate a lab or section directory (for teachers and authors)",
+		Long: "Validate a lab config directory (Astrona Training Series - ATS, 'ats') or course section directory " +
+			"(Astrona Training Path - ATP, 'atp'). source is either a local folder path (the raw content files) or a " +
+			"git repository URL (https://, git@host:, ssh://, or a .git suffix), optionally pinned to a branch or " +
+			"tag with --git-ref.",
+		Example: `  astrona content validate atp ./paths/kubernetes-networking
+  astrona content validate atp https://github.com/astrona-io/kubernetes-networking-atp.git --git-ref v1.2.0
+  astrona content validate atp git@github.com:astrona-io/kubernetes-networking-atp.git --git-ref main`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			contentType := strings.ToLower(strings.TrimSpace(args[0]))
+			if contentType != "ats" && contentType != "atp" {
+				return fmt.Errorf("invalid content type: %q. Must be 'ats' (Astrona Training Series) or 'atp' (Astrona Training Path)", args[0])
+			}
+			if contentType != "atp" {
+				return fmt.Errorf("validation for content type %q is not yet implemented", contentType)
+			}
+
+			source := args[1]
+
+			var contentDir string
+			if isGitSource(source) {
+				repoDir, err := gitsource.ResolveGitConfigSource(source, gitRef)
+				if err != nil {
+					return fmt.Errorf("failed to resolve git source %s: %w", source, err)
+				}
+				contentDir = repoDir
+			} else {
+				if gitRef != "" {
+					return fmt.Errorf("--git-ref only applies to a git source, not a local folder path")
+				}
+				absPath, err := filepath.Abs(source)
+				if err != nil {
+					return fmt.Errorf("failed to resolve absolute path %s: %w", source, err)
+				}
+				contentDir = absPath
+			}
+
+			pathYAML := filepath.Join(contentDir, "path.yaml")
+			if _, err := os.Stat(pathYAML); err != nil {
+				return fmt.Errorf("path.yaml not found in %s: %w", contentDir, err)
+			}
+
+			trainingPath, err := content.LoadTrainingPath(pathYAML)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s: apiVersion/kind OK (%s/%s)\n", pathYAML, trainingPath.APIVersion, trainingPath.Kind)
+
+			for _, stage := range trainingPath.Spec.Stages {
+				for _, item := range stage.Content {
+					if item.Repository == "" {
+						return fmt.Errorf("stage %s: content ref %s has no repository set", stage.ID, item.Ref)
+					}
+
+					fmt.Printf("stage %s: resolving %s from %s@%s...\n", stage.ID, item.Ref, item.Repository, item.Version)
+					if _, err := gitsource.ResolveGitConfigSource(item.Repository, item.Version); err != nil {
+						return fmt.Errorf("stage %s: content ref %s: failed to access %s: %w", stage.ID, item.Ref, item.Repository, err)
+					}
+				}
+			}
+
+			fmt.Println("Validation passed.")
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&gitRef, "git-ref", "", "Git branch, tag, or commit to check out (only used when source is a git URL)")
 
 	return cmd
 }

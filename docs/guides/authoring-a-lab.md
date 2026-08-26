@@ -56,6 +56,55 @@ You can supply the following customization arguments via command-line flags to t
    ```
    *This will automatically clone the sandbox template and create a new directory `./virtio-disk-discovery/`.*
 
+## Validating Content (For Teachers & Authors)
+
+Once a Training Path (`atp`) has been scaffolded and filled in, validate its `path.yaml` before publishing:
+
+```sh
+astrona content validate <type> <source> [flags]
+```
+
+- **`<type>` (Required)**: Currently only `atp` is implemented. `ats` is accepted at the CLI level but not yet validated.
+- **`<source>` (Required)**: Either a local folder path (the raw content files, containing `path.yaml`) or a git repository URL (`https://`, `git@host:`, `ssh://`, or a `.git` suffix). Use `--git-ref` to pin a git source to a branch or tag.
+
+Validation:
+
+1. Confirms `path.yaml` exists at `<source>` and parses as YAML.
+2. Checks `apiVersion` is `content.astrona.io/v1alpha1` and `kind` is `TrainingPath`.
+3. Walks every `spec.stages[].content[]` entry and resolves its `repository` at `version` (a git branch or tag) via the same git cache used by `--git` elsewhere in this CLI — this both verifies you have access to the referenced content repo and warms the local cache for later steps.
+
+```sh
+astrona content validate atp ./paths/my-custom-path
+astrona content validate atp https://github.com/astrona-io/kubernetes-networking-atp.git --git-ref v1.2.0
+```
+
+### `path.yaml` shape (ATP)
+
+```yaml
+apiVersion: content.astrona.io/v1alpha1
+kind: TrainingPath
+metadata:
+  id: ATP001
+  slug: linux-foundation-certified-sysadmin-lfcs
+  title: "Linux Foundation Certified System Administrator (LFCS)"
+  version: "1.0.0"
+  authors:
+    - name: "Alice Smith"
+      email: "alice@example.com"
+spec:
+  stages:
+    - id: "ATP001-STG001"
+      title: "Operations Deployment"
+      weight: 25
+      content:
+        - ref: ATS002
+          repository: "git@github.com:astrona-io/ATS002.git"
+          path: "."
+          version: "1.0.0"
+```
+
+Each `stages[].content[]` entry references an external content repository (typically an ATS lab): `repository` is the git URL, `version` the branch/tag to check out, and `path` the subdirectory within it.
+
 ---
 
 ## 1. Metadata
