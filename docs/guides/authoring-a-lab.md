@@ -105,6 +105,31 @@ spec:
 
 Each `stages[].content[]` entry references an external content repository (typically an ATS lab): `repository` is the git URL, `version` the branch/tag to check out, and `path` the subdirectory within it.
 
+## Building Content (For Teachers & Authors)
+
+Once a Training Path validates cleanly, materialize it into a self-contained bundle — every referenced ATS repo resolved and copied locally, ready to ship or serve:
+
+```sh
+astrona content build <type> <source> [flags]
+```
+
+- **`<type>` (Required)**: Currently only `atp` is implemented, same as `validate`.
+- **`<source>` (Required)**: Same as `validate` — a local folder path or a git repository URL, optionally pinned with `--git-ref`.
+- **`-o, --output`**: Output directory for the bundle (default `./dist`).
+- **`--clean`**: Remove the output directory first if it already exists and is not empty. Without it, build refuses to write into a non-empty output directory.
+
+Build:
+
+1. Runs the same `path.yaml` checks as `validate`.
+2. Resolves every `spec.stages[].content[]` entry's `repository` at `version` via the git cache (cloning/pulling as needed).
+3. Copies the resolved content (or its `path` subdirectory, if set) into `<output>/<stage-id>/<ref>`, skipping `.git`.
+4. Copies `path.yaml` itself to the bundle root.
+
+```sh
+astrona content build atp ./paths/my-custom-path --output ./dist
+astrona content build atp https://github.com/astrona-io/kubernetes-networking-atp.git --git-ref v1.2.0 --output ./dist --clean
+```
+
 ---
 
 ## 1. Metadata

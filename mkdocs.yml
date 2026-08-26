@@ -89,4 +89,6 @@ nav:
           - reference/cli/astrona_upgrade.md
           - reference/cli/astrona_content.md
           - reference/cli/astrona_content_init.md
+          - reference/cli/astrona_content_validate.md
+          - reference/cli/astrona_content_build.md
   - Contributing: contributing.md
