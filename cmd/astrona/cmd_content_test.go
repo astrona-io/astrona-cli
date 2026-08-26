@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestNewContentCmd(t *testing.T) {
@@ -16,13 +18,36 @@ func TestNewContentCmd(t *testing.T) {
 	}
 
 	subcmds := cmd.Commands()
-	if len(subcmds) != 1 {
-		t.Fatalf("expected 1 subcommand, got %d", len(subcmds))
+	if len(subcmds) != 2 {
+		t.Fatalf("expected 2 subcommands, got %d", len(subcmds))
 	}
 
-	initCmd := subcmds[0]
+	initCmd := cmd.Commands()[0]
+	for _, c := range subcmds {
+		if strings.HasPrefix(c.Use, "init ") {
+			initCmd = c
+		}
+	}
 	if initCmd.Use != "init <type> [path]" {
 		t.Errorf("expected subcommand Use 'init <type> [path]', got %q", initCmd.Use)
+	}
+
+	var validateCmd *cobra.Command
+	for _, c := range subcmds {
+		if strings.HasPrefix(c.Use, "validate ") {
+			validateCmd = c
+		}
+	}
+	if validateCmd == nil {
+		t.Fatal("expected a 'validate' subcommand to be registered")
+	}
+	if validateCmd.Use != "validate <type> <source>" {
+		t.Errorf("expected subcommand Use 'validate <type> <source>', got %q", validateCmd.Use)
+	}
+	if flg := validateCmd.Flag("git-ref"); flg == nil {
+		t.Error("expected flag \"git-ref\" to be defined")
+	} else if flg.Value.Type() != "string" {
+		t.Errorf("expected flag \"git-ref\" to be type string, got %s", flg.Value.Type())
 	}
 
 	expectedFlags := []struct {
