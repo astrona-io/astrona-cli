@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -167,6 +168,12 @@ func newContentInitCmd() *cobra.Command {
 			}
 
 			// File copy and template substitution
+			srcRoot, err := os.OpenRoot(tempDir)
+			if err != nil {
+				return fmt.Errorf("failed to open template root %s: %w", tempDir, err)
+			}
+			defer srcRoot.Close()
+
 			err = filepath.Walk(tempDir, func(srcPath string, info os.FileInfo, err error) error {
 				if err != nil {
 					return err
@@ -232,7 +239,12 @@ func newContentInitCmd() *cobra.Command {
 					return os.MkdirAll(destPath, info.Mode())
 				}
 
-				data, err := os.ReadFile(srcPath)
+				srcFile, err := srcRoot.Open(relPath)
+				if err != nil {
+					return fmt.Errorf("failed to open template file %s: %w", srcPath, err)
+				}
+				data, err := io.ReadAll(srcFile)
+				srcFile.Close()
 				if err != nil {
 					return fmt.Errorf("failed to read template file %s: %w", srcPath, err)
 				}

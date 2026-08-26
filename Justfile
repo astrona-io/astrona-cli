@@ -32,11 +32,20 @@ fmt-fix:
 vet:
     go vet ./...
 
+# Run golangci-lint (install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
+lint:
+    @command -v golangci-lint >/dev/null || (echo "golangci-lint not found; install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1)
+    golangci-lint run ./...
+
+# Auto-fix lint issues where possible
+lint-fix:
+    golangci-lint run --fix ./...
+
 test:
     go test ./...
 
-# Format check, vet, and test — run before committing
-check: fmt vet test
+# Format check, vet, lint, and test — run before committing
+check: fmt vet lint test
 
 # Generate the CLI reference markdown (docs/reference/cli/) from the actual command tree
 docs-gen-cli:
