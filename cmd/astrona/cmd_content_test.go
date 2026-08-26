@@ -18,8 +18,8 @@ func TestNewContentCmd(t *testing.T) {
 	}
 
 	subcmds := cmd.Commands()
-	if len(subcmds) != 2 {
-		t.Fatalf("expected 2 subcommands, got %d", len(subcmds))
+	if len(subcmds) != 3 {
+		t.Fatalf("expected 3 subcommands, got %d", len(subcmds))
 	}
 
 	initCmd := cmd.Commands()[0]
@@ -48,6 +48,34 @@ func TestNewContentCmd(t *testing.T) {
 		t.Error("expected flag \"git-ref\" to be defined")
 	} else if flg.Value.Type() != "string" {
 		t.Errorf("expected flag \"git-ref\" to be type string, got %s", flg.Value.Type())
+	}
+
+	var buildCmd *cobra.Command
+	for _, c := range subcmds {
+		if strings.HasPrefix(c.Use, "build ") {
+			buildCmd = c
+		}
+	}
+	if buildCmd == nil {
+		t.Fatal("expected a 'build' subcommand to be registered")
+	}
+	if buildCmd.Use != "build <type> <source> [flags]" {
+		t.Errorf("expected subcommand Use 'build <type> <source> [flags]', got %q", buildCmd.Use)
+	}
+	for _, ef := range []struct {
+		name string
+		typ  string
+	}{
+		{"git-ref", "string"},
+		{"output", "string"},
+		{"clean", "bool"},
+	} {
+		flg := buildCmd.Flag(ef.name)
+		if flg == nil {
+			t.Errorf("expected flag %q to be defined", ef.name)
+		} else if flg.Value.Type() != ef.typ {
+			t.Errorf("expected flag %q to be type %s, got %s", ef.name, ef.typ, flg.Value.Type())
+		}
 	}
 
 	expectedFlags := []struct {

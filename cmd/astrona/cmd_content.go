@@ -10,6 +10,7 @@ import (
 	"strings"
 	"text/template"
 
+	"astrona/internal/config"
 	"astrona/internal/content"
 	"astrona/internal/gitsource"
 
@@ -26,6 +27,7 @@ func newContentCmd() *cobra.Command {
 
 	cmd.AddCommand(newContentInitCmd())
 	cmd.AddCommand(newContentValidateCmd())
+	cmd.AddCommand(newContentBuildCmd())
 
 	return cmd
 }
@@ -41,6 +43,29 @@ func isGitSource(source string) bool {
 		strings.HasPrefix(source, "git@") ||
 		strings.HasPrefix(source, "ssh://") ||
 		strings.HasSuffix(source, ".git")
+}
+
+// resolveContentSource resolves source to a local directory: a git URL is
+// cloned/updated into the gitsource cache (pinned to gitRef if set), a local
+// path is returned as-is (absolute). Shared by `content validate` and
+// `content build` since both start from the same `<type> <source>` shape.
+func resolveContentSource(source, gitRef string) (string, error) {
+	if isGitSource(source) {
+		repoDir, err := gitsource.ResolveGitConfigSource(source, gitRef)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve git source %s: %w", source, err)
+		}
+		return repoDir, nil
+	}
+
+	if gitRef != "" {
+		return "", fmt.Errorf("--git-ref only applies to a git source, not a local folder path")
+	}
+	absPath, err := filepath.Abs(source)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve absolute path %s: %w", source, err)
+	}
+	return absPath, nil
 }
 
 // newContentValidateCmd builds `astrona content validate <type> <source>` which
@@ -73,22 +98,9 @@ func newContentValidateCmd() *cobra.Command {
 
 			source := args[1]
 
-			var contentDir string
-			if isGitSource(source) {
-				repoDir, err := gitsource.ResolveGitConfigSource(source, gitRef)
-				if err != nil {
-					return fmt.Errorf("failed to resolve git source %s: %w", source, err)
-				}
-				contentDir = repoDir
-			} else {
-				if gitRef != "" {
-					return fmt.Errorf("--git-ref only applies to a git source, not a local folder path")
-				}
-				absPath, err := filepath.Abs(source)
-				if err != nil {
-					return fmt.Errorf("failed to resolve absolute path %s: %w", source, err)
-				}
-				contentDir = absPath
+			contentDir, err := resolveContentSource(source, gitRef)
+			if err != nil {
+				return err
 			}
 
 			pathYAML := filepath.Join(contentDir, "path.yaml")
@@ -123,6 +135,182 @@ func newContentValidateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&gitRef, "git-ref", "", "Git branch, tag, or commit to check out (only used when source is a git URL)")
 
 	return cmd
+}
+
+// newContentBuildCmd builds `astrona content build <type> <source>` which
+// materializes a course section directory (ATP) into a self-contained
+// output bundle: every stage's content refs are resolved (cloned/pulled via
+// the same gitsource cache used by validate) and their resolved files are
+// copied under output/<stage.ID>/<ref>, alongside a copy of path.yaml at
+// the bundle root.
+func newContentBuildCmd() *cobra.Command {
+	var (
+		gitRef string
+		output string
+		clean  bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "build <type> <source> [flags]",
+		Short: "Materialize a course section into a self-contained bundle (for teachers and authors)",
+		Long: "Build a course section directory (Astrona Training Path - ATP, 'atp') into a self-contained output " +
+			"bundle: resolves every stage's content refs (typically ATS labs) via git and copies the resolved files " +
+			"under --output/<stage-id>/<ref>, alongside a copy of path.yaml at the bundle root. source is either a " +
+			"local folder path (the raw content files) or a git repository URL (https://, git@host:, ssh://, or a " +
+			".git suffix), optionally pinned to a branch or tag with --git-ref.",
+		Example: `  astrona content build atp ./paths/kubernetes-networking --output ./dist
+  astrona content build atp https://github.com/astrona-io/kubernetes-networking-atp.git --git-ref v1.2.0 --output ./dist --clean`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			contentType := strings.ToLower(strings.TrimSpace(args[0]))
+			if contentType != "ats" && contentType != "atp" {
+				return fmt.Errorf("invalid content type: %q. Must be 'ats' (Astrona Training Series) or 'atp' (Astrona Training Path)", args[0])
+			}
+			if contentType != "atp" {
+				return fmt.Errorf("build for content type %q is not yet implemented", contentType)
+			}
+
+			source := args[1]
+
+			contentDir, err := resolveContentSource(source, gitRef)
+			if err != nil {
+				return err
+			}
+
+			pathYAML := filepath.Join(contentDir, "path.yaml")
+			if _, err := os.Stat(pathYAML); err != nil {
+				return fmt.Errorf("path.yaml not found in %s: %w", contentDir, err)
+			}
+
+			trainingPath, err := content.LoadTrainingPath(pathYAML)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s: apiVersion/kind OK (%s/%s)\n", pathYAML, trainingPath.APIVersion, trainingPath.Kind)
+
+			absOutput, err := filepath.Abs(output)
+			if err != nil {
+				return fmt.Errorf("failed to resolve absolute path %s: %w", output, err)
+			}
+
+			if entries, statErr := os.ReadDir(absOutput); statErr == nil && len(entries) > 0 {
+				if !clean {
+					return fmt.Errorf("output directory %s already exists and is not empty (pass --clean to remove it first)", absOutput)
+				}
+				if err := os.RemoveAll(absOutput); err != nil {
+					return fmt.Errorf("failed to clean output directory %s: %w", absOutput, err)
+				}
+			}
+
+			if err := os.MkdirAll(absOutput, 0755); err != nil {
+				return fmt.Errorf("failed to create output directory %s: %w", absOutput, err)
+			}
+
+			for _, stage := range trainingPath.Spec.Stages {
+				for _, item := range stage.Content {
+					if item.Repository == "" {
+						return fmt.Errorf("stage %s: content ref %s has no repository set", stage.ID, item.Ref)
+					}
+
+					fmt.Printf("stage %s: resolving %s from %s@%s...\n", stage.ID, item.Ref, item.Repository, item.Version)
+					repoDir, err := gitsource.ResolveGitConfigSource(item.Repository, item.Version)
+					if err != nil {
+						return fmt.Errorf("stage %s: content ref %s: failed to access %s: %w", stage.ID, item.Ref, item.Repository, err)
+					}
+
+					srcPath := repoDir
+					if item.Path != "" && item.Path != "." {
+						srcPath, err = config.JoinWithinBaseDir(repoDir, item.Path)
+						if err != nil {
+							return fmt.Errorf("stage %s: content ref %s: %w", stage.ID, item.Ref, err)
+						}
+					}
+
+					destPath, err := config.JoinWithinBaseDir(absOutput, filepath.Join(stage.ID, item.Ref))
+					if err != nil {
+						return fmt.Errorf("stage %s: content ref %s: %w", stage.ID, item.Ref, err)
+					}
+
+					fmt.Printf("stage %s: copying %s into %s...\n", stage.ID, item.Ref, destPath)
+					if err := copyDir(srcPath, destPath); err != nil {
+						return fmt.Errorf("stage %s: content ref %s: failed to copy %s into %s: %w", stage.ID, item.Ref, srcPath, destPath, err)
+					}
+				}
+			}
+
+			pathYAMLOut := filepath.Join(absOutput, "path.yaml")
+			data, err := os.ReadFile(pathYAML)
+			if err != nil {
+				return fmt.Errorf("failed to read %s: %w", pathYAML, err)
+			}
+			if err := os.WriteFile(pathYAMLOut, data, 0644); err != nil {
+				return fmt.Errorf("failed to write %s: %w", pathYAMLOut, err)
+			}
+
+			fmt.Printf("Build complete. Output: %s\n", absOutput)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&gitRef, "git-ref", "", "Git branch, tag, or commit to check out (only used when source is a git URL)")
+	cmd.Flags().StringVarP(&output, "output", "o", "./dist", "Output directory for the materialized bundle")
+	cmd.Flags().BoolVar(&clean, "clean", false, "Remove the output directory first if it already exists and is not empty")
+
+	return cmd
+}
+
+// copyDir recursively copies srcDir's contents into destDir, creating
+// destDir if needed and skipping .git (a resolved content ref is a clean
+// checkout — its git history has no place in the built bundle). Symlinks
+// are skipped rather than followed or copied as-is, since a ref pulled from
+// a remote content repository is not a fully trusted input.
+func copyDir(srcDir, destDir string) error {
+	srcRoot, err := os.OpenRoot(srcDir)
+	if err != nil {
+		return fmt.Errorf("failed to open source root %s: %w", srcDir, err)
+	}
+	defer srcRoot.Close()
+
+	return filepath.Walk(srcDir, func(srcPath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(srcDir, srcPath)
+		if err != nil {
+			return err
+		}
+		if relPath == "." {
+			return os.MkdirAll(destDir, 0755)
+		}
+
+		if relPath == ".git" || strings.HasPrefix(relPath, ".git"+string(filepath.Separator)) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		destPath := filepath.Join(destDir, relPath)
+
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil
+		}
+		if info.IsDir() {
+			return os.MkdirAll(destPath, info.Mode())
+		}
+
+		srcFile, err := srcRoot.Open(relPath)
+		if err != nil {
+			return fmt.Errorf("failed to open %s: %w", srcPath, err)
+		}
+		data, err := io.ReadAll(srcFile)
+		srcFile.Close()
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", srcPath, err)
+		}
+		return os.WriteFile(destPath, data, info.Mode())
+	})
 }
 
 // newContentInitCmd builds `astrona content init <type> [path]` which scaffolds a new
