@@ -87,4 +87,6 @@ nav:
           - reference/cli/astrona_images_list.md
           - reference/cli/astrona_ssh.md
           - reference/cli/astrona_upgrade.md
+          - reference/cli/astrona_content.md
+          - reference/cli/astrona_content_init.md
   - Contributing: contributing.md

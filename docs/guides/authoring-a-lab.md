@@ -2,6 +2,62 @@
 
 A lab is a directory with a `config.yaml` (or whatever `--file` points at) plus whatever scripts/manifests/docs it references. This walks through building one from scratch, using [`examples/k8s-basics-01`](https://github.com/astrona-io/astrona-cli/tree/main/examples/k8s-basics-01) as the worked reference.
 
+## Scaffolding New Content (For Teachers & Authors)
+
+To make content creation fast, consistent, and collaborative, Astrona provides a built-in blueprint scaffolding command. By default, it dynamically pulls the template blueprint from a remote git repository based on the required `<type>` argument and replaces placeholders in filenames and contents with your customized arguments.
+
+```sh
+astrona content init <type> [path] [flags]
+```
+
+- **`<type>` (Required)**: Must be either `ats` (Astrona Training Series - hands-on sandbox lab) or `atp` (Astrona Training Path - course path/section).
+- **`[path]` (Optional)**: The target directory to initialize. If omitted, this **defaults to the value of the `--slug` flag** (creating a directory named after your slug).
+
+### Dynamic Blueprint Defaults
+
+Depending on the content type specified, the tool clones a dedicated template repository if no custom `--repo` is defined:
+- **`atp`**: Clones `git@github.com:astrona-io/training-path-blueprint.git`
+- **`ats`**: Clones `git@github.com:astrona-io/training-sandbox-blueprint.git`
+
+### Custom Scaffolding Arguments
+
+You can supply the following customization arguments via command-line flags to template the newly initialized content:
+
+| Flag | Variable | Default | Description |
+|---|---|---|---|
+| `-i, --path-id` | `path_id` | `ATPxxx` | Unique identifier of the training path/lab (e.g., `ATP010`) |
+| `-s, --slug` | `slug` | `path-slug` | URL-safe and directory-friendly slug name of the path (becomes default folder name) |
+| `-t, --title` | `title` | `Path Title` | Human-readable title of the path |
+| `-d, --description` | `description` | *(engaging summary)* | A short summary of what the learner will achieve |
+| `-v, --version` | `version` | `0.1.0` | Initial version of the training content |
+| `-g, --language` | `language` | `en` | Learning language (e.g., `en`, `fr`, `de`) |
+| `-a, --author-name` | `author_name` | `Author Name` | Name of the author/teacher creating the content |
+| `-l, --license` | `license` | `Apache-2.0` | Content license (default is Apache 2.0 license) |
+| `-r, --repo` | `repo` | `""` | Custom template repository to clone from (overrides default blueprints) |
+
+### Example Scaffolding Commands
+
+1. **Initialize an ATP (Training Path) into a custom directory:**
+   ```sh
+   astrona content init atp labs/my-custom-path \
+     --path-id "ATP040" \
+     --slug "linux-networking-basics" \
+     --title "Linux Networking Basics" \
+     --author-name "Alice Smith"
+   ```
+
+2. **Initialize an ATS (Lab Sandbox) defaulting to a folder named after your slug:**
+   ```sh
+   astrona content init ats \
+     --path-id "ATS012" \
+     --slug "virtio-disk-discovery" \
+     --title "Virtio Disk Discovery Lab" \
+     --author-name "Bob Jones"
+   ```
+   *This will automatically clone the sandbox template and create a new directory `./virtio-disk-discovery/`.*
+
+---
+
 ## 1. Metadata
 
 ```yaml
