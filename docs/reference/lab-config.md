@@ -55,6 +55,25 @@ teardown: {}     # TeardownConfig
 
 See [Runtimes](../concepts/runtimes.md) for single- vs multi-VM behavior.
 
+#### Disk device naming
+
+Disks are attached in a fixed order, so the guest device names are stable:
+
+| Guest device | Disk |
+|---|---|
+| `/dev/vda` | Main overlay disk (root filesystem, `diskSizeGB`). Always the boot disk. |
+| `/dev/vdb` | `extraDisks[0]` |
+| `/dev/vdc` | `extraDisks[1]` |
+| ... | ... |
+
+The cloud-init seed disk is also attached but carries no useful mount for a
+lab. `/dev/vda` is guaranteed to be the boot disk regardless of how many
+`extraDisks` entries are present.
+
+For labs that must not hard-code a `/dev/vd*` name, set a `serial` on the
+`extraDisks` entry and reference it by the stable
+`/dev/disk/by-id/virtio-<serial>` path instead.
+
 ## `bootstrap` / `testing`
 
 Both use the same shape (`BootstrapConfig`) — `testing` only runs under `astrona test`.
