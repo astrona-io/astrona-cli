@@ -883,6 +883,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="runtime.qemu[N]">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#disk-device-naming" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disk device naming
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -1480,6 +1495,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="runtime.qemu[N]">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#disk-device-naming" class="md-nav__link">
+    <span class="md-ellipsis">
+      Disk device naming
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -1743,6 +1773,40 @@
 </tbody>
 </table>
 <p>See <a href="../../concepts/runtimes/">Runtimes</a> for single- vs multi-VM behavior.</p>
+<h4 id="disk-device-naming">Disk device naming<a class="headerlink" href="#disk-device-naming" title="Permanent link">&para;</a></h4>
+<p>Disks are attached in a fixed order, so the guest device names are stable:</p>
+<table>
+<thead>
+<tr>
+<th>Guest device</th>
+<th>Disk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/dev/vda</code></td>
+<td>Main overlay disk (root filesystem, <code>diskSizeGB</code>). Always the boot disk.</td>
+</tr>
+<tr>
+<td><code>/dev/vdb</code></td>
+<td><code>extraDisks[0]</code></td>
+</tr>
+<tr>
+<td><code>/dev/vdc</code></td>
+<td><code>extraDisks[1]</code></td>
+</tr>
+<tr>
+<td>...</td>
+<td>...</td>
+</tr>
+</tbody>
+</table>
+<p>The cloud-init seed disk is also attached but carries no useful mount for a
+lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how many
+<code>extraDisks</code> entries are present.</p>
+<p>For labs that must not hard-code a <code>/dev/vd*</code> name, set a <code>serial</code> on the
+<code>extraDisks</code> entry and reference it by the stable
+<code>/dev/disk/by-id/virtio-&lt;serial&gt;</code> path instead.</p>
 <h2 id="bootstrap-testing"><code>bootstrap</code> / <code>testing</code><a class="headerlink" href="#bootstrap-testing" title="Permanent link">&para;</a></h2>
 <p>Both use the same shape (<code>BootstrapConfig</code>) — <code>testing</code> only runs under <code>astrona test</code>.</p>
 <table>
