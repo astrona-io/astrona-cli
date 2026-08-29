@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strconv"
 
+	"astrona/internal/config"
 	"astrona/internal/hypervisor"
 
 	"github.com/spf13/cobra"
@@ -32,11 +33,14 @@ func newSSHCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:          "ssh <lab-name>",
-		Short:        "SSH into a running qemu lab VM (name as shown by 'astrona list')",
+		Short:        "SSH into a running qemu lab VM (name as shown by 'astrona list', with or without the 'astro-' prefix)",
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name := args[0]
+			// Accept the lab name with or without the "astro-" prefix —
+			// `astrona list` prints the prefixed form, but a user typing
+			// the bare lab name should still connect.
+			name := config.NormalizeClusterName(args[0])
 
 			handle, err := hypervisor.LoadQEMUHandle(name)
 			if err != nil {

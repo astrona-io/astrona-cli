@@ -128,6 +128,12 @@ func destroyByDiscovery() error {
 // stale/dead qemu VM's leftover state dir) — a name-targeted destroy should
 // still clean that up.
 func destroyByName(name string) error {
+	// Accept the lab name with or without the "astro-" prefix — `astrona
+	// list` prints the prefixed form, but a user typing the bare lab name
+	// should still hit the right lab. Idempotent, so an already-prefixed
+	// name (including names passed from destroyByPattern) is unchanged.
+	name = config.NormalizeClusterName(name)
+
 	foundQemu := qemuStateExists(name)
 	foundKind := kindClusterExists(name)
 
@@ -172,6 +178,12 @@ func destroyByPattern(pattern string) error {
 		ok, err := filepath.Match(pattern, r.name)
 		if err != nil {
 			return fmt.Errorf("invalid pattern '%s': %w", pattern, err)
+		}
+		if !ok {
+			// Also match against the name with the "astro-" prefix
+			// stripped, so `destroy 'my-lab-*'` behaves the same as
+			// `destroy 'astro-my-lab-*'`.
+			ok, _ = filepath.Match(pattern, strings.TrimPrefix(r.name, "astro-"))
 		}
 		if ok {
 			matched = append(matched, r.name)
@@ -293,11 +305,13 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 		Long: "Tear down a lab environment (both the normal run and any leftover 'astrona test' run).\n\n" +
 			"With no lab-name, resolves the lab config the same way `run`/`submit` do (-c/--file/--git/--git-ref) " +
 			"and falls back to auto-discovering running labs if that fails.\n\n" +
-			"With a lab-name (the exact name `astrona list` prints, e.g. 'astro-my-lab'), destroys that lab " +
-			"directly — no config needed, so -c/--file/--git/--git-ref are ignored and any teardown scripts are skipped.\n\n" +
+			"With a lab-name (as shown by `astrona list`, with or without the 'astro-' prefix — e.g. 'astro-my-lab' " +
+			"or just 'my-lab'), destroys that lab directly — no config needed, so -c/--file/--git/--git-ref are " +
+			"ignored and any teardown scripts are skipped.\n\n" +
 			"With a glob pattern (contains *, ?, or [), matches against all currently-running lab names " +
-			"(same list `astrona list` shows) and destroys every match — e.g. `astrona destroy 'astro-qemu-jumphost-*'` " +
-			"(quote it so your shell doesn't expand the glob itself). No config needed, same trade-offs as a single name.",
+			"(same list `astrona list` shows, with or without the 'astro-' prefix) and destroys every match — " +
+			"e.g. `astrona destroy 'qemu-jumphost-*'` (quote it so your shell doesn't expand the glob itself). " +
+			"No config needed, same trade-offs as a single name.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 1 {
