@@ -37,7 +37,7 @@ Key differences from `kind`:
 
 - There's no `KubeContext` — `bootstrap.manifests`/`testing.manifests` are rejected with an error if set, since there's no kubectl-reachable cluster.
 - Every script (`bootstrap.init`, `teardown.init`, `validation.script`) runs **inside the VM over SSH**, as a dedicated `astrona` superuser account (passwordless sudo, key-auth only) that astrona provisions on every VM — separate from the human-facing `student` account. Each account gets its own ephemeral ed25519 keypair, generated and removed on teardown. Script content is piped over stdin to `bash -s` — never interpolated into a shell string.
-- `astrona ssh <lab-name>` opens an interactive session into a running VM (name as shown by `astrona list`) as `student` by default — override with `--user`. Root SSH login is disabled on the VM.
+- `astrona ssh <lab-name>` opens an interactive session into a running VM (name as shown by `astrona list`, with or without the `astro-` prefix) as `student` by default — override with `--user`. Root SSH login is disabled on the VM.
 - `student` can be locked down (sudo removed, password auth disabled) without affecting bootstrap/testing/teardown, since those always run as the independent `astrona` account.
 - Base images are cached under `~/.astrona/cache/images` — inspect with `astrona images list`. Checksum verification is strongly recommended (`image.checksum`/`image.checksums`) but not required; an unverified image falls back to an online freshness check plus the existing cache.
 
