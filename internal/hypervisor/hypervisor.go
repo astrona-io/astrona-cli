@@ -1938,16 +1938,28 @@ func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, f
 		"-m", strconv.Itoa(memoryMB),
 	}
 	args = append(args, firmwareArgs...)
+	// Every block device is wired up the same explicit way — a -drive
+	// (if=none, so qemu doesn't auto-attach a device for it) plus an
+	// explicit -device virtio-blk-pci — and all of them are emitted here,
+	// consecutively, before any other -device. This is what makes guest
+	// disk naming deterministic: Linux names virtio-blk disks vda, vdb,
+	// vdc... in ascending PCI-address probe order, and qemu assigns PCI
+	// slots to consecutive -device entries in command-line order within a
+	// single realize pass. Mixing the -drive if=virtio shorthand (used for
+	// the main/seed disks before) with explicit -device entries (used for
+	// extra disks) realized them in different passes, so an extra disk
+	// could grab a lower slot than the overlay and steal vda — labs then
+	// can't trust that the boot disk is vda. bootindex pins boot order
+	// independently of naming. serial is a virtio-blk device property, not
+	// a block-format option the -drive if=virtio shorthand accepts (qemu
+	// rejects it with "Block format 'qcow2' does not support the option
+	// 'serial'").
 	args = append(args,
-		"-drive", "file="+overlayPath+",if=virtio,format=qcow2",
-		"-drive", "file="+seedPath+",if=virtio,format=raw,readonly=on",
+		"-drive", "file="+overlayPath+",if=none,id=maindisk,format=qcow2",
+		"-device", "virtio-blk-pci,drive=maindisk,bootindex=1",
+		"-drive", "file="+seedPath+",if=none,id=seeddisk,format=raw,readonly=on",
+		"-device", "virtio-blk-pci,drive=seeddisk",
 	)
-	// Unlike the main/seed disks above, extra disks are wired up as a
-	// separate -drive (if=none, so qemu doesn't auto-attach a device for it)
-	// plus an explicit -device virtio-blk-pci: "serial" isn't a block-format
-	// option -drive's combined if=virtio shorthand accepts (qemu rejects it
-	// with "Block format 'qcow2' does not support the option 'serial'"), it's
-	// a property of the virtio-blk device itself.
 	for i, d := range extraDisks {
 		driveID := fmt.Sprintf("extradisk%d", i)
 		args = append(args, "-drive", fmt.Sprintf("file=%s,if=none,id=%s,format=%s", d.Path, driveID, d.Format))
