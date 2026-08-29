@@ -1502,8 +1502,8 @@
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Tear down a lab environment (both the normal run and any leftover 'astrona test' run).</p>
 <p>With no lab-name, resolves the lab config the same way <code>run</code>/<code>submit</code> do (-c/--file/--git/--git-ref) and falls back to auto-discovering running labs if that fails.</p>
-<p>With a lab-name (the exact name <code>astrona list</code> prints, e.g. 'astro-my-lab'), destroys that lab directly — no config needed, so -c/--file/--git/--git-ref are ignored and any teardown scripts are skipped.</p>
-<p>With a glob pattern (contains *, ?, or [), matches against all currently-running lab names (same list <code>astrona list</code> shows) and destroys every match — e.g. <code>astrona destroy 'astro-qemu-jumphost-*'</code> (quote it so your shell doesn't expand the glob itself). No config needed, same trade-offs as a single name.</p>
+<p>With a lab-name (as shown by <code>astrona list</code>, with or without the 'astro-' prefix — e.g. 'astro-my-lab' or just 'my-lab'), destroys that lab directly — no config needed, so -c/--file/--git/--git-ref are ignored and any teardown scripts are skipped.</p>
+<p>With a glob pattern (contains *, ?, or [), matches against all currently-running lab names (same list <code>astrona list</code> shows, with or without the 'astro-' prefix) and destroys every match — e.g. <code>astrona destroy 'qemu-jumphost-*'</code> (quote it so your shell doesn't expand the glob itself). No config needed, same trade-offs as a single name.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona destroy [lab-name|pattern] [flags]
 </code></pre></div>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
