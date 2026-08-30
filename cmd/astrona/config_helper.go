@@ -14,12 +14,14 @@ import (
 // use this, since destroy must still best-effort tear down even when the
 // config can't be loaded.
 func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string, cleanup func(), err error) {
-	finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef)
+	finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
 	if err != nil {
 		return nil, "", func() {}, fmt.Errorf("path resolution failed: %w", err)
 	}
 
-	fmt.Printf("Loading configuration from: %s\n", finalPath)
+	if flags.verbose {
+		fmt.Printf("Loading configuration from: %s\n", finalPath)
+	}
 
 	cfg, cleanup, err = config.LoadLabConfig(finalPath)
 	if err != nil {

@@ -266,7 +266,7 @@ func (p *Proctor) runScript(script *config.ResourceItem, executor executor.Scrip
 	}
 	defer cleanup()
 
-	if err := executor.RunScript(scriptPath); err != nil {
+	if err := executor.RunScript(scriptPath, os.Stdout); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			return false, nil

@@ -27,13 +27,20 @@ type rootFlags struct {
 	fileName   string
 	gitURL     string
 	gitRef     string
+	verbose    bool
 }
 
 // Version is the current version of the astrona-cli binary, burnt in at build
 // time via -ldflags "-X main.Version=vX.Y.Z".
 var Version = "developer"
 
-func checkLatestVersion() {
+func checkLatestVersion(verbose bool) {
+	warn := func() {
+		if verbose {
+			fmt.Println("[WARN] check version not possible")
+		}
+	}
+
 	client := &http.Client{
 		Timeout: 800 * time.Millisecond,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -43,20 +50,20 @@ func checkLatestVersion() {
 
 	resp, err := client.Head("https://github.com/astrona-io/astrona-cli/releases/latest")
 	if err != nil {
-		fmt.Println("[WARN] check version not possible")
+		warn()
 		return
 	}
 	defer resp.Body.Close()
 
 	location := resp.Header.Get("Location")
 	if location == "" {
-		fmt.Println("[WARN] check version not possible")
+		warn()
 		return
 	}
 
 	parts := strings.Split(strings.TrimRight(location, "/"), "/")
 	if len(parts) == 0 {
-		fmt.Println("[WARN] check version not possible")
+		warn()
 		return
 	}
 	latestTag := parts[len(parts)-1]
@@ -79,7 +86,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Name() == "__complete" || cmd.Name() == "help" || cmd.Name() == "docgen" {
 				return
 			}
-			checkLatestVersion()
+			checkLatestVersion(flags.verbose)
 		},
 	}
 
@@ -117,6 +124,8 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.PersistentFlags().StringVarP(&flags.fileName, "file", "f", "config.yaml", "Configuration file name override")
 	rootCmd.PersistentFlags().StringVar(&flags.gitURL, "git", "", "Git repository URL to clone/pull (https://, git@host:, or ssh://) — --config then selects a subdirectory within it")
 	rootCmd.PersistentFlags().StringVar(&flags.gitRef, "git-ref", "", "Git branch, tag, or commit to check out (used with --git; default: the repo's default branch)")
+	// No -v shorthand: Cobra reserves it for the auto-generated --version flag.
+	rootCmd.PersistentFlags().BoolVar(&flags.verbose, "verbose", false, "Stream the full output of every underlying command instead of the compact step view")
 
 	rootCmd.AddCommand(newRunCmd(flags))
 	rootCmd.AddCommand(newDestroyCmd(flags))

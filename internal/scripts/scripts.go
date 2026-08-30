@@ -9,6 +9,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/executor"
 	"astrona/internal/runtime"
+	"astrona/internal/ui"
 )
 
 // MaxScriptDownloadBytes bounds a single downloaded bootstrap/testing/
@@ -25,57 +26,57 @@ const MaxScriptDownloadBytes = 50 * 1024 * 1024
 // the low-level primitive — see runBootstrap/runOnEveryVM, below, for
 // running against a whole (possibly multi-VM) LabEnvironment instead of one
 // fixed executor.
-func RunInitScripts(scripts []config.ResourceItem, baseDir string, executor executor.ScriptExecutor) error {
-	for i, s := range scripts {
+func RunInitScripts(scripts []config.ResourceItem, baseDir string, exec executor.ScriptExecutor, rep *ui.Reporter) error {
+	for _, s := range scripts {
 		if s.Source == "" {
 			continue
 		}
 
-		fmt.Printf(" [%d/%d] Init: %s\n", i+1, len(scripts), s.Name)
+		t := rep.Step("%s", s.Name)
 		if s.Description != "" {
-			fmt.Printf("[INFO] %s\n", s.Description)
+			rep.Info("%s", s.Description)
 		}
 
 		switch strings.ToLower(s.Type) {
 		case "url":
 			tmpPath, cleanup, err := config.DownloadToTemp(s.Source, "astrona-script-*.sh", MaxScriptDownloadBytes)
 			if err != nil {
-				return fmt.Errorf("failed to download script from %s: %w", s.Source, err)
+				return t.Fail(fmt.Errorf("failed to download script from %s: %w", s.Source, err))
 			}
 
-			err = executor.RunScript(tmpPath)
+			err = exec.RunScript(tmpPath, t.Output())
 			cleanup()
 
 			if err != nil {
-				return fmt.Errorf("failed to run script '%s': %w", s.Name, err)
+				return t.Fail(fmt.Errorf("failed to run script '%s': %w", s.Name, err))
 			}
 		case "file":
 			resolved, err := config.JoinWithinBaseDir(baseDir, s.Source)
 			if err != nil {
-				return fmt.Errorf("failed to resolve script path for '%s': %w", s.Name, err)
+				return t.Fail(fmt.Errorf("failed to resolve script path for '%s': %w", s.Name, err))
 			}
 
 			if _, err := os.Stat(resolved); os.IsNotExist(err) {
-				return fmt.Errorf("local script file does not exist %s: %w", resolved, err)
+				return t.Fail(fmt.Errorf("local script file does not exist %s: %w", resolved, err))
 			}
 
-			if err := executor.RunScript(resolved); err != nil {
-				return fmt.Errorf("failed to run script '%s': %w", s.Name, err)
+			if err := exec.RunScript(resolved, t.Output()); err != nil {
+				return t.Fail(fmt.Errorf("failed to run script '%s': %w", s.Name, err))
 			}
 		case "folder":
 			resolved, err := config.JoinWithinBaseDir(baseDir, s.Source)
 			if err != nil {
-				return fmt.Errorf("failed to resolve script folder for '%s': %w", s.Name, err)
+				return t.Fail(fmt.Errorf("failed to resolve script folder for '%s': %w", s.Name, err))
 			}
 
 			info, err := os.Stat(resolved)
 			if err != nil || !info.IsDir() {
-				return fmt.Errorf("local script folder does not exist or is not a directory: %s", resolved)
+				return t.Fail(fmt.Errorf("local script folder does not exist or is not a directory: %s", resolved))
 			}
 
 			entries, err := os.ReadDir(resolved)
 			if err != nil {
-				return fmt.Errorf("failed to read script folder '%s': %w", resolved, err)
+				return t.Fail(fmt.Errorf("failed to read script folder '%s': %w", resolved, err))
 			}
 
 			for _, entry := range entries {
@@ -84,13 +85,15 @@ func RunInitScripts(scripts []config.ResourceItem, baseDir string, executor exec
 				}
 
 				scriptFile := filepath.Join(resolved, entry.Name())
-				if err := executor.RunScript(scriptFile); err != nil {
-					return fmt.Errorf("failed to run script '%s' in folder '%s': %w", entry.Name(), s.Name, err)
+				if err := exec.RunScript(scriptFile, t.Output()); err != nil {
+					return t.Fail(fmt.Errorf("failed to run script '%s' in folder '%s': %w", entry.Name(), s.Name, err))
 				}
 			}
 		default:
-			return fmt.Errorf("unsupported type '%s' for init scripts '%s' (must be 'file', 'folder', or 'url')", s.Type, s.Name)
+			return t.Fail(fmt.Errorf("unsupported type '%s' for init scripts '%s' (must be 'file', 'folder', or 'url')", s.Type, s.Name))
 		}
+
+		t.Done()
 	}
 
 	return nil
@@ -121,23 +124,25 @@ func HasBootstrapInit(cfg *config.LabConfig) bool {
 // followed by that VM's own nested QEMUVM.Bootstrap.Init if it has one. The
 // per-VM order (shared first, then that VM's own) means a VM-specific step
 // can assume whatever the shared setup already did.
-func RunBootstrap(cfg *config.LabConfig, baseDir string, env *runtime.LabEnvironment) error {
+func RunBootstrap(cfg *config.LabConfig, baseDir string, env *runtime.LabEnvironment, rep *ui.Reporter) error {
 	if env.Executor != nil {
-		return RunInitScripts(cfg.Bootstrap.Init, baseDir, env.Executor)
+		return RunInitScripts(cfg.Bootstrap.Init, baseDir, env.Executor, rep)
 	}
 
 	for _, vm := range cfg.Runtime.QEMU {
-		executor, err := env.ExecutorForVM(vm.Name)
+		exec, err := env.ExecutorForVM(vm.Name)
 		if err != nil {
 			return err
 		}
 
-		if err := RunInitScripts(cfg.Bootstrap.Init, baseDir, executor); err != nil {
+		rep.Section("Machine: %s", vm.Name)
+
+		if err := RunInitScripts(cfg.Bootstrap.Init, baseDir, exec, rep); err != nil {
 			return fmt.Errorf("vm '%s': %w", vm.Name, err)
 		}
 
 		if vm.Bootstrap != nil {
-			if err := RunInitScripts(vm.Bootstrap.Init, baseDir, executor); err != nil {
+			if err := RunInitScripts(vm.Bootstrap.Init, baseDir, exec, rep); err != nil {
 				return fmt.Errorf("vm '%s' bootstrap: %w", vm.Name, err)
 			}
 		}
@@ -150,17 +155,18 @@ func RunBootstrap(cfg *config.LabConfig, baseDir string, env *runtime.LabEnviron
 // lab, or once per VM (in vms' order) for a multi-VM qemu lab — used for
 // testing.init and teardown.init, neither of which supports a per-VM
 // nested override the way bootstrap.init does via RunBootstrap.
-func RunOnEveryVM(scripts []config.ResourceItem, baseDir string, env *runtime.LabEnvironment, vms []config.QEMUVM) error {
+func RunOnEveryVM(scripts []config.ResourceItem, baseDir string, env *runtime.LabEnvironment, vms []config.QEMUVM, rep *ui.Reporter) error {
 	if env.Executor != nil {
-		return RunInitScripts(scripts, baseDir, env.Executor)
+		return RunInitScripts(scripts, baseDir, env.Executor, rep)
 	}
 
 	for _, vm := range vms {
-		executor, err := env.ExecutorForVM(vm.Name)
+		exec, err := env.ExecutorForVM(vm.Name)
 		if err != nil {
 			return err
 		}
-		if err := RunInitScripts(scripts, baseDir, executor); err != nil {
+		rep.Section("Machine: %s", vm.Name)
+		if err := RunInitScripts(scripts, baseDir, exec, rep); err != nil {
 			return fmt.Errorf("vm '%s': %w", vm.Name, err)
 		}
 	}

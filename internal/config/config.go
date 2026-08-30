@@ -212,9 +212,9 @@ type LabConfig struct {
 // Otherwise a direct URL is used as-is (or has the file name appended), a
 // local directory gets the file name joined on, and a local file path is
 // used as-is.
-func ResolveConfigPath(configDirOrURL, fileName, gitURL, gitRef string) (string, error) {
+func ResolveConfigPath(configDirOrURL, fileName, gitURL, gitRef string, verbose bool) (string, error) {
 	if gitURL != "" {
-		repoDir, err := gitsource.ResolveGitConfigSource(gitURL, gitRef)
+		repoDir, err := gitsource.ResolveGitConfigSource(gitURL, gitRef, verbose)
 		if err != nil {
 			return "", fmt.Errorf("git source failed: %w", err)
 		}

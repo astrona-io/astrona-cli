@@ -2,17 +2,17 @@ package manifests
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 
 	"astrona/internal/config"
 	"astrona/internal/scripts"
+	"astrona/internal/ui"
 )
 
 // ApplyManifests runs `kubectl apply -f` for each manifest, always pinned
 // to kubeContext explicitly rather than relying on whatever context is
 // currently active.
-func ApplyManifests(manifests []config.ResourceItem, baseDir, kubeContext string) error {
+func ApplyManifests(manifests []config.ResourceItem, baseDir, kubeContext string, rep *ui.Reporter) error {
 	if len(manifests) == 0 {
 		return nil
 	}
@@ -22,25 +22,27 @@ func ApplyManifests(manifests []config.ResourceItem, baseDir, kubeContext string
 		return fmt.Errorf("kubectl not found in PATH: %w", err)
 	}
 
-	for i, m := range manifests {
+	for _, m := range manifests {
 		if m.Source == "" {
 			continue
 		}
 
+		t := rep.Step("Apply manifest: %s", m.Name)
+
 		path, err := scripts.ResolveLocalSource(m, baseDir)
 		if err != nil {
-			return fmt.Errorf("failed to resolve manifest source for '%s': %w", m.Name, err)
+			return t.Fail(fmt.Errorf("failed to resolve manifest source for '%s': %w", m.Name, err))
 		}
-
-		fmt.Printf(" [%d/%d] Applying manifest: %s\n", i+1, len(manifests), m.Name)
 
 		cmd := exec.Command(kubectlPath, "--context", kubeContext, "apply", "-f", path)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		out := t.Output()
+		cmd.Stdout = out
+		cmd.Stderr = out
 
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to apply manifest '%s': %w", m.Name, err)
+			return t.Fail(fmt.Errorf("failed to apply manifest '%s': %w", m.Name, err))
 		}
+		t.Done()
 	}
 
 	return nil

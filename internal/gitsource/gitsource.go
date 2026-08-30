@@ -1,12 +1,15 @@
 package gitsource
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // gitCacheDir returns (creating if needed) the cache directory a given repo
@@ -32,16 +35,15 @@ func gitCacheDir(url, ref string) (string, error) {
 }
 
 // runGit runs a git subcommand, optionally scoped to repoDir (git -C
-// repoDir ...), with output wired to the terminal like every other
-// subprocess call in this repo.
-func runGit(gitPath, repoDir string, args ...string) error {
+// repoDir ...), with combined stdout/stderr sent to out.
+func runGit(gitPath, repoDir string, out io.Writer, args ...string) error {
 	if repoDir != "" {
 		args = append([]string{"-C", repoDir}, args...)
 	}
 
 	cmd := exec.Command(gitPath, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = out
+	cmd.Stderr = out
 	return cmd.Run()
 }
 
@@ -78,27 +80,43 @@ func gitRefIsRemoteBranch(gitPath, destDir, ref string) bool {
 //
 // Submodules are not fetched (plain `git clone`/`git fetch`, no
 // --recurse-submodules) — a lab repo that needs them isn't supported today.
-func cloneOrUpdateGitRepo(url, ref, destDir string) error {
+func cloneOrUpdateGitRepo(url, ref, destDir string, verbose bool) error {
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
 		return fmt.Errorf("git not found in PATH: %w", err)
 	}
 
+	// verbose: git's own progress goes straight to the terminal. Otherwise
+	// it's captured and only surfaced if a step actually fails — the routine
+	// "branch set up to track…", "Reset branch…", "up to date with…" chatter
+	// isn't useful once things are working.
+	var buf bytes.Buffer
+	out := io.Writer(&buf)
+	if verbose {
+		out = os.Stdout
+	}
+	fail := func(err error) error {
+		if verbose || buf.Len() == 0 {
+			return err
+		}
+		return fmt.Errorf("%w\ngit output:\n%s", err, strings.TrimSpace(buf.String()))
+	}
+
 	if _, err := os.Stat(filepath.Join(destDir, ".git")); os.IsNotExist(err) {
-		fmt.Printf("Cloning %s...\n", url)
-		if err := runGit(gitPath, "", "clone", url, destDir); err != nil {
-			return fmt.Errorf("failed to clone %s: %w", url, err)
+		fmt.Printf("Cloning %s ...\n", url)
+		if err := runGit(gitPath, "", out, "clone", url, destDir); err != nil {
+			return fail(fmt.Errorf("failed to clone %s: %w", url, err))
 		}
 	} else {
-		fmt.Printf("Updating %s...\n", url)
-		if err := runGit(gitPath, destDir, "fetch", "--all", "--prune"); err != nil {
+		fmt.Printf("Updating %s ...\n", url)
+		if err := runGit(gitPath, destDir, out, "fetch", "--all", "--prune"); err != nil {
 			// Not fatal: destDir already has a cached checkout from a
 			// previous successful fetch/clone, and the checkout below reads
 			// from git's local remote-tracking refs — it doesn't need the
 			// fetch to have just succeeded, only to have succeeded at some
 			// point. Losing network here shouldn't break a lab that was
 			// already working offline.
-			fmt.Printf("[WARN] failed to update %s, using cached checkout instead: %s\n", url, err)
+			fmt.Printf("[WARN] could not reach %s, using the cached checkout\n", url)
 		}
 	}
 
@@ -112,12 +130,12 @@ func cloneOrUpdateGitRepo(url, ref, destDir string) error {
 		target = ref // tag or commit sha
 	}
 
-	if err := runGit(gitPath, destDir, "checkout", "--force", "-B", "astrona-lab", target); err != nil {
-		return fmt.Errorf("failed to checkout '%s' from %s: %w", target, url, err)
+	if err := runGit(gitPath, destDir, out, "checkout", "--force", "-B", "astrona-lab", target); err != nil {
+		return fail(fmt.Errorf("failed to checkout '%s' from %s: %w", target, url, err))
 	}
 
-	if err := runGit(gitPath, destDir, "clean", "-fdx"); err != nil {
-		return fmt.Errorf("failed to clean git checkout for %s: %w", url, err)
+	if err := runGit(gitPath, destDir, out, "clean", "-fdx"); err != nil {
+		return fail(fmt.Errorf("failed to clean git checkout for %s: %w", url, err))
 	}
 
 	return nil
@@ -126,13 +144,13 @@ func cloneOrUpdateGitRepo(url, ref, destDir string) error {
 // ResolveGitConfigSource clones/updates url@ref into its cache dir and
 // returns that local path — callers treat the result exactly like any
 // other local --config directory, no special-casing needed downstream.
-func ResolveGitConfigSource(url, ref string) (string, error) {
+func ResolveGitConfigSource(url, ref string, verbose bool) (string, error) {
 	destDir, err := gitCacheDir(url, ref)
 	if err != nil {
 		return "", err
 	}
 
-	if err := cloneOrUpdateGitRepo(url, ref, destDir); err != nil {
+	if err := cloneOrUpdateGitRepo(url, ref, destDir, verbose); err != nil {
 		return "", err
 	}
 

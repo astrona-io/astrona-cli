@@ -2,6 +2,7 @@ package executor
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 )
@@ -11,18 +12,22 @@ import (
 // there (local file or downloaded URL) and stay ignorant of where it
 // actually executes: LocalExecutor runs it on the host (the kind runtime),
 // SSHExecutor runs it inside a VM (the qemu runtime).
+//
+// out receives the script's combined stdout and stderr; callers pass the
+// writer their progress UI hands them (a per-step capture/log sink), so a
+// script's chatter only reaches the terminal when the caller wants it to.
 type ScriptExecutor interface {
-	RunScript(scriptPath string) error
+	RunScript(scriptPath string, out io.Writer) error
 }
 
 // LocalExecutor runs a script on the host with bash. This is the same
 // behavior every script execution had before the qemu runtime existed.
 type LocalExecutor struct{}
 
-func (LocalExecutor) RunScript(scriptPath string) error {
+func (LocalExecutor) RunScript(scriptPath string, out io.Writer) error {
 	cmd := exec.Command("bash", scriptPath)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = out
+	cmd.Stderr = out
 	return cmd.Run()
 }
 
@@ -38,7 +43,7 @@ type SSHExecutor struct {
 	KnownHosts string
 }
 
-func (s SSHExecutor) RunScript(scriptPath string) error {
+func (s SSHExecutor) RunScript(scriptPath string, out io.Writer) error {
 	f, err := os.Open(scriptPath)
 	if err != nil {
 		return fmt.Errorf("failed to open script '%s': %w", scriptPath, err)
@@ -58,7 +63,7 @@ func (s SSHExecutor) RunScript(scriptPath string) error {
 
 	cmd := exec.Command("ssh", args...)
 	cmd.Stdin = f
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = out
+	cmd.Stderr = out
 	return cmd.Run()
 }

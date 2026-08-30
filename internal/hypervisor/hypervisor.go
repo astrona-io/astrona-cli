@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"astrona/internal/config"
+	"astrona/internal/ui"
 )
 
 // qemuExtraDiskSpec is the resolved (defaulted, validated, on-disk) form of
@@ -162,12 +163,12 @@ func DetectQEMUBinary(arch string) (string, error) {
 // when the guest arch matches the host arch (hardware acceleration cannot
 // cross architectures) — otherwise falls back to the TCG software emulator
 // and prints a warning, since that's a real, user-visible performance cliff.
-func DetectAccelerator(arch string) string {
+func DetectAccelerator(arch string, rep *ui.Reporter) string {
 	target := normalizeArch(arch)
 	hostArch := normalizeArch(runtime.GOARCH)
 
 	if target != hostArch {
-		fmt.Printf("[WARN] guest arch '%s' differs from host arch '%s': falling back to software emulation (tcg), this will be slow\n", target, hostArch)
+		rep.Warn("guest arch '%s' differs from host arch '%s': falling back to software emulation (tcg), this will be slow", target, hostArch)
 		return "tcg"
 	}
 
@@ -178,10 +179,10 @@ func DetectAccelerator(arch string) string {
 		if _, err := os.Stat("/dev/kvm"); err == nil {
 			return "kvm"
 		}
-		fmt.Printf("[WARN] /dev/kvm not available: falling back to software emulation (tcg), this will be slow\n")
+		rep.Warn("/dev/kvm not available: falling back to software emulation (tcg), this will be slow")
 		return "tcg"
 	default:
-		fmt.Printf("[WARN] no known accelerator for this OS: falling back to software emulation (tcg), this will be slow\n")
+		rep.Warn("no known accelerator for this OS: falling back to software emulation (tcg), this will be slow")
 		return "tcg"
 	}
 }
@@ -279,8 +280,8 @@ func verifyChecksum(path, expectedHex string) error {
 // address, since there's no checksum to address by. Setting a checksum
 // still gets exactly the same enforcement as before, cached the same way as
 // always (content-addressed, re-verified on every hit).
-func acquireBaseImage(img config.QEMUImageSource, baseDir, stateDir, hostArch string) (string, func(), error) {
-	path, cleanup, err := acquireBaseImageUnchecked(img, baseDir, stateDir, hostArch)
+func acquireBaseImage(img config.QEMUImageSource, baseDir, stateDir, hostArch string, out io.Writer, rep *ui.Reporter) (string, func(), error) {
+	path, cleanup, err := acquireBaseImageUnchecked(img, baseDir, stateDir, hostArch, out, rep)
 	if err != nil {
 		return path, cleanup, err
 	}
@@ -334,7 +335,7 @@ func rejectEmbeddedBackingFile(path string) error {
 	return nil
 }
 
-func acquireBaseImageUnchecked(img config.QEMUImageSource, baseDir, stateDir, hostArch string) (string, func(), error) {
+func acquireBaseImageUnchecked(img config.QEMUImageSource, baseDir, stateDir, hostArch string, out io.Writer, rep *ui.Reporter) (string, func(), error) {
 	noopCleanup := func() {}
 
 	ociArch := ociArchName(hostArch)
@@ -357,14 +358,14 @@ func acquireBaseImageUnchecked(img config.QEMUImageSource, baseDir, stateDir, ho
 			return "", noopCleanup, err
 		}
 	} else if networkSourced {
-		fmt.Printf("[WARN] qemu image '%s' has no checksum set — booting it unverified. Set image.checksum or image.checksums to pin and verify it. Reusing/refreshing the local cache by best-effort online check instead (see `astrona images list`).\n", source)
+		rep.Warn("qemu image '%s' has no checksum set — booting it unverified. Set image.checksum or image.checksums to pin and verify it. Reusing/refreshing the local cache by best-effort online check instead (see `astrona images list`).", source)
 	}
 
 	if verify && networkSourced {
-		if cachePath, ok, err := cacheHit(source, algo, expectedHex); err != nil {
+		if cachePath, ok, err := cacheHit(source, algo, expectedHex, rep); err != nil {
 			return "", noopCleanup, err
 		} else if ok {
-			fmt.Printf("Using cached qemu base image (%s:%s)\n", algo, expectedHex[:12])
+			rep.Info("Using cached qemu base image (%s:%s)", algo, expectedHex[:12])
 			return cachePath, noopCleanup, nil
 		}
 	}
@@ -379,7 +380,7 @@ func acquireBaseImageUnchecked(img config.QEMUImageSource, baseDir, stateDir, ho
 	var unverifiedDataPath, unverifiedMetaPath string
 	if !verify && networkSourced {
 		var hitPath string
-		hitPath, unverifiedDataPath, unverifiedMetaPath, unverifiedMeta = unverifiedCacheHit(source, sourceType)
+		hitPath, unverifiedDataPath, unverifiedMetaPath, unverifiedMeta = unverifiedCacheHit(source, sourceType, rep)
 		if unverifiedMeta == nil {
 			return hitPath, noopCleanup, nil
 		}
@@ -406,7 +407,7 @@ func acquireBaseImageUnchecked(img config.QEMUImageSource, baseDir, stateDir, ho
 		path = tmpPath
 		cleanup = clean
 	case "oci":
-		tmpPath, clean, err := pullOCIImage(source, file, stateDir)
+		tmpPath, clean, err := pullOCIImage(source, file, stateDir, out)
 		if err != nil {
 			return "", noopCleanup, err
 		}
@@ -426,11 +427,11 @@ func acquireBaseImageUnchecked(img config.QEMUImageSource, baseDir, stateDir, ho
 	if verify && networkSourced {
 		cachePath, err := cachedImagePath(source, algo, expectedHex)
 		if err != nil {
-			fmt.Printf("[WARN] could not resolve image cache dir, not caching this run: %s\n", err)
+			rep.Warn("could not resolve image cache dir, not caching this run: %s", err)
 			return path, cleanup, nil
 		}
 		if err := persistToCache(path, cachePath); err != nil {
-			fmt.Printf("[WARN] failed to cache downloaded qemu base image, will re-fetch next run: %s\n", err)
+			rep.Warn("failed to cache downloaded qemu base image, will re-fetch next run: %s", err)
 			return path, cleanup, nil
 		}
 		finalizeImageCacheMeta(cachePath, cachePath+".meta.json", &ImageCacheMeta{
@@ -438,20 +439,20 @@ func acquireBaseImageUnchecked(img config.QEMUImageSource, baseDir, stateDir, ho
 			Type:     sourceType,
 			Verified: true,
 			SHA256:   expectedHex,
-		})
+		}, rep)
 		cleanup() // now duplicated in the cache — the fetched temp copy is redundant
 		return cachePath, noopCleanup, nil
 	}
 
 	if !verify && networkSourced && unverifiedMeta != nil {
 		if err := persistToCache(path, unverifiedDataPath); err != nil {
-			fmt.Printf("[WARN] failed to cache qemu base image, will re-fetch/re-check next run: %s\n", err)
+			rep.Warn("failed to cache qemu base image, will re-fetch/re-check next run: %s", err)
 			return path, cleanup, nil
 		}
 		if sum, err := sha256File(unverifiedDataPath); err == nil {
 			unverifiedMeta.SHA256 = sum
 		}
-		finalizeImageCacheMeta(unverifiedDataPath, unverifiedMetaPath, unverifiedMeta)
+		finalizeImageCacheMeta(unverifiedDataPath, unverifiedMetaPath, unverifiedMeta, rep)
 		cleanup()
 		return unverifiedDataPath, noopCleanup, nil
 	}
@@ -534,7 +535,7 @@ func cachedImagePath(resolvedSource, algo, hexDigest string) (string, error) {
 // so, re-verifies it before trusting it — a corrupted or tampered cache
 // entry is never silently booted, it's just treated as a miss (removed, so
 // a slow re-fetch on this run is enough to fix it rather than every run).
-func cacheHit(resolvedSource, algo, expectedHex string) (string, bool, error) {
+func cacheHit(resolvedSource, algo, expectedHex string, rep *ui.Reporter) (string, bool, error) {
 	cachePath, err := cachedImagePath(resolvedSource, algo, expectedHex)
 	if err != nil {
 		return "", false, err
@@ -545,7 +546,7 @@ func cacheHit(resolvedSource, algo, expectedHex string) (string, bool, error) {
 	}
 
 	if err := verifyChecksum(cachePath, expectedHex); err != nil {
-		fmt.Printf("[WARN] cached qemu base image failed checksum verification, discarding and re-fetching: %s\n", err)
+		rep.Warn("cached qemu base image failed checksum verification, discarding and re-fetching: %s", err)
 		os.Remove(cachePath)
 		return "", false, nil
 	}
@@ -655,14 +656,14 @@ func saveImageCacheMeta(metaPath string, meta *ImageCacheMeta) error {
 // error-handling: a metadata write failure only degrades `astrona images
 // list`'s output for this entry, it never invalidates the cached image data
 // itself, so it's logged and swallowed rather than propagated.
-func finalizeImageCacheMeta(dataPath, metaPath string, meta *ImageCacheMeta) {
+func finalizeImageCacheMeta(dataPath, metaPath string, meta *ImageCacheMeta, rep *ui.Reporter) {
 	if info, err := os.Stat(dataPath); err == nil {
 		meta.SizeBytes = info.Size()
 	}
 	meta.CachedAt = time.Now()
 
 	if err := saveImageCacheMeta(metaPath, meta); err != nil {
-		fmt.Printf("[WARN] failed to save image cache metadata: %s\n", err)
+		rep.Warn("failed to save image cache metadata: %s", err)
 	}
 }
 
@@ -817,10 +818,10 @@ func checkOCIFreshness(ref string, prior *ImageCacheMeta) (fresh bool, digest st
 //     then persist the result at dataPath/metaPath using the returned meta
 //     (pre-filled with whatever ETag/Last-Modified/Digest this check learned,
 //     so that gets recorded even though this run still had to fetch).
-func unverifiedCacheHit(source, sourceType string) (hitPath, dataPath, metaPath string, meta *ImageCacheMeta) {
+func unverifiedCacheHit(source, sourceType string, rep *ui.Reporter) (hitPath, dataPath, metaPath string, meta *ImageCacheMeta) {
 	dataPath, metaPath, err := unverifiedCachePaths(source)
 	if err != nil {
-		fmt.Printf("[WARN] could not resolve image cache dir, not caching this run: %s\n", err)
+		rep.Warn("could not resolve image cache dir, not caching this run: %s", err)
 		return "", "", "", nil
 	}
 
@@ -829,7 +830,7 @@ func unverifiedCacheHit(source, sourceType string) (hitPath, dataPath, metaPath 
 
 	prior, loadErr := LoadImageCacheMeta(metaPath)
 	if loadErr != nil {
-		fmt.Printf("[WARN] could not read image cache metadata, treating as uncached: %s\n", loadErr)
+		rep.Warn("could not read image cache metadata, treating as uncached: %s", loadErr)
 		prior = nil
 	}
 
@@ -852,17 +853,17 @@ func unverifiedCacheHit(source, sourceType string) (hitPath, dataPath, metaPath 
 
 	switch {
 	case checkErr != nil && haveCache:
-		fmt.Printf("[WARN] could not check '%s' for updates (%s) — using cached qemu base image: %s\n", source, checkErr, dataPath)
+		rep.Warn("could not check '%s' for updates (%s) — using cached qemu base image: %s", source, checkErr, dataPath)
 		return dataPath, "", "", nil
 	case checkErr != nil:
-		fmt.Printf("[WARN] could not check '%s' for updates (%s), no local cache — fetching now\n", source, checkErr)
+		rep.Warn("could not check '%s' for updates (%s), no local cache — fetching now", source, checkErr)
 		return "", dataPath, metaPath, next
 	case fresh && haveCache:
-		fmt.Printf("Using cached qemu base image (unverified, up to date as of last check): %s\n", dataPath)
+		rep.Info("Using cached qemu base image (unverified, up to date as of last check): %s", dataPath)
 		return dataPath, "", "", nil
 	default:
 		if haveCache {
-			fmt.Printf("Newer qemu base image available at '%s' — downloading and refreshing the cache\n", source)
+			rep.Info("Newer qemu base image available at '%s' — downloading and refreshing the cache", source)
 		}
 		return "", dataPath, metaPath, next
 	}
@@ -876,7 +877,7 @@ func unverifiedCacheHit(source, sourceType string) (hitPath, dataPath, metaPath 
 // checksum is already cached never reaches this function.
 // wantFile (config.QEMUImageSource.File) picks which *.qcow2 to use when the
 // artifact contains more than one — see findQcow2InPull.
-func pullOCIImage(ref, wantFile, stateDir string) (string, func(), error) {
+func pullOCIImage(ref, wantFile, stateDir string, out io.Writer) (string, func(), error) {
 	noopCleanup := func() {}
 
 	orasPath, err := exec.LookPath("oras")
@@ -892,8 +893,8 @@ func pullOCIImage(ref, wantFile, stateDir string) (string, func(), error) {
 	cleanup := func() { os.RemoveAll(pullDir) }
 
 	cmd := exec.Command(orasPath, "pull", ref, "-o", pullDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = out
+	cmd.Stderr = out
 	if err := cmd.Run(); err != nil {
 		cleanup()
 		return "", noopCleanup, fmt.Errorf("failed to pull qemu base image '%s' via oras: %w", ref, err)
@@ -905,7 +906,7 @@ func pullOCIImage(ref, wantFile, stateDir string) (string, func(), error) {
 		return "", noopCleanup, err
 	}
 
-	flattenedPath, err := flattenIfDelta(qcowPath, stateDir)
+	flattenedPath, err := flattenIfDelta(qcowPath, stateDir, out)
 	if err != nil {
 		cleanup()
 		return "", noopCleanup, err
@@ -937,20 +938,20 @@ func pullOCIImage(ref, wantFile, stateDir string) (string, func(), error) {
 // latter is a real, unresolvable problem (not this astrona-io image's
 // pattern), left for rejectEmbeddedBackingFile (acquireBaseImage) to reject
 // with an actionable error rather than silently guessing.
-func flattenIfDelta(qcowPath, stateDir string) (string, error) {
+func flattenIfDelta(qcowPath, stateDir string, progressOut io.Writer) (string, error) {
 	qemuImgPath, err := exec.LookPath("qemu-img")
 	if err != nil {
 		return "", fmt.Errorf("qemu-img not found in PATH: %w", err)
 	}
 
-	out, err := exec.Command(qemuImgPath, "info", "--output=json", qcowPath).Output()
+	infoJSON, err := exec.Command(qemuImgPath, "info", "--output=json", qcowPath).Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to inspect pulled qemu image '%s': %w", qcowPath, err)
 	}
 	var info struct {
 		BackingFilename string `json:"backing-filename"`
 	}
-	if err := json.Unmarshal(out, &info); err != nil {
+	if err := json.Unmarshal(infoJSON, &info); err != nil {
 		return "", fmt.Errorf("failed to parse qemu-img info for '%s': %w", qcowPath, err)
 	}
 	if info.BackingFilename == "" {
@@ -976,8 +977,8 @@ func flattenIfDelta(qcowPath, stateDir string) (string, error) {
 	os.Remove(flattenedPath) // qemu-img convert refuses to overwrite an existing file
 
 	cmd := exec.Command(qemuImgPath, "convert", "-O", "qcow2", qcowPath, flattenedPath)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = progressOut
+	cmd.Stderr = progressOut
 	if err := cmd.Run(); err != nil {
 		os.Remove(flattenedPath)
 		return "", fmt.Errorf("failed to flatten pulled qemu image '%s' (backed by '%s'): %w", qcowPath, backingPath, err)
@@ -1070,7 +1071,7 @@ func relBaseNames(matches []string) []string {
 // absolute — qcow2 backing-file references are resolved relative to the
 // overlay's own directory otherwise, which breaks once the overlay and base
 // don't live side by side (they don't: the overlay lives in stateDir).
-func createOverlayDisk(basePath, stateDir string, diskSizeGB int) (string, error) {
+func createOverlayDisk(basePath, stateDir string, diskSizeGB int, out io.Writer, rep *ui.Reporter) (string, error) {
 	qemuImgPath, err := exec.LookPath("qemu-img")
 	if err != nil {
 		return "", fmt.Errorf("qemu-img not found in PATH: %w", err)
@@ -1080,8 +1081,8 @@ func createOverlayDisk(basePath, stateDir string, diskSizeGB int) (string, error
 	os.Remove(overlayPath)
 
 	cmd := exec.Command(qemuImgPath, "create", "-f", "qcow2", "-F", "qcow2", "-b", basePath, overlayPath)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = out
+	cmd.Stderr = out
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to create overlay disk: %w", err)
 	}
@@ -1094,11 +1095,11 @@ func createOverlayDisk(basePath, stateDir string, diskSizeGB int) (string, error
 
 		requested := int64(diskSizeGB) * 1024 * 1024 * 1024
 		if requested <= baseSize {
-			fmt.Printf("[INFO] diskSizeGB %dG <= base image's own %.1fG, skipping resize (overlay already at least that big)\n", diskSizeGB, float64(baseSize)/(1024*1024*1024))
+			rep.Info("diskSizeGB %dG <= base image's own %.1fG, skipping resize (overlay already at least that big)", diskSizeGB, float64(baseSize)/(1024*1024*1024))
 		} else {
 			resizeCmd := exec.Command(qemuImgPath, "resize", overlayPath, fmt.Sprintf("%dG", diskSizeGB))
-			resizeCmd.Stdout = os.Stdout
-			resizeCmd.Stderr = os.Stderr
+			resizeCmd.Stdout = out
+			resizeCmd.Stderr = out
 			if err := resizeCmd.Run(); err != nil {
 				return "", fmt.Errorf("failed to resize overlay disk to %dG: %w", diskSizeGB, err)
 			}
@@ -1113,7 +1114,7 @@ func createOverlayDisk(basePath, stateDir string, diskSizeGB int) (string, error
 // Unlike createOverlayDisk there's no base image to back or resize against:
 // the disk starts empty every time, same disposable-per-run posture as the
 // main overlay disk.
-func createExtraDisk(stateDir string, index int, format string, sizeGB int) (string, error) {
+func createExtraDisk(stateDir string, index int, format string, sizeGB int, out io.Writer) (string, error) {
 	qemuImgPath, err := exec.LookPath("qemu-img")
 	if err != nil {
 		return "", fmt.Errorf("qemu-img not found in PATH: %w", err)
@@ -1123,8 +1124,8 @@ func createExtraDisk(stateDir string, index int, format string, sizeGB int) (str
 	os.Remove(path)
 
 	cmd := exec.Command(qemuImgPath, "create", "-f", format, path, fmt.Sprintf("%dG", sizeGB))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = out
+	cmd.Stderr = out
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to create extra disk %d (%dG, %s): %w", index, sizeGB, format, err)
 	}
@@ -1134,7 +1135,7 @@ func createExtraDisk(stateDir string, index int, format string, sizeGB int) (str
 
 // resolveExtraDisks validates and creates every disk in cfg.ExtraDisks,
 // returning the resolved specs buildQEMUArgs needs.
-func resolveExtraDisks(stateDir string, disks []config.QEMUExtraDisk) ([]qemuExtraDiskSpec, error) {
+func resolveExtraDisks(stateDir string, disks []config.QEMUExtraDisk, out io.Writer) ([]qemuExtraDiskSpec, error) {
 	specs := make([]qemuExtraDiskSpec, 0, len(disks))
 	for i, d := range disks {
 		if d.SizeGB <= 0 {
@@ -1148,7 +1149,7 @@ func resolveExtraDisks(stateDir string, disks []config.QEMUExtraDisk) ([]qemuExt
 			return nil, fmt.Errorf("runtime.qemu extraDisks[%d]: format must be 'qcow2' or 'raw' (got %q)", i, d.Format)
 		}
 
-		path, err := createExtraDisk(stateDir, i, format, d.SizeGB)
+		path, err := createExtraDisk(stateDir, i, format, d.SizeGB, out)
 		if err != nil {
 			return nil, err
 		}
@@ -1210,7 +1211,7 @@ func cidrsOverlap(a, b *net.IPNet) bool {
 // starting the next, the listener's socket is already open — set up at qemu
 // process launch, long before its own guest OS finishes booting — by the
 // time any later VM's connector tries to reach it.
-func ResolveNetworkTopology(labName string, defs []config.QEMUNetworkDef, vms []config.QEMUVM) (map[string][]QEMUNetworkSpec, error) {
+func ResolveNetworkTopology(labName string, defs []config.QEMUNetworkDef, vms []config.QEMUVM, rep *ui.Reporter) (map[string][]QEMUNetworkSpec, error) {
 	declared := make(map[string]*net.IPNet, len(defs))
 	declaredOrder := make([]string, 0, len(defs))
 
@@ -1240,7 +1241,7 @@ func ResolveNetworkTopology(labName string, defs []config.QEMUNetworkDef, vms []
 		for i, name := range declaredOrder {
 			summary[i] = fmt.Sprintf("%s=%s", name, declared[name])
 		}
-		fmt.Printf("Networks: %s\n", strings.Join(summary, ", "))
+		rep.Info("Networks: %s", strings.Join(summary, ", "))
 	}
 
 	segOrder := make([]string, 0)
@@ -1347,7 +1348,7 @@ func qemuImgVirtualSize(qemuImgPath, basePath string) (int64, error) {
 // key, persisted for the VM's lifetime) and generateInMemorySSHKeyPair (a
 // lab's inter-VM sshAccess trust, never persisted) — the two differ only in
 // where privKeyPath lives and what happens to it afterward.
-func runSSHKeygen(privKeyPath, comment string) (pubKey string, err error) {
+func runSSHKeygen(privKeyPath, comment string, out io.Writer) (pubKey string, err error) {
 	os.Remove(privKeyPath)
 	os.Remove(privKeyPath + ".pub")
 
@@ -1357,8 +1358,8 @@ func runSSHKeygen(privKeyPath, comment string) (pubKey string, err error) {
 	}
 
 	cmd := exec.Command(keygenPath, "-t", "ed25519", "-N", "", "-f", privKeyPath, "-C", comment)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = out
+	cmd.Stderr = out
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to generate SSH key ('%s'): %w", comment, err)
 	}
@@ -1374,10 +1375,10 @@ func runSSHKeygen(privKeyPath, comment string) (pubKey string, err error) {
 // generateEphemeralSSHKey creates a fresh ed25519 keypair in stateDir, named
 // filename(+".pub"). Never reused across labs or runs — DestroyQEMUVM
 // removes the whole state dir, so the key never outlives its VM.
-func generateEphemeralSSHKey(stateDir, filename string) (privKeyPath, pubKey string, err error) {
+func generateEphemeralSSHKey(stateDir, filename string, out io.Writer) (privKeyPath, pubKey string, err error) {
 	privKeyPath = filepath.Join(stateDir, filename)
 
-	pubKey, err = runSSHKeygen(privKeyPath, "astrona-lab")
+	pubKey, err = runSSHKeygen(privKeyPath, "astrona-lab", out)
 	if err != nil {
 		return "", "", err
 	}
@@ -1403,7 +1404,7 @@ func generateInMemorySSHKeyPair() (privateKey, publicKey string, err error) {
 	defer os.RemoveAll(tmpDir)
 
 	privPath := filepath.Join(tmpDir, "id_ed25519")
-	pubKey, err := runSSHKeygen(privPath, "astrona-lab-internal")
+	pubKey, err := runSSHKeygen(privPath, "astrona-lab-internal", io.Discard)
 	if err != nil {
 		return "", "", err
 	}
@@ -1587,7 +1588,7 @@ func cloudInitHostname(clusterName string) string {
 // appended runcmd block installing its access identity (interVMRuncmd). Pass
 // nil for a VM with no sshAccess edges in either direction (e.g. every VM in
 // a single-VM lab).
-func buildCloudInitSeed(stateDir, clusterName, pubKey, adminPubKey string, passwordAuth bool, mgmtMAC string, networks []QEMUNetworkSpec, trust *InterVMTrust) (string, error) {
+func buildCloudInitSeed(stateDir, clusterName, pubKey, adminPubKey string, passwordAuth bool, mgmtMAC string, networks []QEMUNetworkSpec, trust *InterVMTrust, out io.Writer) (string, error) {
 	seedSrcDir := filepath.Join(stateDir, "cidata-src")
 	if err := os.MkdirAll(seedSrcDir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create cloud-init seed source dir: %w", err)
@@ -1678,8 +1679,8 @@ users:
 	}
 
 	cmd := exec.Command(tool, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = out
+	cmd.Stderr = out
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to build cloud-init seed image: %w", err)
 	}
@@ -2020,7 +2021,7 @@ func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, f
 // same call-once-up-front reasoning as networks) — nil for a lab that never
 // calls ResolveInterVMTrust (a single-VM lab, where sshAccess is
 // meaningless).
-func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, networks []QEMUNetworkSpec, trust *InterVMTrust) (*config.QEMUHandle, error) {
+func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, networks []QEMUNetworkSpec, trust *InterVMTrust, rep *ui.Reporter) (*config.QEMUHandle, error) {
 	// Refuse to launch a second VM on top of an already-running one: nothing
 	// below this point checks for an existing process, so without this guard
 	// a repeat `astrona run` (no `astrona destroy` in between) silently
@@ -2041,49 +2042,55 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 		return nil, err
 	}
 
+	tImg := rep.Step("Acquire base image")
 	qemuPath, err := DetectQEMUBinary(arch)
 	if err != nil {
-		return nil, err
+		return nil, tImg.Fail(err)
 	}
-	accel := DetectAccelerator(arch)
+	accel := DetectAccelerator(arch, rep)
 
-	basePath, baseCleanup, err := acquireBaseImage(cfg.Image, baseDir, stateDir, arch)
+	basePath, baseCleanup, err := acquireBaseImage(cfg.Image, baseDir, stateDir, arch, tImg.Output(), rep)
 	if err != nil {
-		return nil, err
+		return nil, tImg.Fail(err)
 	}
 	defer baseCleanup()
 
 	absBase, err := filepath.Abs(basePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve absolute path for base image: %w", err)
+		return nil, tImg.Fail(fmt.Errorf("failed to resolve absolute path for base image: %w", err))
+	}
+	tImg.Done()
+
+	tDisk := rep.Step("Create disks")
+	overlayPath, err := createOverlayDisk(absBase, stateDir, cfg.DiskSizeGB, tDisk.Output(), rep)
+	if err != nil {
+		return nil, tDisk.Fail(err)
 	}
 
-	overlayPath, err := createOverlayDisk(absBase, stateDir, cfg.DiskSizeGB)
+	extraDisks, err := resolveExtraDisks(stateDir, cfg.ExtraDisks, tDisk.Output())
 	if err != nil {
-		return nil, err
+		return nil, tDisk.Fail(err)
+	}
+	tDisk.Done()
+
+	tSeed := rep.Step("Generate SSH keys and cloud-init seed")
+	privKeyPath, pubKey, err := generateEphemeralSSHKey(stateDir, studentKeyFilename, tSeed.Output())
+	if err != nil {
+		return nil, tSeed.Fail(err)
 	}
 
-	extraDisks, err := resolveExtraDisks(stateDir, cfg.ExtraDisks)
+	adminKeyPath, adminPubKey, err := generateEphemeralSSHKey(stateDir, adminKeyFilename, tSeed.Output())
 	if err != nil {
-		return nil, err
-	}
-
-	privKeyPath, pubKey, err := generateEphemeralSSHKey(stateDir, studentKeyFilename)
-	if err != nil {
-		return nil, err
-	}
-
-	adminKeyPath, adminPubKey, err := generateEphemeralSSHKey(stateDir, adminKeyFilename)
-	if err != nil {
-		return nil, err
+		return nil, tSeed.Fail(err)
 	}
 
 	mgmtMAC := deriveMAC(labName, clusterName, "mgmt")
 
-	seedPath, err := buildCloudInitSeed(stateDir, clusterName, pubKey, adminPubKey, cfg.SSHPasswordAuth, mgmtMAC, networks, trust)
+	seedPath, err := buildCloudInitSeed(stateDir, clusterName, pubKey, adminPubKey, cfg.SSHPasswordAuth, mgmtMAC, networks, trust, tSeed.Output())
 	if err != nil {
-		return nil, err
+		return nil, tSeed.Fail(err)
 	}
+	tSeed.Done()
 
 	sshPort := cfg.SSHPort
 	if sshPort == 0 {
@@ -2107,6 +2114,8 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 	consolePath := filepath.Join(stateDir, "console.log")
 	os.Remove(pidfilePath)
 
+	tLaunch := rep.Step("Launch VM (arch=%s accel=%s ssh-port=%d nics=%d)", arch, accel, sshPort, 1+len(networks))
+
 	machineType := "q35"
 	var firmwareArgs []string
 
@@ -2115,7 +2124,7 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 
 		fwArgs, err := prepareAArch64Firmware(stateDir)
 		if err != nil {
-			return nil, err
+			return nil, tLaunch.Fail(err)
 		}
 		firmwareArgs = fwArgs
 	}
@@ -2131,11 +2140,10 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 
 	args := buildQEMUArgs(processName, machineType, accel, cpus, memoryMB, firmwareArgs, overlayPath, seedPath, extraDisks, sshPort, mgmtMAC, networks, cfg.Display, pidfilePath, consolePath)
 
-	fmt.Printf("Launching qemu VM '%s' (arch=%s accel=%s ssh-port=%d nics=%d display=%v)...\n", clusterName, arch, accel, sshPort, 1+len(networks), cfg.Display)
-
 	cmd := exec.Command(qemuPath, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	launchOut := tLaunch.Output()
+	cmd.Stdout = launchOut
+	cmd.Stderr = launchOut
 
 	var pid int
 	if cfg.Display {
@@ -2145,19 +2153,19 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 		// non-blocking end result -daemonize gives the headless path.
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 		if err := cmd.Start(); err != nil {
-			return nil, fmt.Errorf("failed to launch qemu VM: %w", err)
+			return nil, tLaunch.Fail(fmt.Errorf("failed to launch qemu VM: %w", err))
 		}
 		pid = cmd.Process.Pid
 		if err := os.WriteFile(pidfilePath, []byte(strconv.Itoa(pid)), 0600); err != nil {
-			return nil, fmt.Errorf("failed to write qemu pidfile: %w", err)
+			return nil, tLaunch.Fail(fmt.Errorf("failed to write qemu pidfile: %w", err))
 		}
 	} else {
 		if err := cmd.Run(); err != nil {
-			return nil, fmt.Errorf("failed to launch qemu VM: %w", err)
+			return nil, tLaunch.Fail(fmt.Errorf("failed to launch qemu VM: %w", err))
 		}
 		p, err := readPidfile(pidfilePath, 5*time.Second)
 		if err != nil {
-			return nil, fmt.Errorf("qemu started but pidfile was not written: %w", err)
+			return nil, tLaunch.Fail(fmt.Errorf("qemu started but pidfile was not written: %w", err))
 		}
 		pid = p
 	}
@@ -2183,13 +2191,15 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 	}
 
 	if err := writeHandleState(handle); err != nil {
-		return nil, err
+		return nil, tLaunch.Fail(err)
 	}
+	tLaunch.Done()
 
-	fmt.Printf("Waiting for VM to become SSH-ready...\n")
+	tWait := rep.Step("Wait for VM to become SSH-ready")
 	if err := waitForSSHReady(handle, 3*time.Minute); err != nil {
-		return handle, fmt.Errorf("VM launched but did not become ready: %w", err)
+		return handle, tWait.Fail(fmt.Errorf("VM launched but did not become ready: %w", err))
 	}
+	tWait.Done()
 
 	return handle, nil
 }
@@ -2229,7 +2239,7 @@ func LoadQEMUHandle(clusterName string) (*config.QEMUHandle, error) {
 // cloud-init seed, ephemeral SSH key — none of it should outlive the VM).
 // A no-op, not an error, if no VM state is found — matches cmd_down.go's
 // existing best-effort teardown posture for kind.
-func DestroyQEMUVM(clusterName string) error {
+func DestroyQEMUVM(clusterName string, rep *ui.Reporter) error {
 	stateDir, err := qemuStateDir(clusterName)
 	if err != nil {
 		return err
@@ -2239,7 +2249,7 @@ func DestroyQEMUVM(clusterName string) error {
 	data, err := os.ReadFile(statePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Printf("No qemu VM state found for '%s', nothing to tear down.\n", clusterName)
+			rep.Info("No qemu VM state found for '%s', nothing to tear down.", clusterName)
 			return nil
 		}
 		return fmt.Errorf("failed to read qemu VM state: %w", err)
@@ -2249,6 +2259,8 @@ func DestroyQEMUVM(clusterName string) error {
 	if err := json.Unmarshal(data, &h); err != nil {
 		return fmt.Errorf("failed to parse qemu VM state: %w", err)
 	}
+
+	t := rep.Step("Tear down qemu VM %q", clusterName)
 
 	if h.PID > 0 {
 		if process, err := os.FindProcess(h.PID); err == nil {
@@ -2268,9 +2280,9 @@ func DestroyQEMUVM(clusterName string) error {
 	}
 
 	if err := os.RemoveAll(stateDir); err != nil {
-		return fmt.Errorf("failed to remove qemu state dir '%s': %w", stateDir, err)
+		return t.Fail(fmt.Errorf("failed to remove qemu state dir '%s': %w", stateDir, err))
 	}
 
-	fmt.Printf("qemu VM for '%s' torn down.\n", clusterName)
+	t.Done()
 	return nil
 }
