@@ -501,6 +501,8 @@
       
         
       
+        
+      
     
     
     
@@ -704,6 +706,29 @@
   
   <span class="md-ellipsis">
     Grading
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../logs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Run Logs
     
   </span>
   
@@ -928,6 +953,18 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
       
         
       
@@ -1255,6 +1292,144 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_logs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona logs
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_logs_list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona logs list
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_logs_view/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona logs view
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_logs_path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona logs path
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_logs_export/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona logs export
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_logs_clean/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona logs clean
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/cli/astrona_content/" class="md-nav__link">
         
   
@@ -1552,7 +1727,7 @@ bootstrap script) is <strong>not</strong> shown by default. Instead:</p>
 <ul>
 <li>It is always written in full to a per-run log file at
   <code>~/.astrona/logs/&lt;command&gt;-&lt;lab&gt;-&lt;timestamp&gt;.log</code>. The path is printed at
-  the end of a run.</li>
+  the end of a run. Browse past runs with <a href="../logs/"><code>astrona logs</code></a>.</li>
 <li>If a step fails, the tail of that step's output is printed inline right
   before the error, and the command exits non-zero.</li>
 <li>Passing <code>--verbose</code> streams everything live as it happens and disables the
