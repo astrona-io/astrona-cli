@@ -81,7 +81,7 @@ bootstrap script) is **not** shown by default. Instead:
 
 - It is always written in full to a per-run log file at
   `~/.astrona/logs/<command>-<lab>-<timestamp>.log`. The path is printed at
-  the end of a run.
+  the end of a run. Browse past runs with [`astrona logs`](logs.md).
 - If a step fails, the tail of that step's output is printed inline right
   before the error, and the command exits non-zero.
 - Passing `--verbose` streams everything live as it happens and disables the
