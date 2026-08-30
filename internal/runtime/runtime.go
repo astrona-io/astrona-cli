@@ -7,6 +7,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/executor"
 	"astrona/internal/hypervisor"
+	"astrona/internal/ui"
 )
 
 // RuntimeType is which backend a lab runs on.
@@ -73,7 +74,7 @@ func vmNames(executors map[string]executor.ScriptExecutor) []string {
 
 // CreateEnvironment brings up a fresh lab environment: a kind cluster, or —
 // for qemu — one VM or several named ones (runtime.qemu, see IsMultiVM).
-func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig) (*LabEnvironment, error) {
+func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.Reporter) (*LabEnvironment, error) {
 	runtimeType, err := resolveRuntimeType(cfg)
 	if err != nil {
 		return nil, err
@@ -81,7 +82,7 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig) (*LabEnvi
 
 	switch runtimeType {
 	case RuntimeKind:
-		if err := cluster.CreateKindCluster(name); err != nil {
+		if err := cluster.CreateKindCluster(name, rep); err != nil {
 			return nil, err
 		}
 		return &LabEnvironment{
@@ -98,7 +99,7 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig) (*LabEnvi
 		// segment's listen/connect role assignment (ResolveNetworkTopology)
 		// needs to see all of them at once, not just the one CreateQEMUVM
 		// call is about to boot.
-		networks, err := hypervisor.ResolveNetworkTopology(name, cfg.Networks, cfg.QEMU)
+		networks, err := hypervisor.ResolveNetworkTopology(name, cfg.Networks, cfg.QEMU, rep)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +107,7 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig) (*LabEnvi
 			if len(cfg.QEMU[0].SSHAccess) > 0 {
 				return nil, fmt.Errorf("runtime.qemu vm sshAccess needs a multi-VM lab (name this VM and add another) — nothing for it to reach in a single-VM lab")
 			}
-			handle, err := hypervisor.CreateQEMUVM(name, name, baseDir, cfg.QEMU[0].AsQEMUConfig(), networks[cfg.QEMU[0].Name], nil)
+			handle, err := hypervisor.CreateQEMUVM(name, name, baseDir, cfg.QEMU[0].AsQEMUConfig(), networks[cfg.QEMU[0].Name], nil, rep)
 			if err != nil {
 				return nil, err
 			}
@@ -117,7 +118,7 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig) (*LabEnvi
 				Executor:    sshExecutorFor(handle),
 			}, nil
 		}
-		return createMultiQEMUEnvironment(name, baseDir, cfg.QEMU, networks)
+		return createMultiQEMUEnvironment(name, baseDir, cfg.QEMU, networks, rep)
 	default:
 		return nil, fmt.Errorf("unsupported runtime type '%s'", runtimeType)
 	}
@@ -134,7 +135,7 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig) (*LabEnvi
 // torn down before returning the error — a half-started multi-VM lab never
 // lingers as a set of ghost VMs the caller doesn't know exist yet (nothing
 // has been returned to it to run `astrona destroy` against).
-func createMultiQEMUEnvironment(name, baseDir string, vms []config.QEMUVM, networks map[string][]hypervisor.QEMUNetworkSpec) (*LabEnvironment, error) {
+func createMultiQEMUEnvironment(name, baseDir string, vms []config.QEMUVM, networks map[string][]hypervisor.QEMUNetworkSpec, rep *ui.Reporter) (*LabEnvironment, error) {
 	// Resolved once, up front, for every VM in the lab together — same
 	// reasoning as networks above: a target's authorized_keys must already
 	// carry its source's public key by the time cloud-init runs on that
@@ -149,11 +150,12 @@ func createMultiQEMUEnvironment(name, baseDir string, vms []config.QEMUVM, netwo
 	var started []string
 
 	for _, vm := range vms {
-		handle, err := hypervisor.CreateQEMUVM(name+"-"+vm.Name, name, baseDir, vm.AsQEMUConfig(), networks[vm.Name], trust[vm.Name])
+		rep.Section("Machine: %s", vm.Name)
+		handle, err := hypervisor.CreateQEMUVM(name+"-"+vm.Name, name, baseDir, vm.AsQEMUConfig(), networks[vm.Name], trust[vm.Name], rep)
 		if err != nil {
 			for _, s := range started {
-				if derr := hypervisor.DestroyQEMUVM(name + "-" + s); derr != nil {
-					fmt.Printf("[WARN] failed to roll back vm '%s' after vm '%s' failed to start: %s\n", s, vm.Name, derr)
+				if derr := hypervisor.DestroyQEMUVM(name+"-"+s, rep); derr != nil {
+					rep.Warn("failed to roll back vm '%s' after vm '%s' failed to start: %s", s, vm.Name, derr)
 				}
 			}
 			return nil, fmt.Errorf("failed to start vm '%s': %w", vm.Name, err)
@@ -222,7 +224,7 @@ func LoadEnvironment(name string, cfg config.RuntimeConfig) (*LabEnvironment, er
 // VM is attempted even if one fails, so one stuck VM never blocks the rest
 // from being torn down; failures are collected into a single returned error
 // naming every VM that failed, not just the first.
-func DestroyEnvironment(name string, cfg config.RuntimeConfig) error {
+func DestroyEnvironment(name string, cfg config.RuntimeConfig, rep *ui.Reporter) error {
 	runtimeType, err := resolveRuntimeType(cfg)
 	if err != nil {
 		return err
@@ -230,7 +232,7 @@ func DestroyEnvironment(name string, cfg config.RuntimeConfig) error {
 
 	switch runtimeType {
 	case RuntimeKind:
-		return cluster.DeleteKindCluster(name)
+		return cluster.DeleteKindCluster(name, rep)
 	case RuntimeQEMU:
 		// An empty cfg.QEMU (config missing/unreadable at destroy time —
 		// see cmd_destroy.go's loadTeardownInfo, which never fails) can't
@@ -240,7 +242,7 @@ func DestroyEnvironment(name string, cfg config.RuntimeConfig) error {
 		if config.IsMultiVM(cfg.QEMU) && len(cfg.QEMU) > 0 {
 			var failed []string
 			for _, vm := range cfg.QEMU {
-				if err := hypervisor.DestroyQEMUVM(name + "-" + vm.Name); err != nil {
+				if err := hypervisor.DestroyQEMUVM(name+"-"+vm.Name, rep); err != nil {
 					failed = append(failed, fmt.Sprintf("%s: %s", vm.Name, err))
 				}
 			}
@@ -249,7 +251,7 @@ func DestroyEnvironment(name string, cfg config.RuntimeConfig) error {
 			}
 			return nil
 		}
-		return hypervisor.DestroyQEMUVM(name)
+		return hypervisor.DestroyQEMUVM(name, rep)
 	default:
 		return fmt.Errorf("unsupported runtime type '%s'", runtimeType)
 	}

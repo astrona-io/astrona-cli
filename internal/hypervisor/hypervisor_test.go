@@ -1,6 +1,7 @@
 package hypervisor
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"astrona/internal/config"
+	"astrona/internal/ui"
 )
 
 func TestNormalizeArch(t *testing.T) {
@@ -179,7 +181,7 @@ func TestAcquireBaseImageWithoutChecksumIsUnverifiedNotAnError(t *testing.T) {
 	imgPath := filepath.Join(dir, "base.qcow2")
 	os.WriteFile(imgPath, []byte("not a real image"), 0600)
 
-	path, _, err := acquireBaseImage(config.QEMUImageSource{Type: "file", Source: "base.qcow2"}, dir, dir, "x86_64")
+	path, _, err := acquireBaseImage(config.QEMUImageSource{Type: "file", Source: "base.qcow2"}, dir, dir, "x86_64", io.Discard, ui.Discard())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -195,7 +197,7 @@ func TestAcquireBaseImageChecksumMismatchStillFails(t *testing.T) {
 	imgPath := filepath.Join(dir, "base.qcow2")
 	os.WriteFile(imgPath, []byte("not a real image"), 0600)
 
-	_, _, err := acquireBaseImage(config.QEMUImageSource{Type: "file", Source: "base.qcow2", Checksum: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}, dir, dir, "x86_64")
+	_, _, err := acquireBaseImage(config.QEMUImageSource{Type: "file", Source: "base.qcow2", Checksum: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}, dir, dir, "x86_64", io.Discard, ui.Discard())
 	if err == nil {
 		t.Fatal("expected error when a set checksum doesn't match")
 	}
@@ -298,7 +300,7 @@ func TestCreateOverlayDisk(t *testing.T) {
 		t.Fatalf("failed to create test base image: %v\n%s", err, out)
 	}
 
-	overlayPath, err := createOverlayDisk(basePath, dir, 0)
+	overlayPath, err := createOverlayDisk(basePath, dir, 0, io.Discard, ui.Discard())
 	if err != nil {
 		t.Fatalf("createOverlayDisk failed: %v", err)
 	}
@@ -315,7 +317,7 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 
 	dir := t.TempDir()
 
-	privKeyPath, pubKey, err := generateEphemeralSSHKey(dir, studentKeyFilename)
+	privKeyPath, pubKey, err := generateEphemeralSSHKey(dir, studentKeyFilename, io.Discard)
 	if err != nil {
 		t.Fatalf("generateEphemeralSSHKey failed: %v", err)
 	}
@@ -335,7 +337,7 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 		t.Skip("no ISO build tool found in PATH, skipping cloud-init seed test")
 	}
 
-	isoPath, err := buildCloudInitSeed(dir, "qemu-basics-01", pubKey, pubKey, false, "52:54:00:00:00:00", nil, nil)
+	isoPath, err := buildCloudInitSeed(dir, "qemu-basics-01", pubKey, pubKey, false, "52:54:00:00:00:00", nil, nil, io.Discard)
 	if err != nil {
 		t.Fatalf("buildCloudInitSeed failed: %v", err)
 	}
@@ -369,7 +371,7 @@ func TestGenerateEphemeralSSHKeyAndCloudInitSeed(t *testing.T) {
 	}
 
 	// Build with passwordAuth = true
-	_, err = buildCloudInitSeed(dir, "qemu-basics-01", pubKey, pubKey, true, "52:54:00:00:00:00", nil, nil)
+	_, err = buildCloudInitSeed(dir, "qemu-basics-01", pubKey, pubKey, true, "52:54:00:00:00:00", nil, nil, io.Discard)
 	if err != nil {
 		t.Fatalf("buildCloudInitSeed with passwordAuth=true failed: %v", err)
 	}
@@ -469,7 +471,7 @@ func TestDestroyQEMUVMNoStateIsNoop(t *testing.T) {
 		}
 	})
 
-	err := DestroyQEMUVM(name)
+	err := DestroyQEMUVM(name, ui.Discard())
 	if err != nil {
 		t.Errorf("expected no-op (nil error) when no state exists, got: %v", err)
 	}
@@ -505,7 +507,7 @@ func TestCreateQEMUVMRefusesDuplicate(t *testing.T) {
 		t.Fatalf("writeHandleState failed: %v", err)
 	}
 
-	_, err = CreateQEMUVM(name, name, t.TempDir(), &config.QEMUConfig{}, nil, nil)
+	_, err = CreateQEMUVM(name, name, t.TempDir(), &config.QEMUConfig{}, nil, nil, ui.Discard())
 	if err == nil {
 		t.Fatal("expected CreateQEMUVM to refuse launching a second VM for an already-running lab, got nil error")
 	}

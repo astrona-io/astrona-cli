@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"astrona/internal/ui"
 )
 
 // ContainerEngine is whichever of Docker/Podman was found on PATH — kind
@@ -25,42 +27,54 @@ func DetectContainerEngine() (ContainerEngine, error) {
 	return ContainerEngine{}, fmt.Errorf("no container engine found PATH")
 }
 
-func CreateKindCluster(clusterName string) error {
+func CreateKindCluster(clusterName string, rep *ui.Reporter) error {
+	t := rep.Step("Detect container engine")
 	engine, err := DetectContainerEngine()
 	if err != nil {
-		return err
+		return t.Fail(err)
 	}
 
 	kindPath, err := exec.LookPath("kind")
 	if err != nil {
-		return fmt.Errorf("kind not found in PATH: %w", err)
+		return t.Fail(fmt.Errorf("kind not found in PATH: %w", err))
 	}
+	t.Done()
 
-	fmt.Printf("Creating kind cluster '%s' using %s...\n", clusterName, engine.Name)
+	t = rep.Step("Create kind cluster %q (%s)", clusterName, engine.Name)
 
 	cmd := exec.Command(kindPath, "create", "cluster", "--name", clusterName)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	out := t.Output()
+	cmd.Stdout = out
+	cmd.Stderr = out
 
 	cmd.Env = os.Environ()
 	if engine.Name == "podman" {
 		cmd.Env = append(cmd.Env, "KIND_EXPERIMENTAL_PROVIDER=podman")
 	}
 
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return t.Fail(err)
+	}
+	t.Done()
+	return nil
 }
 
-func DeleteKindCluster(clusterName string) error {
+func DeleteKindCluster(clusterName string, rep *ui.Reporter) error {
 	kindPath, err := exec.LookPath("kind")
 	if err != nil {
 		return fmt.Errorf("kind not found in PATH: %w", err)
 	}
 
-	fmt.Printf("Deleting kind cluster '%s'...\n", clusterName)
+	t := rep.Step("Delete kind cluster %q", clusterName)
 
 	cmd := exec.Command(kindPath, "delete", "cluster", "--name", clusterName)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	out := t.Output()
+	cmd.Stdout = out
+	cmd.Stderr = out
 
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return t.Fail(err)
+	}
+	t.Done()
+	return nil
 }

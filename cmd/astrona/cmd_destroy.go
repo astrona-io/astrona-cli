@@ -13,6 +13,7 @@ import (
 	"astrona/internal/hypervisor"
 	"astrona/internal/runtime"
 	"astrona/internal/scripts"
+	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -73,7 +74,7 @@ func loadTeardownInfo(finalPath string) (teardownInfo, func(), error) {
 //   - 2+ non-test labs: refuse to guess which one — that's a destructive
 //     choice this tool won't make silently — and tell the user to pick one
 //     with -c/--file/--git.
-func destroyByDiscovery() error {
+func destroyByDiscovery(rep *ui.Reporter) error {
 	qemuRows, _, err := collectQEMURows()
 	if err != nil {
 		return fmt.Errorf("auto-discovery of running labs failed: %w", err)
@@ -103,15 +104,15 @@ func destroyByDiscovery() error {
 	}
 
 	for _, r := range realLabs {
-		fmt.Printf("No lab config found — auto-detected the only running astrona lab: '%s' (%s runtime). Destroying it (teardown scripts skipped, config unknown)...\n", r.name, r.runtime)
-		if err := runtime.DestroyEnvironment(r.name, config.RuntimeConfig{Type: r.runtime}); err != nil {
+		rep.Info("No lab config found — auto-detected the only running astrona lab: '%s' (%s runtime). Destroying it (teardown scripts skipped, config unknown).", r.name, r.runtime)
+		if err := runtime.DestroyEnvironment(r.name, config.RuntimeConfig{Type: r.runtime}, rep); err != nil {
 			return fmt.Errorf("failed to destroy '%s': %w", r.name, err)
 		}
 	}
 	for _, r := range test {
-		fmt.Printf("Cleaning up leftover test lab '%s' (%s runtime)...\n", r.name, r.runtime)
-		if err := runtime.DestroyEnvironment(r.name, config.RuntimeConfig{Type: r.runtime}); err != nil {
-			fmt.Printf("[WARN] failed to destroy leftover test lab '%s': %s\n", r.name, err)
+		rep.Info("Cleaning up leftover test lab '%s' (%s runtime).", r.name, r.runtime)
+		if err := runtime.DestroyEnvironment(r.name, config.RuntimeConfig{Type: r.runtime}, rep); err != nil {
+			rep.Warn("failed to destroy leftover test lab '%s': %s", r.name, err)
 		}
 	}
 
@@ -127,7 +128,7 @@ func destroyByDiscovery() error {
 // clusters directly rather than reusing collectQEMURows (which skips a
 // stale/dead qemu VM's leftover state dir) — a name-targeted destroy should
 // still clean that up.
-func destroyByName(name string) error {
+func destroyByName(name string, rep *ui.Reporter) error {
 	// Accept the lab name with or without the "astro-" prefix — `astrona
 	// list` prints the prefixed form, but a user typing the bare lab name
 	// should still hit the right lab. Idempotent, so an already-prefixed
@@ -143,12 +144,12 @@ func destroyByName(name string) error {
 
 	var errs []string
 	if foundQemu {
-		if err := hypervisor.DestroyQEMUVM(name); err != nil {
+		if err := hypervisor.DestroyQEMUVM(name, rep); err != nil {
 			errs = append(errs, fmt.Sprintf("qemu: %s", err))
 		}
 	}
 	if foundKind {
-		if err := cluster.DeleteKindCluster(name); err != nil {
+		if err := cluster.DeleteKindCluster(name, rep); err != nil {
 			errs = append(errs, fmt.Sprintf("kind: %s", err))
 		}
 	}
@@ -166,7 +167,7 @@ func destroyByName(name string) error {
 // uses), then torn down one by one via destroyByName. Refuses to guess
 // silently: an unmatched pattern is an error, not a no-op, since a typo'd
 // glob should never look like a successful cleanup.
-func destroyByPattern(pattern string) error {
+func destroyByPattern(pattern string, rep *ui.Reporter) error {
 	qemuRows, _, err := collectQEMURows()
 	if err != nil {
 		return fmt.Errorf("auto-discovery of running labs failed: %w", err)
@@ -198,7 +199,7 @@ func destroyByPattern(pattern string) error {
 
 	var errs []string
 	for _, name := range matched {
-		if err := destroyByName(name); err != nil {
+		if err := destroyByName(name, rep); err != nil {
 			errs = append(errs, err.Error())
 		}
 	}
@@ -252,10 +253,10 @@ func kindClusterExists(name string) bool {
 // already gone. Wrapped in a LabEnvironment (rather than returning a bare
 // ScriptExecutor) so RunInitScripts can still resolve per-VM targeting
 // (ResourceItem.VM) for a multi-VM qemu lab's teardown scripts.
-func teardownEnvironment(clusterName string, runtimeCfg config.RuntimeConfig) *runtime.LabEnvironment {
+func teardownEnvironment(clusterName string, runtimeCfg config.RuntimeConfig, rep *ui.Reporter) *runtime.LabEnvironment {
 	env, err := runtime.LoadEnvironment(clusterName, runtimeCfg)
 	if err != nil {
-		fmt.Printf("[WARN] could not reach lab environment for teardown scripts, running on host instead: %s\n", err)
+		rep.Warn("could not reach lab environment for teardown scripts, running on host instead: %s", err)
 		return &runtime.LabEnvironment{Executor: executor.LocalExecutor{}}
 	}
 	return env
@@ -266,25 +267,25 @@ func teardownEnvironment(clusterName string, runtimeCfg config.RuntimeConfig) *r
 // returned to the caller or just logged — used to make the "test-<lab>"
 // side-destroy (see newDestroyCmd) best-effort so a missing/already-gone
 // test environment never fails `astrona destroy` for the real one.
-func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir string, hardFail bool) error {
+func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir string, hardFail bool, rep *ui.Reporter) error {
 	if len(info.teardown.Init) > 0 {
-		fmt.Printf("Running teardown scripts for '%s'...\n", clusterName)
-		env := teardownEnvironment(clusterName, info.runtime)
-		if err := scripts.RunOnEveryVM(info.teardown.Init, baseDir, env, info.runtime.QEMU); err != nil {
-			fmt.Printf("[WARN] teardown scripts failed for '%s': %s\n", clusterName, err)
+		rep.Section("Teardown: %s", clusterName)
+		env := teardownEnvironment(clusterName, info.runtime, rep)
+		if err := scripts.RunOnEveryVM(info.teardown.Init, baseDir, env, info.runtime.QEMU, rep); err != nil {
+			rep.Warn("teardown scripts failed for '%s': %s", clusterName, err)
 		}
 	}
 
 	if info.teardown.KeepCluster {
-		fmt.Printf("keepCluster is set, leaving cluster '%s' running.\n", clusterName)
+		rep.Info("keepCluster is set, leaving cluster '%s' running.", clusterName)
 		return nil
 	}
 
-	if err := runtime.DestroyEnvironment(clusterName, info.runtime); err != nil {
+	if err := runtime.DestroyEnvironment(clusterName, info.runtime, rep); err != nil {
 		if hardFail {
 			return fmt.Errorf("lab teardown failed: %w", err)
 		}
-		fmt.Printf("[WARN] teardown failed for '%s': %s\n", clusterName, err)
+		rep.Warn("teardown failed for '%s': %s", clusterName, err)
 	}
 
 	return nil
@@ -314,43 +315,54 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			"No config needed, same trade-offs as a single name.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			labName := "-"
+			if len(args) == 1 {
+				labName = args[0]
+			}
+			rep, err := ui.NewReporter("destroy", labName, flags.verbose)
+			if err != nil {
+				return err
+			}
+			defer rep.Close()
+
 			if len(args) == 1 {
 				if strings.ContainsAny(args[0], "*?[") {
-					return destroyByPattern(args[0])
+					return destroyByPattern(args[0], rep)
 				}
-				return destroyByName(args[0])
+				return destroyByName(args[0], rep)
 			}
 
-			finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef)
+			finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
 			if err != nil {
-				fmt.Printf("[WARN] path resolution failed (%s) — falling back to auto-discovery of running astrona labs\n", err)
-				return destroyByDiscovery()
+				rep.Warn("path resolution failed (%s) — falling back to auto-discovery of running astrona labs", err)
+				return destroyByDiscovery(rep)
 			}
 
-			fmt.Printf("Loading configuration from: %s\n", finalPath)
+			rep.Info("Loading configuration from: %s", finalPath)
 
 			baseDir := filepath.Dir(finalPath)
 			info, configCleanup, loadErr := loadTeardownInfo(finalPath)
 			defer configCleanup()
 
 			if loadErr != nil {
-				fmt.Printf("[WARN] could not load lab config from '%s' (%s) — falling back to auto-discovery of running astrona labs\n", finalPath, loadErr)
-				return destroyByDiscovery()
+				rep.Warn("could not load lab config from '%s' (%s) — falling back to auto-discovery of running astrona labs", finalPath, loadErr)
+				return destroyByDiscovery(rep)
 			}
 
 			clusterName := config.NormalizeClusterName(info.clusterName)
-			if err := tearDownLabEnvironment(clusterName, info, baseDir, true); err != nil {
+			if err := tearDownLabEnvironment(clusterName, info, baseDir, true, rep); err != nil {
 				return err
 			}
 
 			testClusterName := config.NormalizeTestClusterName(info.clusterName)
-			if err := tearDownLabEnvironment(testClusterName, info, baseDir, false); err != nil {
+			if err := tearDownLabEnvironment(testClusterName, info, baseDir, false, rep); err != nil {
 				// tearDownLabEnvironment(hardFail=false) never actually
 				// returns an error, but handle it rather than silently
 				// dropping one if that ever changes.
-				fmt.Printf("[WARN] %s\n", err)
+				rep.Warn("%s", err)
 			}
 
+			rep.Close()
 			fmt.Printf("Lab cluster cleaned up successfully.\n")
 			return nil
 		},

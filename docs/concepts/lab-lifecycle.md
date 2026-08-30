@@ -68,6 +68,31 @@ Every script/manifest reference (`bootstrap.init`, `bootstrap.manifests`, `testi
 
 `url` sources are downloaded to a size-capped temp file before running — `https://` only for the lab config itself, and every download has an explicit byte cap so a misbehaving remote can't exhaust disk.
 
+## Command output
+
+`astrona run`, `test`, `submit`, and `destroy` render progress as a compact
+per-phase step view — one line per step (`✓` done, `✗` failed, `-` skipped)
+with its elapsed time, grouped under section headers (`Bootstrap`,
+`Machine: <name>` for a multi-VM qemu lab, and so on). On an interactive
+terminal the in-progress step shows a spinner.
+
+The raw output of every underlying command (`kind`, `qemu`, `kubectl`, each
+bootstrap script) is **not** shown by default. Instead:
+
+- It is always written in full to a per-run log file at
+  `~/.astrona/logs/<command>-<lab>-<timestamp>.log`. The path is printed at
+  the end of a run.
+- If a step fails, the tail of that step's output is printed inline right
+  before the error, and the command exits non-zero.
+- Passing `--verbose` streams everything live as it happens and disables the
+  spinner — the pre-step-view behaviour. The log file is still written.
+
+Non-interactive output (piped, redirected, or CI) automatically drops the
+spinner and ANSI styling and prints one plain line per step.
+
+For a `qemu` lab, a successful `astrona run` also prints a **Connect:** block
+with the ready-to-paste `astrona ssh <name>` command for each VM.
+
 ## Next
 
 [Grading](grading.md) covers exactly what the Proctor checks and how `astrona submit`/`astrona test` report the result.

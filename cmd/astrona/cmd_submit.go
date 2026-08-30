@@ -7,6 +7,7 @@ import (
 	"astrona/internal/junit"
 	"astrona/internal/proctor"
 	"astrona/internal/runtime"
+	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -38,7 +39,13 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("could not find a running lab environment: %w", err)
 			}
 
-			fmt.Printf("Submitting to the Proctor...\n")
+			rep, err := ui.NewReporter("submit", cfg.Metadata.Name, flags.verbose)
+			if err != nil {
+				return err
+			}
+			defer rep.Close()
+
+			rep.Section("Proctor")
 			pr := proctor.NewProctor(baseDir, env)
 			results, pass, err := pr.Grade(cfg)
 			if err != nil {
@@ -47,7 +54,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 
 			if junitPath != "" {
 				if err := junit.WriteJUnitReport(junitPath, clusterName, results); err != nil {
-					fmt.Printf("[WARN] failed to write JUnit report: %s\n", err)
+					rep.Warn("failed to write JUnit report: %s", err)
 				}
 			}
 

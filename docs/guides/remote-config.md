@@ -31,6 +31,7 @@ With `--git` set, `--config` changes meaning: instead of a local path or URL, it
 - `--git-ref` checks out a specific branch, tag, or commit (default: the repo's own default branch).
 - The clone is cached under your user cache directory, keyed by a hash of the URL + ref — a repeat run reuses it and just fetches/checks out again rather than re-cloning.
 - The resolved subdirectory is validated to stay within the clone — a `--config` value like `../../etc` is rejected, not silently escaped.
+- Only a one-line `Cloning …` / `Updating …` is printed; git's own checkout chatter is shown with `--verbose`, or on failure as part of the error.
 
 ## Precedence
 

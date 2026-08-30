@@ -51,7 +51,7 @@ func isGitSource(source string) bool {
 // `content build` since both start from the same `<type> <source>` shape.
 func resolveContentSource(source, gitRef string) (string, error) {
 	if isGitSource(source) {
-		repoDir, err := gitsource.ResolveGitConfigSource(source, gitRef)
+		repoDir, err := gitsource.ResolveGitConfigSource(source, gitRef, true)
 		if err != nil {
 			return "", fmt.Errorf("failed to resolve git source %s: %w", source, err)
 		}
@@ -121,7 +121,7 @@ func newContentValidateCmd() *cobra.Command {
 					}
 
 					fmt.Printf("stage %s: resolving %s from %s@%s...\n", stage.ID, item.Ref, item.Repository, item.Version)
-					if _, err := gitsource.ResolveGitConfigSource(item.Repository, item.Version); err != nil {
+					if _, err := gitsource.ResolveGitConfigSource(item.Repository, item.Version, true); err != nil {
 						return fmt.Errorf("stage %s: content ref %s: failed to access %s: %w", stage.ID, item.Ref, item.Repository, err)
 					}
 				}
@@ -213,7 +213,7 @@ func newContentBuildCmd() *cobra.Command {
 					}
 
 					fmt.Printf("stage %s: resolving %s from %s@%s...\n", stage.ID, item.Ref, item.Repository, item.Version)
-					repoDir, err := gitsource.ResolveGitConfigSource(item.Repository, item.Version)
+					repoDir, err := gitsource.ResolveGitConfigSource(item.Repository, item.Version, true)
 					if err != nil {
 						return fmt.Errorf("stage %s: content ref %s: failed to access %s: %w", stage.ID, item.Ref, item.Repository, err)
 					}

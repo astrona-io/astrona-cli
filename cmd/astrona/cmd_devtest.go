@@ -9,6 +9,7 @@ import (
 	"astrona/internal/proctor"
 	"astrona/internal/runtime"
 	"astrona/internal/scripts"
+	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -36,6 +37,14 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer configCleanup()
 
+			rep, err := ui.NewReporter("test", cfg.Metadata.Name, flags.verbose)
+			if err != nil {
+				return err
+			}
+			defer rep.Close()
+
+			rep.Section("Lab: %s", cfg.Metadata.Name)
+
 			// Prefixed so a CI/dev `test` run never collides with a real
 			// `astrona run` environment for the same lab config running at
 			// the same time (same kind cluster name / same qemu state dir
@@ -51,36 +60,36 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			// missing target), so this makes every `astrona test` start
 			// fresh without needing to first detect whether a leftover
 			// actually exists.
-			if err := runtime.DestroyEnvironment(clusterName, cfg.Runtime); err != nil {
-				fmt.Printf("[WARN] could not clean up a previous '%s' test environment, proceeding anyway: %s\n", clusterName, err)
+			if err := runtime.DestroyEnvironment(clusterName, cfg.Runtime, rep); err != nil {
+				rep.Warn("could not clean up a previous '%s' test environment, proceeding anyway: %s", clusterName, err)
 			}
 
-			env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime)
+			env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime, rep)
 			if err != nil {
 				return fmt.Errorf("lab setup failed: %w", err)
 			}
 
 			defer func() {
 				if len(cfg.Teardown.Init) > 0 {
-					fmt.Printf("Running teardown scripts...\n")
-					if err := scripts.RunOnEveryVM(cfg.Teardown.Init, baseDir, env, cfg.Runtime.QEMU); err != nil {
-						fmt.Printf("[WARN] teardown scripts failed: %s\n", err)
+					rep.Section("Teardown")
+					if err := scripts.RunOnEveryVM(cfg.Teardown.Init, baseDir, env, cfg.Runtime.QEMU, rep); err != nil {
+						rep.Warn("teardown scripts failed: %s", err)
 					}
 				}
 
 				if cfg.Teardown.KeepCluster {
-					fmt.Printf("keepCluster is set, leaving cluster '%s' running.\n", clusterName)
+					rep.Info("keepCluster is set, leaving cluster '%s' running.", clusterName)
 					return
 				}
 
-				if err := runtime.DestroyEnvironment(clusterName, cfg.Runtime); err != nil {
-					fmt.Printf("[WARN] cluster delete failed: %s\n", err)
+				if err := runtime.DestroyEnvironment(clusterName, cfg.Runtime, rep); err != nil {
+					rep.Warn("cluster delete failed: %s", err)
 				}
 			}()
 
 			if scripts.HasBootstrapInit(cfg) {
-				fmt.Printf("Running bootstrap init scripts...\n")
-				if err := scripts.RunBootstrap(cfg, baseDir, env); err != nil {
+				rep.Section("Bootstrap")
+				if err := scripts.RunBootstrap(cfg, baseDir, env, rep); err != nil {
 					return fmt.Errorf("bootstrap init scripts failed: %w", err)
 				}
 			}
@@ -89,15 +98,15 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				if env.KubeContext == "" {
 					return fmt.Errorf("bootstrap.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
 				}
-				fmt.Printf("Applying bootstrap manifests...\n")
-				if err := manifests.ApplyManifests(cfg.Bootstrap.Manifests, baseDir, env.KubeContext); err != nil {
+				rep.Section("Bootstrap manifests")
+				if err := manifests.ApplyManifests(cfg.Bootstrap.Manifests, baseDir, env.KubeContext, rep); err != nil {
 					return fmt.Errorf("bootstrap manifests failed: %w", err)
 				}
 			}
 
 			if len(cfg.Testing.Init) > 0 {
-				fmt.Printf("Running testing init scripts...\n")
-				if err := scripts.RunOnEveryVM(cfg.Testing.Init, baseDir, env, cfg.Runtime.QEMU); err != nil {
+				rep.Section("Testing")
+				if err := scripts.RunOnEveryVM(cfg.Testing.Init, baseDir, env, cfg.Runtime.QEMU, rep); err != nil {
 					return fmt.Errorf("testing init scripts failed: %w", err)
 				}
 			}
@@ -106,13 +115,15 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				if env.KubeContext == "" {
 					return fmt.Errorf("testing.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
 				}
-				fmt.Printf("Applying testing manifests...\n")
-				if err := manifests.ApplyManifests(cfg.Testing.Manifests, baseDir, env.KubeContext); err != nil {
+				rep.Section("Testing manifests")
+				if err := manifests.ApplyManifests(cfg.Testing.Manifests, baseDir, env.KubeContext, rep); err != nil {
 					return fmt.Errorf("testing manifests failed: %w", err)
 				}
 			}
 
-			fmt.Printf("Submitting to the Proctor...\n")
+			// Grading prints its own pytest-style report to stdout — pause
+			// the reporter's log-only section header and let it through.
+			rep.Section("Proctor")
 			pr := proctor.NewProctor(baseDir, env)
 			results, pass, err := pr.Grade(cfg)
 			if err != nil {
@@ -121,7 +132,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 
 			if junitPath != "" {
 				if err := junit.WriteJUnitReport(junitPath, clusterName, results); err != nil {
-					fmt.Printf("[WARN] failed to write JUnit report: %s\n", err)
+					rep.Warn("failed to write JUnit report: %s", err)
 				}
 			}
 
