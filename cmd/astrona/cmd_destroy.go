@@ -165,14 +165,21 @@ func destroyByName(name string, rep *ui.Reporter) error {
 // 'astro-qemu-jumphost-*') — matched with filepath.Match against every
 // currently-running lab name (qemu + kind, same discovery `astrona list`
 // uses), then torn down one by one via destroyByName. Refuses to guess
-// silently: an unmatched pattern is an error, not a no-op, since a typo'd
-// glob should never look like a successful cleanup.
+// silently: when labs are running but none match, that's an error, not a
+// no-op, since a typo'd glob should never look like a successful cleanup.
+// But when nothing is running at all, there's nothing to typo against —
+// that's just "nothing to destroy", same as destroyByDiscovery.
 func destroyByPattern(pattern string, rep *ui.Reporter) error {
 	qemuRows, _, err := collectQEMURows()
 	if err != nil {
 		return fmt.Errorf("auto-discovery of running labs failed: %w", err)
 	}
 	rows := append(qemuRows, collectKindRows()...)
+
+	if len(rows) == 0 {
+		fmt.Printf("No astrona labs currently running — nothing to destroy (pattern '%s' had nothing to match against).\n", pattern)
+		return nil
+	}
 
 	var matched []string
 	for _, r := range rows {
@@ -192,7 +199,12 @@ func destroyByPattern(pattern string, rep *ui.Reporter) error {
 	}
 
 	if len(matched) == 0 {
-		return fmt.Errorf("no astrona labs matched pattern '%s' — run `astrona list` to see what's actually running", pattern)
+		var running []string
+		for _, r := range rows {
+			running = append(running, fmt.Sprintf("  %s (%s)", r.name, r.runtime))
+		}
+		return fmt.Errorf("pattern '%s' matched none of the %d running astrona lab(s) — nothing was destroyed. Currently running:\n%s",
+			pattern, len(rows), strings.Join(running, "\n"))
 	}
 
 	fmt.Printf("Pattern '%s' matched %d lab(s): %s\n", pattern, len(matched), strings.Join(matched, ", "))
