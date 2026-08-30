@@ -25,7 +25,7 @@ This:
 
 At this point the cluster is up and the trainee's actual work begins — this particular lab expects a `lab-ns` namespace with a `hello-config` ConfigMap holding specific content, which isn't created for you (that's the exercise).
 
-Progress prints as a compact step view; each step's full output goes to a log file under `~/.astrona/logs/` (path shown at the end) and is printed inline only if a step fails. Add `--verbose` to stream everything live instead.
+Progress prints as a compact step view; each step's full output goes to a log file under `~/.astrona/logs/` (path shown at the end) and is printed inline only if a step fails. Add `--verbose` to stream everything live instead. Revisit any past run's log with [`astrona logs`](../concepts/logs.md) — `astrona logs view` opens the latest in your pager.
 
 ## 3. Inspect it
 
