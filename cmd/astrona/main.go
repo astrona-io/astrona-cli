@@ -136,6 +136,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.AddCommand(newImagesCmd())
 	rootCmd.AddCommand(newSSHCmd())
 	rootCmd.AddCommand(newUpgradeCmd())
+	rootCmd.AddCommand(newLogsCmd())
 	rootCmd.AddCommand(newContentCmd())
 	rootCmd.AddCommand(newDocgenCmd(flags))
 

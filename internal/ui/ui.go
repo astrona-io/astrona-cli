@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	"astrona/internal/logs"
+
 	"github.com/mattn/go-isatty"
 	"github.com/theckman/yacspin"
 )
@@ -69,6 +71,9 @@ type Reporter struct {
 	logW    io.Writer // run log sink
 	logC    io.Closer // set when logW is a file we opened
 	logPath string
+
+	started           time.Time // run start, for the log footer duration
+	okN, skipN, failN int       // resolved-step tallies, for the log footer
 
 	spin   *yacspin.Spinner // nil in verbose mode
 	active *Task
@@ -136,6 +141,7 @@ func New(cmdName, labName string, opts Options) (*Reporter, error) {
 		logW:    f,
 		logC:    f,
 		logPath: logPath,
+		started: time.Now(),
 	}
 	// The animated spinner is only worth it on an interactive terminal.
 	// Everywhere else (piped, redirected, CI, verbose) fall back to plain
@@ -184,6 +190,12 @@ func (r *Reporter) Close() error {
 		_ = r.spin.Stop()
 	}
 	if r.logC != nil {
+		result := "ok"
+		if r.failN > 0 {
+			result = "fail"
+		}
+		fmt.Fprintf(r.logW, "\n# done: result=%s steps=%d/%d/%d duration=%s\n",
+			result, r.okN, r.skipN, r.failN, formatElapsed(time.Since(r.started)))
 		err := r.logC.Close()
 		r.logC = nil
 		r.logW = io.Discard
@@ -296,6 +308,7 @@ func (t *Task) Done() {
 	}
 	t.done = true
 	t.r.active = nil
+	t.r.okN++
 	elapsed := formatElapsed(time.Since(t.start))
 	fmt.Fprintf(t.r.logW, "--- ok: %s (%s) ---\n", t.label, elapsed)
 	switch {
@@ -316,6 +329,7 @@ func (t *Task) Skip(format string, a ...any) {
 	}
 	t.done = true
 	t.r.active = nil
+	t.r.skipN++
 	reason := fmt.Sprintf(format, a...)
 	fmt.Fprintf(t.r.logW, "--- skip: %s (%s) ---\n", t.label, reason)
 	switch {
@@ -344,6 +358,7 @@ func (t *Task) Fail(err error) error {
 	}
 	t.done = true
 	t.r.active = nil
+	t.r.failN++
 	elapsed := formatElapsed(time.Since(t.start))
 	fmt.Fprintf(t.r.logW, "--- FAIL: %s (%s): %v ---\n", t.label, elapsed, err)
 
@@ -412,18 +427,11 @@ func (c *cappedBuffer) String() string {
 	return string(c.buf)
 }
 
-// logDir returns (creating if needed) ~/.astrona/logs, mirroring
-// hypervisor.QEMUBaseDir / hypervisor.ImageCacheDir.
+// logDir returns (creating if needed) ~/.astrona/logs. The canonical
+// definition lives in internal/logs, the read side that `astrona logs`
+// is built on; this is a thin alias so the two never diverge.
 func logDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("could not determine home directory: %w", err)
-	}
-	dir := filepath.Join(home, ".astrona", "logs")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", fmt.Errorf("could not create %s: %w", dir, err)
-	}
-	return dir, nil
+	return logs.Dir()
 }
 
 // sanitize makes s safe for a single path segment in a log filename.

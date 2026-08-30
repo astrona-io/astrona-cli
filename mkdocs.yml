@@ -69,6 +69,7 @@ nav:
       - Runtimes (kind vs qemu): concepts/runtimes.md
       - Lab Lifecycle: concepts/lab-lifecycle.md
       - Grading: concepts/grading.md
+      - Run Logs: concepts/logs.md
   - Guides:
       - Authoring a Lab: guides/authoring-a-lab.md
       - CI Integration: guides/ci-integration.md
@@ -87,6 +88,12 @@ nav:
           - reference/cli/astrona_images_list.md
           - reference/cli/astrona_ssh.md
           - reference/cli/astrona_upgrade.md
+          - reference/cli/astrona_logs.md
+          - reference/cli/astrona_logs_list.md
+          - reference/cli/astrona_logs_view.md
+          - reference/cli/astrona_logs_path.md
+          - reference/cli/astrona_logs_export.md
+          - reference/cli/astrona_logs_clean.md
           - reference/cli/astrona_content.md
           - reference/cli/astrona_content_init.md
           - reference/cli/astrona_content_validate.md

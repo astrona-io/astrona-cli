@@ -85,6 +85,12 @@ linters:
         # themselves on their own machine to point at their own file — same
         # trust level as PATH, not a cross-boundary traversal.
         - G703
+        # G702 (command injection via taint analysis): fires on `astrona
+        # logs view` spawning $PAGER (cmd_logs.go) — a local env var the
+        # user sets themselves, resolved through exec.LookPath, invoked with
+        # an argument slice (never `sh -c`). Same trust level as PATH / the
+        # G703 case above, not a cross-boundary injection.
+        - G702
     nolintlint:
       require-explanation: true
       require-specific: true
