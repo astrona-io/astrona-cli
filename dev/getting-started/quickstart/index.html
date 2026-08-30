@@ -1507,6 +1507,7 @@
 <li>Applies any <code>bootstrap.manifests</code>.</li>
 </ol>
 <p>At this point the cluster is up and the trainee's actual work begins — this particular lab expects a <code>lab-ns</code> namespace with a <code>hello-config</code> ConfigMap holding specific content, which isn't created for you (that's the exercise).</p>
+<p>Progress prints as a compact step view; each step's full output goes to a log file under <code>~/.astrona/logs/</code> (path shown at the end) and is printed inline only if a step fails. Add <code>--verbose</code> to stream everything live instead.</p>
 <h2 id="3-inspect-it">3. Inspect it<a class="headerlink" href="#3-inspect-it" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>list
 </code></pre></div>

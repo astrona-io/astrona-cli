@@ -1475,6 +1475,7 @@
 <li><code>--git-ref</code> checks out a specific branch, tag, or commit (default: the repo's own default branch).</li>
 <li>The clone is cached under your user cache directory, keyed by a hash of the URL + ref — a repeat run reuses it and just fetches/checks out again rather than re-cloning.</li>
 <li>The resolved subdirectory is validated to stay within the clone — a <code>--config</code> value like <code>../../etc</code> is rejected, not silently escaped.</li>
+<li>Only a one-line <code>Cloning …</code> / <code>Updating …</code> is printed; git's own checkout chatter is shown with <code>--verbose</code>, or on failure as part of the error.</li>
 </ul>
 <h2 id="precedence">Precedence<a class="headerlink" href="#precedence" title="Permanent link">&para;</a></h2>
 <p><code>--git</code> is checked first: if set, it entirely determines how <code>--config</code> is interpreted (as a subdirectory, not a path/URL). Without <code>--git</code>, <code>--config</code> is checked in this order: a <code>https://</code>/<code>http://</code> prefix (used as a direct URL), otherwise treated as a local filesystem path (file or directory).</p>

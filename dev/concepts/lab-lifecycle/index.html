@@ -665,6 +665,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#command-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      Command output
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next" class="md-nav__link">
     <span class="md-ellipsis">
       Next
@@ -1440,6 +1449,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#command-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      Command output
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next" class="md-nav__link">
     <span class="md-ellipsis">
       Next
@@ -1523,6 +1541,27 @@
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"path/or/URL"</span>
 </code></pre></div>
 <p><code>url</code> sources are downloaded to a size-capped temp file before running — <code>https://</code> only for the lab config itself, and every download has an explicit byte cap so a misbehaving remote can't exhaust disk.</p>
+<h2 id="command-output">Command output<a class="headerlink" href="#command-output" title="Permanent link">&para;</a></h2>
+<p><code>astrona run</code>, <code>test</code>, <code>submit</code>, and <code>destroy</code> render progress as a compact
+per-phase step view — one line per step (<code>✓</code> done, <code>✗</code> failed, <code>-</code> skipped)
+with its elapsed time, grouped under section headers (<code>Bootstrap</code>,
+<code>Machine: &lt;name&gt;</code> for a multi-VM qemu lab, and so on). On an interactive
+terminal the in-progress step shows a spinner.</p>
+<p>The raw output of every underlying command (<code>kind</code>, <code>qemu</code>, <code>kubectl</code>, each
+bootstrap script) is <strong>not</strong> shown by default. Instead:</p>
+<ul>
+<li>It is always written in full to a per-run log file at
+  <code>~/.astrona/logs/&lt;command&gt;-&lt;lab&gt;-&lt;timestamp&gt;.log</code>. The path is printed at
+  the end of a run.</li>
+<li>If a step fails, the tail of that step's output is printed inline right
+  before the error, and the command exits non-zero.</li>
+<li>Passing <code>--verbose</code> streams everything live as it happens and disables the
+  spinner — the pre-step-view behaviour. The log file is still written.</li>
+</ul>
+<p>Non-interactive output (piped, redirected, or CI) automatically drops the
+spinner and ANSI styling and prints one plain line per step.</p>
+<p>For a <code>qemu</code> lab, a successful <code>astrona run</code> also prints a <strong>Connect:</strong> block
+with the ready-to-paste <code>astrona ssh &lt;name&gt;</code> command for each VM.</p>
 <h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
 <p><a href="../grading/">Grading</a> covers exactly what the Proctor checks and how <code>astrona submit</code>/<code>astrona test</code> report the result.</p>
 

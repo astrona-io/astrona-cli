@@ -2,106 +2,106 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://cli.astrona.io/dev/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/contributing/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/concepts/grading/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/concepts/lab-lifecycle/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/concepts/runtimes/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/getting-started/installation/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/getting-started/quickstart/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/guides/authoring-a-lab/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/guides/ci-integration/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/guides/remote-config/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/lab-config/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_check/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_content/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_content_build/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_content_init/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_content_validate/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_destroy/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_images/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_images_list/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_list/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_run/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_ssh/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_submit/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_test/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_upgrade/</loc>
-         <lastmod>2026-08-29</lastmod>
+         <lastmod>2026-08-30</lastmod>
     </url>
 </urlset>
