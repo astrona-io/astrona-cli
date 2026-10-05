@@ -3,6 +3,7 @@ package proctor
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -79,6 +80,18 @@ type Proctor struct {
 	baseDir   string
 	env       *runtime.LabEnvironment
 	hideHints bool
+	// scriptOut receives validation scripts' output (os.Stdout unless
+	// Quiet). podReadyTimeout bounds podReady checks (60s unless Quiet).
+	scriptOut       io.Writer
+	podReadyTimeout time.Duration
+}
+
+// Quiet makes Evaluate suitable for repeated, live re-grading (`submit
+// --watch`): validation script output is discarded and podReady checks
+// give up after 2s instead of waiting up to a minute.
+func (p *Proctor) Quiet() {
+	p.scriptOut = io.Discard
+	p.podReadyTimeout = 2 * time.Second
 }
 
 // HideHints suppresses failed checks' hints in Grade's report (e.g. exam
@@ -91,7 +104,7 @@ func (p *Proctor) HideHints() { p.hideHints = true }
 // whichever executor(s) run the validation script(s) — bash on the host for
 // kind, SSH into a VM for qemu (every VM in turn for a multi-VM lab).
 func NewProctor(baseDir string, env *runtime.LabEnvironment) *Proctor {
-	return &Proctor{baseDir: baseDir, env: env}
+	return &Proctor{baseDir: baseDir, env: env, scriptOut: os.Stdout, podReadyTimeout: 60 * time.Second}
 }
 
 // Grade runs the lab's declarative checks and validation script(s),
@@ -101,16 +114,10 @@ func NewProctor(baseDir string, env *runtime.LabEnvironment) *Proctor {
 func (p *Proctor) Grade(cfg *config.LabConfig) ([]CheckResult, bool, error) {
 	start := time.Now()
 
-	results, err := p.runChecks(cfg.Validation.Checks)
+	results, pass, err := p.Evaluate(cfg)
 	if err != nil {
-		return nil, false, fmt.Errorf("Proctor checks failed to run: %w", err)
+		return nil, false, err
 	}
-
-	scriptResults, err := p.gradeScripts(cfg)
-	if err != nil {
-		return nil, false, fmt.Errorf("Proctor script failed to run: %w", err)
-	}
-	results = append(results, scriptResults...)
 
 	passed := 0
 	for _, r := range results {
@@ -140,9 +147,27 @@ func (p *Proctor) Grade(cfg *config.LabConfig) ([]CheckResult, bool, error) {
 	}
 	fmt.Println(line)
 
-	pass := Passed(results, cfg.Validation.PassPercent)
 	return results, pass, nil
 }
+
+// Evaluate runs every check and validation script and returns the results
+// and verdict without printing a report — Grade's engine, also used by
+// `submit --watch` to redraw its own live view.
+func (p *Proctor) Evaluate(cfg *config.LabConfig) ([]CheckResult, bool, error) {
+	results, err := p.runChecks(cfg.Validation.Checks)
+	if err != nil {
+		return nil, false, fmt.Errorf("Proctor checks failed to run: %w", err)
+	}
+	scriptResults, err := p.gradeScripts(cfg)
+	if err != nil {
+		return nil, false, fmt.Errorf("Proctor script failed to run: %w", err)
+	}
+	results = append(results, scriptResults...)
+	return results, Passed(results, cfg.Validation.PassPercent), nil
+}
+
+// HintsHidden reports whether hints are suppressed (HideHints).
+func (p *Proctor) HintsHidden() bool { return p.hideHints }
 
 // formatDuration renders a duration the way pytest reports timings:
 // fractional seconds, e.g. "0.42s".
@@ -176,7 +201,7 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 			result.Pass = err == nil
 			result.Message = strings.TrimSpace(string(out))
 		case "podready":
-			args := append([]string{"--context", p.env.KubeContext, "wait", "--for=condition=Ready", "--timeout=60s"}, strings.Fields(c.Resource)...)
+			args := append([]string{"--context", p.env.KubeContext, "wait", "--for=condition=Ready", fmt.Sprintf("--timeout=%ds", int(p.podReadyTimeout.Seconds()))}, strings.Fields(c.Resource)...)
 			out, err := exec.Command(kubectlPath, args...).CombinedOutput()
 			result.Pass = err == nil
 			result.Message = strings.TrimSpace(string(out))
@@ -363,7 +388,7 @@ func (p *Proctor) runScript(script *config.ResourceItem, executor executor.Scrip
 	}
 	defer cleanup()
 
-	if err := executor.RunScript(scriptPath, os.Stdout); err != nil {
+	if err := executor.RunScript(scriptPath, p.scriptOut); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			return false, nil

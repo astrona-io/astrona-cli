@@ -124,6 +124,14 @@ PROCTOR: PASS
 - `astrona submit --no-hints` grades without showing hints (exam conditions).
 - Every `astrona submit` is recorded in `~/.astrona/results/<lab>.jsonl`; each submission shows the change since the previous one, and `astrona submit --history` lists all attempts with the best score. `astrona test` (CI) doesn't record attempts.
 
+## Live grading while you work
+
+```sh
+astrona submit --watch            # re-grade every 5s (--interval to change, min 2s)
+```
+
+Redraws a compact board — ✓/✗ per check, hints, score, exam time — every few seconds until Ctrl-C, so you see a check flip to ✓ the moment your fix lands. Watch runs are **not recorded** as attempts; run a plain `astrona submit` when you're done. In watch mode validation scripts' output is hidden and `podReady` checks give up after 2s instead of waiting a minute. When the output isn't a terminal, a new board is printed only when a result changes.
+
 ## Exam mode
 
 ```yaml
