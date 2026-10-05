@@ -1020,6 +1020,8 @@
       
         
       
+        
+      
     
     
     
@@ -1322,6 +1324,29 @@
   
   <span class="md-ellipsis">
     Astrona list
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona status
     
   </span>
   
@@ -1988,7 +2013,19 @@
 </code></pre></div>
 <p>(<code>astrona docs -c examples/k8s-basics-01</code> lists the lab's other docs — case study, prerequisites, and the step-by-step guide with the solution.)</p>
 <h2 id="3-inspect-it">3. Inspect it<a class="headerlink" href="#3-inspect-it" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>list
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>status<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
+</code></pre></div>
+<p>One screen for where you are with the lab: cluster health, how to connect, port forwards, the exam clock (timed labs), your last submission and score, and a suggested next step:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Lab astro-k8s-basics-01 (kind)
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  Cluster      Ready (1/1) · Kubernetes v1.37.0 · up 28s
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  Connect      astrona shell astro-k8s-basics-01
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>  Last submit  1/2 points (50%) FAIL · 3m0s ago · attempt #1
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>Next: astrona submit to grade your work
+</code></pre></div>
+<p>For every lab on the machine:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>astrona<span class="w"> </span>list
 </code></pre></div>
 <p>Shows every astrona-managed lab (kind clusters and qemu VMs), with runtime, status, and uptime — a <code>kubectl get</code>-style table. For kind labs, STATUS is live cluster health:</p>
 <table>
@@ -2023,24 +2060,24 @@
 </table>
 <p><code>astrona list -o wide</code> adds the Kubernetes version and port-forward status (<code>1/1 Ready</code>); <code>-o json</code> prints the same for scripts.</p>
 <p>Work with the cluster from a lab shell — your <code>$SHELL</code> with <code>kubectl</code> pointed at the lab (type <code>exit</code> to leave):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>astrona<span class="w"> </span>shell<span class="w"> </span>k8s-basics-01
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>ns
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>astrona<span class="w"> </span>shell<span class="w"> </span>k8s-basics-01
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>ns
 </code></pre></div>
 <p>or from any terminal, without switching anything:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span>kind-astro-k8s-basics-01<span class="w"> </span>get<span class="w"> </span>ns
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span>kind-astro-k8s-basics-01<span class="w"> </span>get<span class="w"> </span>ns
 </code></pre></div>
 <p>astrona never changes your own kubectl current-context — see <a href="../../concepts/runtimes/#kubeconfig-isolation">kubeconfig isolation</a>.</p>
 <h2 id="4-submit-for-grading">4. Submit for grading<a class="headerlink" href="#4-submit-for-grading" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>astrona<span class="w"> </span>submit<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>submit<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
 </code></pre></div>
 <p>Hands the running cluster to the <a href="../../concepts/grading/">Proctor</a>, which runs this lab's <code>validation.checks</code> (does <code>lab-ns</code> exist? does <code>hello-config</code> exist?) and its <code>validation.script</code> (does the ConfigMap actually hold the right content?). Output is pytest-style — a PASS/FAIL line per check, then a summary — and the command's exit code reflects the verdict, so it's safe to gate a script on.</p>
 <h2 id="5-tear-it-down">5. Tear it down<a class="headerlink" href="#5-tear-it-down" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>astrona<span class="w"> </span>destroy<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>astrona<span class="w"> </span>destroy<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
 </code></pre></div>
 <p>Runs <code>teardown.init</code> scripts, then deletes the cluster (unless the config sets <code>teardown.keepCluster: true</code>).</p>
 <h2 id="the-lab-author-loop">The lab-author loop<a class="headerlink" href="#the-lab-author-loop" title="Permanent link">&para;</a></h2>
 <p>If you're <em>authoring</em> a lab rather than taking one, <code>astrona test</code> runs the whole thing non-interactively against a reference solution, to prove the lab is actually solvable before you publish it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
 </code></pre></div>
 <p>This bootstraps, applies <code>testing.manifests</code> (the reference solution — here, <code>examples/k8s-basics-01/solution/</code>), submits to the Proctor, and always tears down afterwards, even on failure. It runs against a <code>test-</code>-prefixed cluster name so it never collides with a lab you already have up via <code>astrona run</code>. See <a href="../../guides/ci-integration/">CI Integration</a> for wiring this into a pipeline.</p>
 <h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
