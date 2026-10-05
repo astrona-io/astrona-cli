@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"astrona/internal/ui"
 )
@@ -218,5 +219,40 @@ func PreserveCurrentContext(rep *ui.Reporter) func() {
 		} else {
 			rep.Info("Restored your kubectl current-context to '%s'.", prev)
 		}
+	}
+}
+
+// defaultSAPollInterval is how often WaitForDefaultServiceAccount checks.
+var defaultSAPollInterval = time.Second
+
+// WaitForDefaultServiceAccount blocks until the "default" namespace's
+// default ServiceAccount exists. `kind create cluster` returns before the
+// controller-manager has created it, and until it does, creating any Pod
+// in that namespace is rejected ("serviceaccount \"default\" not found") —
+// a race that makes a lab's very first `kubectl apply` fail intermittently.
+func WaitForDefaultServiceAccount(kubeContext, kubeconfig string, timeout time.Duration, rep *ui.Reporter) error {
+	t := rep.Step("Wait for cluster API to be ready")
+	kubectlPath, err := exec.LookPath("kubectl")
+	if err != nil {
+		return t.Fail(fmt.Errorf("kubectl not found in PATH: %w", err))
+	}
+
+	deadline := time.Now().Add(timeout)
+	var last []byte
+	for {
+		cmd := exec.Command(kubectlPath, "--context", kubeContext, "--namespace", "default", "get", "serviceaccount", "default", "-o", "name")
+		if kubeconfig != "" {
+			cmd.Env = append(os.Environ(), "KUBECONFIG="+kubeconfig)
+		}
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Done()
+			return nil
+		}
+		last = out
+		if time.Now().After(deadline) {
+			return t.Fail(fmt.Errorf("default service account not created within %s: %s", timeout, strings.TrimSpace(string(last))))
+		}
+		time.Sleep(defaultSAPollInterval)
 	}
 }

@@ -76,6 +76,7 @@ Under the hood astrona adds a NodePort Service (`envoy-gateway-system/astrona-ga
 
 Classic `Ingress` isn't offered: ingress-nginx is retired upstream. Cilium isn't offered yet (it has no plain-manifest release).
 
+- After `kind create cluster`, astrona waits until the `default` ServiceAccount exists before anything else runs — kind returns slightly before the cluster accepts Pods, which used to make a lab's first `kubectl apply` fail intermittently (`serviceaccount "default" not found`).
 - `bootstrap.manifests` / `testing.manifests` apply against the cluster via `kubectl --context kind-<cluster-name>`.
 - `validation.checks` of type `resourceExists`/`podReady` run against the same context.
 - Scripts (`bootstrap.init`, `teardown.init`, `validation.script`) run on the **host** — there's no VM to SSH into — with `KUBECONFIG` set to the lab's own kubeconfig (see below), so a plain `kubectl` in a script always hits the lab.

@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"time"
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
@@ -97,6 +98,9 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.R
 		}
 		kubeconfig, err := cluster.WriteLabKubeconfig(name, rep)
 		if err != nil {
+			return nil, err
+		}
+		if err := cluster.WaitForDefaultServiceAccount("kind-"+name, kubeconfig, 2*time.Minute, rep); err != nil {
 			return nil, err
 		}
 		return &LabEnvironment{

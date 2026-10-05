@@ -35,7 +35,7 @@ jobs:
         run: ./astrona check
 
       - name: astrona test
-        run: ./astrona test -c . --junit-xml=junit-report.xml
+        run: ./astrona test -c . --junit-xml=junit-report.xml --diagnostics-dir=astrona-diagnostics
 
       - name: Upload JUnit report
         if: always()
@@ -43,17 +43,57 @@ jobs:
         with:
           name: junit-report
           path: junit-report.xml
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: astrona-diagnostics
+          path: astrona-diagnostics/
 ```
 
 Notes:
 
 - `if: always()` on the upload step — a failing `astrona test` still writes the JUnit report, and you want that artifact whether the check passed or not.
 - Docker is already available on GitHub-hosted `ubuntu-latest` runners, which is all the `kind` runtime needs. A `qemu` runtime lab needs `/dev/kvm` for real hardware acceleration — GitHub-hosted runners don't have it, so a qemu-backed `astrona test` there would fall back to slow software emulation. Run qemu labs' CI on a self-hosted runner with KVM, or a GitHub-hosted runner that provides it.
+- `--diagnostics-dir` puts the [diagnostics bundle](#diagnostics-on-failure) inside the workspace so the `if: failure()` step can upload it.
 - `astrona test` always tears down its own environment on exit (even on failure or a cancelled step, best-effort), so a CI job doesn't need its own cleanup step.
+
+## Diagnostics on failure
+
+A failed CI run used to leave nothing behind but "FAIL" — `astrona test` tears the cluster down on exit. Now, when it fails, it first collects a diagnostics bundle (before teardown) and prints the unhealthy pods straight into the job log:
+
+```text
+Diagnostics bundle: astrona-diagnostics
+  Unhealthy pods (2):
+    default/crasher: app: Error (exit 3); app restarted 2×; app: not ready
+    default/web-7c76977dcb-nxbfw: web: ErrImagePull (failed to pull and unpack image "docker.io/library/does-not-exist:1": … repository does not exist …)
+  12 warning event(s) — see summary.md.
+```
+
+The bundle (typically ~1 MB):
+
+| Path | Contents |
+|---|---|
+| `summary.md` | Unhealthy pods with their reason, newest warning events |
+| `cluster/` | `kubectl get` nodes / pods / workloads / events (+ Gateway API resources if installed), `describe nodes` |
+| `pods/` | `describe` and logs (plus `--previous` logs after a restart) for every unhealthy pod |
+| `kind-logs/` | `kind export logs`: node journal, kubelet, containerd, every pod's log files |
+| `vms/` | qemu labs: each VM's serial console log |
+| `versions.txt`, `errors.txt` | Tool versions; anything that couldn't be collected |
+
+Secrets, ConfigMaps and kubeconfigs are never collected. Pod `describe` output does include environment variables set inline in a pod spec — keep lab credentials in Secrets, and keep CI artifacts private.
+
+| Flag | Default | |
+|---|---|---|
+| `--diagnostics` | `on-failure` | `always` to collect on success too, `never` to skip |
+| `--diagnostics-dir` | `~/.astrona/diagnostics/<lab>-<timestamp>` | Where to write the bundle |
+
+The same bundle can be collected from a running lab with [`astrona diagnose`](../reference/cli/astrona_diagnose.md).
 
 ## Other CI systems
 
-The same three commands (`astrona check`, `astrona test -c <path> --junit-xml=<path>`, upload the XML) work anywhere that can run a Linux binary and understands JUnit XML — GitLab CI (`artifacts: reports: junit:`), Jenkins (`junit` post-build step), etc.
+The same commands (`astrona check`, `astrona test -c <path> --junit-xml=<path> --diagnostics-dir=<path>`, upload the XML and — on failure — the diagnostics directory) work anywhere that can run a Linux binary and understands JUnit XML — GitLab CI (`artifacts: reports: junit:`), Jenkins (`junit` post-build step), etc.
 
 ## Exit codes
 

@@ -2,6 +2,8 @@
 
 Every lifecycle command — `astrona run`, `test`, `submit`, `destroy` — tees its **full** output to a per-run log file, no matter which display mode you used. The compact step view (or `--verbose` stream) is what you see live; the log file is the complete record, including every line of subprocess output the step view collapses.
 
+For a cluster-level picture (pods, events, node and container logs) rather than astrona's own output, see [diagnostics](../guides/ci-integration.md#diagnostics-on-failure) — collected automatically when `astrona test` fails, or on demand with `astrona diagnose`.
+
 ## Where they live
 
 ```
