@@ -144,7 +144,17 @@ metadata:
     guide: "docs/step-by-step-guide.md"       # full walkthrough with the answer
 ```
 
-`metadata.name` becomes the cluster/VM name (prefixed `astro-` by astrona). `metadata.docs` are plain paths astrona doesn't render itself — they exist so a marketplace listing or terminal UI always knows which file is the prerequisites doc, the formal question, etc., instead of guessing from file names.
+`metadata.name` becomes the cluster/VM name (prefixed `astro-` by astrona). `metadata.docs` are Markdown files, relative to `config.yaml`, that students read with `astrona docs`:
+
+```sh
+astrona docs                 # lists what the lab provides
+astrona docs question        # docs.examQuestion — the task
+astrona docs case-study      # docs.caseStudy
+astrona docs prerequisites   # docs.prerequisites
+astrona docs guide           # docs.guide — shown with a "contains the full solution" warning
+```
+
+They're rendered for the terminal (headings, code blocks, lists, inline code, bold, links) and paged; `astrona run` ends with "Your task: astrona docs question" when `examQuestion` is set. Write them as plain Markdown — tables and HTML are shown as-is. Doc paths can't point outside the lab directory, and control characters (terminal escape sequences) are stripped before anything is printed. Name the cluster context as `kind-astro-<metadata.name>` in your docs — or point students at `astrona shell <lab>`.
 
 ## 2. Pick a runtime
 

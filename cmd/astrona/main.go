@@ -139,6 +139,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.AddCommand(newSubmitCmd(flags))
 	rootCmd.AddCommand(newTestCmd(flags))
 	rootCmd.AddCommand(newCheckCmd(flags))
+	rootCmd.AddCommand(newDocsCmd(flags))
 	rootCmd.AddCommand(newListCmd())
 	rootCmd.AddCommand(newImagesCmd())
 	rootCmd.AddCommand(newSSHCmd())
