@@ -1861,7 +1861,38 @@
 <h2 id="3-inspect-it">3. Inspect it<a class="headerlink" href="#3-inspect-it" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>list
 </code></pre></div>
-<p>Shows every astrona-managed lab currently running (kind clusters and qemu VMs), with runtime, status, and uptime — a <code>kubectl get</code>-style table.</p>
+<p>Shows every astrona-managed lab (kind clusters and qemu VMs), with runtime, status, and uptime — a <code>kubectl get</code>-style table. For kind labs, STATUS is live cluster health:</p>
+<table>
+<thead>
+<tr>
+<th>STATUS</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Ready (n/n)</code></td>
+<td>every node is Ready</td>
+</tr>
+<tr>
+<td><code>NotReady (r/n)</code></td>
+<td>only <code>r</code> of <code>n</code> nodes Ready — e.g. a CNI that isn't installed yet</td>
+</tr>
+<tr>
+<td><code>Unreachable</code></td>
+<td>node containers are up but the API doesn't answer (3s timeout)</td>
+</tr>
+<tr>
+<td><code>Degraded (r/n containers running)</code></td>
+<td>some node containers stopped</td>
+</tr>
+<tr>
+<td><code>Stopped</code></td>
+<td>all node containers stopped</td>
+</tr>
+</tbody>
+</table>
+<p><code>astrona list -o wide</code> adds the Kubernetes version and port-forward status (<code>1/1 Ready</code>); <code>-o json</code> prints the same for scripts.</p>
 <p>Work with the cluster from a lab shell — your <code>$SHELL</code> with <code>kubectl</code> pointed at the lab (type <code>exit</code> to leave):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>shell<span class="w"> </span>k8s-basics-01
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>ns

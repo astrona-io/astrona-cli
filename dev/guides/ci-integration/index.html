@@ -1839,6 +1839,7 @@
 <ul>
 <li><code>if: always()</code> on the upload step — a failing <code>astrona test</code> still writes the JUnit report, and you want that artifact whether the check passed or not.</li>
 <li>Docker is already available on GitHub-hosted <code>ubuntu-latest</code> runners, which is all the <code>kind</code> runtime needs. A <code>qemu</code> runtime lab needs <code>/dev/kvm</code> for real hardware acceleration — GitHub-hosted runners don't have it, so a qemu-backed <code>astrona test</code> there would fall back to slow software emulation. Run qemu labs' CI on a self-hosted runner with KVM, or a GitHub-hosted runner that provides it.</li>
+<li>Labs hitting Docker Hub rate limits in CI can list their images in <a href="../../concepts/runtimes/#preloaded-images-runtimekindpreloadimages"><code>runtime.kind.preloadImages</code></a>: each image is then pulled once per job on the runner instead of once per node (and per restarted pod).</li>
 <li><code>--diagnostics-dir</code> puts the <a href="#diagnostics-on-failure">diagnostics bundle</a> inside the workspace so the <code>if: failure()</code> step can upload it.</li>
 <li><code>astrona test</code> always tears down its own environment on exit (even on failure or a cancelled step, best-effort), so a CI job doesn't need its own cleanup step.</li>
 </ul>

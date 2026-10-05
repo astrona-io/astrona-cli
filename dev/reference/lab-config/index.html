@@ -2397,6 +2397,11 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <td><a href="#runtimekindaddons">Addons</a></td>
 <td>Cluster components installed right after the cluster is created</td>
 </tr>
+<tr>
+<td><code>preloadImages</code></td>
+<td>list of strings</td>
+<td>Images loaded into every node before addons/bootstrap, e.g. <code>[nginx:1.27-alpine]</code> — explicit tag or digest required (not <code>:latest</code>), max 30. See <a href="../../concepts/runtimes/#preloaded-images-runtimekindpreloadimages">Preloaded images</a></td>
+</tr>
 </tbody>
 </table>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">runtime</span><span class="p">:</span>

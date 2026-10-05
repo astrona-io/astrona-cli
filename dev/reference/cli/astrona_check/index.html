@@ -1124,6 +1124,15 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#synopsis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Synopsis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       Options
@@ -1757,6 +1766,15 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#synopsis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Synopsis
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       Options
@@ -1830,7 +1848,10 @@
   <h1>Astrona check</h1>
 
 <h2 id="astrona-check">astrona check<a class="headerlink" href="#astrona-check" title="Permanent link">&para;</a></h2>
-<p>Check that astrona's dependencies are installed</p>
+<p>Check astrona's dependencies, the container engine, and (with a lab config) the lab's needs</p>
+<h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
+<p>Check that astrona's dependencies are installed, that the container engine is running with enough memory/CPUs (and, on Linux, sufficient inotify limits for multi-node kind), and — when a lab config is found via -c (default: ./config.yaml) — that the lab's estimated memory fits and its host ports are free.</p>
+<p>Exits non-zero on any ✗; ⚠ warnings don't fail.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona check [flags]
 </code></pre></div>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>

@@ -1893,9 +1893,62 @@
 <h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>check
 </code></pre></div>
-<p>This prints a ✓/⚠/✗ per dependency and exits non-zero only if a <em>required</em> one is missing — optional ones (qemu toolchain, <code>git</code>) only warn, since they're only needed for specific runtimes or flags.</p>
+<p>This prints a ✓/⚠/✗ per item and exits non-zero only on a ✗. It checks three things:</p>
+<p><strong>Dependencies.</strong> A missing <em>required</em> tool is a ✗; optional ones (qemu toolchain, <code>git</code>) only warn, since they're only needed for specific runtimes or flags.</p>
+<p><strong>Container engine.</strong> Whether Docker/Podman is actually running (a stopped <code>podman machine</code> or Docker daemon is the most common cause of confusing kind errors), and whether it has enough resources — for Docker Desktop and <code>podman machine</code> that's the VM's memory/CPUs, not your Mac's:</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>✗</th>
+<th>⚠</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Engine reachable (<code>docker info</code> / <code>podman info</code>)</td>
+<td>not running</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Memory</td>
+<td>under 2 GiB</td>
+<td>under 4 GiB</td>
+</tr>
+<tr>
+<td>CPUs</td>
+<td>—</td>
+<td>1 CPU</td>
+</tr>
+<tr>
+<td>Rootless engine</td>
+<td>on cgroup v1 (kind needs v2)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Linux only: <code>fs.inotify.max_user_watches</code> / <code>max_user_instances</code></td>
+<td>—</td>
+<td>under 524288 / 512 (multi-node kind fails with "too many open files")</td>
+</tr>
+</tbody>
+</table>
+<p>Each ⚠/✗ prints the command that fixes it, e.g. <code>podman machine stop &amp;&amp; podman machine set --memory 8192 --cpus 4 &amp;&amp; podman machine start</code>.</p>
+<p><strong>Your lab</strong> — when a lab config is found (<code>-c</code>, default <code>./config.yaml</code>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>check<span class="w"> </span>-c<span class="w"> </span>./labs/my-lab
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Lab astro-my-lab:
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>  ✓  lab memory estimate                    ~6.9 GiB for this lab of 9.7 GiB
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  ✓  host port 8080                         gateway http, free
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  ✗  host port 18290                        port forward 'web', in use
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        fix: find the user with `lsof -nP -iTCP:18290 -sTCP:LISTEN`, or change the port in the lab config
+</code></pre></div>
+<ul>
+<li><strong>Memory estimate</strong> — a rough figure from the lab's nodes and addons, plus astrona kind labs already running; ⚠ when it's over 75% of the engine's memory.</li>
+<li><strong>Host ports</strong> — every <code>portForwards</code> host port and the gateway addon's ports must be free (skipped while the lab itself is running).</li>
+<li>The lab config is validated too (<code>runtime.kind</code>, <code>runtime.portForwards</code>).</li>
+</ul>
 <h2 id="staying-up-to-date">Staying up to date<a class="headerlink" href="#staying-up-to-date" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>upgrade
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>astrona<span class="w"> </span>upgrade
 </code></pre></div>
 <p>Checks GitHub for the latest release, downloads the binary for your OS/architecture, and atomically replaces the currently running executable. Astrona also nudges you on startup (<code>[INFO] A new version of astrona is available...</code>) whenever a newer release exists.</p>
 <h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
