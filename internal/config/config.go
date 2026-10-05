@@ -210,6 +210,11 @@ type LabConfig struct {
 	Testing    BootstrapConfig  `yaml:"testing"`
 	Validation ValidationConfig `yaml:"validation"`
 	Teardown   TeardownConfig   `yaml:"teardown"`
+
+	// UnknownFields are keys no field reads (typos) — found by
+	// LoadLabConfig, not part of the YAML. Lifecycle commands warn about
+	// them; `astrona validate` / `astrona check` treat them as errors.
+	UnknownFields []UnknownField `yaml:"-"`
 }
 
 // ResolveConfigPath turns whatever the user passed via --config into an
@@ -306,6 +311,12 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 	if err != nil {
 		return nil, cleanup, fmt.Errorf("failed to parse lab YAML config: %w", err)
 	}
+
+	unknown, err := FindUnknownFields(body)
+	if err != nil {
+		return nil, cleanup, fmt.Errorf("failed to parse lab YAML config: %w", err)
+	}
+	config.UnknownFields = unknown
 
 	return &config, cleanup, nil
 }

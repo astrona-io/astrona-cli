@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
 metadata:
   name: "qemu-basics-01"
   docs:

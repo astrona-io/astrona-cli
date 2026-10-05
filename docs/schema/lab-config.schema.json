@@ -1,0 +1,511 @@
+{
+  "$defs": {
+    "BootstrapConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "init": {
+          "items": {
+            "$ref": "#/$defs/ResourceItem"
+          },
+          "type": "array"
+        },
+        "manifests": {
+          "items": {
+            "$ref": "#/$defs/ResourceItem"
+          },
+          "type": "array"
+        },
+        "waitFor": {
+          "items": {
+            "$ref": "#/$defs/WaitFor"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "DocsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "caseStudy": {
+          "type": "string"
+        },
+        "examQuestion": {
+          "type": "string"
+        },
+        "guide": {
+          "type": "string"
+        },
+        "prerequisites": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "GatewayPorts": {
+      "additionalProperties": false,
+      "properties": {
+        "http": {
+          "type": "integer"
+        },
+        "https": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "KindAddons": {
+      "additionalProperties": false,
+      "properties": {
+        "certManager": {
+          "type": "boolean"
+        },
+        "cni": {
+          "enum": [
+            "calico"
+          ],
+          "type": "string"
+        },
+        "gatewayAPI": {
+          "enum": [
+            "envoy"
+          ],
+          "type": "string"
+        },
+        "gatewayPorts": {
+          "$ref": "#/$defs/GatewayPorts"
+        },
+        "metricsServer": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "KindConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "addons": {
+          "$ref": "#/$defs/KindAddons"
+        },
+        "featureGates": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "type": "object"
+        },
+        "image": {
+          "type": "string"
+        },
+        "networking": {
+          "$ref": "#/$defs/KindNetworking"
+        },
+        "nodes": {
+          "$ref": "#/$defs/KindNodes"
+        },
+        "preloadImages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "runtimeConfig": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "KindNetworking": {
+      "additionalProperties": false,
+      "properties": {
+        "disableDefaultCNI": {
+          "type": "boolean"
+        },
+        "ipFamily": {
+          "enum": [
+            "ipv4",
+            "ipv6",
+            "dual"
+          ],
+          "type": "string"
+        },
+        "kubeProxyMode": {
+          "enum": [
+            "iptables",
+            "ipvs",
+            "nftables",
+            "none"
+          ],
+          "type": "string"
+        },
+        "podSubnet": {
+          "type": "string"
+        },
+        "serviceSubnet": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "KindNodes": {
+      "additionalProperties": false,
+      "properties": {
+        "controlPlanes": {
+          "type": "integer"
+        },
+        "workers": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "LabConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "bootstrap": {
+          "$ref": "#/$defs/BootstrapConfig"
+        },
+        "metadata": {
+          "$ref": "#/$defs/MetadataConfig"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeConfig"
+        },
+        "teardown": {
+          "$ref": "#/$defs/TeardownConfig"
+        },
+        "testing": {
+          "$ref": "#/$defs/BootstrapConfig"
+        },
+        "validation": {
+          "$ref": "#/$defs/ValidationConfig"
+        }
+      },
+      "type": "object"
+    },
+    "MetadataConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "docs": {
+          "$ref": "#/$defs/DocsConfig"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "PortForward": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "hostPort": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string"
+        },
+        "scheme": {
+          "enum": [
+            "http",
+            "https",
+            "tcp"
+          ],
+          "type": "string"
+        },
+        "targetPort": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "QEMUExtraDisk": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "type": "string"
+        },
+        "serial": {
+          "type": "string"
+        },
+        "sizeGB": {
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "QEMUImageSource": {
+      "additionalProperties": false,
+      "properties": {
+        "checksum": {
+          "type": "string"
+        },
+        "checksums": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "file": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "file",
+            "url",
+            "oci"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "QEMUNetwork": {
+      "additionalProperties": false,
+      "properties": {
+        "ipv4": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "QEMUNetworkDef": {
+      "additionalProperties": false,
+      "properties": {
+        "cidr": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "QEMUVM": {
+      "additionalProperties": false,
+      "properties": {
+        "arch": {
+          "type": "string"
+        },
+        "bootstrap": {
+          "$ref": "#/$defs/BootstrapConfig"
+        },
+        "cpus": {
+          "type": "integer"
+        },
+        "diskSizeGB": {
+          "type": "integer"
+        },
+        "display": {
+          "type": "boolean"
+        },
+        "extraDisks": {
+          "items": {
+            "$ref": "#/$defs/QEMUExtraDisk"
+          },
+          "type": "array"
+        },
+        "image": {
+          "$ref": "#/$defs/QEMUImageSource"
+        },
+        "memoryMB": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "networks": {
+          "items": {
+            "$ref": "#/$defs/QEMUNetwork"
+          },
+          "type": "array"
+        },
+        "sshAccess": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "sshPasswordAuth": {
+          "type": "boolean"
+        },
+        "sshPort": {
+          "type": "integer"
+        },
+        "validation": {
+          "$ref": "#/$defs/ValidationConfig"
+        }
+      },
+      "type": "object"
+    },
+    "ResourceItem": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "file",
+            "folder",
+            "url"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "RuntimeConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/KindConfig"
+        },
+        "networks": {
+          "items": {
+            "$ref": "#/$defs/QEMUNetworkDef"
+          },
+          "type": "array"
+        },
+        "portForwards": {
+          "items": {
+            "$ref": "#/$defs/PortForward"
+          },
+          "type": "array"
+        },
+        "qemu": {
+          "items": {
+            "$ref": "#/$defs/QEMUVM"
+          },
+          "type": "array"
+        },
+        "type": {
+          "enum": [
+            "kind",
+            "qemu"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "TeardownConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "init": {
+          "items": {
+            "$ref": "#/$defs/ResourceItem"
+          },
+          "type": "array"
+        },
+        "keepCluster": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "ValidationCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "expect": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "resourceExists",
+            "podReady",
+            "command"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ValidationConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/ValidationCheck"
+          },
+          "type": "array"
+        },
+        "script": {
+          "$ref": "#/$defs/ResourceItem"
+        },
+        "scripts": {
+          "items": {
+            "$ref": "#/$defs/ResourceItem"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "WaitFor": {
+      "additionalProperties": false,
+      "properties": {
+        "all": {
+          "type": "boolean"
+        },
+        "condition": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        },
+        "resource": {
+          "type": "string"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "timeout": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://cli.astrona.io/schema/lab-config.schema.json",
+  "$ref": "#/$defs/LabConfig",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Astrona lab config (config.yaml)"
+}

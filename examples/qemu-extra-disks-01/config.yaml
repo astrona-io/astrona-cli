@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
 metadata:
   name: "qemu-extra-disks-01"
   docs:

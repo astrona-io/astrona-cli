@@ -211,8 +211,11 @@ Usually just `keepCluster: false` (or omitted — that's the default). Add `init
 ## 7. Prove it works
 
 ```sh
+astrona validate -c path/to/your-lab     # seconds: typos, rules, missing files
 astrona test -c path/to/your-lab --junit-xml=report.xml
 ```
+
+`astrona validate` catches config mistakes — a misspelled field, a missing script — without creating anything; see [editor support and validation](../reference/lab-config.md#editor-support-and-validation) for autocompletion in your editor.
 
 This is the whole point of the `testing` stage: it bootstraps your lab, applies your reference solution, submits it to the Proctor, and tears down — proving a student who does everything right will actually pass. Run this locally before publishing, and wire it into CI (see [CI Integration](ci-integration.md)) so a later edit to `validation` can't silently break the lab's own solution.
 
