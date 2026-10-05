@@ -43,9 +43,12 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
-			// Checked before anything is created: a bad forward entry is a
-			// config mistake, not something to discover after a 1-minute
-			// cluster boot.
+			// Checked before anything is created: a bad gate or forward
+			// entry is a config mistake, not something to discover after a
+			// 1-minute cluster boot.
+			if err := config.ValidateWaitFor(cfg); err != nil {
+				return err
+			}
 			if err := config.ValidatePortForwards(cfg.Runtime); err != nil {
 				return err
 			}
@@ -76,10 +79,17 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
-			// Started last, once manifests are applied, so there's something
-			// to forward to. A forward that fails or isn't ready yet never
-			// fails the run — the lab itself is up, and the supervisor keeps
-			// retrying.
+			if len(cfg.Bootstrap.WaitFor) > 0 {
+				rep.Section("Readiness")
+				if err := manifests.WaitFor(cfg.Bootstrap.WaitFor, env.KubeContext, rep); err != nil {
+					return fmt.Errorf("lab did not become ready: %w", err)
+				}
+			}
+
+			// Started last, once manifests are applied and readiness gates
+			// passed, so there's something to forward to. A forward that
+			// fails or isn't ready yet never fails the run — the lab itself
+			// is up, and the supervisor keeps retrying.
 			var forwards []portforward.Forward
 			if len(cfg.Runtime.PortForwards) > 0 {
 				rep.Section("Port forwards")

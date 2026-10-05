@@ -35,7 +35,7 @@ teardown: {}     # TeardownConfig
 
 ### `runtime.portForwards[N]`
 
-kind only (rejected for `type: qemu`). Each entry becomes a background, auto-restarting `kubectl port-forward` on `127.0.0.1`, started once `bootstrap` (scripts and manifests) has finished. See [Port forwards](../concepts/runtimes.md#port-forwards).
+kind only (rejected for `type: qemu`). Each entry becomes a background, auto-restarting `kubectl port-forward` on `127.0.0.1`, started once `bootstrap` (scripts, manifests and `waitFor` gates) has finished. See [Port forwards](../concepts/runtimes.md#port-forwards).
 
 | Field | Type | Description |
 |---|---|---|
@@ -147,6 +147,47 @@ Both use the same shape (`BootstrapConfig`) — `testing` only runs under `astro
 |---|---|---|
 | `init` | list of [ResourceItem](#resourceitem) | Scripts run in order at start |
 | `manifests` | list of [ResourceItem](#resourceitem) | Applied via `kubectl apply` (requires a kubectl-reachable cluster) |
+| `waitFor` | list of [WaitFor](#waitfor) | Readiness gates checked in order after `manifests` (kind only) |
+
+### `WaitFor`
+
+One readiness gate. Target exactly one of: a named object (`resource: deploy/web`), every object matching a label selector (`resource: pod` + `selector`), or every object of a kind (`resource: nodes` + `all: true`).
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | Optional label shown while waiting (defaults to the target) |
+| `resource` | string | Required. `<kind>/<name>`, or a bare `<kind>` with `selector`/`all`. CRD kinds work too: `certificates.cert-manager.io/web-tls` |
+| `selector` | string | Label selector, e.g. `app=web` or `tier in (fe,be)` |
+| `all` | bool | Every object of `resource`'s kind |
+| `namespace` | string | Default `default` (ignored for cluster-scoped kinds like nodes) |
+| `condition` | string | `rollout` (`kubectl rollout status`) or a status condition for `kubectl wait --for=condition=<X>` (`Ready`, `Available`, `Complete`, `Established`, …) |
+| `timeout` | string | Go duration, `1s`–`30m` (default `2m`) |
+
+Default `condition` by kind — any other kind must set one:
+
+| Kind | Default condition |
+|---|---|
+| `deploy`/`deployment`, `sts`/`statefulset`, `ds`/`daemonset` | `rollout` |
+| `pod`, `node` | `Ready` |
+| `job` | `Complete` |
+| `crd`/`customresourcedefinition` | `Established` |
+
+```yaml
+bootstrap:
+  waitFor:
+    - resource: nodes
+      all: true                 # e.g. after bootstrap installed a CNI
+      timeout: 3m
+    - resource: deploy/web
+      namespace: shop
+    - name: database
+      resource: pod
+      selector: app=postgres
+      namespace: shop
+      timeout: 5m
+```
+
+While a gate's target doesn't exist yet (`NotFound`, no matching resources, kind not registered yet) it's retried every 2s until the timeout; any other kubectl failure fails the gate immediately. `rollout` only works for deployments, statefulsets and daemonsets, and needs a name or `selector`.
 
 ## `validation`
 

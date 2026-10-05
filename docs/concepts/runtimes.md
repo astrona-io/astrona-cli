@@ -54,7 +54,7 @@ runtime:
       scheme: http
 ```
 
-`astrona run` starts them last, after bootstrap scripts and manifests, waits up to 30s for each to become ready, and prints how to reach them:
+`astrona run` starts them last, after bootstrap scripts, manifests and `waitFor` gates, waits up to 30s for each to become ready, and prints how to reach them:
 
 ```text
 Port forwards (bound to 127.0.0.1 only):
