@@ -128,9 +128,9 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 
 			// Before addons and bootstrap, so anything they start can use
 			// the preloaded images.
-			if k := cfg.Runtime.Kind; k != nil && len(k.PreloadImages) > 0 {
+			if images := labPreloadImages(cfg, baseDir); len(images) > 0 {
 				rep.Section("Images")
-				if err := cluster.PreloadImages(clusterName, k.PreloadImages, rep); err != nil {
+				if err := cluster.PreloadImages(clusterName, images, rep); err != nil {
 					return fmt.Errorf("image preload failed: %w", err)
 				}
 			}

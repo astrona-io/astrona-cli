@@ -41,25 +41,6 @@ func PreloadImages(clusterName string, images []string, rep *ui.Reporter) error 
 }
 
 func preloadOne(engine ContainerEngine, kindPath, clusterName, img string, out io.Writer) error {
-	run := func(env []string, name string, args ...string) error {
-		cmd := exec.Command(name, args...)
-		cmd.Env = env
-		cmd.Stdout = out
-		cmd.Stderr = out
-		return cmd.Run()
-	}
-
-	// Just a presence check — "image not known" is the expected answer
-	// for a missing image, not something to show.
-	if err := exec.Command(engine.Path, "image", "inspect", "--format", "{{.Id}}", img).Run(); err != nil {
-		fmt.Fprintf(out, "%s not in the local %s cache, pulling\n", img, engine.Name)
-		if err := run(nil, engine.Path, "pull", img); err != nil {
-			return fmt.Errorf("%s pull failed: %w", engine.Name, err)
-		}
-	} else {
-		fmt.Fprintf(out, "using %s from the local %s cache\n", img, engine.Name)
-	}
-
 	archive, err := os.CreateTemp("", "astrona-image-*.tar")
 	if err != nil {
 		return fmt.Errorf("create image archive: %w", err)
@@ -67,11 +48,61 @@ func preloadOne(engine ContainerEngine, kindPath, clusterName, img string, out i
 	archive.Close()
 	defer os.Remove(archive.Name())
 
-	if err := run(nil, engine.Path, "save", "-o", archive.Name(), img); err != nil {
+	if err := saveImage(engine, img, archive.Name(), out); err != nil {
+		return err
+	}
+	if err := runTo(out, kindEnv(), kindPath, "load", "image-archive", archive.Name(), "--name", clusterName); err != nil {
+		return fmt.Errorf("kind load failed: %w", err)
+	}
+	return nil
+}
+
+func runTo(out io.Writer, env []string, name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Env = env
+	cmd.Stdout = out
+	cmd.Stderr = out
+	return cmd.Run()
+}
+
+// saveImage writes img to dest as a docker-archive, pulling it first only
+// if the engine doesn't already have it.
+func saveImage(engine ContainerEngine, img, dest string, out io.Writer) error {
+	// Just a presence check — "image not known" is the expected answer
+	// for a missing image, not something to show.
+	if err := exec.Command(engine.Path, "image", "inspect", "--format", "{{.Id}}", img).Run(); err != nil {
+		fmt.Fprintf(out, "%s not in the local %s cache, pulling\n", img, engine.Name)
+		if err := runTo(out, nil, engine.Path, "pull", img); err != nil {
+			return fmt.Errorf("%s pull failed: %w", engine.Name, err)
+		}
+	} else {
+		fmt.Fprintf(out, "using %s from the local %s cache\n", img, engine.Name)
+	}
+	if err := runTo(out, nil, engine.Path, "save", "-o", dest, img); err != nil {
 		return fmt.Errorf("%s save failed: %w", engine.Name, err)
 	}
-	if err := run(kindEnv(), kindPath, "load", "image-archive", archive.Name(), "--name", clusterName); err != nil {
-		return fmt.Errorf("kind load failed: %w", err)
+	return nil
+}
+
+// SaveImage writes img (pulled if missing) to dest as an archive the
+// engine can `load` — used to build offline bundles.
+func SaveImage(img, dest string, out io.Writer) error {
+	engine, err := DetectContainerEngine()
+	if err != nil {
+		return err
+	}
+	return saveImage(engine, img, dest, out)
+}
+
+// LoadImageArchive loads an image archive into the host's container
+// engine, so kind and preloading find it without a registry.
+func LoadImageArchive(archive string, out io.Writer) error {
+	engine, err := DetectContainerEngine()
+	if err != nil {
+		return err
+	}
+	if err := runTo(out, nil, engine.Path, "load", "-i", archive); err != nil {
+		return fmt.Errorf("%s load failed: %w", engine.Name, err)
 	}
 	return nil
 }
