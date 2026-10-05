@@ -49,6 +49,15 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 
 			rep.Section("Lab: %s", cfg.Metadata.Name)
 
+			// Forwards are for a human at a browser, not CI — and would
+			// clash on host ports with a real `astrona run` of the same lab.
+			if err := config.ValidatePortForwards(cfg.Runtime); err != nil {
+				return err
+			}
+			if len(cfg.Runtime.PortForwards) > 0 {
+				rep.Info("Skipping %d runtime.portForwards entr(ies) — not started by `astrona test`.", len(cfg.Runtime.PortForwards))
+			}
+
 			// Prefixed so a CI/dev `test` run never collides with a real
 			// `astrona run` environment for the same lab config running at
 			// the same time (same kind cluster name / same qemu state dir

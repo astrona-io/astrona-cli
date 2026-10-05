@@ -11,9 +11,81 @@ runtime:
 
 A local Kubernetes cluster via [kind](https://kind.sigs.k8s.io/), on whichever container engine (Docker or Podman) astrona finds first on your `PATH`. This is the default and needs no `runtime:` block at all — every pre-existing lab config with no `runtime.type` keeps working unchanged.
 
+### Cluster shape (`runtime.kind`)
+
+By default a lab gets kind's defaults: one control-plane node, the node image bundled with the installed `kind`, and the kindnet CNI. A lab that needs more declares [`runtime.kind`](../reference/lab-config.md#runtimekind):
+
+```yaml
+runtime:
+  kind:
+    version: v1.31.2          # match the exam's Kubernetes version
+    nodes:
+      workers: 2              # scheduling, taints, drain, DaemonSets
+    networking:
+      disableDefaultCNI: true # bring your own CNI in bootstrap
+      podSubnet: 192.168.0.0/16
+```
+
+astrona renders this into a kind cluster config file (a private temp file, removed afterwards) and runs `kind create cluster --config <file> --image <node image>`. The rendered config is printed in the run log (`astrona logs view`), and the step line shows the shape, e.g. `Create kind cluster "astro-my-lab" (podman; kindest/node:v1.31.2, 1 control plane + 2 workers, no default CNI)`.
+
+Things to know:
+
+- **Version vs. kind release.** `version: v1.31.2` boots `kindest/node:v1.31.2`. Node images are built per kind release, so pick one listed in the release notes of the `kind` version your students use — or pin `image:` by digest from those notes for a fully reproducible lab. If creation fails, the error names the image to check.
+- **`disableDefaultCNI`.** Nodes stay `NotReady` and pods `Pending` until the lab's own `bootstrap` installs a CNI — that's expected, and it's exactly what a CNI lab wants the student (or bootstrap) to fix.
+- **Resources.** Every node is a container. Two workers roughly triples the memory of a single-node lab — keep an eye on Podman/Docker Desktop VM limits. Caps: 3 control planes, 6 workers.
+- **Not exposed, on purpose.** kind's own config can also bind-mount host directories into nodes (`extraMounts`), publish node ports on all interfaces (`extraPortMappings`), and patch kubeadm arbitrarily (`kubeadmConfigPatches`). A lab config can come from any URL or git repo, so astrona only accepts the typed fields above — a remote lab can shape its cluster, but can't use it to reach into the student's machine.
+
 - `bootstrap.manifests` / `testing.manifests` apply against the cluster via `kubectl --context kind-<cluster-name>`.
 - `validation.checks` of type `resourceExists`/`podReady` run against the same context.
 - Scripts (`bootstrap.init`, `teardown.init`, `validation.script`) run on the **host** — there's no VM to SSH into.
+- `runtime.portForwards` exposes in-cluster services on `127.0.0.1` — see [Port forwards](#port-forwards).
+
+### Port forwards
+
+A kind lab can declare [`runtime.portForwards`](../reference/lab-config.md#runtimeportforwardsn) so a student reaches in-cluster services from their own browser or client, without running `kubectl port-forward` themselves:
+
+```yaml
+runtime:
+  portForwards:
+    - name: web
+      resource: svc/frontend
+      hostPort: 8080
+      targetPort: 80
+      scheme: http
+```
+
+`astrona run` starts them last, after bootstrap scripts, manifests and `waitFor` gates, waits up to 30s for each to become ready, and prints how to reach them:
+
+```text
+Port forwards (bound to 127.0.0.1 only):
+    web   Ready      http://127.0.0.1:8080   ->  svc/frontend:80 (ns default)    Frontend UI
+    db    NotReady   tcp://127.0.0.1:5432    ->  svc/postgres:5432 (ns data)
+
+  Not ready yet (still retrying in the background):
+    db: error: unable to forward port because pod is not running. Current status=Pending
+```
+
+**How it works.** Each forward gets its own detached supervisor process (a hidden `astrona port-forward supervise`), which runs `kubectl --context kind-<lab> port-forward --address 127.0.0.1 …` and restarts it with backoff (1s doubling up to 10s) whenever it exits — plain `kubectl port-forward` dies whenever the pod behind it restarts. State lives in `~/.astrona/portforward/<lab>/<name>/` (`spec.json`, `status.json`, `supervisor.pid`, `supervisor.log` — check the log when a forward won't come up).
+
+**Status** (`astrona port-forward list`):
+
+| Status | Meaning |
+|---|---|
+| `Ready` | kubectl reported `Forwarding from …` **and** the local port accepts a TCP connection right now |
+| `NotReady` | Supervisor running, kubectl not forwarding yet/again — pod not running, no endpoints, restart backoff |
+| `Error` | The same non-transient kubectl failure 3+ times in a row (e.g. `services "x" not found`) — still retrying, likely needs a fix. "Pod not running yet" and "lost connection to pod" stay `NotReady` however long they last |
+| `Stopped` | Supervisor not running (stopped, killed, reboot, or the cluster was deleted) — `astrona port-forward start -c <config>` |
+
+`Ready` proves kubectl is listening on the host side, not that the application in the pod answers.
+
+**Security.** Forwards always bind `127.0.0.1` — the address can't be set from the config, so a lab config fetched from a URL or git repo can never expose the cluster to your network. Host ports below 1024 are rejected, and `resource`/`namespace` are validated as Kubernetes names before they reach kubectl (passed as an argument list, never through a shell).
+
+**Lifecycle.**
+
+- `astrona run` — starts them (replacing any already running for the lab). A forward that fails or isn't ready yet only warns; the lab is still up.
+- `astrona port-forward list|start|stop` — inspect, (re)start after a reboot, stop. See the [CLI reference](../reference/cli/astrona_port-forward.md).
+- `astrona destroy` — stops them before deleting the cluster. With `teardown.keepCluster: true` they keep running too.
+- `astrona test` — never starts them (CI has no browser, and they'd clash on host ports with a real `run`).
 
 ## `qemu`
 

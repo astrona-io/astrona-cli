@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"astrona/internal/config"
 	"astrona/internal/manifests"
+	"astrona/internal/portforward"
 	"astrona/internal/runtime"
 	"astrona/internal/scripts"
 	"astrona/internal/ui"
@@ -20,6 +22,10 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Spin up a lab environment",
+		Long: "Spin up a lab environment: create the kind cluster or qemu VM(s), run bootstrap init scripts, " +
+			"and apply bootstrap manifests.\n\n" +
+			"For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) " +
+			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if flags.configPath == "" {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
@@ -37,9 +43,13 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
-			// Checked before anything is created — a bad gate is a config
-			// mistake, not something to discover after the cluster boots.
+			// Checked before anything is created: a bad gate or forward
+			// entry is a config mistake, not something to discover after a
+			// 1-minute cluster boot.
 			if err := config.ValidateWaitFor(cfg); err != nil {
+				return err
+			}
+			if err := config.ValidatePortForwards(cfg.Runtime); err != nil {
 				return err
 			}
 
@@ -76,9 +86,23 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
+			// Started last, once manifests are applied and readiness gates
+			// passed, so there's something to forward to. A forward that
+			// fails or isn't ready yet never fails the run — the lab itself
+			// is up, and the supervisor keeps retrying.
+			var forwards []portforward.Forward
+			if len(cfg.Runtime.PortForwards) > 0 {
+				rep.Section("Port forwards")
+				forwards, err = startLabPortForwards(clusterName, cfg.Runtime.PortForwards, rep)
+				if err != nil {
+					rep.Warn("some port forwards could not be started — fix and retry with `astrona port-forward start -c <config>`")
+				}
+			}
+
 			rep.Close()
 			fmt.Printf("\nLab environment is fully loaded and ready!\n")
 			printConnectHints(env, cfg, clusterName)
+			printPortForwardHints(os.Stdout, forwards)
 			fmt.Printf("Full log: %s\n", rep.LogPath())
 			return nil
 		},

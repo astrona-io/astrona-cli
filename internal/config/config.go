@@ -42,12 +42,18 @@ type MetadataConfig struct {
 // single-VM lab into a multi-VM one is then just appending another list
 // entry (with a name) rather than restructuring the whole block.
 type RuntimeConfig struct {
-	Type string   `yaml:"type"` // "" or "kind" (default) | "qemu"
-	QEMU []QEMUVM `yaml:"qemu"`
+	Type string `yaml:"type"` // "" or "kind" (default) | "qemu"
+	// Kind shapes the kind cluster (node image, node count, networking) —
+	// see KindConfig (kind.go). nil means kind's own defaults.
+	Kind *KindConfig `yaml:"kind"`
+	QEMU []QEMUVM    `yaml:"qemu"`
 	// Networks declares every named virtual network segment this lab's VMs
 	// can join — see QEMUNetworkDef (hypervisor.go). Optional: a qemu lab
 	// with no VM-to-VM networking needs no entry here.
 	Networks []QEMUNetworkDef `yaml:"networks"`
+	// PortForwards are host-side `kubectl port-forward`s astrona keeps
+	// running for a kind lab — see PortForward (portforward.go). kind only.
+	PortForwards []PortForward `yaml:"portForwards"`
 }
 
 // QEMUVM is one entry in runtime.qemu — either the lab's only VM (Name
