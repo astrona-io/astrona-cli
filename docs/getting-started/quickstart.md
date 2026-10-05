@@ -27,6 +27,14 @@ At this point the cluster is up and the trainee's actual work begins — this pa
 
 Progress prints as a compact step view; each step's full output goes to a log file under `~/.astrona/logs/` (path shown at the end) and is printed inline only if a step fails. Add `--verbose` to stream everything live instead. Revisit any past run's log with [`astrona logs`](../concepts/logs.md) — `astrona logs view` opens the latest in your pager.
 
+Read the task:
+
+```sh
+astrona docs question -c examples/k8s-basics-01
+```
+
+(`astrona docs -c examples/k8s-basics-01` lists the lab's other docs — case study, prerequisites, and the step-by-step guide with the solution.)
+
 ## 3. Inspect it
 
 ```sh
