@@ -63,6 +63,21 @@ teardown:
 - `init` scripts run first — same `file`/`folder`/`url` shape as `bootstrap.init`, best-effort (a failing teardown script only warns, it never blocks the cluster from being deleted).
 - `keepCluster: true` skips deleting the environment afterwards — useful while iterating on a lab locally, since `astrona destroy` re-run without it will still clean up.
 
+## Starting over: `astrona reset`
+
+```sh
+astrona reset -c ./labs/my-lab          # asks before throwing the lab away
+astrona reset -c ./labs/my-lab --yes    # no prompt (required in scripts/CI)
+```
+
+`reset` runs the lab's `teardown` scripts, destroys it, and then does everything `astrona run` does — the lab ends up exactly as a fresh `run` leaves it (any changes made while working on it are gone). If the lab isn't running, it's simply created.
+
+- The config is validated **before** anything is destroyed — a broken config aborts with "nothing was reset" and leaves the existing lab as it was.
+- `teardown.keepCluster` is ignored: reset always recreates.
+- In a terminal it asks for confirmation; without a terminal it refuses unless `--yes` is passed.
+
+To pause a lab instead of losing it, see [`astrona stop` / `astrona start`](runtimes.md#pausing-a-lab-astrona-stop-astrona-start).
+
 ## Source types, everywhere
 
 Every script/manifest reference (`bootstrap.init`, `bootstrap.manifests`, `testing.*`, `teardown.init`, `validation.script`) shares the same `ResourceItem` shape:

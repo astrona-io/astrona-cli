@@ -45,84 +45,10 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
-			// Checked before anything is created: a bad gate or forward
-			// entry is a config mistake, not something to discover after a
-			// 1-minute cluster boot.
-			if err := config.ValidateWaitFor(cfg); err != nil {
+			if err := validateLabForRun(cfg); err != nil {
 				return err
 			}
-			if err := config.ValidatePortForwards(cfg.Runtime); err != nil {
-				return err
-			}
-
-			rep.Section("Lab: %s", cfg.Metadata.Name)
-
-			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
-
-			env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime, rep)
-			if err != nil {
-				return fmt.Errorf("lab setup failed: %w", err)
-			}
-
-			// Before addons and bootstrap, so anything they start can use
-			// the preloaded images.
-			if k := cfg.Runtime.Kind; k != nil && len(k.PreloadImages) > 0 {
-				rep.Section("Images")
-				if err := cluster.PreloadImages(clusterName, k.PreloadImages, rep); err != nil {
-					return fmt.Errorf("image preload failed: %w", err)
-				}
-			}
-
-			if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {
-				rep.Section("Addons")
-				if err := addons.Install(k.Addons, env.KubeContext, rep); err != nil {
-					return fmt.Errorf("addons failed: %w", err)
-				}
-			}
-
-			if scripts.HasBootstrapInit(cfg) {
-				rep.Section("Bootstrap")
-				if err := scripts.RunBootstrap(cfg, baseDir, env, rep); err != nil {
-					return fmt.Errorf("init scripts failed: %w", err)
-				}
-			}
-
-			if len(cfg.Bootstrap.Manifests) > 0 {
-				if env.KubeContext == "" {
-					return fmt.Errorf("bootstrap.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
-				}
-				rep.Section("Manifests")
-				if err := manifests.ApplyManifests(cfg.Bootstrap.Manifests, baseDir, env.KubeContext, rep); err != nil {
-					return fmt.Errorf("bootstrap manifests failed: %w", err)
-				}
-			}
-
-			if len(cfg.Bootstrap.WaitFor) > 0 {
-				rep.Section("Readiness")
-				if err := manifests.WaitFor(cfg.Bootstrap.WaitFor, env.KubeContext, rep); err != nil {
-					return fmt.Errorf("lab did not become ready: %w", err)
-				}
-			}
-
-			// Started last, once manifests are applied and readiness gates
-			// passed, so there's something to forward to. A forward that
-			// fails or isn't ready yet never fails the run — the lab itself
-			// is up, and the supervisor keeps retrying.
-			var forwards []portforward.Forward
-			if len(cfg.Runtime.PortForwards) > 0 {
-				rep.Section("Port forwards")
-				forwards, err = startLabPortForwards(clusterName, cfg.Runtime.PortForwards, rep)
-				if err != nil {
-					rep.Warn("some port forwards could not be started — fix and retry with `astrona port-forward start -c <config>`")
-				}
-			}
-
-			rep.Close()
-			fmt.Printf("\nLab environment is fully loaded and ready!\n")
-			printConnectHints(env, cfg, clusterName)
-			printPortForwardHints(os.Stdout, forwards)
-			fmt.Printf("Full log: %s\n", rep.LogPath())
-			return nil
+			return bringUpLab(cfg, baseDir, rep)
 		},
 	}
 
@@ -163,4 +89,100 @@ func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clust
 		return
 	}
 	fmt.Printf("    astrona ssh %s\n", clusterName)
+}
+
+// validateLabForRun checks everything about cfg that can be checked
+// before anything is created — a bad gate or forward entry is a config
+// mistake, not something to discover after a 1-minute cluster boot (or,
+// for `astrona reset`, after the old lab is already gone).
+func validateLabForRun(cfg *config.LabConfig) error {
+	if err := config.ValidateKindConfig(cfg.Runtime); err != nil {
+		return err
+	}
+	if cfg.Runtime.Type == string(runtime.RuntimeQEMU) {
+		if err := config.ValidateQEMUVMs(cfg.Runtime.QEMU); err != nil {
+			return err
+		}
+	}
+	if err := config.ValidateWaitFor(cfg); err != nil {
+		return err
+	}
+	if err := config.ValidatePortForwards(cfg.Runtime); err != nil {
+		return err
+	}
+	return nil
+}
+
+// bringUpLab creates cfg's environment and runs everything `astrona run`
+// does on top — preload, addons, bootstrap, manifests, readiness gates,
+// port forwards — then prints how to connect. Shared by run and reset.
+func bringUpLab(cfg *config.LabConfig, baseDir string, rep *ui.Reporter) error {
+	rep.Section("Lab: %s", cfg.Metadata.Name)
+
+	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
+
+	env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime, rep)
+	if err != nil {
+		return fmt.Errorf("lab setup failed: %w", err)
+	}
+
+	// Before addons and bootstrap, so anything they start can use
+	// the preloaded images.
+	if k := cfg.Runtime.Kind; k != nil && len(k.PreloadImages) > 0 {
+		rep.Section("Images")
+		if err := cluster.PreloadImages(clusterName, k.PreloadImages, rep); err != nil {
+			return fmt.Errorf("image preload failed: %w", err)
+		}
+	}
+
+	if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {
+		rep.Section("Addons")
+		if err := addons.Install(k.Addons, env.KubeContext, rep); err != nil {
+			return fmt.Errorf("addons failed: %w", err)
+		}
+	}
+
+	if scripts.HasBootstrapInit(cfg) {
+		rep.Section("Bootstrap")
+		if err := scripts.RunBootstrap(cfg, baseDir, env, rep); err != nil {
+			return fmt.Errorf("init scripts failed: %w", err)
+		}
+	}
+
+	if len(cfg.Bootstrap.Manifests) > 0 {
+		if env.KubeContext == "" {
+			return fmt.Errorf("bootstrap.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
+		}
+		rep.Section("Manifests")
+		if err := manifests.ApplyManifests(cfg.Bootstrap.Manifests, baseDir, env.KubeContext, rep); err != nil {
+			return fmt.Errorf("bootstrap manifests failed: %w", err)
+		}
+	}
+
+	if len(cfg.Bootstrap.WaitFor) > 0 {
+		rep.Section("Readiness")
+		if err := manifests.WaitFor(cfg.Bootstrap.WaitFor, env.KubeContext, rep); err != nil {
+			return fmt.Errorf("lab did not become ready: %w", err)
+		}
+	}
+
+	// Started last, once manifests are applied and readiness gates
+	// passed, so there's something to forward to. A forward that
+	// fails or isn't ready yet never fails the run — the lab itself
+	// is up, and the supervisor keeps retrying.
+	var forwards []portforward.Forward
+	if len(cfg.Runtime.PortForwards) > 0 {
+		rep.Section("Port forwards")
+		forwards, err = startLabPortForwards(clusterName, cfg.Runtime.PortForwards, rep)
+		if err != nil {
+			rep.Warn("some port forwards could not be started — fix and retry with `astrona port-forward start -c <config>`")
+		}
+	}
+
+	rep.Close()
+	fmt.Printf("\nLab environment is fully loaded and ready!\n")
+	printConnectHints(env, cfg, clusterName)
+	printPortForwardHints(os.Stdout, forwards)
+	fmt.Printf("Full log: %s\n", rep.LogPath())
+	return nil
 }
