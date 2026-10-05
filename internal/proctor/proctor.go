@@ -22,6 +22,48 @@ type CheckResult struct {
 	Pass     bool
 	Message  string
 	Duration time.Duration
+	Hint     string // shown on failure (unless hints are hidden)
+	Points   int    // weight in the score, >= 1
+}
+
+// Score is a submission's weighted result.
+type Score struct {
+	Earned, Max int
+}
+
+// Percent is Earned/Max as 0–100 (100 for an empty lab).
+func (s Score) Percent() float64 {
+	if s.Max == 0 {
+		return 100
+	}
+	return 100 * float64(s.Earned) / float64(s.Max)
+}
+
+// ScoreOf sums results' points.
+func ScoreOf(results []CheckResult) Score {
+	var s Score
+	for _, r := range results {
+		pts := config.EffectivePoints(r.Points)
+		s.Max += pts
+		if r.Pass {
+			s.Earned += pts
+		}
+	}
+	return s
+}
+
+// Passed applies a lab's pass rule: with passPercent set, the score must
+// reach it; otherwise every result must pass.
+func Passed(results []CheckResult, passPercent int) bool {
+	if passPercent > 0 {
+		return ScoreOf(results).Percent() >= float64(passPercent)
+	}
+	for _, r := range results {
+		if !r.Pass {
+			return false
+		}
+	}
+	return true
 }
 
 // Proctor is the sole authority that grades a lab. Student-facing
@@ -34,9 +76,14 @@ type CheckResult struct {
 // directly, and it gives a real remote Proctor service a clean seam to
 // slot into later without changing how lab/dev commands call it.
 type Proctor struct {
-	baseDir string
-	env     *runtime.LabEnvironment
+	baseDir   string
+	env       *runtime.LabEnvironment
+	hideHints bool
 }
+
+// HideHints suppresses failed checks' hints in Grade's report (e.g. exam
+// conditions).
+func (p *Proctor) HideHints() { p.hideHints = true }
 
 // NewProctor builds a Proctor scoped to a single lab run: baseDir resolves
 // relative script paths, env provides both the kubectl context every
@@ -65,27 +112,35 @@ func (p *Proctor) Grade(cfg *config.LabConfig) ([]CheckResult, bool, error) {
 	}
 	results = append(results, scriptResults...)
 
-	pass := true
 	passed := 0
-
 	for _, r := range results {
 		status := "PASS"
-		if !r.Pass {
-			status = "FAIL"
-			pass = false
-		} else {
+		if r.Pass {
 			passed++
+		} else {
+			status = "FAIL"
 		}
 
 		fmt.Printf("  %-4s  %s (%s)\n", status, r.Name, formatDuration(r.Duration))
 		if r.Message != "" {
 			fmt.Printf("        %s\n", r.Message)
 		}
+		if !r.Pass && r.Hint != "" && !p.hideHints {
+			fmt.Printf("        hint: %s\n", r.Hint)
+		}
 	}
 
 	failed := len(results) - passed
 	fmt.Printf("\n%d passed, %d failed in %s\n", passed, failed, formatDuration(time.Since(start)))
 
+	score := ScoreOf(results)
+	line := fmt.Sprintf("Score: %d/%d points (%.0f%%)", score.Earned, score.Max, score.Percent())
+	if pp := cfg.Validation.PassPercent; pp > 0 {
+		line += fmt.Sprintf(" — pass mark %d%%", pp)
+	}
+	fmt.Println(line)
+
+	pass := Passed(results, cfg.Validation.PassPercent)
 	return results, pass, nil
 }
 
@@ -111,7 +166,7 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 	results := make([]CheckResult, 0, len(checks))
 
 	for _, c := range checks {
-		result := CheckResult{Name: c.Name}
+		result := CheckResult{Name: c.Name, Hint: c.Hint, Points: config.EffectivePoints(c.Points)}
 		checkStart := time.Now()
 
 		switch strings.ToLower(c.Type) {
@@ -230,6 +285,8 @@ func (p *Proctor) runValidationBlock(val config.ValidationConfig, executor execu
 			Name:     name,
 			Pass:     scriptPass,
 			Duration: time.Since(scriptStart),
+			Hint:     scriptItem.Hint,
+			Points:   config.EffectivePoints(scriptItem.Points),
 		})
 	}
 

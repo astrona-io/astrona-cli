@@ -60,6 +60,40 @@ PROCTOR: FAIL
 
 The command's exit code reflects the verdict — `submit`/`test` exit non-zero on a FAIL, so both are safe to gate a script or CI job on.
 
+## Hints, score and attempts
+
+Each check and validation script can carry a `hint` — shown only when it fails — and `points` (default `1`):
+
+```yaml
+validation:
+  passPercent: 75            # optional: pass at 75% instead of requiring every check
+  checks:
+    - name: namespace shop exists
+      type: command
+      command: kubectl get namespace shop -o name
+      expect: namespace/shop
+      points: 3
+      hint: "Namespaces are cluster-scoped — kubectl create namespace <name>"
+```
+
+```text
+  FAIL  configmap app-config in shop (0.03s)
+        hint: A ConfigMap lives in a namespace — did you pass -n shop?
+
+1 passed, 1 failed in 0.15s
+Score: 3/4 points (75%) — pass mark 75%
+
+Attempt #2: 3/4 (+3 point(s) since #1)
+  now passing: namespace shop exists
+
+PROCTOR: PASS
+```
+
+- Write hints as nudges toward the concept, not the answer — the `guide` doc has the full solution.
+- **Pass rule:** without `passPercent`, every check and script must pass (as before). With it, the submission passes once the weighted score reaches it — like a certification exam's pass mark.
+- `astrona submit --no-hints` grades without showing hints (exam conditions).
+- Every `astrona submit` is recorded in `~/.astrona/results/<lab>.jsonl`; each submission shows the change since the previous one, and `astrona submit --history` lists all attempts with the best score. `astrona test` (CI) doesn't record attempts.
+
 ## JUnit XML for CI
 
 Both `astrona submit` and `astrona test` accept `--junit-xml=<path>`:
