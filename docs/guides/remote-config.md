@@ -40,3 +40,27 @@ With `--git` set, `--config` changes meaning: instead of a local path or URL, it
 ## Path safety
 
 Every local path resolution — the lab's own base directory, script/manifest `source: file`/`folder` references — is joined against the lab's base directory and rejected if it would escape it (`JoinWithinBaseDir`). A lab config can't reference files outside its own directory by accident or by a crafted `source` value.
+
+## Approving remote labs
+
+A lab from `--git` or a URL runs its scripts with bash on your machine (for kind labs), plus any `command` validation checks. So before `run`, `reset`, `test` or `submit` executes anything from a remote lab for the first time, astrona shows what it will do and asks:
+
+```text
+First time running this lab:
+  https://github.com/org/labs@main (labs/lab-01) (01eed0bb08be)
+
+It will:
+  • runs on this machine (bash): setup (setup.sh)
+  • runs on this machine (command check): kubectl get ns shop -o name
+  • applies 2 manifest source(s) to the lab cluster
+  • opens 127.0.0.1:8080 → svc/web
+  • ⚠ fetched when it runs, NOT covered by this approval: https://example.com/extra.sh
+
+Only continue if you trust its author. Run it? [y/N]
+```
+
+- The approval is pinned: to the **git commit** for `--git`, to the **SHA-256 of the config** for a URL. Running the same version again doesn't ask; a new commit or a changed config asks again ("This lab changed since you approved it").
+- Scripts and manifests with `type: url` are downloaded when they run, so their content isn't covered by the pin — they're flagged in the prompt.
+- Local configs (`-c ./my-lab`) are your own files and never prompt.
+- **CI / no terminal:** without a terminal, an unapproved remote lab is refused. Pass `--trust` to approve it — e.g. `astrona test --git https://github.com/org/labs --config labs/lab-01 --trust`. CI that tests its own checkout (`-c .`) needs nothing.
+- Approvals are stored in `~/.astrona/trust.json`; delete an entry (or the file) to be asked again.
