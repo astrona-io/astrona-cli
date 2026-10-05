@@ -59,7 +59,7 @@ func withinBounds(n int, lo, hi *int) bool {
 	return (lo == nil || n >= *lo) && (hi == nil || n <= *hi)
 }
 
-func dfunc describeBounds(lo, hi *int) string {
+func describeBounds(lo, hi *int) string {
 	switch {
 	case lo != nil && hi != nil && *lo == *hi:
 		return "exactly " + strconv.Itoa(*lo)
@@ -71,7 +71,8 @@ func dfunc describeBounds(lo, hi *int) string {
 		return "at most " + strconv.Itoa(*hi)
 	}
 }
- (
+
+const (
 	httpCheckTimeout = 10 * time.Second
 	// maxHTTPCheckBody bounds how much of a response is read for body
 	// matchers.
