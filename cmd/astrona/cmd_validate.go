@@ -38,10 +38,12 @@ func labConfigResults(cfg *config.LabConfig, baseDir string) []checkResult {
 		fail("runtime / gates", err.Error())
 	}
 	for i, c := range cfg.Validation.Checks {
-		switch strings.ToLower(c.Type) {
-		case "resourceexists", "podready", "command":
-		default:
-			fail(fmt.Sprintf("validation.checks[%d]", i), fmt.Sprintf("unsupported type '%s' (resourceExists, podReady or command)", c.Type))
+		known := false
+		for _, t := range config.CheckTypes {
+			known = known || strings.EqualFold(t, c.Type)
+		}
+		if !known {
+			fail(fmt.Sprintf("validation.checks[%d]", i), fmt.Sprintf("unsupported type '%s' (%s)", c.Type, strings.Join(config.CheckTypes, ", ")))
 		}
 	}
 

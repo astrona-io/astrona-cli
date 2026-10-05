@@ -260,10 +260,16 @@ Validation scripts also take `hint` and `points` (see `ValidationCheck`).
 | Field | Type | Description |
 |---|---|---|
 | `name` | string | Label shown in the Proctor's report |
-| `type` | string | `"resourceExists"` \| `"podReady"` \| `"command"` |
-| `resource` | string | `kubectl` resource selector (for `resourceExists`/`podReady`) |
+| `type` | string | `"resourceExists"` \| `"podReady"` \| `"command"` \| `"jsonpath"` \| `"count"` \| `"http"` — see [Grading](../concepts/grading.md) |
+| `resource` | string | `kubectl get` arguments (for `resourceExists`/`podReady`/`jsonpath`/`count`), e.g. `deploy/web -n shop` or `pods -l app=web -n shop` |
 | `command` | string | Shell words to run directly, no shell interpolation (for `command`) |
-| `expect` | string | Exact expected trimmed stdout (for `command`; omit to just check exit code) |
+| `expect` | string | Exact expected value (trimmed stdout / JSONPath value / body) |
+| `contains` | string | Value must contain this |
+| `expectRegex` | string | Value must match this regular expression (Go syntax) |
+| `jsonpath` | string | `jsonpath` checks: kubectl JSONPath, e.g. `{.spec.replicas}` |
+| `min` / `max` | int | `count` checks: bounds on the number of objects (at least one required) |
+| `url` | string | `http` checks: `http://` or `https://` URL |
+| `expectStatus` | int | `http` checks: expected status (default `200`) |
 | `hint` | string | Shown to the student only when this check fails — a nudge, not the answer |
 | `points` | int | Weight in the score (default `1`) |
 

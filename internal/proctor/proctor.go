@@ -195,12 +195,34 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 			out, err := cmd.CombinedOutput()
 			trimmed := strings.TrimSpace(string(out))
 
-			if c.Expect != "" {
-				result.Pass = err == nil && trimmed == c.Expect
-			} else {
-				result.Pass = err == nil
+			ok, why := matchOutput(c, trimmed)
+			result.Pass = err == nil && ok
+			result.Message = joinMessage(trimmed, why)
+		case "jsonpath":
+			args := append([]string{"--context", p.env.KubeContext, "get"}, strings.Fields(c.Resource)...)
+			args = append(args, "-o", "jsonpath="+c.JSONPath)
+			out, err := p.kubectl(kubectlPath, args...)
+			if err != nil {
+				result.Message = out
+				break
 			}
-			result.Message = trimmed
+			ok, why := matchOutput(c, out)
+			result.Pass = ok
+			if !ok {
+				result.Message = fmt.Sprintf("%s is %q — %s", c.JSONPath, out, why)
+			}
+		case "count":
+			args := append([]string{"--context", p.env.KubeContext, "get"}, strings.Fields(c.Resource)...)
+			out, err := p.kubectl(kubectlPath, append(args, "-o", "name")...)
+			if err != nil {
+				result.Message = out
+				break
+			}
+			n := countLines(out)
+			result.Pass = withinBounds(n, c.Min, c.Max)
+			result.Message = fmt.Sprintf("found %d, want %s", n, describeBounds(c.Min, c.Max))
+		case "http":
+			result.Pass, result.Message = httpCheck(c)
 		default:
 			result.Pass = false
 			result.Message = fmt.Sprintf("unsupported check type '%s'", c.Type)
@@ -211,6 +233,20 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 	}
 
 	return results, nil
+}
+
+// kubectl runs kubectl with the lab's kubeconfig and returns trimmed
+// stdout — or, on failure, trimmed stdout+stderr as the error detail.
+func (p *Proctor) kubectl(kubectlPath string, args ...string) (string, error) {
+	cmd := exec.Command(kubectlPath, args...)
+	cmd.Env = executor.KubeconfigEnv(p.env.Kubeconfig)
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return strings.TrimSpace(stdout.String() + "\n" + stderr.String()), err
+	}
+	return strings.TrimSpace(stdout.String()), nil
 }
 
 // gradeScripts runs every validation script this lab defines: the shared

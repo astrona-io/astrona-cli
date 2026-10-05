@@ -119,3 +119,12 @@ func TestSchemaEnumsPointAtRealFields(t *testing.T) {
 		}
 	}
 }
+
+// The schema's check-type enum must list every type the Proctor runs —
+// an editor would otherwise flag valid checks as errors.
+func TestSchemaCheckTypesMatchProctor(t *testing.T) {
+	got := schemaEnums["ValidationCheck.type"]
+	if strings.Join(got, ",") != strings.Join(CheckTypes, ",") {
+		t.Fatalf("schema check types %v != config.CheckTypes %v", got, CheckTypes)
+	}
+}
