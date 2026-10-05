@@ -167,6 +167,9 @@ type ResourceItem struct {
 type BootstrapConfig struct {
 	Init      []ResourceItem `yaml:"init"`
 	Manifests []ResourceItem `yaml:"manifests"`
+	// WaitFor gates are run, in order, after Manifests — see WaitFor
+	// (waitfor.go). kind only.
+	WaitFor []WaitFor `yaml:"waitFor"`
 }
 
 type TeardownConfig struct {

@@ -43,6 +43,10 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
+			if err := config.ValidateWaitFor(cfg); err != nil {
+				return err
+			}
+
 			rep.Section("Lab: %s", cfg.Metadata.Name)
 
 			// Prefixed so a CI/dev `test` run never collides with a real
@@ -104,6 +108,13 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
+			if len(cfg.Bootstrap.WaitFor) > 0 {
+				rep.Section("Bootstrap readiness")
+				if err := manifests.WaitFor(cfg.Bootstrap.WaitFor, env.KubeContext, rep); err != nil {
+					return fmt.Errorf("lab did not become ready: %w", err)
+				}
+			}
+
 			if len(cfg.Testing.Init) > 0 {
 				rep.Section("Testing")
 				if err := scripts.RunOnEveryVM(cfg.Testing.Init, baseDir, env, cfg.Runtime.QEMU, rep); err != nil {
@@ -118,6 +129,15 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				rep.Section("Testing manifests")
 				if err := manifests.ApplyManifests(cfg.Testing.Manifests, baseDir, env.KubeContext, rep); err != nil {
 					return fmt.Errorf("testing manifests failed: %w", err)
+				}
+			}
+
+			// Gate grading on the reference solution actually being up, so
+			// the Proctor doesn't race pods that are still starting.
+			if len(cfg.Testing.WaitFor) > 0 {
+				rep.Section("Testing readiness")
+				if err := manifests.WaitFor(cfg.Testing.WaitFor, env.KubeContext, rep); err != nil {
+					return fmt.Errorf("reference solution did not become ready: %w", err)
 				}
 			}
 

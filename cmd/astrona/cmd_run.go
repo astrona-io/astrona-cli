@@ -37,6 +37,12 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
+			// Checked before anything is created — a bad gate is a config
+			// mistake, not something to discover after the cluster boots.
+			if err := config.ValidateWaitFor(cfg); err != nil {
+				return err
+			}
+
 			rep.Section("Lab: %s", cfg.Metadata.Name)
 
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
@@ -60,6 +66,13 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				rep.Section("Manifests")
 				if err := manifests.ApplyManifests(cfg.Bootstrap.Manifests, baseDir, env.KubeContext, rep); err != nil {
 					return fmt.Errorf("bootstrap manifests failed: %w", err)
+				}
+			}
+
+			if len(cfg.Bootstrap.WaitFor) > 0 {
+				rep.Section("Readiness")
+				if err := manifests.WaitFor(cfg.Bootstrap.WaitFor, env.KubeContext, rep); err != nil {
+					return fmt.Errorf("lab did not become ready: %w", err)
 				}
 			}
 
