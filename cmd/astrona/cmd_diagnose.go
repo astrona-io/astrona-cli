@@ -108,8 +108,9 @@ func newDiagnoseCmd(flags *rootFlags) *cobra.Command {
 	var outDir string
 
 	cmd := &cobra.Command{
-		Use:   "diagnose [lab-name]",
-		Short: "Collect a debugging bundle (pods, events, logs) from a running lab",
+		Use:               "diagnose [lab-name]",
+		ValidArgsFunction: labCompletion(nil),
+		Short:             "Collect a debugging bundle (pods, events, logs) from a running lab",
 		Long: "Collect a debugging bundle from a running lab into a directory: for kind, nodes, pods, " +
 			"workloads, events, describe + logs of every unhealthy pod, `kind export logs`, and a " +
 			"summary.md listing what's wrong; for qemu, the VM's serial console log. Secrets, " +

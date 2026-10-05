@@ -58,9 +58,10 @@ func newPortForwardListCmd() *cobra.Command {
 	var watch bool
 
 	cmd := &cobra.Command{
-		Use:     "list [lab-name]",
-		Aliases: []string{"ls"},
-		Short:   "List port forwards and their status (all labs, or one)",
+		Use:               "list [lab-name]",
+		ValidArgsFunction: labCompletion(isKind),
+		Aliases:           []string{"ls"},
+		Short:             "List port forwards and their status (all labs, or one)",
 		Example: `  astrona port-forward list
   astrona pf list my-lab -o wide
   astrona pf list --watch`,
@@ -273,8 +274,9 @@ func newPortForwardStopCmd(flags *rootFlags) *cobra.Command {
 	var all bool
 
 	cmd := &cobra.Command{
-		Use:   "stop [lab-name]",
-		Short: "Stop a lab's port forwards (the cluster keeps running)",
+		Use:               "stop [lab-name]",
+		ValidArgsFunction: labCompletion(isKind),
+		Short:             "Stop a lab's port forwards (the cluster keeps running)",
 		Long: "Stop a lab's port forwards. The kind cluster itself keeps running.\n\n" +
 			"With a lab-name (as shown by `astrona port-forward list`, with or without the " +
 			"'astro-' prefix), stops that lab's forwards. With --all, stops every lab's. " +

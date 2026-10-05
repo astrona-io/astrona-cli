@@ -319,8 +319,9 @@ func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir strin
 // have running. flags is bound to the root command's persistent flags.
 func newDestroyCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "destroy [lab-name|pattern]",
-		Short: "Tear down a lab environment (both the normal run and any leftover 'astrona test' run)",
+		Use:               "destroy [lab-name|pattern]",
+		ValidArgsFunction: labCompletion(nil),
+		Short:             "Tear down a lab environment (both the normal run and any leftover 'astrona test' run)",
 		Long: "Tear down a lab environment (both the normal run and any leftover 'astrona test' run).\n\n" +
 			"With no lab-name, resolves the lab config the same way `run`/`submit` do (-c/--file/--git/--git-ref) " +
 			"and falls back to auto-discovering running labs if that fails.\n\n" +
