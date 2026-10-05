@@ -193,6 +193,19 @@ type ValidationCheck struct {
 	Resource string `yaml:"resource"`
 	Command  string `yaml:"command"`
 	Expect   string `yaml:"expect"`
+	// Contains / ExpectRegex are looser matchers than Expect, for command,
+	// jsonpath and http (body) checks; every matcher set must hold.
+	Contains    string `yaml:"contains"`
+	ExpectRegex string `yaml:"expectRegex"`
+	// JSONPath is the kubectl JSONPath expression a jsonpath check reads
+	// from Resource, e.g. "{.spec.replicas}".
+	JSONPath string `yaml:"jsonpath"`
+	// Min / Max bound how many objects a count check's Resource selects.
+	Min *int `yaml:"min"`
+	Max *int `yaml:"max"`
+	// URL / ExpectStatus are for http checks (status default 200).
+	URL          string `yaml:"url"`
+	ExpectStatus int    `yaml:"expectStatus"`
 	// Hint is shown to the student only when this check fails — a nudge,
 	// not the answer.
 	Hint string `yaml:"hint"`

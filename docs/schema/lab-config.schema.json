@@ -441,11 +441,29 @@
         "command": {
           "type": "string"
         },
+        "contains": {
+          "type": "string"
+        },
         "expect": {
           "type": "string"
         },
+        "expectRegex": {
+          "type": "string"
+        },
+        "expectStatus": {
+          "type": "integer"
+        },
         "hint": {
           "type": "string"
+        },
+        "jsonpath": {
+          "type": "string"
+        },
+        "max": {
+          "type": "integer"
+        },
+        "min": {
+          "type": "integer"
         },
         "name": {
           "type": "string"
@@ -462,6 +480,9 @@
             "podReady",
             "command"
           ],
+          "type": "string"
+        },
+        "url": {
           "type": "string"
         }
       },
