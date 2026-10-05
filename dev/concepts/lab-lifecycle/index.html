@@ -996,6 +996,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1252,6 +1260,98 @@
   
   <span class="md-ellipsis">
     Astrona ssh
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_port-forward/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona port forward
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_port-forward_list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona port forward list
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_port-forward_start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona port forward start
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_port-forward_stop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona port forward stop
     
   </span>
   
@@ -1737,6 +1837,10 @@ bootstrap script) is <strong>not</strong> shown by default. Instead:</p>
 spinner and ANSI styling and prints one plain line per step.</p>
 <p>For a <code>qemu</code> lab, a successful <code>astrona run</code> also prints a <strong>Connect:</strong> block
 with the ready-to-paste <code>astrona ssh &lt;name&gt;</code> command for each VM.</p>
+<p>For a <code>kind</code> lab with <a href="../runtimes/#port-forwards"><code>runtime.portForwards</code></a>, <code>astrona run</code> starts those forwards after
+<code>bootstrap</code> and prints a <strong>Port forwards:</strong> block with each forward's local
+URL and status (<code>Ready</code>/<code>NotReady</code>/…). <code>astrona port-forward list</code> shows the
+same status any time later.</p>
 <h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
 <p><a href="../grading/">Grading</a> covers exactly what the Proctor checks and how <code>astrona submit</code>/<code>astrona test</code> report the result.</p>
 
