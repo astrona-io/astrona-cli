@@ -7,6 +7,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/executor"
 	"astrona/internal/hypervisor"
+	"astrona/internal/portforward"
 	"astrona/internal/ui"
 )
 
@@ -83,10 +84,13 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.R
 
 	switch runtimeType {
 	case RuntimeKind:
+		if err := config.ValidateKindConfig(cfg); err != nil {
+			return nil, err
+		}
 		// kind create always switches the user's current-context to the
 		// new cluster; put it back once it's done, success or not.
 		restoreContext := cluster.PreserveCurrentContext(rep)
-		err := cluster.CreateKindCluster(name, rep)
+		err := cluster.CreateKindCluster(name, cfg.Kind, rep)
 		restoreContext()
 		if err != nil {
 			return nil, err
@@ -103,6 +107,9 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.R
 			Executor:    executor.LocalExecutor{Kubeconfig: kubeconfig},
 		}, nil
 	case RuntimeQEMU:
+		if err := config.ValidateKindConfig(cfg); err != nil {
+			return nil, err
+		}
 		if err := config.ValidateQEMUVMs(cfg.QEMU); err != nil {
 			return nil, err
 		}
@@ -245,6 +252,9 @@ func DestroyEnvironment(name string, cfg config.RuntimeConfig, rep *ui.Reporter)
 
 	switch runtimeType {
 	case RuntimeKind:
+		// Forwards first: their supervisors would otherwise keep retrying
+		// against a cluster that no longer exists.
+		portforward.StopForLab(name, rep)
 		return cluster.DeleteKindCluster(name, rep)
 	case RuntimeQEMU:
 		// An empty cfg.QEMU (config missing/unreadable at destroy time —

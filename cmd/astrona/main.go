@@ -85,7 +85,9 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 		Long:    "Astrona is the single CLI for the Astrona lab community: spin up local Kubernetes labs, grade them, and (as more groups land) publish and authenticate against the Astrona platform.\n\n" + supportLine(),
 		Version: Version,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			if cmd.Name() == "__complete" || cmd.Name() == "help" || cmd.Name() == "docgen" {
+			// Hidden commands (docgen, the port-forward supervisor) are
+			// tooling/background processes — no version nag, no network.
+			if cmd.Name() == "__complete" || cmd.Name() == "help" || cmd.Hidden {
 				return
 			}
 			checkLatestVersion(flags.verbose)
@@ -139,6 +141,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.AddCommand(newSSHCmd())
 	rootCmd.AddCommand(newShellCmd(flags))
 	rootCmd.AddCommand(newKubeconfigCmd(flags))
+	rootCmd.AddCommand(newPortForwardCmd(flags))
 	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(newLogsCmd())
 	rootCmd.AddCommand(newContentCmd())

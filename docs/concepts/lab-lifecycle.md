@@ -93,6 +93,11 @@ spinner and ANSI styling and prints one plain line per step.
 For a `qemu` lab, a successful `astrona run` also prints a **Connect:** block
 with the ready-to-paste `astrona ssh <name>` command for each VM.
 
+For a `kind` lab with [`runtime.portForwards`](runtimes.md#port-forwards), `astrona run` starts those forwards after
+`bootstrap` and prints a **Port forwards:** block with each forward's local
+URL and status (`Ready`/`NotReady`/…). `astrona port-forward list` shows the
+same status any time later.
+
 ## Next
 
 [Grading](grading.md) covers exactly what the Proctor checks and how `astrona submit`/`astrona test` report the result.
