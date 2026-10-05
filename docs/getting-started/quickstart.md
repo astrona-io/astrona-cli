@@ -33,7 +33,17 @@ Progress prints as a compact step view; each step's full output goes to a log fi
 astrona list
 ```
 
-Shows every astrona-managed lab currently running (kind clusters and qemu VMs), with runtime, status, and uptime — a `kubectl get`-style table.
+Shows every astrona-managed lab (kind clusters and qemu VMs), with runtime, status, and uptime — a `kubectl get`-style table. For kind labs, STATUS is live cluster health:
+
+| STATUS | Meaning |
+|---|---|
+| `Ready (n/n)` | every node is Ready |
+| `NotReady (r/n)` | only `r` of `n` nodes Ready — e.g. a CNI that isn't installed yet |
+| `Unreachable` | node containers are up but the API doesn't answer (3s timeout) |
+| `Degraded (r/n containers running)` | some node containers stopped |
+| `Stopped` | all node containers stopped |
+
+`astrona list -o wide` adds the Kubernetes version and port-forward status (`1/1 Ready`); `-o json` prints the same for scripts.
 
 Work with the cluster from a lab shell — your `$SHELL` with `kubectl` pointed at the lab (type `exit` to leave):
 
