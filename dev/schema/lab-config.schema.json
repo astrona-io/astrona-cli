@@ -363,8 +363,14 @@
         "description": {
           "type": "string"
         },
+        "hint": {
+          "type": "string"
+        },
         "name": {
           "type": "string"
+        },
+        "points": {
+          "type": "integer"
         },
         "source": {
           "type": "string"
@@ -438,8 +444,14 @@
         "expect": {
           "type": "string"
         },
+        "hint": {
+          "type": "string"
+        },
         "name": {
           "type": "string"
+        },
+        "points": {
+          "type": "integer"
         },
         "resource": {
           "type": "string"
@@ -463,6 +475,9 @@
             "$ref": "#/$defs/ValidationCheck"
           },
           "type": "array"
+        },
+        "passPercent": {
+          "type": "integer"
         },
         "script": {
           "$ref": "#/$defs/ResourceItem"
