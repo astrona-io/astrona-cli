@@ -10,11 +10,19 @@ on:
 permissions:
   contents: write
 
+# Deploys push to gh-pages, so two at once race each other. For main, only
+# the newest push matters — cancel an older in-flight dev deploy. Tag
+# (release) deploys are never cancelled; each version must be published.
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+
 jobs:
   # Rolling "dev" docs, rebuilt from the tip of main on every push — the
   # bleeding-edge doc set, distinct from any tagged release version.
   deploy-dev:
     name: Deploy dev docs (main)
+    timeout-minutes: 15
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -60,6 +68,7 @@ jobs:
   # released binary version.
   deploy-release:
     name: Deploy versioned docs (tag)
+    timeout-minutes: 15
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
