@@ -11,6 +11,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/executor"
 	"astrona/internal/hypervisor"
+	"astrona/internal/portforward"
 	"astrona/internal/runtime"
 	"astrona/internal/scripts"
 	"astrona/internal/ui"
@@ -149,6 +150,7 @@ func destroyByName(name string, rep *ui.Reporter) error {
 		}
 	}
 	if foundKind {
+		portforward.StopForLab(name, rep)
 		if err := cluster.DeleteKindCluster(name, rep); err != nil {
 			errs = append(errs, fmt.Sprintf("kind: %s", err))
 		}

@@ -7,6 +7,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/executor"
 	"astrona/internal/hypervisor"
+	"astrona/internal/portforward"
 	"astrona/internal/ui"
 )
 
@@ -232,6 +233,9 @@ func DestroyEnvironment(name string, cfg config.RuntimeConfig, rep *ui.Reporter)
 
 	switch runtimeType {
 	case RuntimeKind:
+		// Forwards first: their supervisors would otherwise keep retrying
+		// against a cluster that no longer exists.
+		portforward.StopForLab(name, rep)
 		return cluster.DeleteKindCluster(name, rep)
 	case RuntimeQEMU:
 		// An empty cfg.QEMU (config missing/unreadable at destroy time —
