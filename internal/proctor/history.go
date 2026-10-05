@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -105,4 +107,77 @@ func LoadAttempts(lab string) ([]Attempt, error) {
 		}
 	}
 	return out, sc.Err()
+}
+
+// HistoryLabs lists every lab with a recorded attempt history, sorted.
+func HistoryLabs() ([]string, error) {
+	path, err := historyPath("x")
+	if err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(filepath.Dir(path))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read results dir: %w", err)
+	}
+	var labs []string
+	for _, e := range entries {
+		name, ok := strings.CutSuffix(e.Name(), ".jsonl")
+		if ok && !e.IsDir() && historyLabPattern.MatchString(name) {
+			labs = append(labs, name)
+		}
+	}
+	sort.Strings(labs)
+	return labs, nil
+}
+
+// LabProgress summarizes one lab's attempt history.
+type LabProgress struct {
+	Lab         string    `json:"lab"`
+	Attempts    int       `json:"attempts"`
+	Passed      bool      `json:"passed"`
+	PassedAt    int       `json:"passedOnAttempt,omitempty"` // first passing attempt (1-based)
+	BestEarned  int       `json:"bestEarned"`
+	BestMax     int       `json:"bestMax"`
+	LastAttempt time.Time `json:"lastAttempt"`
+	// FastestPass is the least exam time used by a passing attempt
+	// (seconds; exam labs only).
+	FastestPassSeconds int64 `json:"fastestPassSeconds,omitempty"`
+}
+
+// BestPercent is the best attempt's score as 0–100.
+func (p LabProgress) BestPercent() float64 {
+	if p.BestMax == 0 {
+		return 100
+	}
+	return 100 * float64(p.BestEarned) / float64(p.BestMax)
+}
+
+// SummarizeProgress folds attempts (oldest first) into a LabProgress.
+func SummarizeProgress(lab string, attempts []Attempt) LabProgress {
+	p := LabProgress{Lab: lab, Attempts: len(attempts)}
+	bestPct := -1.0
+	for i, a := range attempts {
+		pct := 100.0
+		if a.Max > 0 {
+			pct = 100 * float64(a.Earned) / float64(a.Max)
+		}
+		if pct > bestPct {
+			bestPct, p.BestEarned, p.BestMax = pct, a.Earned, a.Max
+		}
+		if a.Pass {
+			if !p.Passed {
+				p.Passed, p.PassedAt = true, i+1
+			}
+			if a.Timed && (p.FastestPassSeconds == 0 || a.ElapsedSeconds < p.FastestPassSeconds) {
+				p.FastestPassSeconds = max(a.ElapsedSeconds, 1)
+			}
+		}
+		if a.Time.After(p.LastAttempt) {
+			p.LastAttempt = a.Time
+		}
+	}
+	return p
 }
