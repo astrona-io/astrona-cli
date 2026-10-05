@@ -101,6 +101,21 @@ Why: faster lab start (no per-node pulls), no Docker Hub rate limits in CI, and 
 
 Rules: every image needs an explicit tag or digest, never `:latest` or untagged — Kubernetes always re-pulls those (`imagePullPolicy: Always` by default), which would make preloading pointless. At most 30 images. Images are pulled for the host's architecture, which is the nodes' architecture too.
 
+### Pausing a lab (`astrona stop` / `astrona start`)
+
+```sh
+astrona stop my-lab     # stops the node containers, pauses port forwards
+astrona start my-lab    # starts them again, waits for the API, restarts port forwards
+```
+
+Stopping frees the CPU and memory the lab's node containers use without losing anything — the cluster, its workloads and its port forward definitions all come back on `start`. `astrona list` shows a paused lab as `Stopped`; `astrona destroy` works on it as usual. With no lab name, `stop` picks the only running kind lab and `start` the only stopped one (or the lab from `-c`).
+
+Limits:
+
+- **Single control plane only.** A lab with `nodes.controlPlanes` > 1 is refused: its node containers get new IP addresses on restart, and etcd's peer configuration is bound to the old ones, so the API never comes back. Use `astrona destroy` + `astrona run` for those.
+- **kind labs only** for now; qemu labs aren't supported yet.
+- Pods restart with their nodes, so anything not persisted (e.g. `emptyDir`, in-memory state) starts fresh.
+
 ### Kubeconfig isolation
 
 Every kind lab gets its own kubeconfig, `~/.astrona/kind/<lab>/kubeconfig` (mode `0600`), containing only that cluster. astrona:
