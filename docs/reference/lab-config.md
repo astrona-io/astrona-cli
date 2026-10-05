@@ -265,6 +265,18 @@ Validation scripts also take `hint` and `points` (see `ValidationCheck`).
 | `hint` | string | Shown to the student only when this check fails — a nudge, not the answer |
 | `points` | int | Weight in the score (default `1`) |
 
+## `exam`
+
+Turns the lab into a timed exam. Omit it for normal practice labs.
+
+| Field | Type | Description |
+|---|---|---|
+| `timeLimit` | string | Go duration, `1m`–`24h`, e.g. `2h`. The clock starts when `astrona run` (or `reset`) has the lab ready |
+| `hideHints` | bool | `astrona submit` never shows check hints |
+| `strict` | bool | A submission after the time limit can't pass |
+
+See [Grading → Exam mode](../concepts/grading.md#exam-mode).
+
 ## `teardown`
 
 | Field | Type | Description |

@@ -9,6 +9,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/exam"
 	"astrona/internal/executor"
 	"astrona/internal/hypervisor"
 	"astrona/internal/portforward"
@@ -138,6 +139,9 @@ func destroyByName(name string, rep *ui.Reporter) error {
 
 	foundQemu := qemuStateExists(name)
 	foundKind := kindClusterExists(name)
+	if err := exam.Clear(name); err != nil {
+		rep.Warn("%s", err)
+	}
 
 	if !foundQemu && !foundKind {
 		return fmt.Errorf("no astrona lab named '%s' found (checked qemu state and kind clusters) — run `astrona list` to see what's actually running", name)

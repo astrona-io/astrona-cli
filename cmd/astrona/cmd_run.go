@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"astrona/internal/addons"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/exam"
 	"astrona/internal/manifests"
 	"astrona/internal/portforward"
 	"astrona/internal/runtime"
@@ -104,6 +106,9 @@ func validateLabForRun(cfg *config.LabConfig) error {
 			return err
 		}
 	}
+	if err := config.ValidateExam(cfg); err != nil {
+		return err
+	}
 	if err := config.ValidateScoring(cfg); err != nil {
 		return err
 	}
@@ -182,10 +187,20 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, rep *ui.Reporter) error {
 		}
 	}
 
+	// The clock starts once the lab is ready — setup time doesn't count.
+	if cfg.Exam.Enabled() {
+		if err := exam.Start(clusterName, cfg.Exam.Limit(), time.Now()); err != nil {
+			rep.Warn("could not start the exam clock: %s", err)
+		}
+	}
+
 	rep.Close()
 	fmt.Printf("\nLab environment is fully loaded and ready!\n")
 	printConnectHints(env, cfg, clusterName)
 	printPortForwardHints(os.Stdout, forwards)
+	if cfg.Exam.Enabled() {
+		fmt.Printf("\nExam started — you have %s. `astrona submit` shows the time left.\n", exam.Round(cfg.Exam.Limit()))
+	}
 	fmt.Printf("Full log: %s\n", rep.LogPath())
 	return nil
 }

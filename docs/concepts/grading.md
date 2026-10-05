@@ -94,6 +94,28 @@ PROCTOR: PASS
 - `astrona submit --no-hints` grades without showing hints (exam conditions).
 - Every `astrona submit` is recorded in `~/.astrona/results/<lab>.jsonl`; each submission shows the change since the previous one, and `astrona submit --history` lists all attempts with the best score. `astrona test` (CI) doesn't record attempts.
 
+## Exam mode
+
+```yaml
+exam:
+  timeLimit: 2h      # clock starts when `astrona run` has the lab ready
+  hideHints: true    # no hints, like the real exam
+  strict: true       # a submission after the limit can't pass
+validation:
+  passPercent: 66    # e.g. a CKA-style pass mark (see above)
+```
+
+```text
+Score: 9/12 points (75%) — pass mark 66%
+Time: 1h12m of 2h0m used (48m left)
+PROCTOR: PASS
+```
+
+- The clock lives in `~/.astrona/exams/<lab>.json`; `astrona reset` starts a fresh one, `astrona destroy` clears it. It keeps running while a lab is paused with `astrona stop`, like a real exam.
+- Without `strict`, an over-time submission is still graded normally — the time is just reported ("over time by 5m").
+- `astrona submit --history` adds a TIME USED column for exam attempts, marking over-time ones.
+- `astrona test` (CI) ignores exam settings.
+
 ## JUnit XML for CI
 
 Both `astrona submit` and `astrona test` accept `--junit-xml=<path>`:

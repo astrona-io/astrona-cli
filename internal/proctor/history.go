@@ -18,6 +18,11 @@ type Attempt struct {
 	Earned int            `json:"earned"`
 	Max    int            `json:"max"`
 	Checks []AttemptCheck `json:"checks"`
+	// Exam labs only: time used when submitting, and whether that was
+	// past the limit.
+	Timed          bool  `json:"timed,omitempty"`
+	ElapsedSeconds int64 `json:"elapsedSeconds,omitempty"`
+	OverTime       bool  `json:"overTime,omitempty"`
 }
 
 type AttemptCheck struct {

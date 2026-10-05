@@ -42,3 +42,17 @@ func TestPrintProgressAndAttempts(t *testing.T) {
 		t.Errorf("empty = %q", buf.String())
 	}
 }
+
+func TestPrintAttemptsTimed(t *testing.T) {
+	var buf bytes.Buffer
+	printAttempts(&buf, "astro-x", []proctor.Attempt{
+		{Time: time.Now(), Earned: 1, Max: 4, Timed: true, ElapsedSeconds: 0},
+		{Time: time.Now(), Earned: 2, Max: 4, Timed: true, ElapsedSeconds: 1800},
+		{Time: time.Now(), Earned: 4, Max: 4, Pass: false, Timed: true, ElapsedSeconds: 66, OverTime: true},
+	})
+	for _, want := range []string{"TIME USED", "0s", "30m0s", "1m6s (over)"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("missing %q:\n%s", want, buf.String())
+		}
+	}
+}

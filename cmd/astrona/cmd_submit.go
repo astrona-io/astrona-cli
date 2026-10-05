@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"astrona/internal/config"
+	"astrona/internal/exam"
 	"astrona/internal/junit"
 	"astrona/internal/proctor"
 	"astrona/internal/runtime"
@@ -65,8 +66,15 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			defer rep.Close()
 
 			rep.Section("Proctor")
+			var examState *exam.State
+			if cfg.Exam.Enabled() {
+				if examState, err = exam.Load(clusterName); err != nil {
+					rep.Warn("%s", err)
+				}
+			}
+
 			pr := proctor.NewProctor(baseDir, env)
-			if noHints {
+			if noHints || cfg.Exam.HideHints {
 				pr.HideHints()
 			}
 			previous, _ := proctor.LoadAttempts(clusterName)
@@ -75,7 +83,21 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			attempt := proctor.NewAttempt(results, pass, time.Now())
+			now := time.Now()
+			if examState != nil {
+				fmt.Printf("Time: %s\n", examState.Summary(now))
+				if examState.Over(now) && cfg.Exam.Strict && pass {
+					pass = false
+					fmt.Printf("Submitted after the time limit — not counted as a pass (exam.strict).\n")
+				}
+			}
+
+			attempt := proctor.NewAttempt(results, pass, now)
+			if examState != nil {
+				attempt.Timed = true
+				attempt.ElapsedSeconds = int64(examState.Elapsed(now).Seconds())
+				attempt.OverTime = examState.Over(now)
+			}
 			if err := proctor.RecordAttempt(clusterName, attempt); err != nil {
 				rep.Warn("could not record this attempt: %s", err)
 			}
@@ -144,14 +166,33 @@ func printAttempts(w io.Writer, lab string, attempts []proctor.Attempt) {
 		return
 	}
 	tw := tabwriter.NewWriter(w, 0, 4, 3, ' ', 0)
-	fmt.Fprintln(tw, "#\tWHEN\tSCORE\tRESULT")
+	timed := false
+	for _, a := range attempts {
+		timed = timed || a.Timed
+	}
+	header := "#\tWHEN\tSCORE\tRESULT"
+	if timed {
+		header += "\tTIME USED"
+	}
+	fmt.Fprintln(tw, header)
 	best := attempts[0]
 	for i, a := range attempts {
 		result := "FAIL"
 		if a.Pass {
 			result = "PASS"
 		}
-		fmt.Fprintf(tw, "%d\t%s\t%d/%d\t%s\n", i+1, a.Time.Local().Format("2006-01-02 15:04"), a.Earned, a.Max, result)
+		line := fmt.Sprintf("%d\t%s\t%d/%d\t%s", i+1, a.Time.Local().Format("2006-01-02 15:04"), a.Earned, a.Max, result)
+		if timed {
+			used := "-"
+			if a.Timed {
+				used = exam.Round(time.Duration(a.ElapsedSeconds) * time.Second)
+				if a.OverTime {
+					used += " (over)"
+				}
+			}
+			line += "\t" + used
+		}
+		fmt.Fprintln(tw, line)
 		if a.Earned > best.Earned {
 			best = a
 		}
