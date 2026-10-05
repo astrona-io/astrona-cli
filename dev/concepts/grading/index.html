@@ -1001,6 +1001,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -1257,6 +1261,52 @@
   
   <span class="md-ellipsis">
     Astrona ssh
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_shell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona shell
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_kubeconfig/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona kubeconfig
     
   </span>
   
@@ -1810,7 +1860,7 @@
 </tr>
 </tbody>
 </table>
-<p><code>resourceExists</code>/<code>podReady</code> always run against the lab's own kubectl context — they require a <code>kind</code> runtime (or any runtime with a kubectl-reachable cluster).</p>
+<p><code>resourceExists</code>/<code>podReady</code> always run against the lab's own kubectl context — they require a <code>kind</code> runtime (or any runtime with a kubectl-reachable cluster). On a kind lab, <code>command</code> checks (and every script) run with <code>KUBECONFIG</code> set to the lab's own kubeconfig, so a plain <code>kubectl ...</code> grades the lab's cluster regardless of the student's current-context.</p>
 <h3 id="script-checks-validationscript-validationscripts">Script checks (<code>validation.script</code> / <code>validation.scripts</code>)<a class="headerlink" href="#script-checks-validationscript-validationscripts" title="Permanent link">&para;</a></h3>
 <p>Beyond existence checks — for verifying actual content, behavior, or anything a <code>kubectl get</code> can't express. <code>script</code> (singular) runs first if set, then every entry in <code>scripts</code> (plural), in order. Exit code <code>0</code> is a pass, non-zero is a fail — a failing lab is a normal graded outcome, not a tool error.</p>
 <p>For a <code>qemu</code> runtime, scripts run over SSH inside the VM instead of on the host. For a multi-VM lab, the shared root <code>validation</code> block runs once per VM (each result suffixed <code>(vmName)</code> in the report), and each VM's own nested <code>validation</code> block (if set) runs after that, scoped to just that VM.</p>
