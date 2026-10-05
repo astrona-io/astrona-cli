@@ -85,9 +85,9 @@ func printRepeatSummary(w io.Writer, runs []testRun) error {
 		// Judged against the runs where the check was graded — a run that
 		// failed during setup is reported on its own below.
 		mark, note := "✓", ""
-		switch {
-		case t.passed == t.total:
-		case t.passed == 0:
+		switch t.passed {
+		case t.total:
+		case 0:
 			mark, note = "✗", "never passed"
 			failing++
 		default:
