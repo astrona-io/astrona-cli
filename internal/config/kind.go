@@ -36,6 +36,11 @@ type KindConfig struct {
 	// Addons are installed right after the cluster is created — see
 	// KindAddons (addons.go).
 	Addons KindAddons `yaml:"addons"`
+	// PreloadImages are pulled on the host (if missing) and loaded into
+	// every node right after the cluster is created, so pods using them
+	// start without a registry round-trip — faster, no Docker Hub rate
+	// limits, offline once the host has them. See preload.go.
+	PreloadImages []string `yaml:"preloadImages"`
 }
 
 // KindNodes is the cluster's node count. Zero values mean kind's defaults
@@ -83,7 +88,7 @@ var (
 func (k *KindConfig) IsZero() bool {
 	return k == nil ||
 		(k.Version == "" && k.Image == "" && k.Nodes == KindNodes{} && k.Networking == KindNetworking{} &&
-			len(k.FeatureGates) == 0 && len(k.RuntimeConfig) == 0 && k.Addons.IsZero())
+			len(k.FeatureGates) == 0 && len(k.RuntimeConfig) == 0 && k.Addons.IsZero() && len(k.PreloadImages) == 0)
 }
 
 // NodeImage is the image to boot every node from, or "" for kind's default.
@@ -147,6 +152,9 @@ func ValidateKindConfig(rt RuntimeConfig) error {
 		return err
 	}
 	if err := validateKindAddons(rt); err != nil {
+		return err
+	}
+	if err := validatePreloadImages(k.PreloadImages); err != nil {
 		return err
 	}
 
