@@ -30,6 +30,24 @@ Progress prints as a compact step view; each step's full output goes to a log fi
 ## 3. Inspect it
 
 ```sh
+astrona status -c examples/k8s-basics-01
+```
+
+One screen for where you are with the lab: cluster health, how to connect, port forwards, the exam clock (timed labs), your last submission and score, and a suggested next step:
+
+```text
+Lab astro-k8s-basics-01 (kind)
+
+  Cluster      Ready (1/1) · Kubernetes v1.37.0 · up 28s
+  Connect      astrona shell astro-k8s-basics-01
+  Last submit  1/2 points (50%) FAIL · 3m0s ago · attempt #1
+
+Next: astrona submit to grade your work
+```
+
+For every lab on the machine:
+
+```sh
 astrona list
 ```
 
