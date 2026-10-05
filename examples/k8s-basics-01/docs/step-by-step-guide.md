@@ -29,17 +29,17 @@ This creates the kind cluster (via Docker or Podman, auto-detected) and runs `bo
 `validation.checks` needs a namespace and a configmap, and `validation.script` needs that configmap's `message` data to be exactly `hello world`. Either apply the reference manifest directly:
 
 ```sh
-kubectl --context kind-k8s-basics-01 apply -f solution/
+kubectl --context kind-astro-k8s-basics-01 apply -f solution/
 ```
 
 or do it imperatively, which is exactly what that manifest declares:
 
 ```sh
-kubectl --context kind-k8s-basics-01 create namespace lab-ns
-kubectl --context kind-k8s-basics-01 create configmap hello-config -n lab-ns --from-literal=message="hello world"
+kubectl --context kind-astro-k8s-basics-01 create namespace lab-ns
+kubectl --context kind-astro-k8s-basics-01 create configmap hello-config -n lab-ns --from-literal=message="hello world"
 ```
 
-(`kind-k8s-basics-01` is `kind-` + `metadata.name` from `config.yaml` — that's the context Astrona always targets, regardless of what your current `kubectl` context happens to be.)
+(`kind-astro-k8s-basics-01` is `kind-astro-` + `metadata.name` from `config.yaml` — that's the context Astrona always targets, regardless of what your current `kubectl` context happens to be.)
 
 ## 4. Submit to the Proctor
 
@@ -76,4 +76,4 @@ Runs `teardown.init` (`dump-logs.sh`) first, then deletes the kind cluster.
 
 Everything above — bootstrap, applying the solution, submitting to the Proctor, tearing down — is exactly what `astrona test -c .` does in one command, using `testing.manifests` (`../solution/`) instead of your manual `kubectl` calls. That's what lab authors run in CI to prove the reference solution actually passes the Proctor's own checks before publishing it. It tears down even if grading fails, so it never leaks a cluster.
 
-Note `astrona test` runs against `kind-test-k8s-basics-01`, not `kind-k8s-basics-01` — the `test-` prefix keeps a CI run from colliding with a cluster you already have up via `astrona run`.
+Note `astrona test` runs against `kind-astro-test-k8s-basics-01`, not `kind-astro-k8s-basics-01` — the `test-` prefix keeps a CI run from colliding with a cluster you already have up via `astrona run`.
