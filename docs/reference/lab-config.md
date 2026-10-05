@@ -125,6 +125,7 @@ kind only (rejected for `type: qemu`). Omit it and the lab gets a plain `kind cr
 | `featureGates` | map[string]bool | Kubernetes feature gates, e.g. `InPlacePodVerticalScaling: true` |
 | `runtimeConfig` | map[string]string | API groups to enable/disable (`"true"`/`"false"`), e.g. `"resource.k8s.io/v1beta1": "true"` |
 | `addons` | [Addons](#runtimekindaddons) | Cluster components installed right after the cluster is created |
+| `preloadImages` | list of strings | Images loaded into every node before addons/bootstrap, e.g. `[nginx:1.27-alpine]` — explicit tag or digest required (not `:latest`), max 30. See [Preloaded images](../concepts/runtimes.md#preloaded-images-runtimekindpreloadimages) |
 
 ```yaml
 runtime:

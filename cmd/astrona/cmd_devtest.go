@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"astrona/internal/addons"
+	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/junit"
 	"astrona/internal/manifests"
@@ -120,6 +121,15 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 					rep.Warn("cluster delete failed: %s", err)
 				}
 			}()
+
+			// Before addons and bootstrap, so anything they start can use
+			// the preloaded images.
+			if k := cfg.Runtime.Kind; k != nil && len(k.PreloadImages) > 0 {
+				rep.Section("Images")
+				if err := cluster.PreloadImages(clusterName, k.PreloadImages, rep); err != nil {
+					return fmt.Errorf("image preload failed: %w", err)
+				}
+			}
 
 			if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {
 				rep.Section("Addons")

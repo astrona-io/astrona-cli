@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"astrona/internal/addons"
+	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/manifests"
 	"astrona/internal/portforward"
@@ -61,6 +62,15 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime, rep)
 			if err != nil {
 				return fmt.Errorf("lab setup failed: %w", err)
+			}
+
+			// Before addons and bootstrap, so anything they start can use
+			// the preloaded images.
+			if k := cfg.Runtime.Kind; k != nil && len(k.PreloadImages) > 0 {
+				rep.Section("Images")
+				if err := cluster.PreloadImages(clusterName, k.PreloadImages, rep); err != nil {
+					return fmt.Errorf("image preload failed: %w", err)
+				}
 			}
 
 			if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {

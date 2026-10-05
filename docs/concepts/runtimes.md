@@ -82,6 +82,25 @@ Classic `Ingress` isn't offered: ingress-nginx is retired upstream. Cilium isn't
 - Scripts (`bootstrap.init`, `teardown.init`, `validation.script`) run on the **host** — there's no VM to SSH into — with `KUBECONFIG` set to the lab's own kubeconfig (see below), so a plain `kubectl` in a script always hits the lab.
 - `runtime.portForwards` exposes in-cluster services on `127.0.0.1` — see [Port forwards](#port-forwards).
 
+### Preloaded images (`runtime.kind.preloadImages`)
+
+```yaml
+runtime:
+  kind:
+    preloadImages:
+      - nginx:1.27-alpine
+      - busybox:1.36
+```
+
+Right after the cluster is created (before addons and bootstrap), each image is made available inside every node so pods start without pulling it:
+
+1. If your container engine (Docker/Podman) doesn't have it yet, it's pulled once on the host — after that, repeat `astrona run`/`astrona test` need no network for it.
+2. It's saved to a private temporary archive and loaded with `kind load image-archive` into every node.
+
+Why: faster lab start (no per-node pulls), no Docker Hub rate limits in CI, and labs that work offline once the host has the images. Pod events show `Container image "…" already present on machine`.
+
+Rules: every image needs an explicit tag or digest, never `:latest` or untagged — Kubernetes always re-pulls those (`imagePullPolicy: Always` by default), which would make preloading pointless. At most 30 images. Images are pulled for the host's architecture, which is the nodes' architecture too.
+
 ### Kubeconfig isolation
 
 Every kind lab gets its own kubeconfig, `~/.astrona/kind/<lab>/kubeconfig` (mode `0600`), containing only that cluster. astrona:
