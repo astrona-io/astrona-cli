@@ -32,10 +32,11 @@ func newSSHCmd() *cobra.Command {
 	var passwordFlag string
 
 	cmd := &cobra.Command{
-		Use:          "ssh <lab-name>",
-		Short:        "SSH into a running qemu lab VM (name as shown by 'astrona list', with or without the 'astro-' prefix)",
-		Args:         cobra.ExactArgs(1),
-		SilenceUsage: true,
+		Use:               "ssh <lab-name>",
+		ValidArgsFunction: labCompletion(isQEMU),
+		Short:             "SSH into a running qemu lab VM (name as shown by 'astrona list', with or without the 'astro-' prefix)",
+		Args:              cobra.ExactArgs(1),
+		SilenceUsage:      true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Accept the lab name with or without the "astro-" prefix —
 			// `astrona list` prints the prefixed form, but a user typing
