@@ -290,3 +290,29 @@ func StopForLab(lab string, rep *ui.Reporter) {
 	}
 	t.Done()
 }
+
+// Pause stops lab's forward supervisors but keeps their specs on disk, so
+// `astrona start` can bring the same forwards back (`astrona stop`).
+// `port-forward list` shows paused forwards as Stopped. Returns how many
+// were paused.
+func Pause(lab string) (int, error) {
+	dir, err := labDir(lab)
+	if err != nil {
+		return 0, err
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("failed to read port forward state for '%s': %w", lab, err)
+	}
+	n := 0
+	for _, e := range entries {
+		if e.IsDir() {
+			n++
+			terminateSupervisor(readPID(filepath.Join(dir, e.Name())))
+		}
+	}
+	return n, nil
+}
