@@ -2024,48 +2024,86 @@
 <tr>
 <td><code>command</code></td>
 <td>the given shell words directly (not through a shell)</td>
-<td>exit code 0, and (if <code>expect</code> is set) trimmed stdout equals <code>expect</code> exactly</td>
+<td>exit code 0, and every matcher set holds on trimmed stdout</td>
+</tr>
+<tr>
+<td><code>jsonpath</code></td>
+<td><code>kubectl --context &lt;ctx&gt; get &lt;resource&gt; -o jsonpath=&lt;jsonpath&gt;</code></td>
+<td>every matcher set holds on the value</td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td><code>kubectl --context &lt;ctx&gt; get &lt;resource&gt; -o name</code></td>
+<td>the number of objects is within <code>min</code> / <code>max</code></td>
+</tr>
+<tr>
+<td><code>http</code></td>
+<td><code>GET &lt;url&gt;</code> (10s timeout)</td>
+<td>status is <code>expectStatus</code> (default 200), and every matcher set holds on the body</td>
 </tr>
 </tbody>
 </table>
+<p><strong>Matchers</strong> (for <code>command</code>, <code>jsonpath</code>, <code>http</code>): <code>expect</code> (exact), <code>contains</code>, <code>expectRegex</code> — set any combination; all must hold.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">validation</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">scaled to 3</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jsonpath</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deploy/web -n shop</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">      </span><span class="nt">jsonpath</span><span class="p">:</span><span class="w"> </span><span class="s">"{.spec.replicas}"</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="nt">expect</span><span class="p">:</span><span class="w"> </span><span class="s">"3"</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">image pinned</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jsonpath</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deploy/web -n shop</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">      </span><span class="nt">jsonpath</span><span class="p">:</span><span class="w"> </span><span class="s">"{.spec.template.spec.containers[0].image}"</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">      </span><span class="nt">expectRegex</span><span class="p">:</span><span class="w"> </span><span class="s">"^nginx:1\\.27"</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">at least 3 web pods</span>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">count</span>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pods -l app=web -n shop</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">      </span><span class="nt">min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">site answers through the gateway</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="w">      </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://web.localtest.me:8080/</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="w">      </span><span class="nt">contains</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Welcome to nginx</span>
+</code></pre></div>
+<p>A failed check says what it found: <code>{.spec.replicas} is "2" — want exactly "3"</code>, <code>found 2, want at least 3</code>, <code>GET … → 404, want 200</code>. <code>http</code> checks reach the lab through a <a href="../runtimes/#port-forwards">port forward</a> or the <a href="../runtimes/#addons-runtimekindaddons">gateway addon</a>. <code>astrona validate</code> checks each check has the fields its type needs.</p>
 <p><code>resourceExists</code>/<code>podReady</code> always run against the lab's own kubectl context — they require a <code>kind</code> runtime (or any runtime with a kubectl-reachable cluster). On a kind lab, <code>command</code> checks (and every script) run with <code>KUBECONFIG</code> set to the lab's own kubeconfig, so a plain <code>kubectl ...</code> grades the lab's cluster regardless of the student's current-context.</p>
 <h3 id="script-checks-validationscript-validationscripts">Script checks (<code>validation.script</code> / <code>validation.scripts</code>)<a class="headerlink" href="#script-checks-validationscript-validationscripts" title="Permanent link">&para;</a></h3>
 <p>Beyond existence checks — for verifying actual content, behavior, or anything a <code>kubectl get</code> can't express. <code>script</code> (singular) runs first if set, then every entry in <code>scripts</code> (plural), in order. Exit code <code>0</code> is a pass, non-zero is a fail — a failing lab is a normal graded outcome, not a tool error.</p>
 <p>For a <code>qemu</code> runtime, scripts run over SSH inside the VM instead of on the host. For a multi-VM lab, the shared root <code>validation</code> block runs once per VM (each result suffixed <code>(vmName)</code> in the report), and each VM's own nested <code>validation</code> block (if set) runs after that, scoped to just that VM.</p>
 <h2 id="reading-the-output">Reading the output<a class="headerlink" href="#reading-the-output" title="Permanent link">&para;</a></h2>
 <p>Output is pytest/robot-style — one line per check, then a summary:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>  PASS  lab-ns namespace exists (0.18s)
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  PASS  hello-config configmap exists (0.09s)
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  FAIL  verify-configmap-content (0.31s)
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>        expected value "hello-world", got "unset"
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>2 passed, 1 failed in 0.58s
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>PROCTOR: FAIL
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>  PASS  lab-ns namespace exists (0.18s)
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  PASS  hello-config configmap exists (0.09s)
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  FAIL  verify-configmap-content (0.31s)
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        expected value "hello-world", got "unset"
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>2 passed, 1 failed in 0.58s
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>PROCTOR: FAIL
 </code></pre></div>
 <p>The command's exit code reflects the verdict — <code>submit</code>/<code>test</code> exit non-zero on a FAIL, so both are safe to gate a script or CI job on.</p>
 <h2 id="hints-score-and-attempts">Hints, score and attempts<a class="headerlink" href="#hints-score-and-attempts" title="Permanent link">&para;</a></h2>
 <p>Each check and validation script can carry a <code>hint</code> — shown only when it fails — and <code>points</code> (default <code>1</code>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">validation</span><span class="p">:</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">passPercent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">75</span><span class="w">            </span><span class="c1"># optional: pass at 75% instead of requiring every check</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">namespace shop exists</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">command</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kubectl get namespace shop -o name</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">expect</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">namespace/shop</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">points</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">hint</span><span class="p">:</span><span class="w"> </span><span class="s">"Namespaces</span><span class="nv"> </span><span class="s">are</span><span class="nv"> </span><span class="s">cluster-scoped</span><span class="nv"> </span><span class="s">—</span><span class="nv"> </span><span class="s">kubectl</span><span class="nv"> </span><span class="s">create</span><span class="nv"> </span><span class="s">namespace</span><span class="nv"> </span><span class="s">&lt;name&gt;"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">validation</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">passPercent</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">75</span><span class="w">            </span><span class="c1"># optional: pass at 75% instead of requiring every check</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">namespace shop exists</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">command</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">      </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kubectl get namespace shop -o name</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">      </span><span class="nt">expect</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">namespace/shop</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">      </span><span class="nt">points</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">      </span><span class="nt">hint</span><span class="p">:</span><span class="w"> </span><span class="s">"Namespaces</span><span class="nv"> </span><span class="s">are</span><span class="nv"> </span><span class="s">cluster-scoped</span><span class="nv"> </span><span class="s">—</span><span class="nv"> </span><span class="s">kubectl</span><span class="nv"> </span><span class="s">create</span><span class="nv"> </span><span class="s">namespace</span><span class="nv"> </span><span class="s">&lt;name&gt;"</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>  FAIL  configmap app-config in shop (0.03s)
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>        hint: A ConfigMap lives in a namespace — did you pass -n shop?
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>1 passed, 1 failed in 0.15s
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>Score: 3/4 points (75%) — pass mark 75%
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>Attempt #2: 3/4 (+3 point(s) since #1)
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>  now passing: namespace shop exists
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>PROCTOR: PASS
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>  FAIL  configmap app-config in shop (0.03s)
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>        hint: A ConfigMap lives in a namespace — did you pass -n shop?
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>1 passed, 1 failed in 0.15s
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>Score: 3/4 points (75%) — pass mark 75%
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>Attempt #2: 3/4 (+3 point(s) since #1)
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>  now passing: namespace shop exists
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>PROCTOR: PASS
 </code></pre></div>
 <ul>
 <li>Write hints as nudges toward the concept, not the answer — the <code>guide</code> doc has the full solution.</li>
@@ -2075,7 +2113,7 @@
 </ul>
 <h2 id="junit-xml-for-ci">JUnit XML for CI<a class="headerlink" href="#junit-xml-for-ci" title="Permanent link">&para;</a></h2>
 <p>Both <code>astrona submit</code> and <code>astrona test</code> accept <code>--junit-xml=&lt;path&gt;</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>astrona<span class="w"> </span>submit<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>astrona<span class="w"> </span>submit<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
 </code></pre></div>
 <p>Writes a standard JUnit XML report alongside the terminal output — GitHub Actions, GitLab CI, Jenkins, and most other CI systems render this natively as a test report. See <a href="../../guides/ci-integration/">CI Integration</a>.</p>
 <h2 id="submit-vs-test"><code>submit</code> vs <code>test</code><a class="headerlink" href="#submit-vs-test" title="Permanent link">&para;</a></h2>

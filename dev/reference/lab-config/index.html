@@ -2794,12 +2794,12 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <tr>
 <td><code>type</code></td>
 <td>string</td>
-<td><code>"resourceExists"</code> | <code>"podReady"</code> | <code>"command"</code></td>
+<td><code>"resourceExists"</code> | <code>"podReady"</code> | <code>"command"</code> | <code>"jsonpath"</code> | <code>"count"</code> | <code>"http"</code> — see <a href="../../concepts/grading/">Grading</a></td>
 </tr>
 <tr>
 <td><code>resource</code></td>
 <td>string</td>
-<td><code>kubectl</code> resource selector (for <code>resourceExists</code>/<code>podReady</code>)</td>
+<td><code>kubectl get</code> arguments (for <code>resourceExists</code>/<code>podReady</code>/<code>jsonpath</code>/<code>count</code>), e.g. <code>deploy/web -n shop</code> or <code>pods -l app=web -n shop</code></td>
 </tr>
 <tr>
 <td><code>command</code></td>
@@ -2809,7 +2809,37 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <tr>
 <td><code>expect</code></td>
 <td>string</td>
-<td>Exact expected trimmed stdout (for <code>command</code>; omit to just check exit code)</td>
+<td>Exact expected value (trimmed stdout / JSONPath value / body)</td>
+</tr>
+<tr>
+<td><code>contains</code></td>
+<td>string</td>
+<td>Value must contain this</td>
+</tr>
+<tr>
+<td><code>expectRegex</code></td>
+<td>string</td>
+<td>Value must match this regular expression (Go syntax)</td>
+</tr>
+<tr>
+<td><code>jsonpath</code></td>
+<td>string</td>
+<td><code>jsonpath</code> checks: kubectl JSONPath, e.g. <code>{.spec.replicas}</code></td>
+</tr>
+<tr>
+<td><code>min</code> / <code>max</code></td>
+<td>int</td>
+<td><code>count</code> checks: bounds on the number of objects (at least one required)</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>string</td>
+<td><code>http</code> checks: <code>http://</code> or <code>https://</code> URL</td>
+</tr>
+<tr>
+<td><code>expectStatus</code></td>
+<td>int</td>
+<td><code>http</code> checks: expected status (default <code>200</code>)</td>
 </tr>
 <tr>
 <td><code>hint</code></td>
