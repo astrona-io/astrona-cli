@@ -28,6 +28,7 @@ teardown: {}     # TeardownConfig
 | Field | Type | Description |
 |---|---|---|
 | `type` | string | `""`/`"kind"` (default) or `"qemu"` |
+| `kind` | [Kind cluster](#runtimekind) | kind only — node image, node count, networking. Omit for kind's defaults |
 | `qemu` | list of [QEMU VM](#runtimeqemun) | Required when `type: qemu`; always a list, even for one VM |
 | `networks` | list | `{name, cidr}` — named virtual network segments VMs can join |
 | `portForwards` | list of [PortForward](#runtimeportforwardsn) | kind only — host-side port forwards started by `astrona run` |
@@ -105,6 +106,38 @@ lab. `/dev/vda` is guaranteed to be the boot disk regardless of how many
 For labs that must not hard-code a `/dev/vd*` name, set a `serial` on the
 `extraDisks` entry and reference it by the stable
 `/dev/disk/by-id/virtio-<serial>` path instead.
+
+### `runtime.kind`
+
+kind only (rejected for `type: qemu`). Omit it and the lab gets a plain `kind create cluster`: one control-plane node, kind's default node image, kindnet CNI. Every field is optional.
+
+| Field | Type | Description |
+|---|---|---|
+| `version` | string | Kubernetes version, e.g. `v1.31.2` — boots `kindest/node:<version>`. Mutually exclusive with `image` |
+| `image` | string | Full node image reference. Pin by digest for reproducible labs: `kindest/node:v1.31.2@sha256:…` |
+| `nodes.controlPlanes` | int | `1`–`3` (default `1`). More than one adds kind's load balancer container |
+| `nodes.workers` | int | `0`–`6` (default `0`) |
+| `networking.disableDefaultCNI` | bool | Don't install kindnet — the lab installs its own CNI (Calico, Cilium, …) in `bootstrap`. Nodes stay `NotReady` until it does |
+| `networking.kubeProxyMode` | string | `iptables` \| `ipvs` \| `nftables` \| `none` |
+| `networking.ipFamily` | string | `ipv4` \| `ipv6` \| `dual` |
+| `networking.podSubnet` | string | Pod CIDR, e.g. `192.168.0.0/16` (Calico's default) |
+| `networking.serviceSubnet` | string | Service CIDR; must not overlap `podSubnet` |
+| `featureGates` | map[string]bool | Kubernetes feature gates, e.g. `InPlacePodVerticalScaling: true` |
+| `runtimeConfig` | map[string]string | API groups to enable/disable (`"true"`/`"false"`), e.g. `"resource.k8s.io/v1beta1": "true"` |
+
+```yaml
+runtime:
+  type: kind
+  kind:
+    version: v1.31.2
+    nodes:
+      workers: 2
+    networking:
+      disableDefaultCNI: true
+      podSubnet: 192.168.0.0/16
+```
+
+The node image must exist for the `kind` version installed on the student's machine — each [kind release](https://github.com/kubernetes-sigs/kind/releases) lists the node images built for it. Kind config features that reach outside the cluster (`extraMounts`, `extraPortMappings`, `kubeadmConfigPatches`) are deliberately not exposed — see [Runtimes](../concepts/runtimes.md#cluster-shape-runtimekind).
 
 ## `bootstrap` / `testing`
 

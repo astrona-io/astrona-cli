@@ -11,6 +11,30 @@ runtime:
 
 A local Kubernetes cluster via [kind](https://kind.sigs.k8s.io/), on whichever container engine (Docker or Podman) astrona finds first on your `PATH`. This is the default and needs no `runtime:` block at all — every pre-existing lab config with no `runtime.type` keeps working unchanged.
 
+### Cluster shape (`runtime.kind`)
+
+By default a lab gets kind's defaults: one control-plane node, the node image bundled with the installed `kind`, and the kindnet CNI. A lab that needs more declares [`runtime.kind`](../reference/lab-config.md#runtimekind):
+
+```yaml
+runtime:
+  kind:
+    version: v1.31.2          # match the exam's Kubernetes version
+    nodes:
+      workers: 2              # scheduling, taints, drain, DaemonSets
+    networking:
+      disableDefaultCNI: true # bring your own CNI in bootstrap
+      podSubnet: 192.168.0.0/16
+```
+
+astrona renders this into a kind cluster config file (a private temp file, removed afterwards) and runs `kind create cluster --config <file> --image <node image>`. The rendered config is printed in the run log (`astrona logs view`), and the step line shows the shape, e.g. `Create kind cluster "astro-my-lab" (podman; kindest/node:v1.31.2, 1 control plane + 2 workers, no default CNI)`.
+
+Things to know:
+
+- **Version vs. kind release.** `version: v1.31.2` boots `kindest/node:v1.31.2`. Node images are built per kind release, so pick one listed in the release notes of the `kind` version your students use — or pin `image:` by digest from those notes for a fully reproducible lab. If creation fails, the error names the image to check.
+- **`disableDefaultCNI`.** Nodes stay `NotReady` and pods `Pending` until the lab's own `bootstrap` installs a CNI — that's expected, and it's exactly what a CNI lab wants the student (or bootstrap) to fix.
+- **Resources.** Every node is a container. Two workers roughly triples the memory of a single-node lab — keep an eye on Podman/Docker Desktop VM limits. Caps: 3 control planes, 6 workers.
+- **Not exposed, on purpose.** kind's own config can also bind-mount host directories into nodes (`extraMounts`), publish node ports on all interfaces (`extraPortMappings`), and patch kubeadm arbitrarily (`kubeadmConfigPatches`). A lab config can come from any URL or git repo, so astrona only accepts the typed fields above — a remote lab can shape its cluster, but can't use it to reach into the student's machine.
+
 - `bootstrap.manifests` / `testing.manifests` apply against the cluster via `kubectl --context kind-<cluster-name>`.
 - `validation.checks` of type `resourceExists`/`podReady` run against the same context.
 - Scripts (`bootstrap.init`, `teardown.init`, `validation.script`) run on the **host** — there's no VM to SSH into.

@@ -83,7 +83,10 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.R
 
 	switch runtimeType {
 	case RuntimeKind:
-		if err := cluster.CreateKindCluster(name, rep); err != nil {
+		if err := config.ValidateKindConfig(cfg); err != nil {
+			return nil, err
+		}
+		if err := cluster.CreateKindCluster(name, cfg.Kind, rep); err != nil {
 			return nil, err
 		}
 		return &LabEnvironment{
@@ -93,6 +96,9 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.R
 			Executor:    executor.LocalExecutor{},
 		}, nil
 	case RuntimeQEMU:
+		if err := config.ValidateKindConfig(cfg); err != nil {
+			return nil, err
+		}
 		if err := config.ValidateQEMUVMs(cfg.QEMU); err != nil {
 			return nil, err
 		}
