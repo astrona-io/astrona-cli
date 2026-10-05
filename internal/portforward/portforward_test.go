@@ -401,3 +401,23 @@ func TestSuperviseGivesUpWhenClusterGone(t *testing.T) {
 		t.Fatalf("state = %s, want Stopped", st.State)
 	}
 }
+
+func TestPauseKeepsSpecs(t *testing.T) {
+	isolateHome(t)
+	writeForwardState(t, testSpec(), deadPID(t), &Status{State: StateReady})
+
+	n, err := Pause(testLab)
+	if err != nil || n != 1 {
+		t.Fatalf("Pause = %d, %v", n, err)
+	}
+	fs, err := List(testLab)
+	if err != nil || len(fs) != 1 {
+		t.Fatalf("specs after Pause = %v, %v — must be kept for start", fs, err)
+	}
+	if fs[0].Effective() != StateStopped {
+		t.Errorf("paused forward shows %s, want Stopped", fs[0].Effective())
+	}
+	if n, _ := Pause("astro-none"); n != 0 {
+		t.Error("Pause on a lab without forwards should be a no-op")
+	}
+}
