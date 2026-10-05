@@ -172,4 +172,8 @@
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_upgrade/</loc>
          <lastmod>2026-10-05</lastmod>
     </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_validate/</loc>
+         <lastmod>2026-10-05</lastmod>
+    </url>
 </urlset>

@@ -1100,6 +1100,8 @@
       
         
       
+        
+      
     
     
     
@@ -1333,6 +1335,29 @@
   
   <span class="md-ellipsis">
     Astrona check
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_validate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona validate
     
   </span>
   
@@ -2303,8 +2328,10 @@
 </code></pre></div>
 <p>Usually just <code>keepCluster: false</code> (or omitted — that's the default). Add <code>init</code> scripts only if you need to capture state before the cluster disappears.</p>
 <h2 id="7-prove-it-works">7. Prove it works<a class="headerlink" href="#7-prove-it-works" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>path/to/your-lab<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>astrona<span class="w"> </span>validate<span class="w"> </span>-c<span class="w"> </span>path/to/your-lab<span class="w">     </span><span class="c1"># seconds: typos, rules, missing files</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>path/to/your-lab<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
 </code></pre></div>
+<p><code>astrona validate</code> catches config mistakes — a misspelled field, a missing script — without creating anything; see <a href="../../reference/lab-config/#editor-support-and-validation">editor support and validation</a> for autocompletion in your editor.</p>
 <p>This is the whole point of the <code>testing</code> stage: it bootstraps your lab, applies your reference solution, submits it to the Proctor, and tears down — proving a student who does everything right will actually pass. Run this locally before publishing, and wire it into CI (see <a href="../ci-integration/">CI Integration</a>) so a later edit to <code>validation</code> can't silently break the lab's own solution.</p>
 <h2 id="full-schema-reference">Full schema reference<a class="headerlink" href="#full-schema-reference" title="Permanent link">&para;</a></h2>
 <p>See <a href="../../reference/lab-config/">Lab Config Schema</a> for every field, type, and default.</p>
