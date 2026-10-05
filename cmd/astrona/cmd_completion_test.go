@@ -29,7 +29,7 @@ func TestLabNameCandidates(t *testing.T) {
 		{nil, "", "astro-web,astro-db,astro-vm"},
 		{nil, "astro-w", "astro-web"},
 		{nil, "ast", "astro-web,astro-db,astro-vm"}, // still typing the prefix
-		{nil, "w", "web"},                          // unprefixed form once it can't be the prefix
+		{nil, "w", "web"},                           // unprefixed form once it can't be the prefix
 		{isKind, "", "astro-web,astro-db"},
 		{isQEMU, "", "astro-vm"},
 		{isStoppedKind, "", "astro-db"},
