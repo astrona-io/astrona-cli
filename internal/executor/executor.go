@@ -22,13 +22,30 @@ type ScriptExecutor interface {
 
 // LocalExecutor runs a script on the host with bash. This is the same
 // behavior every script execution had before the qemu runtime existed.
-type LocalExecutor struct{}
+//
+// Kubeconfig, when set, is exported as KUBECONFIG — a kind lab's isolated
+// kubeconfig, so a script's plain `kubectl` hits the lab's cluster rather
+// than whatever the user's own current-context points at.
+type LocalExecutor struct {
+	Kubeconfig string
+}
 
-func (LocalExecutor) RunScript(scriptPath string, out io.Writer) error {
+func (e LocalExecutor) RunScript(scriptPath string, out io.Writer) error {
 	cmd := exec.Command("bash", scriptPath)
+	cmd.Env = KubeconfigEnv(e.Kubeconfig)
 	cmd.Stdout = out
 	cmd.Stderr = out
 	return cmd.Run()
+}
+
+// KubeconfigEnv is the current environment with KUBECONFIG set to
+// kubeconfig, or nil (inherit unchanged, exec.Cmd's default) when
+// kubeconfig is "".
+func KubeconfigEnv(kubeconfig string) []string {
+	if kubeconfig == "" {
+		return nil
+	}
+	return append(os.Environ(), "KUBECONFIG="+kubeconfig)
 }
 
 // SSHExecutor runs a script inside a qemu VM over SSH. The script's

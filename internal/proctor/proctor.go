@@ -133,7 +133,11 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 				break
 			}
 
-			out, err := exec.Command(parts[0], parts[1:]...).CombinedOutput()
+			cmd := exec.Command(parts[0], parts[1:]...)
+			// Same KUBECONFIG lab scripts get, so a `kubectl ...` command
+			// check grades the lab's cluster, not the user's own context.
+			cmd.Env = executor.KubeconfigEnv(p.env.Kubeconfig)
+			out, err := cmd.CombinedOutput()
 			trimmed := strings.TrimSpace(string(out))
 
 			if c.Expect != "" {

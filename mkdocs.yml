@@ -87,6 +87,8 @@ nav:
           - reference/cli/astrona_images.md
           - reference/cli/astrona_images_list.md
           - reference/cli/astrona_ssh.md
+          - reference/cli/astrona_shell.md
+          - reference/cli/astrona_kubeconfig.md
           - reference/cli/astrona_upgrade.md
           - reference/cli/astrona_logs.md
           - reference/cli/astrona_logs_list.md

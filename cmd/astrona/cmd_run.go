@@ -74,10 +74,20 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
-// printConnectHints prints, for a qemu lab, the paste-ready `astrona ssh`
-// command to get a shell on each VM. No-op for a kind lab, which has no VM
-// to SSH into.
+// printConnectHints prints how to reach the lab: for a kind lab, the
+// isolated-kubeconfig shell plus the context name (astrona never switches
+// the user's own current-context); for a qemu lab, the paste-ready
+// `astrona ssh` command for each VM.
 func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clusterName string) {
+	if env.Type == runtime.RuntimeKind {
+		fmt.Printf("\nConnect (your own kubectl current-context is unchanged):\n")
+		fmt.Printf("    astrona shell %s                  # shell with kubectl pointed at the lab\n", clusterName)
+		fmt.Printf("    kubectl --context %s ...     # or from any terminal\n", env.KubeContext)
+		if env.Kubeconfig != "" {
+			fmt.Printf("    export KUBECONFIG=%s\n", env.Kubeconfig)
+		}
+		return
+	}
 	if env.Type != runtime.RuntimeQEMU {
 		return
 	}

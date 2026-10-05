@@ -13,7 +13,26 @@ A local Kubernetes cluster via [kind](https://kind.sigs.k8s.io/), on whichever c
 
 - `bootstrap.manifests` / `testing.manifests` apply against the cluster via `kubectl --context kind-<cluster-name>`.
 - `validation.checks` of type `resourceExists`/`podReady` run against the same context.
-- Scripts (`bootstrap.init`, `teardown.init`, `validation.script`) run on the **host** — there's no VM to SSH into.
+- Scripts (`bootstrap.init`, `teardown.init`, `validation.script`) run on the **host** — there's no VM to SSH into — with `KUBECONFIG` set to the lab's own kubeconfig (see below), so a plain `kubectl` in a script always hits the lab.
+
+### Kubeconfig isolation
+
+Every kind lab gets its own kubeconfig, `~/.astrona/kind/<lab>/kubeconfig` (mode `0600`), containing only that cluster. astrona:
+
+- **never changes your kubectl current-context.** `kind create cluster` switches it to the new cluster; astrona records it beforehand and restores it afterwards (or leaves it unset, if it was unset). A lab never silently re-points your plain `kubectl` at a different cluster.
+- still lets kind add the `kind-<lab>` context to your own kubeconfig, so `kubectl --context kind-astro-<lab> …` works from any terminal.
+- runs lab scripts and `command` validation checks with `KUBECONFIG=<lab kubeconfig>`.
+- deletes the file on `astrona destroy`.
+
+To work in a lab:
+
+```sh
+astrona shell my-lab                      # your $SHELL with KUBECONFIG set; `exit` to leave
+astrona shell my-lab -- k9s               # or run one command
+export KUBECONFIG=$(astrona kubeconfig my-lab)
+```
+
+Inside `astrona shell`, `$ASTRONA_LAB` holds the lab name (e.g. add it to your prompt). With no lab-name, both commands use the lab config from `-c`, or the only running kind lab. A lab created by an older astrona (no isolated kubeconfig yet) gets one generated on first use.
 
 ## `qemu`
 
