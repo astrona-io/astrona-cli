@@ -101,6 +101,7 @@ nav:
           - reference/cli/astrona_port-forward_start.md
           - reference/cli/astrona_port-forward_stop.md
           - reference/cli/astrona_upgrade.md
+          - reference/cli/astrona_progress.md
           - reference/cli/astrona_logs.md
           - reference/cli/astrona_logs_list.md
           - reference/cli/astrona_logs_view.md
