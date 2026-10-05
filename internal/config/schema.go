@@ -21,7 +21,7 @@ const SchemaURL = "https://cli.astrona.io/schema/lab-config.schema.json"
 var schemaEnums = map[string][]string{
 	"RuntimeConfig.type":           {"kind", "qemu"},
 	"ResourceItem.type":            {"file", "folder", "url"},
-	"ValidationCheck.type":         {"resourceExists", "podReady", "command"},
+	"ValidationCheck.type":         CheckTypes,
 	"PortForward.scheme":           {"http", "https", "tcp"},
 	"KindNetworking.kubeProxyMode": {"iptables", "ipvs", "nftables", "none"},
 	"KindNetworking.ipFamily":      {"ipv4", "ipv6", "dual"},

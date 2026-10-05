@@ -478,7 +478,10 @@
           "enum": [
             "resourceExists",
             "podReady",
-            "command"
+            "command",
+            "jsonpath",
+            "count",
+            "http"
           ],
           "type": "string"
         },
