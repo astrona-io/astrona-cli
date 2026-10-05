@@ -55,24 +55,23 @@ func countLines(s string) int {
 	return n
 }
 
-func withinBounds(n int, min, max *int) bool {
-	return (min == nil || n >= *min) && (max == nil || n <= *max)
+func withinBounds(n int, lo, hi *int) bool {
+	return (lo == nil || n >= *lo) && (hi == nil || n <= *hi)
 }
 
-func describeBounds(min, max *int) string {
+func dfunc describeBounds(lo, hi *int) string {
 	switch {
-	case min != nil && max != nil && *min == *max:
-		return "exactly " + strconv.Itoa(*min)
-	case min != nil && max != nil:
-		return fmt.Sprintf("%d–%d", *min, *max)
-	case min != nil:
-		return "at least " + strconv.Itoa(*min)
+	case lo != nil && hi != nil && *lo == *hi:
+		return "exactly " + strconv.Itoa(*lo)
+	case lo != nil && hi != nil:
+		return fmt.Sprintf("%d–%d", *lo, *hi)
+	case lo != nil:
+		return "at least " + strconv.Itoa(*lo)
 	default:
-		return "at most " + strconv.Itoa(*max)
+		return "at most " + strconv.Itoa(*hi)
 	}
 }
-
-const (
+ (
 	httpCheckTimeout = 10 * time.Second
 	// maxHTTPCheckBody bounds how much of a response is read for body
 	// matchers.
