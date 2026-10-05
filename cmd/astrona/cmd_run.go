@@ -189,6 +189,18 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, rep *ui.Reporter) error {
 	fmt.Printf("\nLab environment is fully loaded and ready!\n")
 	printConnectHints(env, cfg, clusterName)
 	printPortForwardHints(os.Stdout, forwards)
+	if cfg.Metadata.Docs.ExamQuestion != "" {
+		fmt.Printf("\nYour task: astrona docs question%s   (all docs: astrona docs)\n", configFlagHint(baseDir))
+	}
 	fmt.Printf("Full log: %s\n", rep.LogPath())
 	return nil
+}
+
+// configFlagHint is the " -c <dir>" to append to a suggested command so it
+// finds the same lab config — empty when that's the current directory.
+func configFlagHint(baseDir string) string {
+	if baseDir == "" || baseDir == "." {
+		return ""
+	}
+	return " -c " + baseDir
 }
