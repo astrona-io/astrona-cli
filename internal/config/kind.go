@@ -33,6 +33,9 @@ type KindConfig struct {
 	// RuntimeConfig toggles API groups/versions (kube-apiserver
 	// --runtime-config), e.g. {"resource.k8s.io/v1beta1": "true"}.
 	RuntimeConfig map[string]string `yaml:"runtimeConfig"`
+	// Addons are installed right after the cluster is created — see
+	// KindAddons (addons.go).
+	Addons KindAddons `yaml:"addons"`
 }
 
 // KindNodes is the cluster's node count. Zero values mean kind's defaults
@@ -80,7 +83,7 @@ var (
 func (k *KindConfig) IsZero() bool {
 	return k == nil ||
 		(k.Version == "" && k.Image == "" && k.Nodes == KindNodes{} && k.Networking == KindNetworking{} &&
-			len(k.FeatureGates) == 0 && len(k.RuntimeConfig) == 0)
+			len(k.FeatureGates) == 0 && len(k.RuntimeConfig) == 0 && k.Addons.IsZero())
 }
 
 // NodeImage is the image to boot every node from, or "" for kind's default.
@@ -141,6 +144,9 @@ func ValidateKindConfig(rt RuntimeConfig) error {
 	}
 
 	if err := validateKindNetworking(k.Networking); err != nil {
+		return err
+	}
+	if err := validateKindAddons(rt); err != nil {
 		return err
 	}
 
@@ -215,7 +221,10 @@ func (k *KindConfig) Describe() string {
 		}
 	}
 	parts = append(parts, nodes)
-	if k != nil && k.Networking.DisableDefaultCNI {
+	switch {
+	case k != nil && k.Addons.CNI != "":
+		parts = append(parts, k.Addons.CNI+" CNI")
+	case k != nil && k.Networking.DisableDefaultCNI:
 		parts = append(parts, "no default CNI")
 	}
 	return strings.Join(parts, ", ")

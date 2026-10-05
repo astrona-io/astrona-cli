@@ -124,6 +124,7 @@ kind only (rejected for `type: qemu`). Omit it and the lab gets a plain `kind cr
 | `networking.serviceSubnet` | string | Service CIDR; must not overlap `podSubnet` |
 | `featureGates` | map[string]bool | Kubernetes feature gates, e.g. `InPlacePodVerticalScaling: true` |
 | `runtimeConfig` | map[string]string | API groups to enable/disable (`"true"`/`"false"`), e.g. `"resource.k8s.io/v1beta1": "true"` |
+| `addons` | [Addons](#runtimekindaddons) | Cluster components installed right after the cluster is created |
 
 ```yaml
 runtime:
@@ -135,6 +136,30 @@ runtime:
     networking:
       disableDefaultCNI: true
       podSubnet: 192.168.0.0/16
+```
+
+#### `runtime.kind.addons`
+
+Installed in this order, right after the cluster is created and before `bootstrap`; each one is waited on until ready. Each is pinned to one upstream release whose manifest checksum is built into astrona — see [Addons](../concepts/runtimes.md#addons-runtimekindaddons).
+
+| Field | Type | Description |
+|---|---|---|
+| `cni` | string | `calico` (Calico v3.32.2). Implies `networking.disableDefaultCNI: true` and pod subnet `192.168.0.0/16` (set `podSubnet` to that or leave it out). Enforces NetworkPolicy |
+| `certManager` | bool | cert-manager v1.21.2 |
+| `metricsServer` | bool | metrics-server v0.9.0 (`kubectl top`, HPA), with `--kubelet-insecure-tls` for kind's self-signed kubelet certs |
+| `gatewayAPI` | string | `envoy` — Gateway API CRDs + Envoy Gateway v1.9.2, with GatewayClass `eg` |
+| `gatewayPorts.http` | int | Host port for Gateway listeners on port 80 (default `8080`, on `127.0.0.1`) |
+| `gatewayPorts.https` | int | Host port for Gateway listeners on port 443 (default `8443`, on `127.0.0.1`) |
+
+```yaml
+runtime:
+  kind:
+    nodes: { workers: 1 }
+    addons:
+      cni: calico
+      certManager: true
+      metricsServer: true
+      gatewayAPI: envoy        # Gateways with gatewayClassName: eg
 ```
 
 The node image must exist for the `kind` version installed on the student's machine — each [kind release](https://github.com/kubernetes-sigs/kind/releases) lists the node images built for it. Kind config features that reach outside the cluster (`extraMounts`, `extraPortMappings`, `kubeadmConfigPatches`) are deliberately not exposed — see [Runtimes](../concepts/runtimes.md#cluster-shape-runtimekind).
