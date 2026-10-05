@@ -28,6 +28,20 @@ import (
 // own preloadImages are in its config already).
 const bundleImagesSidecar = ".astrona-bundle-images.json"
 
+// applyBundleImages adds a loaded bundle's addon images to the lab's
+// preloadImages, so `run`/`test`/`reset` load them into the nodes and
+// addons install without a registry. No-op for every other lab.
+func applyBundleImages(cfg *config.LabConfig, baseDir string) {
+	images := labPreloadImages(cfg, baseDir)
+	if cfg.Runtime.Kind == nil {
+		if len(images) == 0 {
+			return
+		}
+		cfg.Runtime.Kind = &config.KindConfig{}
+	}
+	cfg.Runtime.Kind.PreloadImages = images
+}
+
 // labPreloadImages is what to load into the nodes for a lab: its
 // preloadImages plus, for a lab loaded from a bundle, the addon images.
 func labPreloadImages(cfg *config.LabConfig, baseDir string) []string {

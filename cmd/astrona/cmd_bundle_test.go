@@ -44,3 +44,27 @@ func TestLabPreloadImagesWithSidecar(t *testing.T) {
 		t.Fatalf("no kind block + sidecar = %v", got)
 	}
 }
+
+func TestLoadLabForCommandAppliesBundleImages(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("metadata: {name: b}\n"), 0600)
+
+	cfg, _, cleanup, err := LoadLabForCommand(&rootFlags{configPath: dir, fileName: "config.yaml"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanup()
+	if cfg.Runtime.Kind != nil {
+		t.Fatal("a normal lab must stay untouched (no kind block added)")
+	}
+
+	os.WriteFile(filepath.Join(dir, bundleImagesSidecar), []byte(`["registry.k8s.io/metrics-server/metrics-server:v0.9.0"]`), 0600)
+	cfg, _, cleanup, err = LoadLabForCommand(&rootFlags{configPath: dir, fileName: "config.yaml"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanup()
+	if cfg.Runtime.Kind == nil || strings.Join(cfg.Runtime.Kind.PreloadImages, ",") != "registry.k8s.io/metrics-server/metrics-server:v0.9.0" {
+		t.Fatalf("bundle images not applied: %+v", cfg.Runtime.Kind)
+	}
+}
