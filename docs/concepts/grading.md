@@ -33,7 +33,37 @@ validation:
 |---|---|---|
 | `resourceExists` | `kubectl --context <ctx> get <resource>` | exit code 0 |
 | `podReady` | `kubectl --context <ctx> wait --for=condition=Ready --timeout=60s <resource>` | exit code 0 within 60s |
-| `command` | the given shell words directly (not through a shell) | exit code 0, and (if `expect` is set) trimmed stdout equals `expect` exactly |
+| `command` | the given shell words directly (not through a shell) | exit code 0, and every matcher set holds on trimmed stdout |
+| `jsonpath` | `kubectl --context <ctx> get <resource> -o jsonpath=<jsonpath>` | every matcher set holds on the value |
+| `count` | `kubectl --context <ctx> get <resource> -o name` | the number of objects is within `min` / `max` |
+| `http` | `GET <url>` (10s timeout) | status is `expectStatus` (default 200), and every matcher set holds on the body |
+
+**Matchers** (for `command`, `jsonpath`, `http`): `expect` (exact), `contains`, `expectRegex` — set any combination; all must hold.
+
+```yaml
+validation:
+  checks:
+    - name: scaled to 3
+      type: jsonpath
+      resource: deploy/web -n shop
+      jsonpath: "{.spec.replicas}"
+      expect: "3"
+    - name: image pinned
+      type: jsonpath
+      resource: deploy/web -n shop
+      jsonpath: "{.spec.template.spec.containers[0].image}"
+      expectRegex: "^nginx:1\\.27"
+    - name: at least 3 web pods
+      type: count
+      resource: pods -l app=web -n shop
+      min: 3
+    - name: site answers through the gateway
+      type: http
+      url: http://web.localtest.me:8080/
+      contains: Welcome to nginx
+```
+
+A failed check says what it found: `{.spec.replicas} is "2" — want exactly "3"`, `found 2, want at least 3`, `GET … → 404, want 200`. `http` checks reach the lab through a [port forward](runtimes.md#port-forwards) or the [gateway addon](runtimes.md#addons-runtimekindaddons). `astrona validate` checks each check has the fields its type needs.
 
 `resourceExists`/`podReady` always run against the lab's own kubectl context — they require a `kind` runtime (or any runtime with a kubectl-reachable cluster). On a kind lab, `command` checks (and every script) run with `KUBECONFIG` set to the lab's own kubeconfig, so a plain `kubectl ...` grades the lab's cluster regardless of the student's current-context.
 

@@ -459,11 +459,29 @@
         "command": {
           "type": "string"
         },
+        "contains": {
+          "type": "string"
+        },
         "expect": {
           "type": "string"
         },
+        "expectRegex": {
+          "type": "string"
+        },
+        "expectStatus": {
+          "type": "integer"
+        },
         "hint": {
           "type": "string"
+        },
+        "jsonpath": {
+          "type": "string"
+        },
+        "max": {
+          "type": "integer"
+        },
+        "min": {
+          "type": "integer"
         },
         "name": {
           "type": "string"
@@ -478,8 +496,14 @@
           "enum": [
             "resourceExists",
             "podReady",
-            "command"
+            "command",
+            "jsonpath",
+            "count",
+            "http"
           ],
+          "type": "string"
+        },
+        "url": {
           "type": "string"
         }
       },
