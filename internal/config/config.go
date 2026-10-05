@@ -51,6 +51,9 @@ type RuntimeConfig struct {
 	// can join — see QEMUNetworkDef (hypervisor.go). Optional: a qemu lab
 	// with no VM-to-VM networking needs no entry here.
 	Networks []QEMUNetworkDef `yaml:"networks"`
+	// PortForwards are host-side `kubectl port-forward`s astrona keeps
+	// running for a kind lab — see PortForward (portforward.go). kind only.
+	PortForwards []PortForward `yaml:"portForwards"`
 }
 
 // QEMUVM is one entry in runtime.qemu — either the lab's only VM (Name

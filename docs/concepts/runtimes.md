@@ -38,6 +38,54 @@ Things to know:
 - `bootstrap.manifests` / `testing.manifests` apply against the cluster via `kubectl --context kind-<cluster-name>`.
 - `validation.checks` of type `resourceExists`/`podReady` run against the same context.
 - Scripts (`bootstrap.init`, `teardown.init`, `validation.script`) run on the **host** — there's no VM to SSH into.
+- `runtime.portForwards` exposes in-cluster services on `127.0.0.1` — see [Port forwards](#port-forwards).
+
+### Port forwards
+
+A kind lab can declare [`runtime.portForwards`](../reference/lab-config.md#runtimeportforwardsn) so a student reaches in-cluster services from their own browser or client, without running `kubectl port-forward` themselves:
+
+```yaml
+runtime:
+  portForwards:
+    - name: web
+      resource: svc/frontend
+      hostPort: 8080
+      targetPort: 80
+      scheme: http
+```
+
+`astrona run` starts them last, after bootstrap scripts and manifests, waits up to 30s for each to become ready, and prints how to reach them:
+
+```text
+Port forwards (bound to 127.0.0.1 only):
+    web   Ready      http://127.0.0.1:8080   ->  svc/frontend:80 (ns default)    Frontend UI
+    db    NotReady   tcp://127.0.0.1:5432    ->  svc/postgres:5432 (ns data)
+
+  Not ready yet (still retrying in the background):
+    db: error: unable to forward port because pod is not running. Current status=Pending
+```
+
+**How it works.** Each forward gets its own detached supervisor process (a hidden `astrona port-forward supervise`), which runs `kubectl --context kind-<lab> port-forward --address 127.0.0.1 …` and restarts it with backoff (1s doubling up to 10s) whenever it exits — plain `kubectl port-forward` dies whenever the pod behind it restarts. State lives in `~/.astrona/portforward/<lab>/<name>/` (`spec.json`, `status.json`, `supervisor.pid`, `supervisor.log` — check the log when a forward won't come up).
+
+**Status** (`astrona port-forward list`):
+
+| Status | Meaning |
+|---|---|
+| `Ready` | kubectl reported `Forwarding from …` **and** the local port accepts a TCP connection right now |
+| `NotReady` | Supervisor running, kubectl not forwarding yet/again — pod not running, no endpoints, restart backoff |
+| `Error` | The same non-transient kubectl failure 3+ times in a row (e.g. `services "x" not found`) — still retrying, likely needs a fix. "Pod not running yet" and "lost connection to pod" stay `NotReady` however long they last |
+| `Stopped` | Supervisor not running (stopped, killed, reboot, or the cluster was deleted) — `astrona port-forward start -c <config>` |
+
+`Ready` proves kubectl is listening on the host side, not that the application in the pod answers.
+
+**Security.** Forwards always bind `127.0.0.1` — the address can't be set from the config, so a lab config fetched from a URL or git repo can never expose the cluster to your network. Host ports below 1024 are rejected, and `resource`/`namespace` are validated as Kubernetes names before they reach kubectl (passed as an argument list, never through a shell).
+
+**Lifecycle.**
+
+- `astrona run` — starts them (replacing any already running for the lab). A forward that fails or isn't ready yet only warns; the lab is still up.
+- `astrona port-forward list|start|stop` — inspect, (re)start after a reboot, stop. See the [CLI reference](../reference/cli/astrona_port-forward.md).
+- `astrona destroy` — stops them before deleting the cluster. With `teardown.keepCluster: true` they keep running too.
+- `astrona test` — never starts them (CI has no browser, and they'd clash on host ports with a real `run`).
 
 ## `qemu`
 
