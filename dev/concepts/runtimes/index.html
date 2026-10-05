@@ -1038,6 +1038,8 @@
       
         
       
+        
+      
     
     
     
@@ -1340,6 +1342,29 @@
   
   <span class="md-ellipsis">
     Astrona kubeconfig
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_diagnose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona diagnose
     
   </span>
   
@@ -1932,6 +1957,7 @@
 <p>Under the hood astrona adds a NodePort Service (<code>envoy-gateway-system/astrona-gateway</code>, node ports 30080/30443) in front of the shared Envoy and has kind map those node ports to the host — on <code>127.0.0.1</code> only. Gateways report <code>Programmed</code>, so <code>waitFor: [{resource: gateway/lab, condition: Programmed}]</code> works. <code>astrona test</code> installs the same addons but skips the host port mapping, so it never clashes with a running <code>astrona run</code> of the same lab.</p>
 <p>Classic <code>Ingress</code> isn't offered: ingress-nginx is retired upstream. Cilium isn't offered yet (it has no plain-manifest release).</p>
 <ul>
+<li>After <code>kind create cluster</code>, astrona waits until the <code>default</code> ServiceAccount exists before anything else runs — kind returns slightly before the cluster accepts Pods, which used to make a lab's first <code>kubectl apply</code> fail intermittently (<code>serviceaccount "default" not found</code>).</li>
 <li><code>bootstrap.manifests</code> / <code>testing.manifests</code> apply against the cluster via <code>kubectl --context kind-&lt;cluster-name&gt;</code>.</li>
 <li><code>validation.checks</code> of type <code>resourceExists</code>/<code>podReady</code> run against the same context.</li>
 <li>Scripts (<code>bootstrap.init</code>, <code>teardown.init</code>, <code>validation.script</code>) run on the <strong>host</strong> — there's no VM to SSH into — with <code>KUBECONFIG</code> set to the lab's own kubeconfig (see below), so a plain <code>kubectl</code> in a script always hits the lab.</li>

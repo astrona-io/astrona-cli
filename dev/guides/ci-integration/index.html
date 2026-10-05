@@ -781,6 +781,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#diagnostics-on-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Diagnostics on failure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#other-ci-systems" class="md-nav__link">
     <span class="md-ellipsis">
       Other CI systems
@@ -917,6 +926,8 @@
   
     
     
+      
+        
       
         
       
@@ -1274,6 +1285,29 @@
   
   <span class="md-ellipsis">
     Astrona kubeconfig
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_diagnose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona diagnose
     
   </span>
   
@@ -1702,6 +1736,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#diagnostics-on-failure" class="md-nav__link">
+    <span class="md-ellipsis">
+      Diagnostics on failure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#other-ci-systems" class="md-nav__link">
     <span class="md-ellipsis">
       Other CI systems
@@ -1776,7 +1819,7 @@
 <a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./astrona check</span>
 <a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">astrona test</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./astrona test -c . --junit-xml=junit-report.xml</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./astrona test -c . --junit-xml=junit-report.xml --diagnostics-dir=astrona-diagnostics</span>
 <a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>
 <a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Upload JUnit report</span>
 <a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="w">        </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always()</span>
@@ -1784,15 +1827,89 @@
 <a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="w">        </span><span class="nt">with</span><span class="p">:</span>
 <a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">junit-report</span>
 <a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="w">          </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">junit-report.xml</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Upload diagnostics</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a><span class="w">        </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">failure()</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="w">        </span><span class="nt">uses</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">actions/upload-artifact@v7</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="w">        </span><span class="nt">with</span><span class="p">:</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">astrona-diagnostics</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="w">          </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">astrona-diagnostics/</span>
 </code></pre></div>
 <p>Notes:</p>
 <ul>
 <li><code>if: always()</code> on the upload step — a failing <code>astrona test</code> still writes the JUnit report, and you want that artifact whether the check passed or not.</li>
 <li>Docker is already available on GitHub-hosted <code>ubuntu-latest</code> runners, which is all the <code>kind</code> runtime needs. A <code>qemu</code> runtime lab needs <code>/dev/kvm</code> for real hardware acceleration — GitHub-hosted runners don't have it, so a qemu-backed <code>astrona test</code> there would fall back to slow software emulation. Run qemu labs' CI on a self-hosted runner with KVM, or a GitHub-hosted runner that provides it.</li>
+<li><code>--diagnostics-dir</code> puts the <a href="#diagnostics-on-failure">diagnostics bundle</a> inside the workspace so the <code>if: failure()</code> step can upload it.</li>
 <li><code>astrona test</code> always tears down its own environment on exit (even on failure or a cancelled step, best-effort), so a CI job doesn't need its own cleanup step.</li>
 </ul>
+<h2 id="diagnostics-on-failure">Diagnostics on failure<a class="headerlink" href="#diagnostics-on-failure" title="Permanent link">&para;</a></h2>
+<p>A failed CI run used to leave nothing behind but "FAIL" — <code>astrona test</code> tears the cluster down on exit. Now, when it fails, it first collects a diagnostics bundle (before teardown) and prints the unhealthy pods straight into the job log:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Diagnostics bundle: astrona-diagnostics
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  Unhealthy pods (2):
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    default/crasher: app: Error (exit 3); app restarted 2×; app: not ready
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    default/web-7c76977dcb-nxbfw: web: ErrImagePull (failed to pull and unpack image "docker.io/library/does-not-exist:1": … repository does not exist …)
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  12 warning event(s) — see summary.md.
+</code></pre></div>
+<p>The bundle (typically ~1 MB):</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>summary.md</code></td>
+<td>Unhealthy pods with their reason, newest warning events</td>
+</tr>
+<tr>
+<td><code>cluster/</code></td>
+<td><code>kubectl get</code> nodes / pods / workloads / events (+ Gateway API resources if installed), <code>describe nodes</code></td>
+</tr>
+<tr>
+<td><code>pods/</code></td>
+<td><code>describe</code> and logs (plus <code>--previous</code> logs after a restart) for every unhealthy pod</td>
+</tr>
+<tr>
+<td><code>kind-logs/</code></td>
+<td><code>kind export logs</code>: node journal, kubelet, containerd, every pod's log files</td>
+</tr>
+<tr>
+<td><code>vms/</code></td>
+<td>qemu labs: each VM's serial console log</td>
+</tr>
+<tr>
+<td><code>versions.txt</code>, <code>errors.txt</code></td>
+<td>Tool versions; anything that couldn't be collected</td>
+</tr>
+</tbody>
+</table>
+<p>Secrets, ConfigMaps and kubeconfigs are never collected. Pod <code>describe</code> output does include environment variables set inline in a pod spec — keep lab credentials in Secrets, and keep CI artifacts private.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--diagnostics</code></td>
+<td><code>on-failure</code></td>
+<td><code>always</code> to collect on success too, <code>never</code> to skip</td>
+</tr>
+<tr>
+<td><code>--diagnostics-dir</code></td>
+<td><code>~/.astrona/diagnostics/&lt;lab&gt;-&lt;timestamp&gt;</code></td>
+<td>Where to write the bundle</td>
+</tr>
+</tbody>
+</table>
+<p>The same bundle can be collected from a running lab with <a href="../../reference/cli/astrona_diagnose/"><code>astrona diagnose</code></a>.</p>
 <h2 id="other-ci-systems">Other CI systems<a class="headerlink" href="#other-ci-systems" title="Permanent link">&para;</a></h2>
-<p>The same three commands (<code>astrona check</code>, <code>astrona test -c &lt;path&gt; --junit-xml=&lt;path&gt;</code>, upload the XML) work anywhere that can run a Linux binary and understands JUnit XML — GitLab CI (<code>artifacts: reports: junit:</code>), Jenkins (<code>junit</code> post-build step), etc.</p>
+<p>The same commands (<code>astrona check</code>, <code>astrona test -c &lt;path&gt; --junit-xml=&lt;path&gt; --diagnostics-dir=&lt;path&gt;</code>, upload the XML and — on failure — the diagnostics directory) work anywhere that can run a Linux binary and understands JUnit XML — GitLab CI (<code>artifacts: reports: junit:</code>), Jenkins (<code>junit</code> post-build step), etc.</p>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
 <p><code>astrona test</code> (and <code>astrona submit</code>) exit <code>0</code> only on a Proctor PASS. A missing dependency, a failed bootstrap step, or a FAIL verdict all exit non-zero — no extra flag needed to make CI fail correctly.</p>
 
