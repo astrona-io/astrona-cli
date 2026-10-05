@@ -30,6 +30,38 @@ teardown: {}     # TeardownConfig
 | `type` | string | `""`/`"kind"` (default) or `"qemu"` |
 | `qemu` | list of [QEMU VM](#runtimeqemun) | Required when `type: qemu`; always a list, even for one VM |
 | `networks` | list | `{name, cidr}` — named virtual network segments VMs can join |
+| `portForwards` | list of [PortForward](#runtimeportforwardsn) | kind only — host-side port forwards started by `astrona run` |
+
+### `runtime.portForwards[N]`
+
+kind only (rejected for `type: qemu`). Each entry becomes a background, auto-restarting `kubectl port-forward` on `127.0.0.1`, started once `bootstrap` (scripts and manifests) has finished. See [Port forwards](../concepts/runtimes.md#port-forwards).
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | Required. Unique, lowercase DNS label (`a-z`, `0-9`, `-`) — shown in `astrona port-forward list` |
+| `resource` | string | Required. `<kind>/<name>`, kind one of `svc`/`service`, `pod`/`po`, `deploy`/`deployment`, `sts`/`statefulset`, `rs`/`replicaset` — e.g. `svc/frontend` |
+| `namespace` | string | Namespace of `resource` (default `default`) |
+| `hostPort` | int | Required. Local port, `1024`–`65535`, unique within the lab. Always bound to `127.0.0.1` |
+| `targetPort` | int | Required. Port on the service/pod, `1`–`65535` |
+| `scheme` | string | `http` \| `https` \| `tcp` (default) — only changes the URL printed after `run` |
+| `description` | string | Optional, printed next to the URL after `run` |
+
+```yaml
+runtime:
+  type: kind
+  portForwards:
+    - name: web
+      resource: svc/frontend
+      hostPort: 8080
+      targetPort: 80
+      scheme: http
+      description: Frontend UI
+    - name: db
+      resource: svc/postgres
+      namespace: data
+      hostPort: 5432
+      targetPort: 5432
+```
 
 ### `runtime.qemu[N]`
 

@@ -13,6 +13,7 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/hypervisor"
+	"astrona/internal/portforward"
 
 	"github.com/spf13/cobra"
 )
@@ -181,13 +182,18 @@ func collectKindRows() []labRow {
 			uptime = formatUptime(time.Since(started))
 		}
 
+		details := "kubectl --context kind-" + name
+		if n := portforward.Count(name); n > 0 {
+			details += fmt.Sprintf(" (+%d port-forward(s): astrona pf list %s)", n, name)
+		}
+
 		rows = append(rows, labRow{
 			name:    name,
 			runtime: "kind",
 			status:  "Running",
 			uptime:  uptime,
 			nics:    "-", // kind's networking is the container engine's pod/service network, not a per-lab NIC concept astrona owns
-			details: "kubectl --context kind-" + name,
+			details: details,
 		})
 	}
 

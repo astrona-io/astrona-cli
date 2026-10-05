@@ -87,6 +87,10 @@ nav:
           - reference/cli/astrona_images.md
           - reference/cli/astrona_images_list.md
           - reference/cli/astrona_ssh.md
+          - reference/cli/astrona_port-forward.md
+          - reference/cli/astrona_port-forward_list.md
+          - reference/cli/astrona_port-forward_start.md
+          - reference/cli/astrona_port-forward_stop.md
           - reference/cli/astrona_upgrade.md
           - reference/cli/astrona_logs.md
           - reference/cli/astrona_logs_list.md
