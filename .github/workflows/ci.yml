@@ -81,7 +81,7 @@ jobs:
       - name: astrona test (k8s-basics-01)
         run: |
           export PATH="$(go env GOPATH)/bin:$PATH"
-          ./astrona test -c examples/k8s-basics-01 --junit-xml=junit-k8s-basics-01.xml
+          ./astrona test -c examples/k8s-basics-01 --junit-xml=junit-k8s-basics-01.xml --diagnostics-dir=e2e-diagnostics
 
       - name: Upload JUnit report
         if: always()
@@ -89,3 +89,10 @@ jobs:
         with:
           name: e2e-junit-report
           path: junit-k8s-basics-01.xml
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-diagnostics
+          path: e2e-diagnostics/

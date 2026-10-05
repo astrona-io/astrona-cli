@@ -108,6 +108,17 @@ func qemuStateDir(clusterName string) (string, error) {
 	return dir, nil
 }
 
+// ConsoleLogPath is where clusterName's VM writes its serial console
+// (removed with the rest of its state dir on teardown). Doesn't create
+// anything.
+func ConsoleLogPath(clusterName string) (string, error) {
+	base, err := QEMUBaseDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, clusterName, "console.log"), nil
+}
+
 // normalizeArch maps the handful of spellings a lab author might write to
 // the arch name qemu-system-<arch> and Go's runtime.GOARCH both use. An
 // empty arch (config.QEMUConfig.Arch not set at all) resolves to *this host's own*

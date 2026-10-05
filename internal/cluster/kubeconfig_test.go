@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"astrona/internal/ui"
 )
@@ -134,5 +135,36 @@ func TestKubeconfigPathRejectsUnsafeLabNames(t *testing.T) {
 		if _, err := KubeconfigPath(lab); err == nil {
 			t.Errorf("KubeconfigPath(%q) accepted an unsafe name", lab)
 		}
+	}
+}
+
+func TestWaitForDefaultServiceAccount(t *testing.T) {
+	dir := t.TempDir()
+	count := filepath.Join(dir, "n")
+	// Fails twice ("not found"), then succeeds.
+	script := `#!/bin/sh
+n=$(( $(cat "` + count + `" 2>/dev/null || echo 0) + 1 )); echo $n > "` + count + `"
+if [ $n -lt 3 ]; then echo 'Error from server (NotFound): serviceaccounts "default" not found' >&2; exit 1; fi
+echo serviceaccount/default
+`
+	if err := os.WriteFile(filepath.Join(dir, "kubectl"), []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	old := defaultSAPollInterval
+	defaultSAPollInterval = 10 * time.Millisecond
+	t.Cleanup(func() { defaultSAPollInterval = old })
+
+	if err := WaitForDefaultServiceAccount("kind-x", "", 5*time.Second, ui.Discard()); err != nil {
+		t.Fatalf("WaitForDefaultServiceAccount: %v", err)
+	}
+	if got := readFile(t, count); got != "3" {
+		t.Fatalf("attempts = %s, want 3", got)
+	}
+
+	os.WriteFile(count, []byte("-100"), 0600) // never reaches success in time
+	err := WaitForDefaultServiceAccount("kind-x", "", 50*time.Millisecond, ui.Discard())
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("timeout error = %v", err)
 	}
 }

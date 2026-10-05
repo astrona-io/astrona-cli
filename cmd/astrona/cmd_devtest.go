@@ -26,12 +26,17 @@ import (
 // build.
 func newTestCmd(flags *rootFlags) *cobra.Command {
 	var junitPath string
+	var diagMode, diagDir string
 
 	cmd := &cobra.Command{
 		Use:          "test",
 		Short:        "Run the full lab lifecycle for CI: bootstrap, testing, submit, teardown",
 		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
+			if err := validateDiagnosticsMode(diagMode); err != nil {
+				return err
+			}
+
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err
@@ -91,14 +96,14 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("lab setup failed: %w", err)
 			}
 
-			if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {
-				rep.Section("Addons")
-				if err := addons.Install(k.Addons, env.KubeContext, rep); err != nil {
-					return fmt.Errorf("addons failed: %w", err)
-				}
-			}
-
+			// Registered before anything else can fail, so every later failure
+			// (addons included) still gets diagnostics and a teardown.
 			defer func() {
+				if wantDiagnostics(diagMode, retErr) {
+					rep.Section("Diagnostics")
+					collectDiagnostics(env, cfg, clusterName, diagDir, rep)
+				}
+
 				if len(cfg.Teardown.Init) > 0 {
 					rep.Section("Teardown")
 					if err := scripts.RunOnEveryVM(cfg.Teardown.Init, baseDir, env, cfg.Runtime.QEMU, rep); err != nil {
@@ -115,6 +120,13 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 					rep.Warn("cluster delete failed: %s", err)
 				}
 			}()
+
+			if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {
+				rep.Section("Addons")
+				if err := addons.Install(k.Addons, env.KubeContext, rep); err != nil {
+					return fmt.Errorf("addons failed: %w", err)
+				}
+			}
 
 			if scripts.HasBootstrapInit(cfg) {
 				rep.Section("Bootstrap")
@@ -192,6 +204,8 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&junitPath, "junit-xml", "", "Write a JUnit XML test report to this path, for CI systems to parse")
+	cmd.Flags().StringVar(&diagMode, "diagnostics", diagnosticsOnFailure, "When to collect a diagnostics bundle before teardown: on-failure, always, or never")
+	cmd.Flags().StringVar(&diagDir, "diagnostics-dir", "", "Write the diagnostics bundle here (default ~/.astrona/diagnostics/<lab>-<timestamp>) — point it inside your CI workspace to upload it as an artifact")
 
 	return cmd
 }

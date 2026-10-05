@@ -141,6 +141,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.AddCommand(newSSHCmd())
 	rootCmd.AddCommand(newShellCmd(flags))
 	rootCmd.AddCommand(newKubeconfigCmd(flags))
+	rootCmd.AddCommand(newDiagnoseCmd(flags))
 	rootCmd.AddCommand(newPortForwardCmd(flags))
 	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(newLogsCmd())
