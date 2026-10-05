@@ -137,6 +137,10 @@
          <lastmod>2026-10-05</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_reset/</loc>
+         <lastmod>2026-10-05</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_run/</loc>
          <lastmod>2026-10-05</lastmod>
     </url>
@@ -146,6 +150,14 @@
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_ssh/</loc>
+         <lastmod>2026-10-05</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_start/</loc>
+         <lastmod>2026-10-05</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_stop/</loc>
          <lastmod>2026-10-05</lastmod>
     </url>
     <url>

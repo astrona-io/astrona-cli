@@ -658,6 +658,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#starting-over-astrona-reset" class="md-nav__link">
+    <span class="md-ellipsis">
+      Starting over: astrona reset
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#source-types-everywhere" class="md-nav__link">
     <span class="md-ellipsis">
       Source types, everywhere
@@ -1010,6 +1019,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1105,6 +1120,75 @@
   
   <span class="md-ellipsis">
     Astrona destroy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_stop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona stop
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona start
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_reset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona reset
     
   </span>
   
@@ -1790,6 +1874,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#starting-over-astrona-reset" class="md-nav__link">
+    <span class="md-ellipsis">
+      Starting over: astrona reset
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#source-types-everywhere" class="md-nav__link">
     <span class="md-ellipsis">
       Source types, everywhere
@@ -1890,12 +1983,23 @@
 <li><code>init</code> scripts run first — same <code>file</code>/<code>folder</code>/<code>url</code> shape as <code>bootstrap.init</code>, best-effort (a failing teardown script only warns, it never blocks the cluster from being deleted).</li>
 <li><code>keepCluster: true</code> skips deleting the environment afterwards — useful while iterating on a lab locally, since <code>astrona destroy</code> re-run without it will still clean up.</li>
 </ul>
+<h2 id="starting-over-astrona-reset">Starting over: <code>astrona reset</code><a class="headerlink" href="#starting-over-astrona-reset" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>reset<span class="w"> </span>-c<span class="w"> </span>./labs/my-lab<span class="w">          </span><span class="c1"># asks before throwing the lab away</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>astrona<span class="w"> </span>reset<span class="w"> </span>-c<span class="w"> </span>./labs/my-lab<span class="w"> </span>--yes<span class="w">    </span><span class="c1"># no prompt (required in scripts/CI)</span>
+</code></pre></div>
+<p><code>reset</code> runs the lab's <code>teardown</code> scripts, destroys it, and then does everything <code>astrona run</code> does — the lab ends up exactly as a fresh <code>run</code> leaves it (any changes made while working on it are gone). If the lab isn't running, it's simply created.</p>
+<ul>
+<li>The config is validated <strong>before</strong> anything is destroyed — a broken config aborts with "nothing was reset" and leaves the existing lab as it was.</li>
+<li><code>teardown.keepCluster</code> is ignored: reset always recreates.</li>
+<li>In a terminal it asks for confirmation; without a terminal it refuses unless <code>--yes</code> is passed.</li>
+</ul>
+<p>To pause a lab instead of losing it, see <a href="../runtimes/#pausing-a-lab-astrona-stop-astrona-start"><code>astrona stop</code> / <code>astrona start</code></a>.</p>
 <h2 id="source-types-everywhere">Source types, everywhere<a class="headerlink" href="#source-types-everywhere" title="Permanent link">&para;</a></h2>
 <p>Every script/manifest reference (<code>bootstrap.init</code>, <code>bootstrap.manifests</code>, <code>testing.*</code>, <code>teardown.init</code>, <code>validation.script</code>) shares the same <code>ResourceItem</code> shape:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"human-readable</span><span class="nv"> </span><span class="s">label"</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"optional,</span><span class="nv"> </span><span class="s">printed</span><span class="nv"> </span><span class="s">before</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">step</span><span class="nv"> </span><span class="s">runs"</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span><span class="w">      </span><span class="c1"># or "folder" or "url" (manifests: "file" | "folder" | "url")</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"path/or/URL"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"human-readable</span><span class="nv"> </span><span class="s">label"</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"optional,</span><span class="nv"> </span><span class="s">printed</span><span class="nv"> </span><span class="s">before</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">step</span><span class="nv"> </span><span class="s">runs"</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span><span class="w">      </span><span class="c1"># or "folder" or "url" (manifests: "file" | "folder" | "url")</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"path/or/URL"</span>
 </code></pre></div>
 <p><code>url</code> sources are downloaded to a size-capped temp file before running — <code>https://</code> only for the lab config itself, and every download has an explicit byte cap so a misbehaving remote can't exhaust disk.</p>
 <h2 id="command-output">Command output<a class="headerlink" href="#command-output" title="Permanent link">&para;</a></h2>
