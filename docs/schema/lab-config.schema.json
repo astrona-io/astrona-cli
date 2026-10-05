@@ -42,6 +42,21 @@
       },
       "type": "object"
     },
+    "ExamConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "hideHints": {
+          "type": "boolean"
+        },
+        "strict": {
+          "type": "boolean"
+        },
+        "timeLimit": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "GatewayPorts": {
       "additionalProperties": false,
       "properties": {
@@ -169,6 +184,9 @@
       "properties": {
         "bootstrap": {
           "$ref": "#/$defs/BootstrapConfig"
+        },
+        "exam": {
+          "$ref": "#/$defs/ExamConfig"
         },
         "metadata": {
           "$ref": "#/$defs/MetadataConfig"

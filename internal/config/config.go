@@ -236,6 +236,8 @@ type LabConfig struct {
 	Testing    BootstrapConfig  `yaml:"testing"`
 	Validation ValidationConfig `yaml:"validation"`
 	Teardown   TeardownConfig   `yaml:"teardown"`
+	// Exam turns the lab into a timed exam — see ExamConfig (exam.go).
+	Exam ExamConfig `yaml:"exam"`
 
 	// UnknownFields are keys no field reads (typos) — found by
 	// LoadLabConfig, not part of the YAML. Lifecycle commands warn about

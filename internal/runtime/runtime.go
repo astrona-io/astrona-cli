@@ -6,6 +6,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/exam"
 	"astrona/internal/executor"
 	"astrona/internal/hypervisor"
 	"astrona/internal/portforward"
@@ -252,6 +253,9 @@ func DestroyEnvironment(name string, cfg config.RuntimeConfig, rep *ui.Reporter)
 	runtimeType, err := resolveRuntimeType(cfg)
 	if err != nil {
 		return err
+	}
+	if err := exam.Clear(name); err != nil {
+		rep.Warn("%s", err)
 	}
 
 	switch runtimeType {
