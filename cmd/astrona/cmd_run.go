@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"astrona/internal/addons"
 	"astrona/internal/config"
 	"astrona/internal/manifests"
 	"astrona/internal/portforward"
@@ -60,6 +61,13 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime, rep)
 			if err != nil {
 				return fmt.Errorf("lab setup failed: %w", err)
+			}
+
+			if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {
+				rep.Section("Addons")
+				if err := addons.Install(k.Addons, env.KubeContext, rep); err != nil {
+					return fmt.Errorf("addons failed: %w", err)
+				}
 			}
 
 			if scripts.HasBootstrapInit(cfg) {
@@ -122,6 +130,11 @@ func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clust
 		fmt.Printf("    kubectl --context %s ...     # or from any terminal\n", env.KubeContext)
 		if env.Kubeconfig != "" {
 			fmt.Printf("    export KUBECONFIG=%s\n", env.Kubeconfig)
+		}
+		if k := cfg.Runtime.Kind; k != nil && k.Addons.GatewayAPI != "" {
+			p := k.Addons.EffectiveGatewayPorts()
+			fmt.Printf("\nGateway API (GatewayClass %q, listeners on port 80/443, bound to 127.0.0.1 only):\n", addons.GatewayClassName)
+			fmt.Printf("    http://<host>.localtest.me:%d    https://<host>.localtest.me:%d\n", p.HTTP, p.HTTPS)
 		}
 		return
 	}

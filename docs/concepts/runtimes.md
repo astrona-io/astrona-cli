@@ -33,7 +33,48 @@ Things to know:
 - **Version vs. kind release.** `version: v1.31.2` boots `kindest/node:v1.31.2`. Node images are built per kind release, so pick one listed in the release notes of the `kind` version your students use — or pin `image:` by digest from those notes for a fully reproducible lab. If creation fails, the error names the image to check.
 - **`disableDefaultCNI`.** Nodes stay `NotReady` and pods `Pending` until the lab's own `bootstrap` installs a CNI — that's expected, and it's exactly what a CNI lab wants the student (or bootstrap) to fix.
 - **Resources.** Every node is a container. Two workers roughly triples the memory of a single-node lab — keep an eye on Podman/Docker Desktop VM limits. Caps: 3 control planes, 6 workers.
-- **Not exposed, on purpose.** kind's own config can also bind-mount host directories into nodes (`extraMounts`), publish node ports on all interfaces (`extraPortMappings`), and patch kubeadm arbitrarily (`kubeadmConfigPatches`). A lab config can come from any URL or git repo, so astrona only accepts the typed fields above — a remote lab can shape its cluster, but can't use it to reach into the student's machine.
+- **Not exposed, on purpose.** kind's own config can also bind-mount host directories into nodes (`extraMounts`), publish node ports on all interfaces (`extraPortMappings`), and patch kubeadm arbitrarily (`kubeadmConfigPatches`). A lab config can come from any URL or git repo, so astrona only accepts the typed fields above — a remote lab can shape its cluster, but can't use it to reach into the student's machine. (The only host port mapping astrona ever generates is the gateway addon's own, always on `127.0.0.1`.)
+
+### Addons (`runtime.kind.addons`)
+
+Common cluster components a lab can switch on instead of installing them in its own bootstrap scripts:
+
+```yaml
+runtime:
+  kind:
+    addons:
+      cni: calico            # Calico v3.32.2 instead of kindnet — enforces NetworkPolicy
+      certManager: true      # cert-manager v1.21.2
+      metricsServer: true    # metrics-server v0.9.0 — kubectl top, HPA
+      gatewayAPI: envoy      # Gateway API + Envoy Gateway v1.9.2, GatewayClass "eg"
+```
+
+They're installed right after the cluster is created and before `bootstrap`, in a fixed order (CNI first — nothing schedules without one — gateway last), each waited on until it's actually ready, so bootstrap scripts and manifests can rely on them. Adds roughly a minute per addon on a fresh machine, less once images are cached.
+
+**Supply chain.** Each addon is pinned to one upstream release. The manifest's SHA-256 is compiled into astrona; it's downloaded over HTTPS once, verified, cached in `~/.astrona/cache/addons/<sha256>.yaml`, and re-verified on every use — a mismatch is never applied. A lab config chooses *which* addons, never *what* gets applied or from where. New versions arrive with astrona releases.
+
+**Gateway API from the host browser.** With `gatewayAPI: envoy`, every Gateway with `gatewayClassName: eg` shares one Envoy deployment. Listeners on port **80** and **443** are reachable from your machine at `127.0.0.1:8080` / `127.0.0.1:8443` (change with `gatewayPorts`). `*.localtest.me` resolves to `127.0.0.1`, so an HTTPRoute with `hostnames: [web.localtest.me]` is at `http://web.localtest.me:8080`:
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata: { name: lab }
+spec:
+  gatewayClassName: eg
+  listeners: [{ name: http, protocol: HTTP, port: 80 }]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata: { name: web }
+spec:
+  parentRefs: [{ name: lab }]
+  hostnames: [web.localtest.me]
+  rules: [{ backendRefs: [{ name: web, port: 80 }] }]
+```
+
+Under the hood astrona adds a NodePort Service (`envoy-gateway-system/astrona-gateway`, node ports 30080/30443) in front of the shared Envoy and has kind map those node ports to the host — on `127.0.0.1` only. Gateways report `Programmed`, so `waitFor: [{resource: gateway/lab, condition: Programmed}]` works. `astrona test` installs the same addons but skips the host port mapping, so it never clashes with a running `astrona run` of the same lab.
+
+Classic `Ingress` isn't offered: ingress-nginx is retired upstream. Cilium isn't offered yet (it has no plain-manifest release).
 
 - `bootstrap.manifests` / `testing.manifests` apply against the cluster via `kubectl --context kind-<cluster-name>`.
 - `validation.checks` of type `resourceExists`/`podReady` run against the same context.

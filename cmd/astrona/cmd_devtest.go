@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"astrona/internal/addons"
 	"astrona/internal/config"
 	"astrona/internal/junit"
 	"astrona/internal/manifests"
@@ -77,9 +78,24 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				rep.Warn("could not clean up a previous '%s' test environment, proceeding anyway: %s", clusterName, err)
 			}
 
+			// The test cluster must not compete with a real `run` of the
+			// same lab for the gateway's host ports.
+			if cfg.Runtime.Kind != nil {
+				k := *cfg.Runtime.Kind
+				k.Addons.SkipHostPorts = true
+				cfg.Runtime.Kind = &k
+			}
+
 			env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime, rep)
 			if err != nil {
 				return fmt.Errorf("lab setup failed: %w", err)
+			}
+
+			if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {
+				rep.Section("Addons")
+				if err := addons.Install(k.Addons, env.KubeContext, rep); err != nil {
+					return fmt.Errorf("addons failed: %w", err)
+				}
 			}
 
 			defer func() {

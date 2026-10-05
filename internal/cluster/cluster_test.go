@@ -120,3 +120,40 @@ func TestWriteKindConfig(t *testing.T) {
 		t.Error("cleanup did not remove the kind config file")
 	}
 }
+
+func TestBuildKindConfigGatewayAndCalico(t *testing.T) {
+	k := &config.KindConfig{
+		Nodes:  config.KindNodes{Workers: 1},
+		Addons: config.KindAddons{CNI: "calico", GatewayAPI: "envoy", GatewayPorts: config.GatewayPorts{HTTP: 9080}},
+	}
+	data, err := BuildKindConfig(k)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got kindClusterConfig
+	if err := yaml.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if n := got.Networking; n == nil || !n.DisableDefaultCNI || n.PodSubnet != config.CalicoPodSubnet {
+		t.Errorf("calico networking not applied: %+v", got.Networking)
+	}
+
+	maps := got.Nodes[0].ExtraPortMappings
+	want := []kindPortMapping{
+		{ContainerPort: GatewayNodePortHTTP, HostPort: 9080, ListenAddress: "127.0.0.1", Protocol: "TCP"},
+		{ContainerPort: GatewayNodePortHTTPS, HostPort: 8443, ListenAddress: "127.0.0.1", Protocol: "TCP"},
+	}
+	if !reflect.DeepEqual(maps, want) {
+		t.Errorf("control-plane port mappings = %+v, want %+v", maps, want)
+	}
+	if len(got.Nodes[1].ExtraPortMappings) != 0 {
+		t.Error("worker must not get port mappings")
+	}
+
+	k.Addons.SkipHostPorts = true
+	data, _ = BuildKindConfig(k)
+	if strings.Contains(string(data), "extraPortMappings") {
+		t.Errorf("SkipHostPorts must drop the mappings:\n%s", data)
+	}
+}
