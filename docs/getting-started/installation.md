@@ -45,7 +45,39 @@ Make sure `~/.local/bin` is on your shell's `PATH`.
 astrona check
 ```
 
-This prints a ✓/⚠/✗ per dependency and exits non-zero only if a *required* one is missing — optional ones (qemu toolchain, `git`) only warn, since they're only needed for specific runtimes or flags.
+This prints a ✓/⚠/✗ per item and exits non-zero only on a ✗. It checks three things:
+
+**Dependencies.** A missing *required* tool is a ✗; optional ones (qemu toolchain, `git`) only warn, since they're only needed for specific runtimes or flags.
+
+**Container engine.** Whether Docker/Podman is actually running (a stopped `podman machine` or Docker daemon is the most common cause of confusing kind errors), and whether it has enough resources — for Docker Desktop and `podman machine` that's the VM's memory/CPUs, not your Mac's:
+
+| Check | ✗ | ⚠ |
+|---|---|---|
+| Engine reachable (`docker info` / `podman info`) | not running | — |
+| Memory | under 2 GiB | under 4 GiB |
+| CPUs | — | 1 CPU |
+| Rootless engine | on cgroup v1 (kind needs v2) | — |
+| Linux only: `fs.inotify.max_user_watches` / `max_user_instances` | — | under 524288 / 512 (multi-node kind fails with "too many open files") |
+
+Each ⚠/✗ prints the command that fixes it, e.g. `podman machine stop && podman machine set --memory 8192 --cpus 4 && podman machine start`.
+
+**Your lab** — when a lab config is found (`-c`, default `./config.yaml`):
+
+```sh
+astrona check -c ./labs/my-lab
+```
+
+```text
+Lab astro-my-lab:
+  ✓  lab memory estimate                    ~6.9 GiB for this lab of 9.7 GiB
+  ✓  host port 8080                         gateway http, free
+  ✗  host port 18290                        port forward 'web', in use
+        fix: find the user with `lsof -nP -iTCP:18290 -sTCP:LISTEN`, or change the port in the lab config
+```
+
+- **Memory estimate** — a rough figure from the lab's nodes and addons, plus astrona kind labs already running; ⚠ when it's over 75% of the engine's memory.
+- **Host ports** — every `portForwards` host port and the gateway addon's ports must be free (skipped while the lab itself is running).
+- The lab config is validated too (`runtime.kind`, `runtime.portForwards`).
 
 ## Staying up to date
 

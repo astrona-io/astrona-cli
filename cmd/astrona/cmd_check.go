@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"os/exec"
+	goruntime "runtime"
+
+	"astrona/internal/config"
 
 	"github.com/spf13/cobra"
 )
@@ -135,10 +138,15 @@ func astronaDepChecks() []depCheck {
 // dependency. A missing required dependency (the default kind runtime's
 // own toolchain) is a non-zero exit; a missing optional one (qemu, git) is
 // a warning only, since it's only needed for a specific runtime or flag.
-func newCheckCmd() *cobra.Command {
+func newCheckCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
-		Use:          "check",
-		Short:        "Check that astrona's dependencies are installed",
+		Use:   "check",
+		Short: "Check astrona's dependencies, the container engine, and (with a lab config) the lab's needs",
+		Long: "Check that astrona's dependencies are installed, that the container engine is running " +
+			"with enough memory/CPUs (and, on Linux, sufficient inotify limits for multi-node kind), " +
+			"and — when a lab config is found via -c (default: ./config.yaml) — that the lab's " +
+			"estimated memory fits and its host ports are free.\n\n" +
+			"Exits non-zero on any ✗; ⚠ warnings don't fail.",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			checks := astronaDepChecks()
@@ -170,12 +178,31 @@ func newCheckCmd() *cobra.Command {
 				fmt.Printf("        install: %s\n", c.installHint)
 			}
 
+			envRes, engine := checkEngine()
+			if goruntime.GOOS == "linux" {
+				envRes = append(envRes, checkInotify("/proc")...)
+			}
+			envFailed := printCheckResults("Container engine", envRes)
+
+			explicit := cmd.Flags().Changed("config") || cmd.Flags().Changed("file") || cmd.Flags().Changed("git")
+			cfg, cleanup, err := loadLabForCheck(flags, explicit)
+			defer cleanup()
+			if err != nil {
+				return err
+			}
+			if cfg != nil {
+				envFailed += printCheckResults("Lab "+config.NormalizeClusterName(cfg.Metadata.Name), checkLab(cfg, engine))
+			}
+
 			fmt.Println()
 			if missingRequired > 0 {
 				return fmt.Errorf("%d required dependency(ies) missing (see ✗ above) — astrona cannot run until these are installed", missingRequired)
 			}
+			if envFailed > 0 {
+				return fmt.Errorf("%d check(s) failed (see ✗ above)", envFailed)
+			}
 
-			fmt.Println("All required dependencies found. Optional ⚠ warnings above only matter if you use that runtime/flag.")
+			fmt.Println("All required checks passed. ⚠ warnings above are worth fixing but don't block astrona.")
 			return nil
 		},
 	}
