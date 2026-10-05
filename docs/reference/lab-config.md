@@ -2,6 +2,33 @@
 
 The full shape of `config.yaml` (`internal/config.LabConfig`). Every field is optional unless noted — an empty/omitted block simply means that stage does nothing.
 
+## Editor support and validation
+
+Add this first line to a lab's `config.yaml` for autocompletion, hover docs and inline errors in VS Code (with the Red Hat *YAML* extension) and any other editor using yaml-language-server:
+
+```yaml
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+```
+
+The [JSON Schema](https://cli.astrona.io/schema/lab-config.schema.json) is generated from astrona's own config types, so it always matches what the CLI accepts — every object rejects unknown keys, and closed value sets (`runtime.type`, `type: file|folder|url`, check types, …) are enums. It expects the documented spelling (`podReady`); the CLI itself also accepts other letter case for check and source types.
+
+From the command line:
+
+```sh
+astrona validate -c ./labs/my-lab
+```
+
+checks the config without creating anything and exits non-zero on any problem — good as a CI step for lab repositories:
+
+```text
+  ✗  line 3                                 unknown field "waitfor" in bootstrap/testing
+        fix: did you mean "waitFor"?
+  ✗  validation.checks[1]                   unsupported type 'httpGet' (resourceExists, podReady or command)
+  ✗  teardown.init[0] cleanup               local file source does not exist: …/cleanup.sh
+```
+
+**Unknown fields** (typos like `waitfor` or `manifest`) used to be silently ignored, leaving a lab without the gates or manifests its author meant to configure. Now `astrona validate` and `astrona check` fail on them, and `run`/`test`/`submit` print a warning with a did-you-mean (they still run, so a lab that has always worked keeps working).
+
 ## Top level
 
 ```yaml
@@ -224,6 +251,9 @@ While a gate's target doesn't exist yet (`NotFound`, no matching resources, kind
 | `checks` | list of [ValidationCheck](#validationcheck) | Declarative checks |
 | `script` | [ResourceItem](#resourceitem) | Single custom pass/fail script |
 | `scripts` | list of [ResourceItem](#resourceitem) | Additional scripts, run after `script`, in order |
+| `passPercent` | int | `1`–`100`: pass once the score reaches this percentage (e.g. `66`). Unset: every check and script must pass |
+
+Validation scripts also take `hint` and `points` (see `ValidationCheck`).
 
 ### `ValidationCheck`
 
@@ -234,6 +264,8 @@ While a gate's target doesn't exist yet (`NotFound`, no matching resources, kind
 | `resource` | string | `kubectl` resource selector (for `resourceExists`/`podReady`) |
 | `command` | string | Shell words to run directly, no shell interpolation (for `command`) |
 | `expect` | string | Exact expected trimmed stdout (for `command`; omit to just check exit code) |
+| `hint` | string | Shown to the student only when this check fails — a nudge, not the answer |
+| `points` | int | Weight in the score (default `1`) |
 
 ## `teardown`
 
@@ -252,6 +284,8 @@ Shared shape for every script/manifest reference (`bootstrap.init`, `bootstrap.m
 | `description` | string | Optional, printed alongside `name` |
 | `type` | string | `"file"` \| `"folder"` \| `"url"` (manifests support all three; scripts too) |
 | `source` | string | Path (relative to the lab's base directory) or URL, depending on `type` |
+| `hint` | string | Validation scripts only: shown when the script fails |
+| `points` | int | Validation scripts only: weight in the score (default `1`) |
 
 ## Full example
 

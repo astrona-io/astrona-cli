@@ -87,6 +87,7 @@ nav:
           - reference/cli/astrona_submit.md
           - reference/cli/astrona_test.md
           - reference/cli/astrona_check.md
+          - reference/cli/astrona_validate.md
           - reference/cli/astrona_list.md
           - reference/cli/astrona_images.md
           - reference/cli/astrona_images_list.md

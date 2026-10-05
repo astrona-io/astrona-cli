@@ -185,13 +185,13 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 			envFailed := printCheckResults("Container engine", envRes)
 
 			explicit := cmd.Flags().Changed("config") || cmd.Flags().Changed("file") || cmd.Flags().Changed("git")
-			cfg, cleanup, err := loadLabForCheck(flags, explicit)
+			cfg, baseDir, cleanup, err := loadLabForCheck(flags, explicit)
 			defer cleanup()
 			if err != nil {
 				return err
 			}
 			if cfg != nil {
-				envFailed += printCheckResults("Lab "+config.NormalizeClusterName(cfg.Metadata.Name), checkLab(cfg, engine))
+				envFailed += printCheckResults("Lab "+config.NormalizeClusterName(cfg.Metadata.Name), checkLab(cfg, baseDir, engine))
 			}
 
 			fmt.Println()

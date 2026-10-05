@@ -73,8 +73,9 @@ func labKubeconfig(lab string) (string, error) {
 
 func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
-		Use:   "kubeconfig [lab-name]",
-		Short: "Print the path of a kind lab's own kubeconfig",
+		Use:               "kubeconfig [lab-name]",
+		ValidArgsFunction: labCompletion(isKind),
+		Short:             "Print the path of a kind lab's own kubeconfig",
 		Long: "Print the path of a kind lab's isolated kubeconfig (~/.astrona/kind/<lab>/kubeconfig), " +
 			"which contains only that lab's cluster.\n\n" +
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab.",
@@ -98,8 +99,9 @@ func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
 
 func newShellCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
-		Use:   "shell [lab-name] [-- command [args...]]",
-		Short: "Open a shell (or run one command) with kubectl pointed at a kind lab",
+		Use:               "shell [lab-name] [-- command [args...]]",
+		ValidArgsFunction: labCompletion(isKind),
+		Short:             "Open a shell (or run one command) with kubectl pointed at a kind lab",
 		Long: "Open your $SHELL with KUBECONFIG set to a kind lab's isolated kubeconfig, so plain " +
 			"`kubectl`, `helm`, `k9s`, … talk to the lab — without changing your own kubectl " +
 			"current-context. Type `exit` to leave. $" + labShellEnvVar + " holds the lab name inside " +

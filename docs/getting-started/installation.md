@@ -79,6 +79,28 @@ Lab astro-my-lab:
 - **Host ports** — every `portForwards` host port and the gateway addon's ports must be free (skipped while the lab itself is running).
 - The lab config is validated too (`runtime.kind`, `runtime.portForwards`).
 
+## Shell completion
+
+`astrona completion <shell>` prints a completion script for bash, zsh, fish or PowerShell. Besides commands and flags, it completes **lab names** from what's actually on your machine — `astrona destroy <TAB>`, `stop`, `start`, `shell`, `kubeconfig`, `diagnose`, `ssh`, `port-forward list|stop` — filtered to what makes sense (`start` offers stopped labs, `ssh` qemu VMs), each with its runtime and status. Type part of the name without `astro-` and the short form is completed.
+
+=== "zsh"
+
+    ```sh
+    astrona completion zsh > "${fpath[1]}/_astrona"   # then start a new shell
+    ```
+
+=== "bash"
+
+    ```sh
+    astrona completion bash > ~/.local/share/bash-completion/completions/astrona
+    ```
+
+=== "fish"
+
+    ```sh
+    astrona completion fish > ~/.config/fish/completions/astrona.fish
+    ```
+
 ## Staying up to date
 
 ```sh

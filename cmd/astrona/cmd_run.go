@@ -104,6 +104,9 @@ func validateLabForRun(cfg *config.LabConfig) error {
 			return err
 		}
 	}
+	if err := config.ValidateScoring(cfg); err != nil {
+		return err
+	}
 	if err := config.ValidateWaitFor(cfg); err != nil {
 		return err
 	}
