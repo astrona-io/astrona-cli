@@ -79,6 +79,7 @@ nav:
       - CLI Reference:
           - reference/cli/astrona.md
           - reference/cli/astrona_run.md
+          - reference/cli/astrona_docs.md
           - reference/cli/astrona_destroy.md
           - reference/cli/astrona_stop.md
           - reference/cli/astrona_start.md

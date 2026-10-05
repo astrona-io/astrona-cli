@@ -11,10 +11,10 @@
 A kind-provisioned Kubernetes cluster has been prepared for you and is reachable via the `kubectl` context:
 
 ```
-kind-k8s-basics-01
+kind-astro-k8s-basics-01
 ```
 
-Use `--context kind-k8s-basics-01` on every `kubectl` command, or switch to it with `kubectl config use-context kind-k8s-basics-01`, so you don't accidentally target the wrong cluster.
+Work in a lab shell — `astrona shell k8s-basics-01` opens your shell with `kubectl` pointed at the lab — or use `--context kind-astro-k8s-basics-01` on every `kubectl` command, so you don't accidentally target the wrong cluster. (Astrona never switches your own current context.)
 
 ## Task
 
