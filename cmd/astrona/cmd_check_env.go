@@ -282,16 +282,11 @@ func sortedPorts(ports map[int]string) []int {
 
 // checkLab runs the lab-specific checks for cfg. engine may be nil (engine
 // unreachable — memory can't be judged).
-func checkLab(cfg *config.LabConfig, engine *engineInfo) []checkResult {
+func checkLab(cfg *config.LabConfig, baseDir string, engine *engineInfo) []checkResult {
+	// Same config checks as `astrona validate`, typos included.
+	res := labConfigResults(cfg, baseDir)
 	if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" {
-		return []checkResult{{name: "runtime", detail: cfg.Runtime.Type + " — no lab-specific checks for this runtime yet"}}
-	}
-	var res []checkResult
-	if err := config.ValidateKindConfig(cfg.Runtime); err != nil {
-		res = append(res, checkResult{status: checkFail, name: "runtime.kind", detail: err.Error()})
-	}
-	if err := config.ValidatePortForwards(cfg.Runtime); err != nil {
-		res = append(res, checkResult{status: checkFail, name: "runtime.portForwards", detail: err.Error()})
+		return res
 	}
 
 	name := config.NormalizeClusterName(cfg.Metadata.Name)
@@ -341,15 +336,18 @@ func printCheckResults(title string, res []checkResult) int {
 // loadLabForCheck loads the lab config for lab-specific checks. With the
 // default -c ".", a directory without a config is simply "no lab" — only
 // an explicitly given -c/--file/--git that fails to load is an error.
-func loadLabForCheck(flags *rootFlags, explicit bool) (*config.LabConfig, func(), error) {
-	cfg, _, cleanup, err := LoadLabForCommand(flags)
+func loadLabForCheck(flags *rootFlags, explicit bool) (*config.LabConfig, string, func(), error) {
+	cfg, baseDir, cleanup, err := LoadLabForCommand(flags)
 	if err == nil {
-		return cfg, cleanup, nil
+		if strings.HasPrefix(baseDir, "http://") || strings.HasPrefix(baseDir, "https://") {
+			baseDir = ""
+		}
+		return cfg, baseDir, cleanup, nil
 	}
 	if !explicit {
-		return nil, func() {}, nil
+		return nil, "", func() {}, nil
 	}
-	return nil, func() {}, err
+	return nil, "", func() {}, err
 }
 
 func firstLineOf(s string) string {

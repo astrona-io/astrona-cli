@@ -34,6 +34,9 @@ jobs:
       - name: astrona check
         run: ./astrona check
 
+      - name: astrona validate
+        run: ./astrona validate -c .
+
       - name: astrona test
         run: ./astrona test -c . --junit-xml=junit-report.xml --diagnostics-dir=astrona-diagnostics
 
@@ -94,7 +97,7 @@ The same bundle can be collected from a running lab with [`astrona diagnose`](..
 
 ## Other CI systems
 
-The same commands (`astrona check`, `astrona test -c <path> --junit-xml=<path> --diagnostics-dir=<path>`, upload the XML and — on failure — the diagnostics directory) work anywhere that can run a Linux binary and understands JUnit XML — GitLab CI (`artifacts: reports: junit:`), Jenkins (`junit` post-build step), etc.
+The same commands (`astrona check`, `astrona validate -c <path>`, `astrona test -c <path> --junit-xml=<path> --diagnostics-dir=<path>`, upload the XML and — on failure — the diagnostics directory) work anywhere that can run a Linux binary and understands JUnit XML — GitLab CI (`artifacts: reports: junit:`), Jenkins (`junit` post-build step), etc.
 
 ## Exit codes
 

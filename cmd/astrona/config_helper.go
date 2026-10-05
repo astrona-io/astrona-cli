@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"astrona/internal/config"
@@ -26,6 +27,12 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 	cfg, cleanup, err = config.LoadLabConfig(finalPath)
 	if err != nil {
 		return nil, "", func() {}, fmt.Errorf("failed to load lab config: %w", err)
+	}
+
+	// Typos are only warned about here, so a lab that has always worked
+	// keeps working; `astrona validate` / `astrona check` fail on them.
+	for _, u := range cfg.UnknownFields {
+		fmt.Fprintf(os.Stderr, "[WARN] %s %s (ignored — run `astrona validate`)\n", finalPath, u)
 	}
 
 	return cfg, filepath.Dir(finalPath), cleanup, nil

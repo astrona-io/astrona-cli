@@ -2,6 +2,33 @@
 
 The full shape of `config.yaml` (`internal/config.LabConfig`). Every field is optional unless noted — an empty/omitted block simply means that stage does nothing.
 
+## Editor support and validation
+
+Add this first line to a lab's `config.yaml` for autocompletion, hover docs and inline errors in VS Code (with the Red Hat *YAML* extension) and any other editor using yaml-language-server:
+
+```yaml
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+```
+
+The [JSON Schema](https://cli.astrona.io/schema/lab-config.schema.json) is generated from astrona's own config types, so it always matches what the CLI accepts — every object rejects unknown keys, and closed value sets (`runtime.type`, `type: file|folder|url`, check types, …) are enums. It expects the documented spelling (`podReady`); the CLI itself also accepts other letter case for check and source types.
+
+From the command line:
+
+```sh
+astrona validate -c ./labs/my-lab
+```
+
+checks the config without creating anything and exits non-zero on any problem — good as a CI step for lab repositories:
+
+```text
+  ✗  line 3                                 unknown field "waitfor" in bootstrap/testing
+        fix: did you mean "waitFor"?
+  ✗  validation.checks[1]                   unsupported type 'httpGet' (resourceExists, podReady or command)
+  ✗  teardown.init[0] cleanup               local file source does not exist: …/cleanup.sh
+```
+
+**Unknown fields** (typos like `waitfor` or `manifest`) used to be silently ignored, leaving a lab without the gates or manifests its author meant to configure. Now `astrona validate` and `astrona check` fail on them, and `run`/`test`/`submit` print a warning with a did-you-mean (they still run, so a lab that has always worked keeps working).
+
 ## Top level
 
 ```yaml
