@@ -168,6 +168,10 @@ type ResourceItem struct {
 	Description string `yaml:"description"`
 	Type        string `yaml:"type"`
 	Source      string `yaml:"source"`
+	// Hint and Points only apply when the item is a validation script —
+	// see ValidationCheck.
+	Hint   string `yaml:"hint"`
+	Points int    `yaml:"points"`
 }
 
 type BootstrapConfig struct {
@@ -189,6 +193,11 @@ type ValidationCheck struct {
 	Resource string `yaml:"resource"`
 	Command  string `yaml:"command"`
 	Expect   string `yaml:"expect"`
+	// Hint is shown to the student only when this check fails — a nudge,
+	// not the answer.
+	Hint string `yaml:"hint"`
+	// Points weights the check in the score (default 1).
+	Points int `yaml:"points"`
 }
 
 type ValidationConfig struct {
@@ -200,6 +209,10 @@ type ValidationConfig struct {
 	// ever target one VM (ResourceItem.VM): use Scripts to validate more
 	// than one VM's state in a single `astrona submit`.
 	Scripts []ResourceItem `yaml:"scripts"`
+	// PassPercent, when set, passes a submission once its score reaches
+	// this percentage (e.g. 66, like a certification exam). 0 (default)
+	// means every check and script must pass.
+	PassPercent int `yaml:"passPercent"`
 }
 
 // LabConfig is the full shape of a lab's config.yaml.
