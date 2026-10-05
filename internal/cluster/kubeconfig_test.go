@@ -1,0 +1,138 @@
+package cluster
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"astrona/internal/ui"
+)
+
+// fakeKubectl installs a kubectl whose current-context lives in a state
+// file ("" = unset), supporting just the subcommands PreserveCurrentContext
+// uses. Every invocation is appended to a calls log.
+func fakeKubectl(t *testing.T, initial string, haveContext bool) (stateFile, callsFile string) {
+	t.Helper()
+	dir := t.TempDir()
+	stateFile = filepath.Join(dir, "current")
+	callsFile = filepath.Join(dir, "calls")
+	if haveContext {
+		if err := os.WriteFile(stateFile, []byte(initial), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	script := `#!/bin/sh
+echo "$*" >> "` + callsFile + `"
+case "$*" in
+  "config current-context")
+    if [ -s "` + stateFile + `" ]; then cat "` + stateFile + `"; echo; else echo "error: current-context is not set" >&2; exit 1; fi ;;
+  "config use-context "*) printf '%s' "$3" > "` + stateFile + `" ;;
+  "config unset current-context") : > "` + stateFile + `" ;;
+  *) echo "unexpected: $*" >&2; exit 2 ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(dir, "kubectl"), []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return stateFile, callsFile
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	data, _ := os.ReadFile(path)
+	return strings.TrimSpace(string(data))
+}
+
+func TestPreserveCurrentContextRestoresPrevious(t *testing.T) {
+	state, _ := fakeKubectl(t, "my-prod", true)
+
+	restore := PreserveCurrentContext(ui.Discard())
+	os.WriteFile(state, []byte("kind-astro-x"), 0600) // what kind create does
+	restore()
+
+	if got := readFile(t, state); got != "my-prod" {
+		t.Fatalf("current-context = %q, want my-prod restored", got)
+	}
+}
+
+func TestPreserveCurrentContextUnsetsWhenNoneBefore(t *testing.T) {
+	state, _ := fakeKubectl(t, "", false)
+
+	restore := PreserveCurrentContext(ui.Discard())
+	os.WriteFile(state, []byte("kind-astro-x"), 0600)
+	restore()
+
+	if got := readFile(t, state); got != "" {
+		t.Fatalf("current-context = %q, want unset again", got)
+	}
+}
+
+func TestPreserveCurrentContextNoopWhenUnchanged(t *testing.T) {
+	_, calls := fakeKubectl(t, "my-prod", true)
+
+	restore := PreserveCurrentContext(ui.Discard())
+	restore()
+
+	for _, line := range strings.Split(readFile(t, calls), "\n") {
+		if strings.HasPrefix(line, "config use-context") || strings.HasPrefix(line, "config unset") {
+			t.Fatalf("kubeconfig written although context never changed: %q", line)
+		}
+	}
+}
+
+func TestWriteAndRemoveLabKubeconfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	bin := t.TempDir()
+	kind := "#!/bin/sh\n[ \"$1 $2 $3 $4\" = \"get kubeconfig --name astro-x\" ] || exit 3\necho 'apiVersion: v1'\necho 'current-context: kind-astro-x'\n"
+	if err := os.WriteFile(filepath.Join(bin, "kind"), []byte(kind), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	if got := ExistingKubeconfig("astro-x"); got != "" {
+		t.Fatalf("ExistingKubeconfig before write = %q", got)
+	}
+
+	path, err := WriteLabKubeconfig("astro-x", ui.Discard())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(home, ".astrona", "kind", "astro-x", "kubeconfig"); path != want {
+		t.Fatalf("path = %s, want %s", path, want)
+	}
+	if !strings.Contains(readFile(t, path), "current-context: kind-astro-x") {
+		t.Fatalf("kubeconfig content wrong: %q", readFile(t, path))
+	}
+	if info, _ := os.Stat(path); info.Mode().Perm() != 0600 {
+		t.Errorf("kubeconfig mode = %o, want 600", info.Mode().Perm())
+	}
+	if info, _ := os.Stat(filepath.Dir(path)); info.Mode().Perm() != 0700 {
+		t.Errorf("lab dir mode = %o, want 700", info.Mode().Perm())
+	}
+	if got := ExistingKubeconfig("astro-x"); got != path {
+		t.Fatalf("ExistingKubeconfig = %q, want %q", got, path)
+	}
+
+	if err := RemoveLabState("astro-x"); err != nil {
+		t.Fatal(err)
+	}
+	if got := ExistingKubeconfig("astro-x"); got != "" {
+		t.Fatal("kubeconfig still present after RemoveLabState")
+	}
+	if err := RemoveLabState("astro-x"); err != nil {
+		t.Fatalf("second RemoveLabState: %v", err)
+	}
+}
+
+func TestKubeconfigPathRejectsUnsafeLabNames(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	for _, lab := range []string{"", "../x", "a/b", ".hidden", "a..b"} {
+		if _, err := KubeconfigPath(lab); err == nil {
+			t.Errorf("KubeconfigPath(%q) accepted an unsafe name", lab)
+		}
+	}
+}

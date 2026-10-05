@@ -35,7 +35,7 @@ validation:
 | `podReady` | `kubectl --context <ctx> wait --for=condition=Ready --timeout=60s <resource>` | exit code 0 within 60s |
 | `command` | the given shell words directly (not through a shell) | exit code 0, and (if `expect` is set) trimmed stdout equals `expect` exactly |
 
-`resourceExists`/`podReady` always run against the lab's own kubectl context — they require a `kind` runtime (or any runtime with a kubectl-reachable cluster).
+`resourceExists`/`podReady` always run against the lab's own kubectl context — they require a `kind` runtime (or any runtime with a kubectl-reachable cluster). On a kind lab, `command` checks (and every script) run with `KUBECONFIG` set to the lab's own kubeconfig, so a plain `kubectl ...` grades the lab's cluster regardless of the student's current-context.
 
 ### Script checks (`validation.script` / `validation.scripts`)
 

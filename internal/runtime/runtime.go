@@ -48,6 +48,7 @@ type LabEnvironment struct {
 	Type        RuntimeType
 	Name        string
 	KubeContext string                             // "kind-"+name for kind; "" for qemu (no kubectl-reachable cluster this pass)
+	Kubeconfig  string                             // kind: the lab's isolated kubeconfig ("" for a lab created before isolation, or qemu)
 	Executor    executor.ScriptExecutor            // LocalExecutor for kind; SSHExecutor for a single-VM qemu lab; nil for multi-VM qemu
 	Executors   map[string]executor.ScriptExecutor // vm name -> SSHExecutor; only set for a multi-VM qemu lab
 }
@@ -86,14 +87,24 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.R
 		if err := config.ValidateKindConfig(cfg); err != nil {
 			return nil, err
 		}
-		if err := cluster.CreateKindCluster(name, cfg.Kind, rep); err != nil {
+		// kind create always switches the user's current-context to the
+		// new cluster; put it back once it's done, success or not.
+		restoreContext := cluster.PreserveCurrentContext(rep)
+		err := cluster.CreateKindCluster(name, cfg.Kind, rep)
+		restoreContext()
+		if err != nil {
+			return nil, err
+		}
+		kubeconfig, err := cluster.WriteLabKubeconfig(name, rep)
+		if err != nil {
 			return nil, err
 		}
 		return &LabEnvironment{
 			Type:        RuntimeKind,
 			Name:        name,
 			KubeContext: "kind-" + name,
-			Executor:    executor.LocalExecutor{},
+			Kubeconfig:  kubeconfig,
+			Executor:    executor.LocalExecutor{Kubeconfig: kubeconfig},
 		}, nil
 	case RuntimeQEMU:
 		if err := config.ValidateKindConfig(cfg); err != nil {
@@ -189,11 +200,13 @@ func LoadEnvironment(name string, cfg config.RuntimeConfig) (*LabEnvironment, er
 		// kind cluster state is owned by the container engine itself and
 		// queryable by name from any process — no liveness check needed
 		// here, kubectl will fail naturally downstream if it's gone.
+		kubeconfig := cluster.ExistingKubeconfig(name)
 		return &LabEnvironment{
 			Type:        RuntimeKind,
 			Name:        name,
 			KubeContext: "kind-" + name,
-			Executor:    executor.LocalExecutor{},
+			Kubeconfig:  kubeconfig,
+			Executor:    executor.LocalExecutor{Kubeconfig: kubeconfig},
 		}, nil
 	case RuntimeQEMU:
 		if err := config.ValidateQEMUVMs(cfg.QEMU); err != nil {

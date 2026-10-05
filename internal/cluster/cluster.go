@@ -201,6 +201,9 @@ func DeleteKindCluster(clusterName string, rep *ui.Reporter) error {
 	if err := cmd.Run(); err != nil {
 		return t.Fail(err)
 	}
+	if err := RemoveLabState(clusterName); err != nil {
+		return t.Fail(err)
+	}
 	t.Done()
 	return nil
 }

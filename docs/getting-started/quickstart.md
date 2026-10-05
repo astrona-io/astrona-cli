@@ -35,9 +35,20 @@ astrona list
 
 Shows every astrona-managed lab currently running (kind clusters and qemu VMs), with runtime, status, and uptime — a `kubectl get`-style table.
 
+Work with the cluster from a lab shell — your `$SHELL` with `kubectl` pointed at the lab (type `exit` to leave):
+
+```sh
+astrona shell k8s-basics-01
+kubectl get ns
+```
+
+or from any terminal, without switching anything:
+
 ```sh
 kubectl --context kind-astro-k8s-basics-01 get ns
 ```
+
+astrona never changes your own kubectl current-context — see [kubeconfig isolation](../concepts/runtimes.md#kubeconfig-isolation).
 
 ## 4. Submit for grading
 

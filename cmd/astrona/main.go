@@ -37,7 +37,7 @@ var Version = "developer"
 func checkLatestVersion(verbose bool) {
 	warn := func() {
 		if verbose {
-			fmt.Println("[WARN] check version not possible")
+			fmt.Fprintln(os.Stderr, "[WARN] check version not possible")
 		}
 	}
 
@@ -69,7 +69,9 @@ func checkLatestVersion(verbose bool) {
 	latestTag := parts[len(parts)-1]
 
 	if latestTag != "" && latestTag != Version {
-		fmt.Printf("[INFO] A new version of astrona is available: %s (current: %s). Please upgrade!\n\n", latestTag, Version)
+		// stderr, not stdout: commands like `astrona kubeconfig` are meant
+		// for $(...) capture, and the notice must not end up in it.
+		fmt.Fprintf(os.Stderr, "[INFO] A new version of astrona is available: %s (current: %s). Please upgrade!\n\n", latestTag, Version)
 	}
 }
 
@@ -137,6 +139,8 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.AddCommand(newListCmd())
 	rootCmd.AddCommand(newImagesCmd())
 	rootCmd.AddCommand(newSSHCmd())
+	rootCmd.AddCommand(newShellCmd(flags))
+	rootCmd.AddCommand(newKubeconfigCmd(flags))
 	rootCmd.AddCommand(newPortForwardCmd(flags))
 	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(newLogsCmd())
