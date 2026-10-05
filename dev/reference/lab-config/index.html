@@ -934,6 +934,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#runtimekind" class="md-nav__link">
+    <span class="md-ellipsis">
+      runtime.kind
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -945,6 +954,21 @@
       bootstrap / testing
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="bootstrap / testing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#waitfor" class="md-nav__link">
+    <span class="md-ellipsis">
+      WaitFor
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1805,6 +1829,15 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#runtimekind" class="md-nav__link">
+    <span class="md-ellipsis">
+      runtime.kind
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1816,6 +1849,21 @@
       bootstrap / testing
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="bootstrap / testing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#waitfor" class="md-nav__link">
+    <span class="md-ellipsis">
+      WaitFor
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1957,6 +2005,11 @@
 <td><code>""</code>/<code>"kind"</code> (default) or <code>"qemu"</code></td>
 </tr>
 <tr>
+<td><code>kind</code></td>
+<td><a href="#runtimekind">Kind cluster</a></td>
+<td>kind only — node image, node count, networking. Omit for kind's defaults</td>
+</tr>
+<tr>
 <td><code>qemu</code></td>
 <td>list of <a href="#runtimeqemun">QEMU VM</a></td>
 <td>Required when <code>type: qemu</code>; always a list, even for one VM</td>
@@ -1974,7 +2027,7 @@
 </tbody>
 </table>
 <h3 id="runtimeportforwardsn"><code>runtime.portForwards[N]</code><a class="headerlink" href="#runtimeportforwardsn" title="Permanent link">&para;</a></h3>
-<p>kind only (rejected for <code>type: qemu</code>). Each entry becomes a background, auto-restarting <code>kubectl port-forward</code> on <code>127.0.0.1</code>, started once <code>bootstrap</code> (scripts and manifests) has finished. See <a href="../../concepts/runtimes/#port-forwards">Port forwards</a>.</p>
+<p>kind only (rejected for <code>type: qemu</code>). Each entry becomes a background, auto-restarting <code>kubectl port-forward</code> on <code>127.0.0.1</code>, started once <code>bootstrap</code> (scripts, manifests and <code>waitFor</code> gates) has finished. See <a href="../../concepts/runtimes/#port-forwards">Port forwards</a>.</p>
 <table>
 <thead>
 <tr>
@@ -2168,6 +2221,85 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <p>For labs that must not hard-code a <code>/dev/vd*</code> name, set a <code>serial</code> on the
 <code>extraDisks</code> entry and reference it by the stable
 <code>/dev/disk/by-id/virtio-&lt;serial&gt;</code> path instead.</p>
+<h3 id="runtimekind"><code>runtime.kind</code><a class="headerlink" href="#runtimekind" title="Permanent link">&para;</a></h3>
+<p>kind only (rejected for <code>type: qemu</code>). Omit it and the lab gets a plain <code>kind create cluster</code>: one control-plane node, kind's default node image, kindnet CNI. Every field is optional.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>version</code></td>
+<td>string</td>
+<td>Kubernetes version, e.g. <code>v1.31.2</code> — boots <code>kindest/node:&lt;version&gt;</code>. Mutually exclusive with <code>image</code></td>
+</tr>
+<tr>
+<td><code>image</code></td>
+<td>string</td>
+<td>Full node image reference. Pin by digest for reproducible labs: <code>kindest/node:v1.31.2@sha256:…</code></td>
+</tr>
+<tr>
+<td><code>nodes.controlPlanes</code></td>
+<td>int</td>
+<td><code>1</code>–<code>3</code> (default <code>1</code>). More than one adds kind's load balancer container</td>
+</tr>
+<tr>
+<td><code>nodes.workers</code></td>
+<td>int</td>
+<td><code>0</code>–<code>6</code> (default <code>0</code>)</td>
+</tr>
+<tr>
+<td><code>networking.disableDefaultCNI</code></td>
+<td>bool</td>
+<td>Don't install kindnet — the lab installs its own CNI (Calico, Cilium, …) in <code>bootstrap</code>. Nodes stay <code>NotReady</code> until it does</td>
+</tr>
+<tr>
+<td><code>networking.kubeProxyMode</code></td>
+<td>string</td>
+<td><code>iptables</code> | <code>ipvs</code> | <code>nftables</code> | <code>none</code></td>
+</tr>
+<tr>
+<td><code>networking.ipFamily</code></td>
+<td>string</td>
+<td><code>ipv4</code> | <code>ipv6</code> | <code>dual</code></td>
+</tr>
+<tr>
+<td><code>networking.podSubnet</code></td>
+<td>string</td>
+<td>Pod CIDR, e.g. <code>192.168.0.0/16</code> (Calico's default)</td>
+</tr>
+<tr>
+<td><code>networking.serviceSubnet</code></td>
+<td>string</td>
+<td>Service CIDR; must not overlap <code>podSubnet</code></td>
+</tr>
+<tr>
+<td><code>featureGates</code></td>
+<td>map[string]bool</td>
+<td>Kubernetes feature gates, e.g. <code>InPlacePodVerticalScaling: true</code></td>
+</tr>
+<tr>
+<td><code>runtimeConfig</code></td>
+<td>map[string]string</td>
+<td>API groups to enable/disable (<code>"true"</code>/<code>"false"</code>), e.g. <code>"resource.k8s.io/v1beta1": "true"</code></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">runtime</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kind</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1.31.2</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">nodes</span><span class="p">:</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">networking</span><span class="p">:</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="nt">disableDefaultCNI</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">      </span><span class="nt">podSubnet</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.0.0/16</span>
+</code></pre></div>
+<p>The node image must exist for the <code>kind</code> version installed on the student's machine — each <a href="https://github.com/kubernetes-sigs/kind/releases">kind release</a> lists the node images built for it. Kind config features that reach outside the cluster (<code>extraMounts</code>, <code>extraPortMappings</code>, <code>kubeadmConfigPatches</code>) are deliberately not exposed — see <a href="../../concepts/runtimes/#cluster-shape-runtimekind">Runtimes</a>.</p>
 <h2 id="bootstrap-testing"><code>bootstrap</code> / <code>testing</code><a class="headerlink" href="#bootstrap-testing" title="Permanent link">&para;</a></h2>
 <p>Both use the same shape (<code>BootstrapConfig</code>) — <code>testing</code> only runs under <code>astrona test</code>.</p>
 <table>
@@ -2189,8 +2321,102 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <td>list of <a href="#resourceitem">ResourceItem</a></td>
 <td>Applied via <code>kubectl apply</code> (requires a kubectl-reachable cluster)</td>
 </tr>
+<tr>
+<td><code>waitFor</code></td>
+<td>list of <a href="#waitfor">WaitFor</a></td>
+<td>Readiness gates checked in order after <code>manifests</code> (kind only)</td>
+</tr>
 </tbody>
 </table>
+<h3 id="waitfor"><code>WaitFor</code><a class="headerlink" href="#waitfor" title="Permanent link">&para;</a></h3>
+<p>One readiness gate. Target exactly one of: a named object (<code>resource: deploy/web</code>), every object matching a label selector (<code>resource: pod</code> + <code>selector</code>), or every object of a kind (<code>resource: nodes</code> + <code>all: true</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Optional label shown while waiting (defaults to the target)</td>
+</tr>
+<tr>
+<td><code>resource</code></td>
+<td>string</td>
+<td>Required. <code>&lt;kind&gt;/&lt;name&gt;</code>, or a bare <code>&lt;kind&gt;</code> with <code>selector</code>/<code>all</code>. CRD kinds work too: <code>certificates.cert-manager.io/web-tls</code></td>
+</tr>
+<tr>
+<td><code>selector</code></td>
+<td>string</td>
+<td>Label selector, e.g. <code>app=web</code> or <code>tier in (fe,be)</code></td>
+</tr>
+<tr>
+<td><code>all</code></td>
+<td>bool</td>
+<td>Every object of <code>resource</code>'s kind</td>
+</tr>
+<tr>
+<td><code>namespace</code></td>
+<td>string</td>
+<td>Default <code>default</code> (ignored for cluster-scoped kinds like nodes)</td>
+</tr>
+<tr>
+<td><code>condition</code></td>
+<td>string</td>
+<td><code>rollout</code> (<code>kubectl rollout status</code>) or a status condition for <code>kubectl wait --for=condition=&lt;X&gt;</code> (<code>Ready</code>, <code>Available</code>, <code>Complete</code>, <code>Established</code>, …)</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>string</td>
+<td>Go duration, <code>1s</code>–<code>30m</code> (default <code>2m</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Default <code>condition</code> by kind — any other kind must set one:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Default condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>deploy</code>/<code>deployment</code>, <code>sts</code>/<code>statefulset</code>, <code>ds</code>/<code>daemonset</code></td>
+<td><code>rollout</code></td>
+</tr>
+<tr>
+<td><code>pod</code>, <code>node</code></td>
+<td><code>Ready</code></td>
+</tr>
+<tr>
+<td><code>job</code></td>
+<td><code>Complete</code></td>
+</tr>
+<tr>
+<td><code>crd</code>/<code>customresourcedefinition</code></td>
+<td><code>Established</code></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">bootstrap</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">waitFor</span><span class="p">:</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nodes</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">      </span><span class="nt">all</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                 </span><span class="c1"># e.g. after bootstrap installed a CNI</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">      </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3m</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deploy/web</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">      </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shop</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">database</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pod</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">      </span><span class="nt">selector</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">app=postgres</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">      </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">shop</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">      </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5m</span>
+</code></pre></div>
+<p>While a gate's target doesn't exist yet (<code>NotFound</code>, no matching resources, kind not registered yet) it's retried every 2s until the timeout; any other kubectl failure fails the gate immediately. <code>rollout</code> only works for deployments, statefulsets and daemonsets, and needs a name or <code>selector</code>.</p>
 <h2 id="validation"><code>validation</code><a class="headerlink" href="#validation" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2311,46 +2537,46 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 </tbody>
 </table>
 <h2 id="full-example">Full example<a class="headerlink" href="#full-example" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"k8s-basics-01"</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">docs</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span><span class="nt">prerequisites</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/prerequisites.md"</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">examQuestion</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/exam-question.md"</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">caseStudy</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/case-study.md"</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">guide</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/step-by-step-guide.md"</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="nt">bootstrap</span><span class="p">:</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"echo"</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"hello.sh"</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="w">  </span><span class="nt">manifests</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="nt">testing</span><span class="p">:</span>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="w">  </span><span class="nt">manifests</span><span class="p">:</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"solution"</span>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"folder"</span>
-<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"solution"</span>
-<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>
-<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="nt">validation</span><span class="p">:</span>
-<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
-<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"lab-ns</span><span class="nv"> </span><span class="s">namespace</span><span class="nv"> </span><span class="s">exists"</span>
-<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"resourceExists"</span>
-<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="s">"namespace/lab-ns"</span>
-<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a><span class="w">  </span><span class="nt">script</span><span class="p">:</span>
-<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
-<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"validate.sh"</span>
-<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a><span class="w">  </span><span class="nt">scripts</span><span class="p">:</span>
-<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"check-network"</span>
-<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
-<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"validate-network.sh"</span>
-<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>
-<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a><span class="nt">teardown</span><span class="p">:</span>
-<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
-<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"dump-logs"</span>
-<a id="__codelineno-2-38" name="__codelineno-2-38" href="#__codelineno-2-38"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
-<a id="__codelineno-2-39" name="__codelineno-2-39" href="#__codelineno-2-39"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"teardown/dump-logs.sh"</span>
-<a id="__codelineno-2-40" name="__codelineno-2-40" href="#__codelineno-2-40"></a><span class="w">  </span><span class="nt">keepCluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"k8s-basics-01"</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">docs</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="nt">prerequisites</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/prerequisites.md"</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span><span class="nt">examQuestion</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/exam-question.md"</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span><span class="nt">caseStudy</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/case-study.md"</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="nt">guide</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/step-by-step-guide.md"</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="nt">bootstrap</span><span class="p">:</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"echo"</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"hello.sh"</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">  </span><span class="nt">manifests</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="nt">testing</span><span class="p">:</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">  </span><span class="nt">manifests</span><span class="p">:</span>
+<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"solution"</span>
+<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"folder"</span>
+<a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"solution"</span>
+<a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>
+<a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a><span class="nt">validation</span><span class="p">:</span>
+<a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
+<a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"lab-ns</span><span class="nv"> </span><span class="s">namespace</span><span class="nv"> </span><span class="s">exists"</span>
+<a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"resourceExists"</span>
+<a id="__codelineno-4-26" name="__codelineno-4-26" href="#__codelineno-4-26"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="s">"namespace/lab-ns"</span>
+<a id="__codelineno-4-27" name="__codelineno-4-27" href="#__codelineno-4-27"></a><span class="w">  </span><span class="nt">script</span><span class="p">:</span>
+<a id="__codelineno-4-28" name="__codelineno-4-28" href="#__codelineno-4-28"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
+<a id="__codelineno-4-29" name="__codelineno-4-29" href="#__codelineno-4-29"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"validate.sh"</span>
+<a id="__codelineno-4-30" name="__codelineno-4-30" href="#__codelineno-4-30"></a><span class="w">  </span><span class="nt">scripts</span><span class="p">:</span>
+<a id="__codelineno-4-31" name="__codelineno-4-31" href="#__codelineno-4-31"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"check-network"</span>
+<a id="__codelineno-4-32" name="__codelineno-4-32" href="#__codelineno-4-32"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
+<a id="__codelineno-4-33" name="__codelineno-4-33" href="#__codelineno-4-33"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"validate-network.sh"</span>
+<a id="__codelineno-4-34" name="__codelineno-4-34" href="#__codelineno-4-34"></a>
+<a id="__codelineno-4-35" name="__codelineno-4-35" href="#__codelineno-4-35"></a><span class="nt">teardown</span><span class="p">:</span>
+<a id="__codelineno-4-36" name="__codelineno-4-36" href="#__codelineno-4-36"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
+<a id="__codelineno-4-37" name="__codelineno-4-37" href="#__codelineno-4-37"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"dump-logs"</span>
+<a id="__codelineno-4-38" name="__codelineno-4-38" href="#__codelineno-4-38"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
+<a id="__codelineno-4-39" name="__codelineno-4-39" href="#__codelineno-4-39"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"teardown/dump-logs.sh"</span>
+<a id="__codelineno-4-40" name="__codelineno-4-40" href="#__codelineno-4-40"></a><span class="w">  </span><span class="nt">keepCluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </code></pre></div>
 <p>For the CLI's own flags and commands, see the <a href="../cli/astrona/">CLI Reference</a>.</p>
 

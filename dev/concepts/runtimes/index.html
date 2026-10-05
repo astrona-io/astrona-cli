@@ -609,6 +609,15 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#cluster-shape-runtimekind" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cluster shape (runtime.kind)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#port-forwards" class="md-nav__link">
     <span class="md-ellipsis">
       Port forwards
@@ -1692,6 +1701,15 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#cluster-shape-runtimekind" class="md-nav__link">
+    <span class="md-ellipsis">
+      Cluster shape (runtime.kind)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#port-forwards" class="md-nav__link">
     <span class="md-ellipsis">
       Port forwards
@@ -1778,29 +1796,50 @@
 </code></pre></div>
 <h2 id="kind-default"><code>kind</code> (default)<a class="headerlink" href="#kind-default" title="Permanent link">&para;</a></h2>
 <p>A local Kubernetes cluster via <a href="https://kind.sigs.k8s.io/">kind</a>, on whichever container engine (Docker or Podman) astrona finds first on your <code>PATH</code>. This is the default and needs no <code>runtime:</code> block at all — every pre-existing lab config with no <code>runtime.type</code> keeps working unchanged.</p>
+<h3 id="cluster-shape-runtimekind">Cluster shape (<code>runtime.kind</code>)<a class="headerlink" href="#cluster-shape-runtimekind" title="Permanent link">&para;</a></h3>
+<p>By default a lab gets kind's defaults: one control-plane node, the node image bundled with the installed <code>kind</code>, and the kindnet CNI. A lab that needs more declares <a href="../../reference/lab-config/#runtimekind"><code>runtime.kind</code></a>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">runtime</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1.31.2</span><span class="w">          </span><span class="c1"># match the exam's Kubernetes version</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span><span class="nt">nodes</span><span class="p">:</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="nt">workers</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span><span class="w">              </span><span class="c1"># scheduling, taints, drain, DaemonSets</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">networking</span><span class="p">:</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="nt">disableDefaultCNI</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w"> </span><span class="c1"># bring your own CNI in bootstrap</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">      </span><span class="nt">podSubnet</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">192.168.0.0/16</span>
+</code></pre></div>
+<p>astrona renders this into a kind cluster config file (a private temp file, removed afterwards) and runs <code>kind create cluster --config &lt;file&gt; --image &lt;node image&gt;</code>. The rendered config is printed in the run log (<code>astrona logs view</code>), and the step line shows the shape, e.g. <code>Create kind cluster "astro-my-lab" (podman; kindest/node:v1.31.2, 1 control plane + 2 workers, no default CNI)</code>.</p>
+<p>Things to know:</p>
 <ul>
-<li><code>bootstrap.manifests</code> / <code>testing.manifests</code> apply against the cluster via <code>kubectl --context kind-&lt;cluster-name&gt;</code>.</li>
+<li><strong>Version vs. kind release.</strong> <code>version: v1.31.2</code> boots <code>kindest/node:v1.31.2</code>. Node images are built per kind release, so pick one listed in the release notes of the <code>kind</code> version your students use — or pin <code>image:</code> by digest from those notes for a fully reproducible lab. If creation fails, the error names the image to check.</li>
+<li><strong><code>disableDefaultCNI</code>.</strong> Nodes stay <code>NotReady</code> and pods <code>Pending</code> until the lab's own <code>bootstrap</code> installs a CNI — that's expected, and it's exactly what a CNI lab wants the student (or bootstrap) to fix.</li>
+<li><strong>Resources.</strong> Every node is a container. Two workers roughly triples the memory of a single-node lab — keep an eye on Podman/Docker Desktop VM limits. Caps: 3 control planes, 6 workers.</li>
+<li>
+<p><strong>Not exposed, on purpose.</strong> kind's own config can also bind-mount host directories into nodes (<code>extraMounts</code>), publish node ports on all interfaces (<code>extraPortMappings</code>), and patch kubeadm arbitrarily (<code>kubeadmConfigPatches</code>). A lab config can come from any URL or git repo, so astrona only accepts the typed fields above — a remote lab can shape its cluster, but can't use it to reach into the student's machine.</p>
+</li>
+<li>
+<p><code>bootstrap.manifests</code> / <code>testing.manifests</code> apply against the cluster via <code>kubectl --context kind-&lt;cluster-name&gt;</code>.</p>
+</li>
 <li><code>validation.checks</code> of type <code>resourceExists</code>/<code>podReady</code> run against the same context.</li>
 <li>Scripts (<code>bootstrap.init</code>, <code>teardown.init</code>, <code>validation.script</code>) run on the <strong>host</strong> — there's no VM to SSH into.</li>
 <li><code>runtime.portForwards</code> exposes in-cluster services on <code>127.0.0.1</code> — see <a href="#port-forwards">Port forwards</a>.</li>
 </ul>
 <h3 id="port-forwards">Port forwards<a class="headerlink" href="#port-forwards" title="Permanent link">&para;</a></h3>
 <p>A kind lab can declare <a href="../../reference/lab-config/#runtimeportforwardsn"><code>runtime.portForwards</code></a> so a student reaches in-cluster services from their own browser or client, without running <code>kubectl port-forward</code> themselves:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">runtime</span><span class="p">:</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">portForwards</span><span class="p">:</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">web</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">svc/frontend</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="nt">hostPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">      </span><span class="nt">scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">runtime</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">portForwards</span><span class="p">:</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">web</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">svc/frontend</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">      </span><span class="nt">hostPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
 </code></pre></div>
-<p><code>astrona run</code> starts them last, after bootstrap scripts and manifests, waits up to 30s for each to become ready, and prints how to reach them:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Port forwards (bound to 127.0.0.1 only):
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    web   Ready      http://127.0.0.1:8080   -&gt;  svc/frontend:80 (ns default)    Frontend UI
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    db    NotReady   tcp://127.0.0.1:5432    -&gt;  svc/postgres:5432 (ns data)
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  Not ready yet (still retrying in the background):
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    db: error: unable to forward port because pod is not running. Current status=Pending
+<p><code>astrona run</code> starts them last, after bootstrap scripts, manifests and <code>waitFor</code> gates, waits up to 30s for each to become ready, and prints how to reach them:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>Port forwards (bound to 127.0.0.1 only):
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    web   Ready      http://127.0.0.1:8080   -&gt;  svc/frontend:80 (ns default)    Frontend UI
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    db    NotReady   tcp://127.0.0.1:5432    -&gt;  svc/postgres:5432 (ns data)
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  Not ready yet (still retrying in the background):
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    db: error: unable to forward port because pod is not running. Current status=Pending
 </code></pre></div>
 <p><strong>How it works.</strong> Each forward gets its own detached supervisor process (a hidden <code>astrona port-forward supervise</code>), which runs <code>kubectl --context kind-&lt;lab&gt; port-forward --address 127.0.0.1 …</code> and restarts it with backoff (1s doubling up to 10s) whenever it exits — plain <code>kubectl port-forward</code> dies whenever the pod behind it restarts. State lives in <code>~/.astrona/portforward/&lt;lab&gt;/&lt;name&gt;/</code> (<code>spec.json</code>, <code>status.json</code>, <code>supervisor.pid</code>, <code>supervisor.log</code> — check the log when a forward won't come up).</p>
 <p><strong>Status</strong> (<code>astrona port-forward list</code>):</p>
@@ -1841,17 +1880,17 @@
 </ul>
 <h2 id="qemu"><code>qemu</code><a class="headerlink" href="#qemu" title="Permanent link">&para;</a></h2>
 <p>Boots one or more full virtual machines from a base image instead of a container-backed cluster — for labs that need a real OS: kernel modules, systemd, package managers, multi-host networking, anything a container can't give you.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">runtime</span><span class="p">:</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">qemu</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">qemu</span><span class="p">:</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">image</span><span class="p">:</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">url</span><span class="w">          </span><span class="c1"># "file" | "url" | "oci"</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">        </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"https://cloud-images.ubuntu.com/.../noble-server-cloudimg-amd64.img"</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">        </span><span class="nt">checksum</span><span class="p">:</span><span class="w"> </span><span class="s">"sha256:..."</span><span class="w">   </span><span class="c1"># optional but strongly recommended</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">      </span><span class="nt">arch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">amd64</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">      </span><span class="nt">cpus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">      </span><span class="nt">memoryMB</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2048</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">      </span><span class="nt">diskSizeGB</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">runtime</span><span class="p">:</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">qemu</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">qemu</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">image</span><span class="p">:</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">        </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">url</span><span class="w">          </span><span class="c1"># "file" | "url" | "oci"</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">        </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"https://cloud-images.ubuntu.com/.../noble-server-cloudimg-amd64.img"</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">        </span><span class="nt">checksum</span><span class="p">:</span><span class="w"> </span><span class="s">"sha256:..."</span><span class="w">   </span><span class="c1"># optional but strongly recommended</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">      </span><span class="nt">arch</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">amd64</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">      </span><span class="nt">cpus</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">      </span><span class="nt">memoryMB</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2048</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">      </span><span class="nt">diskSizeGB</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
 </code></pre></div>
 <p>Key differences from <code>kind</code>:</p>
 <ul>
@@ -1891,21 +1930,21 @@
 </table>
 <h3 id="single-vm-vs-multi-vm">Single VM vs multi-VM<a class="headerlink" href="#single-vm-vs-multi-vm" title="Permanent link">&para;</a></h3>
 <p><code>runtime.qemu</code> is always a list. A single-VM lab is a one-element list whose entry has no <code>name</code> — the original shape every qemu lab used. Add a second entry (each one now named) to make it a multi-VM lab:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">runtime</span><span class="p">:</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">qemu</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">networks</span><span class="p">:</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internal</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">      </span><span class="nt">cidr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.10.0.0/24</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">qemu</span><span class="p">:</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jumphost</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">      </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">url</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="s">"..."</span><span class="p p-Indicator">,</span><span class="nt"> checksum</span><span class="p">:</span><span class="w"> </span><span class="s">"sha256:..."</span><span class="w"> </span><span class="p p-Indicator">}</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">      </span><span class="nt">networks</span><span class="p">:</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">internal</span><span class="p p-Indicator">,</span><span class="nt"> ipv4</span><span class="p">:</span><span class="w"> </span><span class="nv">10.10.0.10</span><span class="w"> </span><span class="p p-Indicator">}</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">      </span><span class="nt">sshAccess</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">backend</span><span class="p p-Indicator">]</span><span class="w">     </span><span class="c1"># passwordless SSH from jumphost into backend</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">backend</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">      </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">url</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="s">"..."</span><span class="p p-Indicator">,</span><span class="nt"> checksum</span><span class="p">:</span><span class="w"> </span><span class="s">"sha256:..."</span><span class="w"> </span><span class="p p-Indicator">}</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">      </span><span class="nt">networks</span><span class="p">:</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">internal</span><span class="p p-Indicator">,</span><span class="nt"> ipv4</span><span class="p">:</span><span class="w"> </span><span class="nv">10.10.0.11</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">runtime</span><span class="p">:</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">qemu</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">networks</span><span class="p">:</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internal</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">      </span><span class="nt">cidr</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10.10.0.0/24</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">qemu</span><span class="p">:</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jumphost</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">      </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">url</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="s">"..."</span><span class="p p-Indicator">,</span><span class="nt"> checksum</span><span class="p">:</span><span class="w"> </span><span class="s">"sha256:..."</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">      </span><span class="nt">networks</span><span class="p">:</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">internal</span><span class="p p-Indicator">,</span><span class="nt"> ipv4</span><span class="p">:</span><span class="w"> </span><span class="nv">10.10.0.10</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">      </span><span class="nt">sshAccess</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">backend</span><span class="p p-Indicator">]</span><span class="w">     </span><span class="c1"># passwordless SSH from jumphost into backend</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">backend</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">      </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">url</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="s">"..."</span><span class="p p-Indicator">,</span><span class="nt"> checksum</span><span class="p">:</span><span class="w"> </span><span class="s">"sha256:..."</span><span class="w"> </span><span class="p p-Indicator">}</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="w">      </span><span class="nt">networks</span><span class="p">:</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">internal</span><span class="p p-Indicator">,</span><span class="nt"> ipv4</span><span class="p">:</span><span class="w"> </span><span class="nv">10.10.0.11</span><span class="w"> </span><span class="p p-Indicator">}</span>
 </code></pre></div>
 <p>In a multi-VM lab:</p>
 <ul>
