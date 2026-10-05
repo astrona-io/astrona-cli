@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# [[.Name]] — scaffolded by `astrona init lab`. Reference:
+# https://cli.astrona.io/reference/lab-config/
+metadata:
+  name: [[.Name]]
+  docs:
+    prerequisites: docs/prerequisites.md
+    examQuestion: docs/exam-question.md
+    caseStudy: docs/case-study.md
+    guide: docs/step-by-step-guide.md
+
+runtime:
+  type: kind
+  kind:
+    preloadImages:
+      - nginx:1.27-alpine        # what the solution runs — no pulls at lab start
+    # nodes: { workers: 1 }
+    # addons: { metricsServer: true, gatewayAPI: envoy }
+
+# What the student starts with.
+bootstrap:
+  manifests:
+    - name: shop namespace
+      type: file
+      source: manifests/namespace.yaml
+  waitFor:
+    - resource: nodes
+      all: true
+
+# The reference solution — only `astrona test` applies it, to prove the
+# checks below pass for a correct answer.
+testing:
+  manifests:
+    - name: reference solution
+      type: folder
+      source: solution/
+  waitFor:
+    - resource: deploy/web
+      namespace: shop
+
+validation:
+  # passPercent: 66               # pass at a score instead of all-checks
+  checks:
+    - name: Deployment web runs 2 replicas
+      type: jsonpath
+      resource: deploy/web -n shop
+      jsonpath: "{.spec.replicas}"
+      expect: "2"
+      points: 2
+      hint: "Look at spec.replicas — kubectl scale can change it."
+    - name: web uses nginx 1.27
+      type: jsonpath
+      resource: deploy/web -n shop
+      jsonpath: "{.spec.template.spec.containers[0].image}"
+      expectRegex: "^nginx:1\\.27"
+      hint: "Check the container image tag."
+    - name: 2 web pods exist
+      type: count
+      resource: pods -l app=web -n shop
+      min: 2
+      hint: "The pods need the label app=web."
+    - name: Service web exists
+      type: resourceExists
+      resource: svc/web -n shop
+      hint: "kubectl expose can create a Service for a Deployment."
+
+# exam:
+#   timeLimit: 30m
+#   hideHints: true

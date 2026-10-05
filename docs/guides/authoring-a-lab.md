@@ -132,6 +132,14 @@ astrona content build atp https://github.com/astrona-io/kubernetes-networking-at
 
 ---
 
+## Starting from a working lab
+
+```sh
+astrona init lab ./k8s-web-01
+```
+
+Creates a complete kind lab you can run immediately and reshape into yours: `config.yaml` (editor schema, preloaded image, readiness gates, `jsonpath` / `count` / `resourceExists` checks with hints and points, commented addon and exam options), the four student docs, a bootstrap manifest, a reference solution in `solution/` for `astrona test`, and `.github/workflows/lab.yml` running `astrona validate` + `astrona test` on every pull request. As generated it passes `validate` and `test`, and its step-by-step guide solves it. The sections below explain each part.
+
 ## 1. Metadata
 
 ```yaml

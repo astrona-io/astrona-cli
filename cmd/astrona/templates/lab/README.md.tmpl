@@ -1,0 +1,13 @@
+# [[.Name]]
+
+An [Astrona](https://cli.astrona.io) lab.
+
+```sh
+astrona run -c .            # start it
+astrona docs question       # read the task
+astrona submit --watch      # live feedback while you work
+astrona submit              # record an attempt
+astrona destroy -c .        # clean up
+```
+
+Authoring: `astrona validate -c .` checks the config; `astrona test -c .` proves the reference solution in `solution/` passes every check. `.github/workflows/lab.yml` runs both on every pull request.

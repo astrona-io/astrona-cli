@@ -1,0 +1,9 @@
+# [[.Name]] — case study
+
+The shop team needs their storefront running in the cluster: two copies of an nginx web server for availability, reachable inside the cluster through a stable name.
+
+Hints:
+
+- A **Deployment** keeps a set number of identical pods running.
+- A **Service** gives those pods one stable name and address.
+- The Service finds its pods by **label** — the pods' labels and the Service selector must match.

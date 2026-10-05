@@ -1,0 +1,12 @@
+# [[.Name]] — step-by-step solution
+
+```sh
+astrona shell [[.Name]]
+kubectl -n shop create deployment web --image=nginx:1.27-alpine --replicas=2
+kubectl -n shop expose deployment web --port=80
+kubectl -n shop get deploy,pods,svc
+exit
+astrona submit
+```
+
+`kubectl create deployment web` labels the pods `app=web`, which is what both the Service selector and the checks look for.
