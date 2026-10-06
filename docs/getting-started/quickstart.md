@@ -8,7 +8,7 @@ This walks through the full loop — bring a lab up, work on it, get graded, tea
 astrona check
 ```
 
-Fix anything reported as `✗` before continuing — `kind`, Docker/Podman, and `kubectl` are required for this example.
+Fix anything reported as `✗` before continuing (and if something breaks later, `astrona doctor` checks the machine, the lab and the running lab in one go) — `kind`, Docker/Podman, and `kubectl` are required for this example.
 
 ## 2. Pick the lab and bring it up
 

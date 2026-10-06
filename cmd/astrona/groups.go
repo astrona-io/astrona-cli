@@ -45,6 +45,7 @@ func commandGroups(flags *rootFlags) []commandGroup {
 			newBundleCmd(flags),
 		}},
 		{"debug", "Troubleshoot:", []*cobra.Command{
+			newDoctorCmd(flags),
 			newCheckCmd(flags),
 			newDiagnoseCmd(flags),
 			newLogsCmd(),
