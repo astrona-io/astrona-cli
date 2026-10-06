@@ -22,9 +22,13 @@ import (
 // kindLabConfig is linked cluster l of cfg as a lab of its own, for
 // upLab: l's cluster shape and bootstrap, named <lab>-<name>.
 func kindLabConfig(cfg *config.LabConfig, l config.KindLab) *config.LabConfig {
+	k := l.Cluster()
+	if parent := cfg.Runtime.Kind; parent != nil && parent.SharedCA {
+		k.SharedCA, k.CALab = true, parent.CALab
+	}
 	return &config.LabConfig{
 		Metadata:  config.MetadataConfig{Name: cfg.Metadata.Name + "-" + l.Name},
-		Runtime:   config.RuntimeConfig{Type: string(runtime.RuntimeKind), Kind: l.Cluster()},
+		Runtime:   config.RuntimeConfig{Type: string(runtime.RuntimeKind), Kind: k},
 		Bootstrap: l.Bootstrap,
 	}
 }

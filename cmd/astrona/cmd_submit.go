@@ -68,6 +68,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			}
 			links, _ := labLinks(clusterName)
 			env.WithLinks(links)
+			env.AddEnv(labCAEnv(clusterName)...)
 
 			rep, err := ui.NewReporter("submit", cfg.Metadata.Name, flags.verbose)
 			if err != nil {

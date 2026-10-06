@@ -200,6 +200,7 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 			kubeconfigs := shellKubeconfigs(kubeconfig, target, links, cluster.ExistingKubeconfig)
 			env := append(os.Environ(), "KUBECONFIG="+strings.Join(kubeconfigs, string(os.PathListSeparator)), labShellEnvVar+"="+lab)
 			env = append(env, linkEnv...)
+			env = append(env, labCAEnv(lab)...)
 
 			if len(command) > 0 {
 				c := exec.Command(command[0], command[1:]...)

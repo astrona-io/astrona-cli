@@ -124,3 +124,46 @@ func TestShellKubeconfigs(t *testing.T) {
 		t.Errorf("no links = %v", err)
 	}
 }
+
+func TestSharedCAManifestsAndPropagation(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	ca, err := cluster.EnsureLabCA("astro-ca-lab")
+	if err != nil {
+		t.Fatal(err)
+	}
+	with, err := sharedCAManifests(ca, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"kind: ConfigMap", "ca.crt:", "kind: Secret", "type: kubernetes.io/tls", "namespace: cert-manager", "kind: ClusterIssuer", "secretName: astrona-ca"} {
+		if !strings.Contains(string(with), want) {
+			t.Errorf("with cert-manager: missing %q", want)
+		}
+	}
+	without, _ := sharedCAManifests(ca, false)
+	if strings.Contains(string(without), "ClusterIssuer") || strings.Contains(string(without), "namespace: cert-manager") {
+		t.Errorf("without cert-manager:\n%s", without)
+	}
+
+	cfg := &config.LabConfig{Metadata: config.MetadataConfig{Name: "ca-lab"}, Runtime: config.RuntimeConfig{Kind: &config.KindConfig{SharedCA: true, Labs: []config.KindLab{{Name: "idp"}}}}}
+	if err := prepareSharedCA(cfg, "astro-ca-lab"); err != nil {
+		t.Fatal(err)
+	}
+	sub := kindLabConfig(cfg, cfg.KindLabs()[0])
+	if !sub.Runtime.Kind.SharedCA || sub.Runtime.Kind.CALab != "astro-ca-lab" {
+		t.Errorf("linked cluster doesn't install the lab's CA: %+v", sub.Runtime.Kind)
+	}
+	if env := labCAEnv("astro-ca-lab"); len(env) != 1 || env[0] != caEnvVar+"="+ca.CertPath {
+		t.Errorf("labCAEnv = %v", env)
+	}
+}
+
+func TestWebhookNotReady(t *testing.T) {
+	refused := `Error from server (InternalError): error when creating "STDIN": Internal error occurred: failed calling webhook "webhook.cert-manager.io": failed to call webhook: Post "https://cert-manager-webhook.cert-manager.svc:443/validate?timeout=30s": dial tcp 10.96.149.246:443: connect: connection refused`
+	if !webhookNotReady(refused) {
+		t.Error("webhook not serving yet should be retried")
+	}
+	if webhookNotReady(`Error from server (BadRequest): error when creating "STDIN": ClusterIssuer in version "v1" cannot be handled`) {
+		t.Error("a real error must not be retried")
+	}
+}

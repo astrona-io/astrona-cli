@@ -162,6 +162,9 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 			destroyOwnedClusters(ownedClusters(clusterName, cfg.KindLabs()), rep)
 		}
 	}()
+	if err := prepareSharedCA(cfg, clusterName); err != nil {
+		return nil, false, err
+	}
 	links, err := startKindLabs(cfg, baseDir, clusterName, true, flags.parallel, rep)
 	if err != nil {
 		return nil, false, err
@@ -217,6 +220,10 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 		if err := addons.Install(k.Addons, env.KubeContext, rep); err != nil {
 			return nil, false, fmt.Errorf("addons failed: %w", err)
 		}
+	}
+
+	if err := installSharedCA(cfg, env, rep); err != nil {
+		return nil, false, err
 	}
 
 	if err := waitForClusterDNS(cfg, env, rep); err != nil {
