@@ -1122,6 +1122,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="metadata">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Names
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3394,6 +3411,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="metadata">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Names
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3656,7 +3690,7 @@
 <tr>
 <td><code>name</code></td>
 <td>string</td>
-<td>Lab name — becomes the cluster/VM name, prefixed <code>astro-</code></td>
+<td>Lab name — becomes the cluster/VM name, prefixed <code>astro-</code>. Must start with a letter or digit and contain only letters, digits, <code>.</code>, <code>_</code> and <code>-</code> (no <code>/</code>, <code>,</code>, spaces or <code>..</code>) — see <a href="#names">Names</a></td>
 </tr>
 <tr>
 <td><code>docs.prerequisites</code></td>
@@ -3681,6 +3715,8 @@
 </tbody>
 </table>
 <p>Doc paths are relative to <code>config.yaml</code> and must stay inside the lab directory (absolute paths are rejected); students read them with <a href="../cli/astrona_docs/"><code>astrona docs</code></a>.</p>
+<h3 id="names">Names<a class="headerlink" href="#names" title="Permanent link">&para;</a></h3>
+<p><code>metadata.name</code>, <code>runtime.qemu[].name</code> and <code>runtime.kind.clusters[].name</code> become directory names under <code>~/.astrona/</code> (state that <code>astrona destroy</code> deletes) and parts of qemu command lines, so they must match <code>^[A-Za-z0-9][A-Za-z0-9._-]*$</code> and must not contain <code>..</code>. Every command checks this when it loads the config and refuses the lab otherwise, e.g. <code>metadata.name: invalid name 'x/../y': must start with a letter or digit …</code>. (<code>runtime.kind.clusters[].name</code> has a stricter rule of its own, below.) <code>astrona bundle load</code> applies the same rule to the lab name recorded in a bundle.</p>
 <h2 id="runtime"><code>runtime</code><a class="headerlink" href="#runtime" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3799,7 +3835,7 @@
 <tr>
 <td><code>name</code></td>
 <td>string</td>
-<td>Required once there's more than one entry; leave empty for a single-VM lab</td>
+<td>Required once there's more than one entry; leave empty for a single-VM lab. Same character rule as <code>metadata.name</code> — see <a href="#names">Names</a></td>
 </tr>
 <tr>
 <td><code>image.type</code></td>

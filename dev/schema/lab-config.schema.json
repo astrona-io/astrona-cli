@@ -307,6 +307,7 @@
           "$ref": "#/$defs/DocsConfig"
         },
         "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
           "type": "string"
         }
       },
@@ -446,6 +447,7 @@
           "type": "integer"
         },
         "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
           "type": "string"
         },
         "networks": {
