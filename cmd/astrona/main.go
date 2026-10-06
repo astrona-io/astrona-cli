@@ -66,44 +66,56 @@ func newerRelease(latest, current string) bool {
 }
 
 func checkLatestVersion(verbose bool) {
-	warn := func() {
-		if verbose {
-			ui.Warnf("check version not possible")
-		}
+	if !updateCheckWanted() {
+		return
 	}
+	path, err := updateStatePath()
+	if err != nil {
+		return
+	}
+	st := loadUpdateState(path)
+	now := time.Now()
+	if st.dueForCheck(now) {
+		tag, err := fetchLatestTag()
+		st.CheckedAt = now
+		st.Failed = err != nil
+		if err == nil {
+			st.Latest = tag
+		} else if verbose {
+			ui.Warnf("could not check for a new astrona version: %s", err)
+		}
+		saveUpdateState(path, st)
+	}
+	if st.dueForNotice(Version, now) {
+		// stderr, not stdout: commands like `astrona kubeconfig` are meant
+		// for $(...) capture, and the notice must not end up in it.
+		ui.Infof("astrona %s is available (you have %s) — `astrona upgrade` · what's new: https://github.com/%s/releases/tag/%s\n",
+			st.Latest, Version, releaseRepo, st.Latest)
+		st.NotifiedAt = now
+		saveUpdateState(path, st)
+	}
+}
 
+// fetchLatestTag asks GitHub for the latest release tag (the redirect of
+// /releases/latest — no API rate limit).
+func fetchLatestTag() (string, error) {
 	client := &http.Client{
 		Timeout: 800 * time.Millisecond,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
-
-	resp, err := client.Head("https://github.com/astrona-io/astrona-cli/releases/latest")
+	resp, err := client.Head("https://github.com/" + releaseRepo + "/releases/latest")
 	if err != nil {
-		warn()
-		return
+		return "", err
 	}
 	defer resp.Body.Close()
-
 	location := resp.Header.Get("Location")
-	if location == "" {
-		warn()
-		return
+	tag := location[strings.LastIndex(strings.TrimRight(location, "/"), "/")+1:]
+	if location == "" || tag == "" {
+		return "", fmt.Errorf("no latest release redirect")
 	}
-
-	parts := strings.Split(strings.TrimRight(location, "/"), "/")
-	if len(parts) == 0 {
-		warn()
-		return
-	}
-	latestTag := parts[len(parts)-1]
-
-	if newerRelease(latestTag, Version) {
-		// stderr, not stdout: commands like `astrona kubeconfig` are meant
-		// for $(...) capture, and the notice must not end up in it.
-		ui.Infof("A new version of astrona is available: %s (current: %s) — run `astrona upgrade`.\n", latestTag, Version)
-	}
+	return tag, nil
 }
 
 // newRootCmd builds the full astrona command tree. It's factored out of
