@@ -3419,7 +3419,7 @@
 <h2 id="homebrew-macos-linux">Homebrew (macOS &amp; Linux)<a class="headerlink" href="#homebrew-macos-linux" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>brew<span class="w"> </span>install<span class="w"> </span>astrona-io/tap/astrona
 </code></pre></div>
-<p>The <a href="https://github.com/astrona-io/homebrew-tap">tap</a> is updated by every release, pinned to the same binaries and SHA-256 values as the GitHub release. Upgrade with <code>brew upgrade astrona</code>, or <code>astrona upgrade</code> — on a Homebrew install it runs <code>brew upgrade astrona</code> for you instead of downloading the binary itself.</p>
+<p>The <a href="https://github.com/astrona-io/homebrew-tap">tap</a> is updated by every release, pinned to the same binaries and SHA-256 values as the GitHub release. CI installs the formula with real Homebrew on macOS and Linux for every change that could affect it, and again from the tap right after each release. Upgrade with <code>brew upgrade astrona</code>, or <code>astrona upgrade</code> — on a Homebrew install it runs <code>brew upgrade astrona</code> for you instead of downloading the binary itself.</p>
 <p>What the Homebrew install gives you on top of the binary:</p>
 <ul>
 <li><strong><code>kind</code> and <code>kubectl</code></strong> (<code>kubernetes-cli</code>) are installed as dependencies. Docker or Podman you install yourself — e.g. <code>brew install podman &amp;&amp; podman machine init &amp;&amp; podman machine start</code>, or Docker Desktop.</li>
@@ -3455,7 +3455,11 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>check
 </code></pre></div>
 <p>This prints a ✓/⚠/✗ per item and exits non-zero only on a ✗. It checks three things:</p>
-<p><strong>Dependencies.</strong> A missing <em>required</em> tool is a ✗; optional ones (qemu toolchain, <code>git</code>) only warn, since they're only needed for specific runtimes or flags.</p>
+<p><strong>Dependencies.</strong> A missing <em>required</em> tool is a ✗; optional ones (qemu toolchain, <code>git</code>) only warn, since they're only needed for specific runtimes or flags. Each missing tool says how to install it — with Homebrew installed that's the <code>brew install</code> command, and the end of the list gives one line for everything missing:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Install what's required: brew install kind podman kubernetes-cli
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Optional tools, all at once: brew install git qemu oras cdrtools
+</code></pre></div>
+<p><code>astrona doctor</code> prints the same line for missing required tools.</p>
 <p><strong>Container engine.</strong> Whether Docker/Podman is actually running (a stopped <code>podman machine</code> or Docker daemon is the most common cause of confusing kind errors), and whether it has enough resources — for Docker Desktop and <code>podman machine</code> that's the VM's memory/CPUs, not your Mac's:</p>
 <table>
 <thead>
@@ -3495,13 +3499,13 @@
 </table>
 <p>Each ⚠/✗ prints the command that fixes it, e.g. <code>podman machine stop &amp;&amp; podman machine set --memory 8192 --cpus 4 &amp;&amp; podman machine start</code>.</p>
 <p><strong>Your lab</strong> — when a lab config is found (<code>-c</code>, default <code>./config.yaml</code>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>astrona<span class="w"> </span>check<span class="w"> </span>-c<span class="w"> </span>./labs/my-lab
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>astrona<span class="w"> </span>check<span class="w"> </span>-c<span class="w"> </span>./labs/my-lab
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Lab astro-my-lab:
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  ✓  lab memory estimate                    ~6.9 GiB for this lab of 9.7 GiB
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  ✓  host port 8080                         gateway http, free
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  ✗  host port 18290                        port forward 'web', in use
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        fix: find the user with `lsof -nP -iTCP:18290 -sTCP:LISTEN`, or change the port in the lab config
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Lab astro-my-lab:
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>  ✓  lab memory estimate                    ~6.9 GiB for this lab of 9.7 GiB
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>  ✓  host port 8080                         gateway http, free
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  ✗  host port 18290                        port forward 'web', in use
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        fix: find the user with `lsof -nP -iTCP:18290 -sTCP:LISTEN`, or change the port in the lab config
 </code></pre></div>
 <ul>
 <li><strong>Memory estimate</strong> — a rough figure from the lab's nodes and addons, plus astrona kind labs already running; ⚠ when it's over 75% of the engine's memory.</li>
@@ -3510,15 +3514,15 @@
 </ul>
 <h3 id="when-something-isnt-working-astrona-doctor">When something isn't working: <code>astrona doctor</code><a class="headerlink" href="#when-something-isnt-working-astrona-doctor" title="Permanent link">&para;</a></h3>
 <p><code>astrona doctor</code> runs all of the above <strong>and</strong> looks at the running lab, then says what's wrong and how to fix it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Running lab astro-linked-labs-01:
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>  ✓  nodes                                  Ready (1/1)
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>  ✓  linked cluster idp                     Ready (1/1) · idp.astrona.internal
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  ✗  port forward idp                       Stopped · http://127.0.0.1:30080
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        fix: astrona port-forward start
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>  ⚠  pods in astro-linked-labs-01-idp       1 unhealthy: auth/broken: ErrImagePull (…)
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>        fix: astrona diagnose collects their logs and events
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>Error: 1 problem(s) found — the ✗ lines above say how to fix each
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Running lab astro-linked-labs-01:
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>  ✓  nodes                                  Ready (1/1)
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>  ✓  linked cluster idp                     Ready (1/1) · idp.astrona.internal
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>  ✗  port forward idp                       Stopped · http://127.0.0.1:30080
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        fix: astrona port-forward start
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>  ⚠  pods in astro-linked-labs-01-idp       1 unhealthy: auth/broken: ErrImagePull (…)
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        fix: astrona diagnose collects their logs and events
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>Error: 1 problem(s) found — the ✗ lines above say how to fix each
 </code></pre></div>
 <p>It checks this machine (tools, container engine, inotify), the lab (its config, whether this astrona may run it, memory and free ports when it isn't running) and the running lab (nodes, linked clusters, port forwards, unhealthy pods, exam clock). It only reads — nothing is started or changed — and exits non-zero on any ✗ — including a lab you named (argument, <code>-c</code>, <code>--file</code>, <code>--git</code>, <code>astrona use</code> — <code>astrona doctor .</code> counts) that isn't there or whose config doesn't parse; only when no lab is named and the current directory has none does it check the machine alone. <code>--bundle</code> also writes the full <a href="../../guides/ci-integration/#diagnostics-on-failure">diagnostics bundle</a>. Unhealthy pods are ⚠, not ✗: in a lab they may be the exercise.</p>
 <h2 id="shell-completion">Shell completion<a class="headerlink" href="#shell-completion" title="Permanent link">&para;</a></h2>
@@ -3533,21 +3537,21 @@
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">zsh</label><label for="__tabbed_1_2">bash</label><label for="__tabbed_1_3">fish</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
 </code></pre></div>
 </div>
 </div>
 </div>
 <h2 id="staying-up-to-date">Staying up to date<a class="headerlink" href="#staying-up-to-date" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>astrona<span class="w"> </span>upgrade
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>astrona<span class="w"> </span>upgrade
 </code></pre></div>
 <p><code>astrona upgrade</code> checks GitHub for the latest release, downloads the binary for your OS/architecture, verifies it against the SHA-256 digest GitHub records for it (and its <a href="../../guides/astrona-versions/#build-provenance">build provenance</a> when the GitHub CLI is installed), and atomically replaces the currently running executable — only when the release is newer than yours. On a <a href="#homebrew-macos-linux">Homebrew</a> install it runs <code>brew upgrade astrona</code> instead (<code>brew reinstall astrona</code> with <code>--force</code>), so Homebrew keeps track of the install.</p>
 <p>astrona tells you when a newer release exists — <code>[INFO] astrona v0.2.3 is available (you have v0.2.2) — astrona upgrade · what's new: &lt;release notes&gt;</code> — at most <strong>once a day</strong>. It asks GitHub at most once a day too (cached in <code>~/.astrona/update-check.json</code>), so commands don't wait on the network. It never checks in CI (<code>CI</code>/<code>GITHUB_ACTIONS</code>/… set) or when stderr isn't a terminal; <code>ASTRONA_NO_UPDATE_CHECK=1</code> turns it off everywhere.</p>
