@@ -96,6 +96,8 @@ func TestTeardownFallbackHasNoClusterAccess(t *testing.T) {
 	local, ok := env.Executor.(executor.LocalExecutor)
 	if !ok || local.Kubeconfig != os.DevNull {
 		t.Fatalf("fallback executor = %#v — want a LocalExecutor with KUBECONFIG=%s", env.Executor, os.DevNull)
+	}
+}
 
 func TestShellKubeconfigs(t *testing.T) {
 	links := []cluster.LinkState{{Name: "idp", Cluster: "astro-app-idp"}, {Name: "db", Cluster: "astro-app-db"}, {Name: "gone", Cluster: "astro-app-gone"}}
