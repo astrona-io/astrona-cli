@@ -37,7 +37,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.2.0
 
       - name: Generate CLI reference
         run: go run ./cmd/astrona docgen --output docs/reference/cli
@@ -83,7 +83,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.2.0
 
       - name: Generate CLI reference
         run: go run ./cmd/astrona docgen --output docs/reference/cli
