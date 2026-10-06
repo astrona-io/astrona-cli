@@ -42,13 +42,13 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 	if err != nil {
 		// A config for another astrona may not parse here: hand over first.
 		if want := labVersionFromLoadError(err); want != "" {
-			if verr := ensureLabVersion(want, flags); verr != nil {
+			if verr := ensureLabVersion(want, flags, handoverApproval(flags, nil, err, filepath.Dir(finalPath))); verr != nil {
 				return nil, "", func() {}, verr
 			}
 		}
 		return nil, "", func() {}, withNoLabHint(err, flags)
 	}
-	if err := ensureLabVersion(cfg.AstronaVersion, flags); err != nil {
+	if err := ensureLabVersion(cfg.AstronaVersion, flags, handoverApproval(flags, cfg, nil, filepath.Dir(finalPath))); err != nil {
 		cleanup()
 		return nil, "", func() {}, err
 	}

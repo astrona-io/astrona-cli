@@ -65,3 +65,4 @@ Only continue if you trust its author. Run it? [y/N]
 - `astrona destroy` asks too, before running a remote lab's teardown scripts (only if it has any). Declining — or no terminal and no `--trust` — doesn't stop the destroy: the teardown scripts are skipped with a warning and the lab is removed anyway.
 - **CI / no terminal:** without a terminal, an unapproved remote lab is refused. Pass `--trust` to approve it — e.g. `astrona test --git https://github.com/org/labs --config labs/lab-01 --trust`. CI that tests its own checkout (`-c .`) needs nothing.
 - Approvals are stored in `~/.astrona/trust.json`; delete an entry (or the file) to be asked again.
+- A lab whose `astronaVersion` sends it to another installed astrona is approved here first, before the hand-over — never by the version it asks for (see [Astrona Versions](astrona-versions.md#what-happens-when-a-lab-needs-another-version)).

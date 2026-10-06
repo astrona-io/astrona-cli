@@ -59,8 +59,10 @@ PROCTOR: PASS
       ```
       Yes installs the newest release that fits and continues the same command with it; no (the default) stops, and tells you the `astrona versions install …` command for later.
     - **Without a terminal** (CI, scripts) it stops with that command — or pass **`--install-version`** to install it without asking.
+- **A remote lab is approved first.** For a lab from `--git` or a URL, the [trust prompt](remote-config.md#approving-remote-labs) happens in *this* astrona, before anything is installed or handed over — for every command that hands over, not only `run`/`submit`/`test`/`reset`. The approval is stored in `~/.astrona/trust.json`, so the version it's handed to doesn't ask again. If this astrona can't even parse the lab's config (it was written for another version), it can't show what the lab does, so there's no prompt: the lab must already be approved at this exact version, or you pass `--trust` after reviewing it.
+- **Never older than 0.2.0.** astrona never hands a lab over to — or installs for one — a release older than 0.2.0, the first with trust prompts: a lab asking for one could otherwise get its scripts run without your approval. A lab that only fits an older release stops with an explanation; if you trust it, install that version yourself and run it as `astrona-<version>`.
+- Only `astrona-*` binaries in `~/.astrona/bin` (where `astrona versions install` puts them) are used — ones elsewhere on your `PATH` are ignored, so a stray binary never runs a lab.
 - `astrona docs` and `astrona destroy` don't check: reading a lab's docs doesn't depend on the version, and cleaning up must always work.
-- `astrona-*` binaries in `~/.astrona/bin` are preferred; ones on your `PATH` count too.
 - A developer build (no release number) runs every lab and doesn't hand over.
 
 !!! note "astrona 0.2.1 and older don't know `astronaVersion`"

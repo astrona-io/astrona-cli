@@ -1,12 +1,18 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"astrona/internal/trust"
 	"astrona/internal/version"
 
 	"github.com/mattn/go-isatty"
@@ -33,22 +39,26 @@ func TestInstalledVersionsAndNewestAllowed(t *testing.T) {
 
 	fakeBinary(t, bin, "astrona-0.2.1", true)
 	fakeBinary(t, bin, "astrona-0.1.9", true)
-	fakeBinary(t, other, "astrona-0.2.1", true) // same version on PATH: ~/.astrona/bin wins
-	fakeBinary(t, other, "astrona-0.3.0", true)
-	fakeBinary(t, other, "astrona-0.2.5", false) // not executable
-	fakeBinary(t, other, "astrona-latest", true) // not a version
+	fakeBinary(t, bin, "astrona-0.2.5", false)  // not executable
+	fakeBinary(t, bin, "astrona-latest", true)  // not a version
+	fakeBinary(t, other, "astrona-0.3.0", true) // on PATH only: never a hand-over target
 
 	var got []string
 	for _, iv := range installedVersions() {
 		got = append(got, iv.v.String()+"@"+filepath.Base(filepath.Dir(iv.path)))
 	}
-	if strings.Join(got, " ") != "0.3.0@"+filepath.Base(other)+" 0.2.1@bin 0.1.9@bin" {
+	if strings.Join(got, " ") != "0.2.1@bin 0.1.9@bin" {
 		t.Errorf("installed = %v", got)
 	}
 
 	c, _ := version.ParseConstraint("<=0.2.1")
 	if iv, ok := newestAllowed(c, installedVersions()); !ok || iv.v.String() != "0.2.1" {
 		t.Errorf("newest allowed for <=0.2.1 = %+v, %v", iv, ok)
+	}
+	// 0.1.9 is installed, but below the hand-over floor.
+	c, _ = version.ParseConstraint("<0.2.0")
+	if iv, ok := newestAllowed(c, handoverCandidates()); ok {
+		t.Errorf("hand-over candidate below the floor: %+v", iv)
 	}
 	c, _ = version.ParseConstraint(">=1.0.0")
 	if _, ok := newestAllowed(c, installedVersions()); ok {
@@ -69,6 +79,9 @@ func TestHandoverArgs(t *testing.T) {
 	}
 }
 
+// allow is a trust check that approves.
+func allow() error { return nil }
+
 func TestEnsureLabVersion(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("PATH", t.TempDir())
@@ -78,29 +91,29 @@ func TestEnsureLabVersion(t *testing.T) {
 	defer func() { Version = old }()
 
 	Version = "v0.2.2"
-	if err := ensureLabVersion("", &rootFlags{}); err != nil {
+	if err := ensureLabVersion("", &rootFlags{}, allow); err != nil {
 		t.Errorf("no constraint: %v", err)
 	}
-	if err := ensureLabVersion(">=0.2.0", &rootFlags{}); err != nil {
+	if err := ensureLabVersion(">=0.2.0", &rootFlags{}, allow); err != nil {
 		t.Errorf("allowed: %v", err)
 	}
 	stdinIsTerminal = func() bool { return false }
 	defer func() { stdinIsTerminal = func() bool { return isatty.IsTerminal(os.Stdin.Fd()) } }()
-	err := ensureLabVersion("<=0.2.1", &rootFlags{})
+	err := ensureLabVersion("<=0.2.1", &rootFlags{}, allow)
 	if err == nil || !strings.Contains(err.Error(), "astrona versions install 0.2.1") || !strings.Contains(err.Error(), "--install-version") {
 		t.Errorf("not allowed, none installed, no terminal = %v — must say what to install", err)
 	}
-	if err := ensureLabVersion("~0.2", &rootFlags{}); err == nil {
+	if err := ensureLabVersion("~0.2", &rootFlags{}, allow); err == nil {
 		t.Error("bad constraint accepted")
 	}
 
 	t.Setenv(dispatchedEnv, "0.3.0")
-	if err := ensureLabVersion("<=0.2.1", &rootFlags{}); err == nil || !strings.Contains(err.Error(), "handed it to") {
+	if err := ensureLabVersion("<=0.2.1", &rootFlags{}, allow); err == nil || !strings.Contains(err.Error(), "handed it to") {
 		t.Errorf("second hand-over must stop: %v", err)
 	}
 
 	Version = "developer"
-	if err := ensureLabVersion("<=0.2.1", &rootFlags{}); err != nil {
+	if err := ensureLabVersion("<=0.2.1", &rootFlags{}, allow); err != nil {
 		t.Errorf("developer build should not be blocked: %v", err)
 	}
 }
@@ -154,7 +167,7 @@ func TestOfferInstall(t *testing.T) {
 	stdinIsTerminal = func() bool { return false }
 	os.Args = []string{"astrona", "run", "--install-version"}
 	f := &rootFlags{configPath: "/labs/old", fileName: "config.yaml", installVersion: true}
-	if err := ensureLabVersion("<=0.2.1", f); !errors.Is(err, errHandedOver) {
+	if err := ensureLabVersion("<=0.2.1", f, allow); !errors.Is(err, errHandedOver) {
 		t.Fatalf("--install-version = %v", err)
 	}
 	if strings.Join(installed, ",") != "0.2.1" {
@@ -169,12 +182,12 @@ func TestOfferInstall(t *testing.T) {
 	installed = nil
 	os.Args = []string{"astrona", "run"}
 	promptIn = strings.NewReader("y\n")
-	if err := ensureLabVersion("<=0.2.1", &rootFlags{configPath: "/labs/old", fileName: "config.yaml"}); !errors.Is(err, errHandedOver) || len(installed) != 1 {
+	if err := ensureLabVersion("<=0.2.1", &rootFlags{configPath: "/labs/old", fileName: "config.yaml"}, allow); !errors.Is(err, errHandedOver) || len(installed) != 1 {
 		t.Errorf("yes = %v, installed %v", err, installed)
 	}
 	installed = nil
 	promptIn = strings.NewReader("n\n")
-	err := ensureLabVersion("<=0.2.1", &rootFlags{configPath: "/labs/old", fileName: "config.yaml"})
+	err := ensureLabVersion("<=0.2.1", &rootFlags{configPath: "/labs/old", fileName: "config.yaml"}, allow)
 	if err == nil || errors.Is(err, errHandedOver) || len(installed) != 0 || !strings.Contains(err.Error(), "not installed") {
 		t.Errorf("no = %v, installed %v", err, installed)
 	}
@@ -182,7 +195,149 @@ func TestOfferInstall(t *testing.T) {
 	// No published release fits: say so, install nothing.
 	installed = nil
 	promptIn = strings.NewReader("y\n")
-	if err := ensureLabVersion(">=9.0.0", &rootFlags{}); err == nil || len(installed) != 0 || !strings.Contains(err.Error(), "no published release fits") {
+	if err := ensureLabVersion(">=9.0.0", &rootFlags{}, allow); err == nil || len(installed) != 0 || !strings.Contains(err.Error(), "no published release fits") {
 		t.Errorf("nothing fits = %v, installed %v", err, installed)
+	}
+}
+
+// handoverFakes stubs releases, installs and the hand-over itself for one
+// test: this is 0.2.2, the published releases are tags, HOME is empty and
+// there's no terminal. It returns what got installed, the argv handed
+// over to, and the error the fake hand-over returns.
+func handoverFakes(t *testing.T, tags ...string) (installed, handed *[]string, errHandedOver error) {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv(dispatchedEnv, "")
+	old, origInstall, origExec, origTerm, origArgs := Version, installVersion, execHandover, stdinIsTerminal, os.Args
+	t.Cleanup(func() {
+		Version, releaseTags, installVersion, execHandover, stdinIsTerminal, os.Args = old, githubReleaseTags, origInstall, origExec, origTerm, origArgs
+	})
+	Version = "v0.2.2"
+	os.Args = []string{"astrona", "run"}
+	stdinIsTerminal = func() bool { return false }
+	releaseTags = func() ([]string, error) { return tags, nil }
+	installed, handed = &[]string{}, &[]string{}
+	installVersion = func(v version.V) (string, error) {
+		*installed = append(*installed, v.String())
+		return "/fake/astrona-" + v.String(), nil
+	}
+	errHandedOver = errors.New("handed over")
+	execHandover = func(path string, argv, env []string) error {
+		*handed = argv
+		return errHandedOver
+	}
+	return installed, handed, errHandedOver
+}
+
+func installFake(t *testing.T, name string) {
+	t.Helper()
+	bin := filepath.Join(os.Getenv("HOME"), ".astrona", "bin")
+	if err := os.MkdirAll(bin, 0755); err != nil {
+		t.Fatal(err)
+	}
+	fakeBinary(t, bin, name, true)
+}
+
+// A lab may not pick an astrona from before trust prompts: not an
+// installed one, not one installed for it — even with --install-version.
+func TestHandoverFloor(t *testing.T) {
+	installed, handed, errHandedOver := handoverFakes(t, "v0.2.1", "v0.2.0", "v0.1.9")
+	installFake(t, "astrona-0.1.9")
+
+	f := &rootFlags{configPath: "/labs/old", fileName: "config.yaml", installVersion: true}
+	err := ensureLabVersion("<0.2.0", f, allow)
+	if err == nil || errors.Is(err, errHandedOver) || !strings.Contains(err.Error(), "older than "+minHandoverVersion) {
+		t.Errorf("below the floor = %v", err)
+	}
+	if len(*installed) != 0 || len(*handed) != 0 {
+		t.Errorf("below the floor: installed %v, handed to %v", *installed, *handed)
+	}
+
+	// A constraint that also fits a version above the floor gets that one
+	// installed, not the older one that's already there.
+	if err := ensureLabVersion("<=0.2.1", f, allow); !errors.Is(err, errHandedOver) {
+		t.Fatalf("<=0.2.1 = %v", err)
+	}
+	if strings.Join(*installed, ",") != "0.2.1" || (*handed)[0] != "/fake/astrona-0.2.1" {
+		t.Errorf("installed %v, handed to %v — want 0.2.1", *installed, *handed)
+	}
+}
+
+// The trust check runs before anything is installed or handed over, and a
+// refusal stops both.
+func TestHandoverTrustFirst(t *testing.T) {
+	installed, handed, errHandedOver := handoverFakes(t, "v0.2.1")
+	var order []string
+	fakeInstall := installVersion
+	installVersion = func(v version.V) (string, error) {
+		order = append(order, "install")
+		return fakeInstall(v)
+	}
+	f := &rootFlags{configPath: "/labs/old", fileName: "config.yaml", installVersion: true}
+
+	errRefused := errors.New("not trusted")
+	refuse := func() error { order = append(order, "trust"); return errRefused }
+	if err := ensureLabVersion("<=0.2.1", f, refuse); !errors.Is(err, errRefused) {
+		t.Errorf("refused = %v", err)
+	}
+	if len(*installed) != 0 || len(*handed) != 0 {
+		t.Errorf("refused, yet installed %v, handed to %v", *installed, *handed)
+	}
+
+	order = nil
+	approve := func() error { order = append(order, "trust"); return nil }
+	if err := ensureLabVersion("<=0.2.1", f, approve); !errors.Is(err, errHandedOver) {
+		t.Fatalf("approved = %v", err)
+	}
+	if strings.Join(order, ",") != "trust,install" {
+		t.Errorf("order = %v — trust must come first", order)
+	}
+
+	// Already installed: still checked before the hand-over.
+	installFake(t, "astrona-0.2.1")
+	*handed = nil
+	if err := ensureLabVersion("<=0.2.1", f, refuse); !errors.Is(err, errRefused) || len(*handed) != 0 {
+		t.Errorf("installed, refused = %v, handed to %v", err, *handed)
+	}
+}
+
+// End to end through LoadLabForCommand: a remote lab that wants another
+// astrona is trust-checked before the hand-over — whether or not this
+// version can parse its config — and the approval is stored, so the
+// version it's handed to doesn't ask again.
+func TestLoadLabForCommandTrustsBeforeHandover(t *testing.T) {
+	for _, tc := range []struct{ name, body string }{
+		{"parses", "astronaVersion: \"<=0.2.1\"\nmetadata:\n  name: old\n"},
+		{"doesn't parse", "astronaVersion: \"<=0.2.1\"\nmetadata: not-a-map\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, handed, errHandedOver := handoverFakes(t)
+			installFake(t, "astrona-0.2.1")
+			srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = io.WriteString(w, tc.body)
+			}))
+			defer srv.Close()
+			origTransport := http.DefaultTransport // trusts the test server's certificate
+			http.DefaultTransport = srv.Client().Transport
+			defer func() { http.DefaultTransport = origTransport }()
+			url := srv.URL + "/config.yaml"
+
+			// go test's stdin isn't a terminal: refused, naming --trust.
+			_, _, _, err := LoadLabForCommand(&rootFlags{configPath: url, fileName: "config.yaml"})
+			if err == nil || errors.Is(err, errHandedOver) || !strings.Contains(err.Error(), "--trust") || len(*handed) != 0 {
+				t.Fatalf("untrusted = %v, handed to %v", err, *handed)
+			}
+
+			_, _, _, err = LoadLabForCommand(&rootFlags{configPath: url, fileName: "config.yaml", trust: true})
+			if !errors.Is(err, errHandedOver) {
+				t.Fatalf("--trust = %v", err)
+			}
+			sum := sha256.Sum256([]byte(tc.body))
+			status, _, err := trust.Check(trust.Source{Kind: "url", Location: url, Pin: "sha256:" + hex.EncodeToString(sum[:])})
+			if err != nil || status != trust.Trusted {
+				t.Errorf("approval not stored for the version handed to: %v, %v", status, err)
+			}
+		})
 	}
 }

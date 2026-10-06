@@ -369,7 +369,8 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 			AstronaVersion string `yaml:"astronaVersion"`
 		}
 		_ = yaml.Unmarshal(body, &peek)
-		return nil, cleanup, &ParseError{Path: configPath, AstronaVersion: peek.AstronaVersion, Err: err}
+		sum := sha256.Sum256(body)
+		return nil, cleanup, &ParseError{Path: configPath, AstronaVersion: peek.AstronaVersion, SHA256: hex.EncodeToString(sum[:]), Err: err}
 	}
 
 	unknown, err := FindUnknownFields(body)
@@ -451,10 +452,12 @@ func ValidateAPIVersion(cfg *LabConfig) error {
 }
 
 // ParseError is a lab config that failed to parse, with the astrona
-// version it declares (if that much could be read).
+// version it declares (if that much could be read) and the SHA-256 of
+// its content — what a URL lab is pinned to for trust.
 type ParseError struct {
 	Path           string
 	AstronaVersion string
+	SHA256         string
 	Err            error
 }
 
