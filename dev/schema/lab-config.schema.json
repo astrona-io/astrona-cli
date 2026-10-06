@@ -273,6 +273,9 @@
         "apiVersion": {
           "type": "string"
         },
+        "astronaVersion": {
+          "type": "string"
+        },
         "bootstrap": {
           "$ref": "#/$defs/BootstrapConfig"
         },

@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://cli.astrona.io/dev/reference/lab-config/">
       
       
-        <link rel="prev" href="../../guides/linked-labs/">
+        <link rel="prev" href="../../guides/astrona-versions/">
       
       
         <link rel="next" href="../cli/astrona/">
@@ -710,6 +710,8 @@
       
         
       
+        
+      
     
     
     
@@ -882,6 +884,34 @@
     
   
     Linked Labs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/astrona-versions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona Versions
   
 
     
@@ -2854,6 +2884,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2877,7 +2917,7 @@
   <span class="md-ellipsis">
     
   
-    Other
+    astrona itself
   
 
     
@@ -2893,11 +2933,151 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Other
+    astrona itself
   
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_versions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona versions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_versions_list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona versions list
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_versions_install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona versions install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_versions_remove/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona versions remove
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_versions_available/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona versions available
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3275,12 +3455,13 @@
 <p><strong>Unknown fields</strong> (typos like <code>waitfor</code> or <code>manifest</code>) used to be silently ignored, leaving a lab without the gates or manifests its author meant to configure. Now <code>astrona validate</code> and <code>astrona check</code> fail on them, and <code>run</code>/<code>test</code>/<code>submit</code> print a warning with a did-you-mean (they still run, so a lab that has always worked keeps working).</p>
 <h2 id="top-level">Top level<a class="headerlink" href="#top-level" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">astrona.io/v1</span><span class="w">   </span><span class="c1"># config format (optional; a newer one is refused)</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">metadata</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">     </span><span class="c1"># MetadataConfig</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">runtime</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">      </span><span class="c1"># RuntimeConfig — omit entirely for a kind cluster</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nt">bootstrap</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">    </span><span class="c1"># BootstrapConfig</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">testing</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">      </span><span class="c1"># BootstrapConfig (same shape, CI-only)</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nt">validation</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">   </span><span class="c1"># ValidationConfig</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nt">teardown</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">     </span><span class="c1"># TeardownConfig</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">astronaVersion</span><span class="p">:</span><span class="w"> </span><span class="s">"&gt;=0.2.0"</span><span class="w">   </span><span class="c1"># which astrona releases may run this lab (optional) — see Astrona Versions</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">metadata</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">     </span><span class="c1"># MetadataConfig</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nt">runtime</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">      </span><span class="c1"># RuntimeConfig — omit entirely for a kind cluster</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">bootstrap</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">    </span><span class="c1"># BootstrapConfig</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nt">testing</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">      </span><span class="c1"># BootstrapConfig (same shape, CI-only)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nt">validation</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">   </span><span class="c1"># ValidationConfig</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="nt">teardown</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">     </span><span class="c1"># TeardownConfig</span>
 </code></pre></div>
 <h2 id="metadata"><code>metadata</code><a class="headerlink" href="#metadata" title="Permanent link">&para;</a></h2>
 <table>
@@ -4186,7 +4367,7 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../guides/linked-labs/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Linked Labs">
+          <a href="../../guides/astrona-versions/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Astrona Versions">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -4196,7 +4377,7 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
                 Previous
               </span>
               <div class="md-ellipsis">
-                Linked Labs
+                Astrona Versions
               </div>
             </div>
           </a>

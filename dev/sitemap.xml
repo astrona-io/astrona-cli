@@ -33,6 +33,10 @@
          <lastmod>2026-10-06</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/guides/astrona-versions/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/guides/authoring-a-lab/</loc>
          <lastmod>2026-10-06</lastmod>
     </url>
@@ -226,6 +230,26 @@
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_validate/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_versions/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_versions_available/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_versions_install/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_versions_list/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_versions_remove/</loc>
          <lastmod>2026-10-06</lastmod>
     </url>
 </urlset>
