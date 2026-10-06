@@ -3400,7 +3400,7 @@
 </table>
 <p>The same bundle can be collected from a running lab with <a href="../../reference/cli/astrona_diagnose/"><code>astrona diagnose</code></a>.</p>
 <h2 id="machine-readable-output-o-json">Machine-readable output: <code>-o json</code><a class="headerlink" href="#machine-readable-output-o-json" title="Permanent link">&para;</a></h2>
-<p>Every command whose output is data takes <code>-o json</code> and then prints exactly one JSON document on stdout — progress, warnings and script output go to stderr — so it can be piped straight into <code>jq</code>, a script or a UI:</p>
+<p>Every command whose output is data takes <code>-o json</code> and then prints exactly one JSON document on stdout — progress (including cloning/updating a <code>--git</code> lab or a catalog source, and fetching a config URL), warnings and script output go to stderr — so it can be piped straight into <code>jq</code>, a script or a UI:</p>
 <table>
 <thead>
 <tr>
