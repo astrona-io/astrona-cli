@@ -2297,3 +2297,15 @@ func DestroyQEMUVM(clusterName string, rep *ui.Reporter) error {
 	t.Done()
 	return nil
 }
+
+// StateExists reports whether qemu lab name has a state dir with a
+// handle.json — checked directly, unlike qemuStateDir, which creates the
+// dir as a side effect.
+func StateExists(name string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(filepath.Join(home, ".astrona", "qemu", name, "handle.json"))
+	return err == nil
+}

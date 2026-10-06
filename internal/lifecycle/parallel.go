@@ -1,18 +1,17 @@
-package main
+package lifecycle
 
 import (
-	"fmt"
-	"io"
-	"time"
-
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
+	"fmt"
+	"io"
+	"time"
 )
 
-// maxParallel bounds --parallel: every cluster at once is a lot of memory.
-const maxParallel = 5
+// MaxParallel bounds --parallel: every cluster at once is a lot of memory.
+const MaxParallel = 5
 
 // scheduleHooks are called on the scheduling goroutine only — safe to
 // touch a Reporter from.
@@ -21,12 +20,12 @@ type scheduleHooks struct {
 	done    func(i int, err error, took time.Duration)
 }
 
-// scheduleKindClusters runs start for every cluster in order (start order from
+// scheduleClusters runs start for every cluster in order (start order from
 // config.KindClusterOrder), at most parallel at a time, each only once every
 // cluster it dependsOn has succeeded. After the first failure nothing new
 // starts; the ones already running finish. Returns the indices never
 // started and the first error.
-func scheduleKindClusters(order []config.KindCluster, parallel int, start func(i int) error, hooks scheduleHooks) ([]int, error) {
+func scheduleClusters(order []config.KindCluster, parallel int, start func(i int) error, hooks scheduleHooks) ([]int, error) {
 	type result struct {
 		i    int
 		err  error
@@ -98,11 +97,11 @@ func scheduleKindClusters(order []config.KindCluster, parallel int, start func(i
 	return skipped, firstErr
 }
 
-// startKindClustersParallel is startKindClusters with up to parallel clusters
+// startLinkedClustersParallel is StartLinkedClusters with up to parallel clusters
 // created at once. Each one logs to its own run log (its output would
 // interleave on screen); rep only prints when one starts, is ready or
 // fails — always from this goroutine.
-func startKindClustersParallel(cfg *config.LabConfig, order []config.KindCluster, states []cluster.LinkState, baseDir string, forTest bool, parallel int, rep *ui.Reporter) error {
+func startLinkedClustersParallel(cfg *config.LabConfig, order []config.KindCluster, states []cluster.LinkState, baseDir string, forTest bool, parallel int, rep *ui.Reporter) error {
 	byName := map[string]cluster.LinkState{}
 	for _, s := range states {
 		byName[s.Name] = s
@@ -129,7 +128,7 @@ func startKindClustersParallel(cfg *config.LabConfig, order []config.KindCluster
 
 	start := func(i int) error {
 		l, name, subRep := order[i], states[i].Cluster, subReps[i]
-		sub := kindClusterConfig(cfg, l)
+		sub := LinkedClusterConfig(cfg, l)
 		var deps []cluster.LinkState
 		for _, d := range l.DependsOn {
 			deps = append(deps, byName[d])
@@ -137,14 +136,14 @@ func startKindClustersParallel(cfg *config.LabConfig, order []config.KindCluster
 		if err := runtime.DestroyEnvironment(name, sub.Runtime, subRep); err != nil {
 			subRep.Warn("could not clean up a previous '%s', proceeding anyway: %s", name, err)
 		}
-		if _, _, err := upLab(sub, baseDir, name, deps, forTest, subRep); err != nil {
+		if _, _, err := Up(sub, baseDir, name, deps, forTest, subRep); err != nil {
 			return err
 		}
-		return applyWANStep(name, l.WAN, subRep)
+		return ApplyWAN(name, l.WAN, subRep)
 	}
 
 	rep.Section("Linked clusters (up to %d at once)", parallel)
-	skipped, firstErr := scheduleKindClusters(order, parallel, start, scheduleHooks{
+	skipped, firstErr := scheduleClusters(order, parallel, start, scheduleHooks{
 		started: func(i int) {
 			rep.Info("Linked cluster '%s': creating %s (log: %s)", order[i].Name, states[i].Cluster, logs[i])
 		},

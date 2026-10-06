@@ -10,6 +10,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/exam"
 	"astrona/internal/junit"
+	"astrona/internal/lifecycle"
 	"astrona/internal/proctor"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
@@ -75,9 +76,9 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not find a running lab environment: %w", err)
 			}
-			links, _ := labLinks(clusterName)
+			links, _ := lifecycle.Links(clusterName)
 			env.WithLinks(links)
-			env.AddEnv(labCAEnv(clusterName)...)
+			env.AddEnv(lifecycle.CAEnv(clusterName)...)
 
 			rep, err := ui.NewReporter("submit", cfg.Metadata.Name, flags.verbose)
 			if err != nil {

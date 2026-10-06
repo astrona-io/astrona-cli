@@ -12,15 +12,12 @@ import (
 	"time"
 
 	"astrona/internal/config"
+	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
 	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
 )
-
-// portForwardReadyTimeout is how long `run` / `port-forward start` wait for
-// every forward to report Ready before printing what they have.
-const portForwardReadyTimeout = 30 * time.Second
 
 // newPortForwardCmd builds `astrona port-forward` (alias `pf`): inspect and
 // manage the host-side kubectl port-forwards a kind lab declares in
@@ -180,40 +177,6 @@ func printPortForwardHints(w io.Writer, fs []portforward.Forward) {
 	fmt.Fprintf(w, "  Restart: astrona port-forward start -c <config>    Stop: astrona port-forward stop <lab>\n")
 }
 
-func countNotReady(fs []portforward.Forward) int {
-	n := 0
-	for _, f := range fs {
-		if f.Effective() != portforward.StateReady {
-			n++
-		}
-	}
-	return n
-}
-
-// startLabPortForwards starts cfg's forwards for clusterName and waits for
-// them. Shared by `run` and `port-forward start`. Never fails the caller
-// for a forward that's merely slow — the supervisor keeps retrying.
-func startLabPortForwards(clusterName string, forwards []config.PortForward, rep *ui.Reporter) ([]portforward.Forward, error) {
-	startErr := portforward.Start(clusterName, forwards, rep)
-	if startErr != nil {
-		rep.Info("port forward start errors: %s", startErr)
-	}
-
-	t := rep.Step("Wait for port forwards to become ready")
-	fs, err := portforward.WaitReady(clusterName, portForwardReadyTimeout)
-	if err != nil {
-		return nil, t.Fail(err)
-	}
-	if n := countNotReady(fs); n > 0 {
-		t.Skip("%d of %d not ready after %s — still retrying in the background", n, len(fs), portForwardReadyTimeout)
-	} else {
-		t.Done()
-	}
-	return fs, startErr
-}
-
-// --- port-forward start ----------------------------------------------------
-
 func newPortForwardStartCmd(flags *rootFlags) *cobra.Command {
 	var wait bool
 
@@ -258,15 +221,15 @@ func newPortForwardStartCmd(flags *rootFlags) *cobra.Command {
 			defer rep.Close()
 
 			rep.Section("Port forwards: %s", clusterName)
-			fs, startErr := startLabPortForwards(clusterName, cfg.Runtime.PortForwards, rep)
+			fs, startErr := lifecycle.StartPortForwards(clusterName, cfg.Runtime.PortForwards, rep)
 			rep.Close()
 			printPortForwardHints(os.Stdout, fs)
 
 			if startErr != nil {
 				return fmt.Errorf("some port forwards could not be started: %w", startErr)
 			}
-			if n := countNotReady(fs); wait && n > 0 {
-				return fmt.Errorf("%d port forward(s) not ready after %s", n, portForwardReadyTimeout)
+			if n := lifecycle.CountNotReady(fs); wait && n > 0 {
+				return fmt.Errorf("%d port forward(s) not ready after %s", n, lifecycle.PortForwardReadyTimeout)
 			}
 			return nil
 		},

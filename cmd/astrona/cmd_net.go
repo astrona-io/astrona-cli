@@ -7,6 +7,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/lifecycle"
 	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
@@ -73,7 +74,7 @@ func newNetCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer rep.Close()
-			t := rep.Step("Network conditions on %s: %s", target, describeWAN(w))
+			t := rep.Step("Network conditions on %s: %s", target, lifecycle.DescribeWAN(w))
 			if err := cluster.ApplyWAN(target, w); err != nil {
 				return t.Fail(err)
 			}
@@ -83,9 +84,9 @@ func newNetCmd(flags *rootFlags) *cobra.Command {
 			case partition:
 				fmt.Printf("\n%s is partitioned — nothing it sends gets through. Undo with --heal.\n", target)
 			case heal:
-				fmt.Printf("\n%s is back to its configured conditions (%s).\n", target, describeWAN(w))
+				fmt.Printf("\n%s is back to its configured conditions (%s).\n", target, lifecycle.DescribeWAN(w))
 			default:
-				fmt.Printf("\n%s now has %s. Undo with --heal.\n", target, describeWAN(w))
+				fmt.Printf("\n%s now has %s. Undo with --heal.\n", target, lifecycle.DescribeWAN(w))
 			}
 			return nil
 		},
@@ -109,7 +110,7 @@ func netTarget(lab, name string) (string, config.WANConditions, error) {
 		return lab, config.WANConditions{}, nil
 	}
 	links, _ := cluster.ReadLinks(lab)
-	target, err := linkedCluster(lab, name, links)
+	target, err := lifecycle.FindLinkedCluster(lab, name, links)
 	if err != nil {
 		return "", config.WANConditions{}, err
 	}

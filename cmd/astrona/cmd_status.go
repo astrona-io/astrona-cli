@@ -11,6 +11,7 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
+	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
 	"astrona/internal/proctor"
 
@@ -112,7 +113,7 @@ func newStatusCmd(flags *rootFlags) *cobra.Command {
 			}
 			st.exam, _ = exam.Load(name)
 			st.attempts, _ = proctor.LoadAttempts(name)
-			st.links, _ = labLinks(name)
+			st.links, _ = lifecycle.Links(name)
 			st.linkRows = map[string]labRow{}
 			for _, l := range st.links {
 				if r, ok := findLabRow(l.Cluster); ok {
@@ -166,7 +167,7 @@ func printLabStatus(w io.Writer, st labStatus) {
 		}
 		line := fmt.Sprintf("%s → %s (%s) · %s", l.Name, l.Cluster, state, l.Hostname())
 		if !l.WAN.IsZero() {
-			line += " · wan " + describeWAN(l.WAN)
+			line += " · wan " + lifecycle.DescribeWAN(l.WAN)
 		}
 		field(label, line)
 	}
