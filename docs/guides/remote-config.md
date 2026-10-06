@@ -17,7 +17,7 @@ astrona run -c https://example.com/labs/k8s-basics-01/config.yaml
 astrona run -c https://example.com/labs/k8s-basics-01/          # -f appended: .../config.yaml
 ```
 
-Only `https://` is accepted for a lab config fetched over the network — astrona refuses a plain `http://` config URL outright. The download is size-capped (10 MiB) so a misbehaving or malicious server can't exhaust disk or memory.
+Only `https://` is accepted for a lab config fetched over the network — astrona refuses a plain `http://` config URL outright, and refuses to follow a redirect from an `https://` URL to an `http://` one. The download is size-capped (10 MiB) so a misbehaving or malicious server can't exhaust disk or memory.
 
 ## Git repository (`--git`)
 

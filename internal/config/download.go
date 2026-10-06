@@ -12,9 +12,10 @@ import (
 const downloadHTTPTimeout = 30 * time.Minute
 
 // DownloadToTemp fetches a URL to a temp file. The returned cleanup func
-// removes the temp file once the caller is done. Only https:// URLs are
-// accepted, and the body is capped at maxBytes so an untrusted remote
-// source can't make this CLI write an unbounded amount of data to disk.
+// removes the temp file once the caller is done. Only https:// URLs (and
+// https:// redirect targets, see HTTPSOnlyClient) are accepted, and the
+// body is capped at maxBytes so an untrusted remote source can't make this
+// CLI write an unbounded amount of data to disk.
 // The file is never chmod +x: LocalExecutor runs it as `bash scriptPath`
 // and SSHExecutor pipes it over stdin to `bash -s` — neither ever executes
 // it directly, so there's no reason to set the executable bit.
@@ -25,7 +26,7 @@ func DownloadToTemp(url, filePattern string, maxBytes int64) (string, func(), er
 		return "", cleanup, fmt.Errorf("refusing to download from non-https URL '%s': only https:// sources are allowed", url)
 	}
 
-	client := &http.Client{Timeout: downloadHTTPTimeout}
+	client := HTTPSOnlyClient(downloadHTTPTimeout)
 
 	resp, err := client.Get(url)
 	if err != nil {
