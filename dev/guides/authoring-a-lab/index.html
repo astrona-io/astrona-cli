@@ -3677,6 +3677,12 @@
 <a id="__codelineno-5-20" name="__codelineno-5-20" href="#__codelineno-5-20"></a><span class="w">          </span><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="s">"1.0.0"</span>
 </code></pre></div>
 <p>Each <code>stages[].content[]</code> entry references an external content repository (typically an ATS lab): <code>repository</code> is the git URL, <code>version</code> the branch/tag to check out, and <code>path</code> the subdirectory within it.</p>
+<p>Because a built bundle lays content out as <code>&lt;output&gt;/&lt;stage-id&gt;/&lt;ref&gt;</code>, and <code>path.yaml</code> often comes from a cloned repo, <code>validate</code> and <code>build</code> reject, before fetching anything:</p>
+<ul>
+<li>a stage <code>id</code> or content <code>ref</code> that isn't a single name of letters, digits, <code>.</code>, <code>_</code> and <code>-</code> (no <code>/</code>, no <code>..</code>, not empty);</li>
+<li>an absolute <code>path</code>, or one that escapes the content repository (<code>../…</code>).</li>
+</ul>
+<p>A <code>repository</code> or <code>version</code> starting with <code>-</code> is also rejected before git runs.</p>
 <h2 id="building-content-for-teachers-authors">Building Content (For Teachers &amp; Authors)<a class="headerlink" href="#building-content-for-teachers-authors" title="Permanent link">&para;</a></h2>
 <p>Once a Training Path validates cleanly, materialize it into a self-contained bundle — every referenced ATS repo resolved and copied locally, ready to ship or serve:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>astrona<span class="w"> </span>content<span class="w"> </span>build<span class="w"> </span>&lt;type&gt;<span class="w"> </span>&lt;source&gt;<span class="w"> </span><span class="o">[</span>flags<span class="o">]</span>

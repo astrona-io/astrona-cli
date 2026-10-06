@@ -3285,7 +3285,7 @@
 <h2 id="where-they-live">Where they live<a class="headerlink" href="#where-they-live" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>~/.astrona/logs/&lt;command&gt;-&lt;lab&gt;-&lt;UTC timestamp&gt;.log
 </code></pre></div>
-<p>e.g. <code>run-astro-disk-lab-20260830T120000Z.log</code>. The directory is created on first use and never pruned automatically — see <a href="../../reference/cli/astrona_logs_clean/"><code>astrona logs clean</code></a>.</p>
+<p>e.g. <code>run-astro-disk-lab-20260830T120000Z.log</code>. The directory is created on first use, owner-only (<code>0700</code>, log files <code>0600</code>) since logs hold full script output and the command line, and never pruned automatically — see <a href="../../reference/cli/astrona_logs_clean/"><code>astrona logs clean</code></a>.</p>
 <h2 id="file-format">File format<a class="headerlink" href="#file-format" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a># astrona run  lab=astro-disk-lab  2026-08-30T12:00:00Z
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a># astrona run -c ./labs/disk --verbose
