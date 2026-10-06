@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -58,8 +59,12 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			machine, engine := doctorMachine()
 			failed += rep.section("This machine", machine)
 
-			cfg, baseDir, ok := doctorLoadLab(flags)
-			if !ok {
+			cfg, baseDir, err := doctorLoadLab(flags)
+			if err != nil {
+				failed += rep.section("Lab", []checkResult{doctorLabError(err)})
+				return doctorVerdict(rep, failed)
+			}
+			if cfg == nil {
 				rep.note("\nNo lab here — pass one (astrona doctor ./path/to/lab), -c, or pick one with `astrona use`.\n")
 				return doctorVerdict(rep, failed)
 			}
@@ -135,23 +140,48 @@ func doctorMachine() ([]checkResult, *engineInfo) {
 
 // doctorLoadLab reads the lab config the command would use — without the
 // hand-over to another astrona version that loading normally does:
-// doctor reports, it doesn't act.
-func doctorLoadLab(flags *rootFlags) (*config.LabConfig, string, bool) {
+// doctor reports, it doesn't act. A nil config with a nil error means no
+// lab was named and the current directory has none; any other failure —
+// a named lab that isn't there, a config that doesn't parse — is an error
+// for doctor to report.
+func doctorLoadLab(flags *rootFlags) (*config.LabConfig, string, error) {
 	path, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, false)
 	if err != nil {
-		return nil, "", false
+		return nil, "", noLabOr(err, flags)
 	}
 	cfg, cleanup, err := config.LoadLabConfig(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "\n%s %s\n", ui.Paint(os.Stderr, "✗", ui.Red), err)
-		return nil, "", false
+		return nil, "", noLabOr(err, flags)
 	}
 	cleanup()
 	baseDir := ""
 	if !strings.HasPrefix(path, "http://") && !strings.HasPrefix(path, "https://") {
 		baseDir = filepath.Dir(path)
 	}
-	return cfg, baseDir, true
+	return cfg, baseDir, nil
+}
+
+// noLabOr is nil for "no lab named, none in the current directory" (the
+// same case withNoLabHint covers) and err otherwise.
+func noLabOr(err error, flags *rootFlags) error {
+	if errors.Is(err, os.ErrNotExist) && flags.configPath == "." && flags.gitURL == "" {
+		return nil
+	}
+	return err
+}
+
+// doctorLabError is the ✗ row for a lab that was named but can't be loaded.
+func doctorLabError(err error) checkResult {
+	r := checkResult{status: checkFail, name: "lab config", detail: err.Error()}
+	switch {
+	case labVersionFromLoadError(err) != "":
+		r.hint = "this lab needs astrona " + labVersionFromLoadError(err) + " — `astrona run` offers to install it"
+	case errors.Is(err, os.ErrNotExist):
+		r.hint = "check the path (argument, -c, --file) or pick another lab with `astrona use`"
+	default:
+		r.hint = "fix the config, then `astrona validate` for the details"
+	}
+	return r
 }
 
 // doctorVersion: may this astrona run the lab (astronaVersion)?
