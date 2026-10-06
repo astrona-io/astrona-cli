@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -243,6 +245,12 @@ type LabConfig struct {
 	// LoadLabConfig, not part of the YAML. Lifecycle commands warn about
 	// them; `astrona validate` / `astrona check` treat them as errors.
 	UnknownFields []UnknownField `yaml:"-"`
+
+	// SourcePath / SourceSHA256 record where the config was loaded from
+	// and the hash of its exact bytes (set by LoadLabConfig, not YAML) —
+	// what a remote lab's trust approval is pinned to.
+	SourcePath   string `yaml:"-"`
+	SourceSHA256 string `yaml:"-"`
 }
 
 // ResolveConfigPath turns whatever the user passed via --config into an
@@ -345,6 +353,9 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 		return nil, cleanup, fmt.Errorf("failed to parse lab YAML config: %w", err)
 	}
 	config.UnknownFields = unknown
+	sum := sha256.Sum256(body)
+	config.SourcePath = configPath
+	config.SourceSHA256 = hex.EncodeToString(sum[:])
 
 	return &config, cleanup, nil
 }
