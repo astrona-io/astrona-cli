@@ -3420,6 +3420,18 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>brew<span class="w"> </span>install<span class="w"> </span>astrona-io/tap/astrona
 </code></pre></div>
 <p>The <a href="https://github.com/astrona-io/homebrew-tap">tap</a> is updated by every release, pinned to the same binaries and SHA-256 values as the GitHub release. Upgrade with <code>brew upgrade astrona</code>, or <code>astrona upgrade</code> — on a Homebrew install it runs <code>brew upgrade astrona</code> for you instead of downloading the binary itself.</p>
+<p>What the Homebrew install gives you on top of the binary:</p>
+<ul>
+<li><strong><code>kind</code> and <code>kubectl</code></strong> (<code>kubernetes-cli</code>) are installed as dependencies. Docker or Podman you install yourself — e.g. <code>brew install podman &amp;&amp; podman machine init &amp;&amp; podman machine start</code>, or Docker Desktop.</li>
+<li><strong>Shell completion</strong> for bash, zsh and fish is set up — no <code>astrona completion</code> step (see <a href="#shell-completion">Shell completion</a>).</li>
+<li><strong>Man pages</strong>: <code>man astrona</code>, <code>man astrona-run</code>, … one per command.</li>
+<li><strong>No Gatekeeper prompt</strong> on macOS: a binary downloaded in a browser gets the quarantine flag and macOS may refuse to run it; one installed by Homebrew doesn't.</li>
+</ul>
+<p>Two things to know:</p>
+<ul>
+<li>An older <code>astrona</code> earlier on your <code>PATH</code> (e.g. <code>~/.local/bin/astrona</code> from the quick install) hides the Homebrew one — <code>which -a astrona</code> shows the order; remove the old one.</li>
+<li><code>brew uninstall astrona</code> removes the program, not <code>~/.astrona</code> (lab state, results, approvals, installed versions). Destroy running labs first (<code>astrona destroy &lt;lab&gt;</code>); delete <code>~/.astrona</code> yourself if you want it gone.</li>
+</ul>
 <h2 id="quick-install-macos-linux">Quick install (macOS &amp; Linux)<a class="headerlink" href="#quick-install-macos-linux" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.local/bin<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">OS</span><span class="o">=</span><span class="k">$(</span>uname<span class="w"> </span>-s<span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span><span class="s1">'[:upper:]'</span><span class="w"> </span><span class="s1">'[:lower:]'</span><span class="k">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
@@ -3510,6 +3522,7 @@
 </code></pre></div>
 <p>It checks this machine (tools, container engine, inotify), the lab (its config, whether this astrona may run it, memory and free ports when it isn't running) and the running lab (nodes, linked clusters, port forwards, unhealthy pods, exam clock). It only reads — nothing is started or changed — and exits non-zero on any ✗ — including a lab you named (argument, <code>-c</code>, <code>--file</code>, <code>--git</code>, <code>astrona use</code> — <code>astrona doctor .</code> counts) that isn't there or whose config doesn't parse; only when no lab is named and the current directory has none does it check the machine alone. <code>--bundle</code> also writes the full <a href="../../guides/ci-integration/#diagnostics-on-failure">diagnostics bundle</a>. Unhealthy pods are ⚠, not ✗: in a lab they may be the exercise.</p>
 <h2 id="shell-completion">Shell completion<a class="headerlink" href="#shell-completion" title="Permanent link">&para;</a></h2>
+<p>Installed with Homebrew? Completion for bash, zsh and fish is already set up — skip the steps below (Homebrew's shell setup must be loaded, see <code>brew info astrona</code>).</p>
 <p><code>astrona completion &lt;shell&gt;</code> prints a completion script for bash, zsh, fish or PowerShell. Besides commands and flags, it completes <strong>lab names</strong> from what's actually on your machine — <code>astrona destroy &lt;TAB&gt;</code>, <code>stop</code>, <code>start</code>, <code>shell</code>, <code>kubeconfig</code>, <code>diagnose</code>, <code>ssh</code>, <code>port-forward list|stop</code> — filtered to what makes sense (<code>start</code> offers stopped labs, <code>ssh</code> qemu VMs), each with its runtime and status. Type part of the name without <code>astro-</code> and the short form is completed.</p>
 <p>It also completes:</p>
 <ul>
