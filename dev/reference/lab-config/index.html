@@ -3347,9 +3347,15 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <td><a href="#bootstrap-testing">BootstrapConfig</a></td>
 <td>This cluster's part of the reference solution — <code>astrona test</code> applies it before the lab's own <code>testing</code></td>
 </tr>
+<tr>
+<td><code>dependsOn</code></td>
+<td>list of strings</td>
+<td>Other linked clusters (names) that must be up and ready — bootstrap and <code>waitFor</code> done — before this one is created. Its scripts get their <code>ASTRONA_LINK_*</code> addresses (and its cluster their <code>astrona-links</code> ConfigMap). Unknown names, self-dependencies and cycles are rejected</td>
+</tr>
 </tbody>
 </table>
 <p>Paths are relative to the lab's config, like everywhere else; by convention each cluster keeps its files in <code>labs/&lt;name&gt;/</code> (<code>labs/idp/bootstrap/</code>, <code>labs/idp/testing/</code>).</p>
+<p>Clusters are created one at a time: dependencies first, otherwise in the order listed; the lab's own cluster last. The first one that fails stops the run — nothing depending on it is started.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">runtime</span><span class="p">:</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kind</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span>
