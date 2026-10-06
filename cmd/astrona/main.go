@@ -29,6 +29,9 @@ type rootFlags struct {
 	gitRef     string
 	verbose    bool
 	trust      bool
+	// parallel is --parallel on commands that create a lab (run, reset,
+	// test): linked clusters created at once.
+	parallel int
 }
 
 // Version is the current version of the astrona-cli binary, burnt in at build

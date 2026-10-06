@@ -76,6 +76,9 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			if err := validateLabForRun(cfg); err != nil {
 				return fmt.Errorf("lab config is invalid, nothing was reset: %w", err)
 			}
+			if err := validateParallel(flags.parallel); err != nil {
+				return err
+			}
 
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
 			exists := labExists(cfg, clusterName)
@@ -112,5 +115,6 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Don't ask for confirmation")
+	addParallelFlag(cmd, flags)
 	return cmd
 }
