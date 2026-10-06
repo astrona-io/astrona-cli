@@ -54,6 +54,12 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 
+			// Grading runs validation scripts and command checks on this
+			// machine.
+			if err := requireTrust(flags, cfg, baseDir); err != nil {
+				return err
+			}
+
 			env, err := runtime.LoadEnvironment(clusterName, cfg.Runtime)
 			if err != nil {
 				return fmt.Errorf("could not find a running lab environment: %w", err)

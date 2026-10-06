@@ -52,6 +52,10 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer configCleanup()
 
+			if err := requireTrust(flags, cfg, baseDir); err != nil {
+				return err
+			}
+
 			rep, err := ui.NewReporter("test", cfg.Metadata.Name, flags.verbose)
 			if err != nil {
 				return err
