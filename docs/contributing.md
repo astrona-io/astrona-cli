@@ -52,3 +52,14 @@ go build -o astrona ./cmd/astrona
 ## Dependency updates
 
 [Renovate](https://docs.renovatebot.com/) — Mend's hosted GitHub App, configured by `.github/renovate.json5` — opens PRs for dependency updates; they get the full CI run like any other PR (jobs and logs: [developer.mend.io](https://developer.mend.io)). Go module **minor and patch** updates are set to auto-merge: GitHub merges them as soon as the required checks on `main` (Lint, Unit tests, E2E) pass, and never when they fail. Major updates, the `go`/`toolchain` directive and GitHub Actions updates wait for a human review. New releases are only proposed after they're 3 days old. The Dependency Dashboard issue lists everything pending.
+
+## Releasing
+
+Push a version tag — or create a release from the GitHub UI with a new tag — and `.github/workflows/release.yml` builds `astrona-{linux,darwin}-{amd64,arm64}` and attaches them to the release; `docs.yml` publishes that version of these docs.
+
+| Tag | Release | Docs |
+|---|---|---|
+| `v0.2.0` or `0.2.0` | stable, marked **latest** — what the install command and `astrona upgrade` download | becomes the `latest` docs version |
+| `v0.2.0-rc1` (anything with `-`) | **pre-release**, never "latest" | own version, `latest` unchanged |
+
+Other tag names are ignored. If a release ever ends up without binaries (e.g. its tag was created before this workflow accepted it), rebuild it: Actions → Release → **Run workflow** → enter the existing tag.

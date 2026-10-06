@@ -2,23 +2,52 @@ name: Release
 
 on:
   push:
+    # Both "v0.2.0" and "0.2.0" (a release created from the GitHub UI
+    # without the v) — a tag that doesn't match builds nothing, and the
+    # "latest" release then has no binaries for install/upgrade.
     tags:
       - 'v*'
+      - '[0-9]*'
+  # Rebuild an existing tag and attach its binaries — e.g. a release whose
+  # tag push didn't trigger this workflow.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and attach binaries to (e.g. 0.2.0 or v0.2.0-rc1)'
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   build-release:
     name: Build and Release
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       matrix:
         goos: [linux, darwin]
         goarch: [amd64, arm64]
     steps:
+      - name: Check tag format
+        run: |
+          if ! [[ "$TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$TAG' isn't a version tag like v0.2.0, 0.2.0 or v0.2.0-rc1"
+            exit 1
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG }}
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -30,8 +59,8 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
-          BINARY_NAME="astrona-${{ matrix.goos }}-${{ matrix.goarch }}"
-          go build -v -ldflags "-X main.Version=${{ github.ref_name }}" -o "$BINARY_NAME" ./cmd/astrona
+          BINARY_NAME="astrona-${GOOS}-${GOARCH}"
+          go build -v -ldflags "-X main.Version=${TAG}" -o "$BINARY_NAME" ./cmd/astrona
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
@@ -43,10 +72,8 @@ jobs:
     name: Create GitHub Release
     needs: build-release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
       - name: Download all artifacts
         uses: actions/download-artifact@v8
         with:
@@ -58,9 +85,17 @@ jobs:
           find artifacts -type f -exec cp {} dist/ \;
           ls -R dist/
 
+      # A pre-release tag (v0.2.0-rc1) is published as a pre-release and
+      # never marked "latest" — install and `astrona upgrade` follow
+      # releases/latest, which must stay a stable version. Attaches to the
+      # release if it already exists (e.g. created from the GitHub UI).
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ env.TAG }}
           files: dist/*
+          fail_on_unmatched_files: true
+          prerelease: ${{ contains(env.TAG, '-') }}
+          make_latest: ${{ !contains(env.TAG, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
