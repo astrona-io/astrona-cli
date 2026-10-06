@@ -164,6 +164,22 @@ astrona submit --junit-xml=report.xml
 
 Writes a standard JUnit XML report alongside the terminal output — GitHub Actions, GitLab CI, Jenkins, and most other CI systems render this natively as a test report. See [CI Integration](../guides/ci-integration.md).
 
+## Progress across labs
+
+```sh
+astrona progress
+```
+
+```text
+LAB            RESULT        BEST         ATTEMPTS   FASTEST PASS   LAST
+k8s-web-01     passed (#2)   5/5 (100%)   3          18m0s          2h ago
+net-policy-02  not yet       3/5 (60%)    4          -              1d ago
+
+1 of 2 lab(s) passed.
+```
+
+Built from the attempt history every `astrona submit` records: whether and on which attempt you passed, your best score, how many attempts, the fastest passing time for exam labs, and when you last worked on it. `-o json` for export or scripts.
+
 ## `submit` vs `test`
 
 |  | `astrona submit` | `astrona test` |
