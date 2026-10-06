@@ -170,6 +170,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Don't ask for confirmation")
 	addParallelFlag(cmd, flags)
 	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "Rebuild only this linked cluster (its runtime.kind.clusters name)")
+	_ = cmd.RegisterFlagCompletionFunc("cluster", clusterFlagCompletion(flags, false))
 	cmd.Flags().BoolVar(&soft, "soft", false, "Keep the cluster(s): delete the lab's namespaces and re-run its bootstrap (seconds instead of minutes)")
 	return cmd
 }

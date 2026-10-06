@@ -91,6 +91,7 @@ func newNetCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "The linked cluster (its runtime.kind.clusters name); default: the lab's own cluster")
+	_ = cmd.RegisterFlagCompletionFunc("cluster", clusterFlagCompletion(flags, true))
 	cmd.Flags().StringVar(&w.Latency, "latency", "", "Latency added per round trip, e.g. 200ms")
 	cmd.Flags().StringVar(&w.Jitter, "jitter", "", "Latency variation, e.g. 30ms (needs --latency)")
 	cmd.Flags().StringVar(&w.Loss, "loss", "", "Packet loss, e.g. 5%")

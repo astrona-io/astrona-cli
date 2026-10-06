@@ -38,13 +38,15 @@ type githubRelease struct {
 	} `json:"assets"`
 }
 
-func getJSON(url string, v any) error {
+func getJSON(url string, v any) error { return getJSONWithin(url, v, 20*time.Second) }
+
+func getJSONWithin(url string, v any, timeout time.Duration) error {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	resp, err := (&http.Client{Timeout: 20 * time.Second}).Do(req)
+	resp, err := (&http.Client{Timeout: timeout}).Do(req)
 	if err != nil {
 		return err
 	}
@@ -87,9 +89,15 @@ func releaseAsset(tag string) (url, sha string, err error) {
 // tests can stay offline).
 var releaseTags = githubReleaseTags
 
-func githubReleaseTags() ([]string, error) {
+func githubReleaseTags() ([]string, error) { return listReleaseTags(20 * time.Second) }
+
+// quickReleaseTags is releaseTags for shell completion: gives up fast
+// rather than freezing <TAB>.
+var quickReleaseTags = func() ([]string, error) { return listReleaseTags(3 * time.Second) }
+
+func listReleaseTags(timeout time.Duration) ([]string, error) {
 	var rels []githubRelease
-	if err := getJSON("https://api.github.com/repos/"+releaseRepo+"/releases?per_page=100", &rels); err != nil {
+	if err := getJSONWithin("https://api.github.com/repos/"+releaseRepo+"/releases?per_page=100", &rels, timeout); err != nil {
 		return nil, err
 	}
 	var tags []string

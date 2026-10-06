@@ -141,6 +141,7 @@ func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "A linked cluster's kubeconfig instead (its runtime.kind.clusters name)")
+	_ = cmd.RegisterFlagCompletionFunc("cluster", clusterFlagCompletion(flags, true))
 	return cmd
 }
 
@@ -225,6 +226,7 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "Make a linked cluster (its runtime.kind.clusters name) the default kubectl context")
+	_ = cmd.RegisterFlagCompletionFunc("cluster", clusterFlagCompletion(flags, true))
 	return cmd
 }
 

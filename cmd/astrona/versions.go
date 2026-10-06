@@ -255,8 +255,9 @@ func newVersionsCmd() *cobra.Command {
 		RunE:  func(cmd *cobra.Command, args []string) error { return listVersions() },
 	})
 	cmd.AddCommand(&cobra.Command{
-		Use:   "install <version>",
-		Short: "Install an astrona release as astrona-<version> (verified download)",
+		Use:               "install <version>",
+		ValidArgsFunction: versionCompletion(false),
+		Short:             "Install an astrona release as astrona-<version> (verified download)",
 		Example: `  astrona versions install 0.2.1
   astrona versions install v0.2.0`,
 		Args: cobra.ExactArgs(1),
@@ -277,9 +278,10 @@ func newVersionsCmd() *cobra.Command {
 		},
 	})
 	cmd.AddCommand(&cobra.Command{
-		Use:   "remove <version>",
-		Short: "Remove an installed astrona-<version>",
-		Args:  cobra.ExactArgs(1),
+		Use:               "remove <version>",
+		ValidArgsFunction: versionCompletion(true),
+		Short:             "Remove an installed astrona-<version>",
+		Args:              cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v, err := version.Parse(args[0])
 			if err != nil {
