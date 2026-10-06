@@ -153,6 +153,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.AddCommand(newPortForwardCmd(flags))
 	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(newLogsCmd())
+	rootCmd.AddCommand(newInitCmd())
 	rootCmd.AddCommand(newContentCmd())
 	rootCmd.AddCommand(newDocgenCmd(flags))
 	rootCmd.AddCommand(newSchemaCmd())

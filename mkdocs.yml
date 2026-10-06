@@ -107,6 +107,8 @@ nav:
           - reference/cli/astrona_logs_path.md
           - reference/cli/astrona_logs_export.md
           - reference/cli/astrona_logs_clean.md
+          - reference/cli/astrona_init.md
+          - reference/cli/astrona_init_lab.md
           - reference/cli/astrona_content.md
           - reference/cli/astrona_content_init.md
           - reference/cli/astrona_content_validate.md
