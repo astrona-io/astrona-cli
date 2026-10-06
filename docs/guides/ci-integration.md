@@ -61,6 +61,7 @@ Notes:
 - Testing a lab from **another** repo or a URL (`--git …` / `-c https://…`) needs `--trust` in CI — remote labs must be approved before they run (see [Approving remote labs](remote-config.md#approving-remote-labs)). Testing the repo's own checkout (`-c .`) doesn't.
 - Docker is already available on GitHub-hosted `ubuntu-latest` runners, which is all the `kind` runtime needs. A `qemu` runtime lab needs `/dev/kvm` for real hardware acceleration — GitHub-hosted runners don't have it, so a qemu-backed `astrona test` there would fall back to slow software emulation. Run qemu labs' CI on a self-hosted runner with KVM, or a GitHub-hosted runner that provides it.
 - Labs hitting Docker Hub rate limits in CI can list their images in [`runtime.kind.preloadImages`](../concepts/runtimes.md#preloaded-images-runtimekindpreloadimages): each image is then pulled once per job on the runner instead of once per node (and per restarted pod).
+- `astrona test --repeat 3` catches flaky checks before students do — each run uses a fresh environment, so it's slower; a nightly job is a good place for it.
 - `--diagnostics-dir` puts the [diagnostics bundle](#diagnostics-on-failure) inside the workspace so the `if: failure()` step can upload it.
 - `astrona test` always tears down its own environment on exit (even on failure or a cancelled step, best-effort), so a CI job doesn't need its own cleanup step.
 

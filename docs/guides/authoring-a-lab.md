@@ -235,6 +235,21 @@ astrona test -c path/to/your-lab --junit-xml=report.xml
 
 `astrona validate` catches config mistakes — a misspelled field, a missing script — without creating anything; see [editor support and validation](../reference/lab-config.md#editor-support-and-validation) for autocompletion in your editor.
 
+Before publishing, check the lab isn't flaky:
+
+```sh
+astrona test -c path/to/your-lab --repeat 5
+```
+
+```text
+Repeat summary — 5 runs:
+
+  ✓  Deployment web runs 2 replicas  5/5
+  ⚠  2 web pods exist                3/5  flaky
+```
+
+`--repeat N` (up to 20) runs the whole lifecycle N times on fresh environments. A check that passes only sometimes almost always means grading raced the cluster — add a `waitFor` (in `testing` for the reference solution) for whatever the check depends on. Any failed or flaky run fails the command; with `--junit-xml`, each check is reported once with "passed k/N runs".
+
 This is the whole point of the `testing` stage: it bootstraps your lab, applies your reference solution, submits it to the Proctor, and tears down — proving a student who does everything right will actually pass. Run this locally before publishing, and wire it into CI (see [CI Integration](ci-integration.md)) so a later edit to `validation` can't silently break the lab's own solution.
 
 ## Full schema reference
