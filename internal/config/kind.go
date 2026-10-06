@@ -44,6 +44,15 @@ type KindConfig struct {
 	// Labs are extra kind clusters that run side by side with this one —
 	// see KindLab (kindlabs.go).
 	Labs []KindLab `yaml:"labs"`
+	// SharedCA gives the lab its own certificate authority, installed in
+	// its cluster and every linked cluster (ConfigMap astrona-ca with
+	// ca.crt; with cert-manager, a ClusterIssuer astrona-ca), so TLS
+	// between them verifies. Lab-wide: set it here, not on a linked
+	// cluster.
+	SharedCA bool `yaml:"sharedCA"`
+	// CALab is set at run time, not in YAML: the lab cluster whose CA this
+	// cluster installs (the lab's own name, also for its linked clusters).
+	CALab string `yaml:"-"`
 }
 
 // KindNodes is the cluster's node count. Zero values mean kind's defaults
@@ -92,7 +101,7 @@ func (k *KindConfig) IsZero() bool {
 	return k == nil ||
 		(k.Version == "" && k.Image == "" && k.Nodes == KindNodes{} && k.Networking == KindNetworking{} &&
 			len(k.FeatureGates) == 0 && len(k.RuntimeConfig) == 0 && k.Addons.IsZero() && len(k.PreloadImages) == 0 &&
-			len(k.Labs) == 0)
+			len(k.Labs) == 0 && !k.SharedCA)
 }
 
 // NodeImage is the image to boot every node from, or "" for kind's default.

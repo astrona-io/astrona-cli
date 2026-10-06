@@ -146,6 +146,50 @@ runtime:
 
 It belongs to the lab like any forward: started after every cluster is up, paused and resumed by `stop`/`start`, removed by `destroy`, listed by `astrona port-forward list`. Like all forwards it binds `127.0.0.1` only.
 
+## TLS between clusters: a shared CA
+
+An identity provider is usually reached over HTTPS, and its clients must trust its certificate. `runtime.kind.sharedCA: true` gives the lab its **own certificate authority**, trusted by every cluster of the lab:
+
+```yaml
+runtime:
+  type: kind
+  kind:
+    sharedCA: true
+    labs:
+      - name: idp
+        addons: {certManager: true}
+        bootstrap:
+          manifests:
+            - {name: idp, type: file, source: labs/idp/bootstrap/idp.yaml}
+          waitFor:
+            - {resource: certificate/idp, namespace: auth, condition: Ready, timeout: 3m}
+```
+
+What every cluster (the lab's own and each linked one) gets:
+
+| | |
+|---|---|
+| ConfigMap `astrona-ca` in `default` | `ca.crt` — mount it in a pod to trust the CA (`curl --cacert /ca/ca.crt …`, `SSL_CERT_FILE`, a Java truststore, …) |
+| Secret `astrona-ca` (`kubernetes.io/tls`) | The CA's certificate and key — in `cert-manager` when the cluster has the `certManager` addon, in `default` otherwise |
+| ClusterIssuer `astrona-ca` | Only with the `certManager` addon — issue certificates from the lab CA with `issuerRef: {kind: ClusterIssuer, name: astrona-ca}` |
+
+A certificate for the stable name then verifies from any cluster of the lab:
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: {name: idp, namespace: auth}
+spec:
+  secretName: idp-tls
+  dnsNames: [idp.astrona.internal]
+  issuerRef: {kind: ClusterIssuer, name: astrona-ca}
+```
+
+- The CA is created per lab run (ECDSA P-256, can only sign leaf certificates) at `~/.astrona/kind/<lab>/ca.crt` (key `ca.key`, mode `0600`) and deleted with the lab; `astrona test` copies get their own.
+- Scripts, command checks and `astrona shell` get `$ASTRONA_CA_CERT` — the path of `ca.crt` — for `curl --cacert "$ASTRONA_CA_CERT" …` from your machine (with the [`/etc/hosts` line](#stable-names-nameastronainternal) and a port forward).
+- astrona never adds the CA to your system's trust store.
+- `sharedCA` is lab-wide: set it on `runtime.kind`, not on a linked cluster.
+
 ## Simulating a remote site
 
 A linked cluster can behave like a site across a WAN — slow, lossy, bandwidth-limited:

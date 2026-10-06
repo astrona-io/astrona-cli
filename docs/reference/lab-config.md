@@ -157,6 +157,7 @@ kind only (rejected for `type: qemu`). Omit it and the lab gets a plain `kind cr
 | `addons` | [Addons](#runtimekindaddons) | Cluster components installed right after the cluster is created |
 | `preloadImages` | list of strings | Images loaded into every node before addons/bootstrap, e.g. `[nginx:1.27-alpine]` — explicit tag or digest required (not `:latest`), max 30. See [Preloaded images](../concepts/runtimes.md#preloaded-images-runtimekindpreloadimages) |
 | `labs` | list of [KindLab](#runtimekindlabsn) | Extra kind clusters running side by side with the lab's own (max 5) |
+| `sharedCA` | bool | Give the lab its own certificate authority, installed in its cluster and every linked cluster: ConfigMap `astrona-ca` (`ca.crt`) in `default`; with the `certManager` addon a ClusterIssuer `astrona-ca`. Scripts, command checks and `astrona shell` get `$ASTRONA_CA_CERT`. See [TLS between clusters](../guides/linked-labs.md#tls-between-clusters-a-shared-ca) |
 
 ```yaml
 runtime:

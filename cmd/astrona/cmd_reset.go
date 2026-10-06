@@ -182,6 +182,9 @@ func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string
 		}
 	}
 
+	if err := prepareSharedCA(cfg, clusterName); err != nil { // the lab's existing CA
+		return err
+	}
 	byName := map[string]cluster.LinkState{}
 	for _, s := range states {
 		byName[s.Name] = s

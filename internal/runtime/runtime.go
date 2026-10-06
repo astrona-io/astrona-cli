@@ -318,6 +318,17 @@ func (env *LabEnvironment) WithLinks(links []cluster.LinkState) {
 	env.Executor = executor.LocalExecutor{Kubeconfig: env.Kubeconfig, ExtraEnv: env.ExtraEnv}
 }
 
+// AddEnv adds variables (e.g. ASTRONA_CA_CERT) to the environment host
+// scripts and command checks run with. kind only — qemu scripts run in the
+// VM.
+func (env *LabEnvironment) AddEnv(kv ...string) {
+	if env.Type != RuntimeKind || len(kv) == 0 {
+		return
+	}
+	env.ExtraEnv = append(env.ExtraEnv, kv...)
+	env.Executor = executor.LocalExecutor{Kubeconfig: env.Kubeconfig, ExtraEnv: env.ExtraEnv}
+}
+
 // Link returns the linked cluster named name, if this lab has it.
 func (env *LabEnvironment) Link(name string) (cluster.LinkState, bool) {
 	for _, l := range env.Links {
