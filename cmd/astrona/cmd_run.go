@@ -54,11 +54,28 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err := validateLabForRun(cfg); err != nil {
 				return err
 			}
+			if err := validateParallel(flags.parallel); err != nil {
+				return err
+			}
 			return bringUpLab(cfg, baseDir, flags, rep)
 		},
 	}
 
+	addParallelFlag(cmd, flags)
 	return cmd
+}
+
+// addParallelFlag adds --parallel to a command that creates a lab.
+func addParallelFlag(cmd *cobra.Command, flags *rootFlags) {
+	cmd.Flags().IntVar(&flags.parallel, "parallel", 1, fmt.Sprintf("Create up to N linked clusters (runtime.kind.labs) at once, 1-%d (default 1: one at a time). dependsOn is still respected, and after a failure nothing new starts", maxParallel))
+}
+
+// validateParallel checks --parallel.
+func validateParallel(n int) error {
+	if n < 1 || n > maxParallel {
+		return fmt.Errorf("--parallel must be between 1 and %d", maxParallel)
+	}
+	return nil
 }
 
 // printConnectHints prints how to reach the lab: for a kind lab, the
@@ -223,7 +240,7 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 	if len(cfg.KindLabs()) > 0 && kindClusterExists(clusterName) {
 		return fmt.Errorf("lab %s is already running — `astrona reset` starts it over", clusterName)
 	}
-	links, err := startKindLabs(cfg, baseDir, clusterName, false, rep)
+	links, err := startKindLabs(cfg, baseDir, clusterName, false, flags.parallel, rep)
 	if err != nil {
 		return err
 	}

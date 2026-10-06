@@ -51,13 +51,19 @@ func kindLabStates(cfg *config.LabConfig, labCluster string) ([]config.KindLab, 
 // linked clusters belong to the lab, nothing else uses them. The states
 // are saved before anything is created, so `astrona destroy` finds every
 // cluster even if this fails halfway.
-func startKindLabs(cfg *config.LabConfig, baseDir, labCluster string, forTest bool, rep *ui.Reporter) ([]cluster.LinkState, error) {
+func startKindLabs(cfg *config.LabConfig, baseDir, labCluster string, forTest bool, parallel int, rep *ui.Reporter) ([]cluster.LinkState, error) {
 	order, states, err := kindLabStates(cfg, labCluster)
 	if err != nil || len(states) == 0 {
 		return nil, err
 	}
 	if err := cluster.WriteLinks(labCluster, states); err != nil {
 		return nil, fmt.Errorf("save linked clusters: %w", err)
+	}
+	if parallel > 1 && len(order) > 1 {
+		if err := startKindLabsParallel(cfg, order, states, baseDir, forTest, parallel, rep); err != nil {
+			return nil, err
+		}
+		return states, nil
 	}
 	byName := map[string]cluster.LinkState{}
 	for i, l := range order {

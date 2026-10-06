@@ -45,6 +45,9 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			if err := validateDiagnosticsMode(diagMode); err != nil {
 				return err
 			}
+			if err := validateParallel(flags.parallel); err != nil {
+				return err
+			}
 
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
@@ -120,6 +123,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 
 	cmd.Flags().StringVar(&junitPath, "junit-xml", "", "Write a JUnit XML test report to this path, for CI systems to parse")
 	cmd.Flags().StringVar(&diagMode, "diagnostics", diagnosticsOnFailure, "When to collect a diagnostics bundle before teardown: on-failure, always, or never")
+	addParallelFlag(cmd, flags)
 	cmd.Flags().IntVar(&repeat, "repeat", 1, "Run the whole lifecycle this many times (fresh environment each) and report flaky checks")
 	cmd.Flags().StringVar(&diagDir, "diagnostics-dir", "", "Write the diagnostics bundle here (default ~/.astrona/diagnostics/<lab>-<timestamp>) — point it inside your CI workspace to upload it as an artifact")
 
@@ -158,7 +162,7 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 			destroyOwnedClusters(ownedClusters(clusterName, cfg.KindLabs()), rep)
 		}
 	}()
-	links, err := startKindLabs(cfg, baseDir, clusterName, true, rep)
+	links, err := startKindLabs(cfg, baseDir, clusterName, true, flags.parallel, rep)
 	if err != nil {
 		return nil, false, err
 	}

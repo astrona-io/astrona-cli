@@ -88,6 +88,9 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			if err := validateLabForRun(cfg); err != nil {
 				return fmt.Errorf("lab config is invalid, nothing was reset: %w", err)
 			}
+			if err := validateParallel(flags.parallel); err != nil {
+				return err
+			}
 
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
 			if clusterFlag != "" {
@@ -127,6 +130,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Don't ask for confirmation")
+	addParallelFlag(cmd, flags)
 	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "Rebuild only this linked cluster (its runtime.kind.labs name)")
 	return cmd
 }

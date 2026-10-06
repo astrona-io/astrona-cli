@@ -33,7 +33,7 @@ Each entry takes the same cluster fields as `runtime.kind` (version, nodes, netw
 
 ### Dependencies and start order
 
-Clusters are created **one at a time**, never in parallel: every linked cluster first, then the lab's own. Each one is only created once the previous is fully ready — its bootstrap done and its `waitFor` gates passed. Use `dependsOn` when one linked cluster needs another:
+By default clusters are created **one at a time**: every linked cluster first, then the lab's own. Each one is only created once the previous is fully ready — its bootstrap done and its `waitFor` gates passed. Use `dependsOn` when one linked cluster needs another:
 
 ```yaml
     labs:
@@ -52,6 +52,19 @@ Clusters are created **one at a time**, never in parallel: every linked cluster 
 - If a cluster fails, the run stops there: nothing that depends on it — and not the lab itself — is started, and the error says what was skipped. `astrona destroy` cleans up what was created.
 - Unknown names, a cluster depending on itself, and cycles are rejected by `astrona validate`.
 - `astrona test` applies the clusters' `testing` blocks in the same order; `astrona start` restarts them in it.
+
+#### Creating clusters in parallel
+
+`--parallel N` (on `run`, `reset` and `test`, max 5) creates up to N linked clusters at once — faster on a machine with memory to spare:
+
+```sh
+astrona run -c ./my-lab --parallel 3
+```
+
+- `dependsOn` still holds: a cluster starts as soon as everything it depends on is ready, so independent clusters come up together.
+- After the first failure **nothing new starts**; clusters already being created finish, and the error lists what was never started. `astrona destroy` cleans up what exists.
+- Each cluster logs to its own run log (`~/.astrona/logs/linked-<cluster>-…`); the screen shows one line per cluster as it becomes ready or fails, with the log path on failure.
+- The lab's own cluster is still created last, after all of them.
 
 ### Folder layout
 

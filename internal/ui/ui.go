@@ -237,6 +237,27 @@ func (r *Reporter) Warn(format string, a ...any) {
 	r.unpauseSpinner()
 }
 
+// Result prints an already-resolved step — work that ran elsewhere (e.g.
+// in parallel, with its own log) — with how long it took. Counted in the
+// log footer like a step. Must not be called while a step is active.
+func (r *Reporter) Result(ok bool, took time.Duration, format string, a ...any) {
+	label := fmt.Sprintf(format, a...)
+	elapsed := formatElapsed(took)
+	mark, word := r.green("✓"), "ok"
+	if ok {
+		r.okN++
+	} else {
+		r.failN++
+		mark, word = r.red("✗"), "FAIL"
+	}
+	fmt.Fprintf(r.logW, "--- %s: %s (%s) ---\n", strings.ToLower(word), label, elapsed)
+	if r.verbose {
+		fmt.Fprintf(r.screen, "    %s: %s (%s)\n", strings.ToLower(word), label, elapsed)
+		return
+	}
+	fmt.Fprintf(r.screen, "  %s %s %s\n", mark, label, r.dim("("+elapsed+")"))
+}
+
 // Step begins a step and returns its handle. Exactly one step may be
 // active at a time; the caller must resolve it with Done, Skip, or Fail
 // before starting the next.
