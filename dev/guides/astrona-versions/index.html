@@ -3083,7 +3083,7 @@
 </code></pre></div>
 <p>The newest astrona stays <code>astrona</code>; older ones are <code>astrona-&lt;version&gt;</code>. Downloads are verified against the <strong>SHA-256 digest GitHub records for each release binary</strong> — a mismatch is refused, and nothing unverified is ever made executable. Add <code>~/.astrona/bin</code> to your <code>PATH</code> to run e.g. <code>astrona-0.2.1</code> yourself.</p>
 <h2 id="what-happens-when-a-lab-needs-another-version">What happens when a lab needs another version<a class="headerlink" href="#what-happens-when-a-lab-needs-another-version" title="Permanent link">&para;</a></h2>
-<p>Every command that loads a lab checks its <code>astronaVersion</code>. If this astrona isn't allowed, it hands the whole command over to the <strong>newest installed <code>astrona-&lt;version&gt;</code> that is</strong> — you just keep typing <code>astrona</code>:</p>
+<p>Commands that run, test, grade or validate a lab (<code>run</code>, <code>test</code>, <code>submit</code>, <code>reset</code>, <code>validate</code>, <code>status</code>, …) check its <code>astronaVersion</code>. If this astrona isn't allowed, it hands the whole command over to the <strong>newest installed <code>astrona-&lt;version&gt;</code> that is</strong> — you just keep typing <code>astrona</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$ astrona test ./labs/old-lab
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>[INFO] this lab needs astrona &lt;=0.2.1 — running it with astrona 0.2.1 (~/.astrona/bin/astrona-0.2.1)
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>…
@@ -3091,7 +3091,16 @@
 </code></pre></div>
 <ul>
 <li>The lab is passed on as <code>-c</code>/<code>-f</code>/<code>--git</code>/<code>--git-ref</code>, since an older version may not know <a href="../../reference/cli/astrona_use/"><code>astrona use</code></a> or a lab given as an argument. Flags the older version doesn't have make it fail with its own error.</li>
-<li>None installed? The error names the newest release that fits: <code>install it: astrona versions install 0.2.1</code>.</li>
+<li><strong>None installed?</strong> astrona never downloads anything just because a lab config says so — a config may come from someone else's repository. Instead:<ul>
+<li><strong>At a terminal it asks first:</strong>
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>This lab needs astrona &lt;=0.2.1 (this is 0.2.2). Download and install astrona 0.2.1,
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>verified against GitHub's SHA-256 digest? [y/N]
+</code></pre></div>
+  Yes installs the newest release that fits and continues the same command with it; no (the default) stops, and tells you the <code>astrona versions install …</code> command for later.</li>
+<li><strong>Without a terminal</strong> (CI, scripts) it stops with that command — or pass <strong><code>--install-version</code></strong> to install it without asking.</li>
+</ul>
+</li>
+<li><code>astrona docs</code> and <code>astrona destroy</code> don't check: reading a lab's docs doesn't depend on the version, and cleaning up must always work.</li>
 <li><code>astrona-*</code> binaries in <code>~/.astrona/bin</code> are preferred; ones on your <code>PATH</code> count too.</li>
 <li>A developer build (no release number) runs every lab and doesn't hand over.</li>
 </ul>
