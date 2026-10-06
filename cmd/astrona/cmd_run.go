@@ -248,6 +248,8 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 	if err != nil {
 		return err
 	}
+	// Linked clusters created earlier now learn the names of later ones.
+	refreshLinkNames(clusterName, true, rep)
 
 	// The clock starts once the lab is ready — setup time doesn't count.
 	if cfg.Exam.Enabled() {

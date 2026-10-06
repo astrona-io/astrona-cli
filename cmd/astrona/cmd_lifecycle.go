@@ -164,6 +164,8 @@ func newStartCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Node IPs may have changed with the restart.
+			refreshLinkNames(lab, false, rep)
 
 			health, _ := kindAPIHealth(lab)
 			rep.Close()

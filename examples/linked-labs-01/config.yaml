@@ -3,12 +3,11 @@
 # Two kind clusters side by side, in one lab: the lab's own cluster (the
 # "app" side, where the student works) and a linked cluster "idp" serving
 # a token endpoint (runtime.kind.labs). `astrona run` creates the idp
-# cluster first, then the lab, and tells the lab where the idp is:
-#   - scripts and command checks: $ASTRONA_LINK_IDP_HOST (and _CONTEXT,
-#     _KUBECONFIG)
-#   - in the cluster: ConfigMap astrona-links (key idp.host)
-# Never hard-code the host: under `astrona test` the clusters have other
-# names (astro-test-…).
+# cluster first, then the lab. Inside the lab's cluster the idp is always
+# http://idp.astrona.internal:30080 (its NodePort) — the same name under
+# `astrona run` and `astrona test`. Scripts and command checks also get
+# $ASTRONA_LINK_IDP_HOSTNAME / _HOST / _CONTEXT / _KUBECONFIG, and the
+# cluster a ConfigMap astrona-links.
 metadata:
   name: linked-labs-01
   docs:
@@ -17,14 +16,16 @@ metadata:
 
 runtime:
   type: kind
-  # The idp's token endpoint on your machine too: curl http://127.0.0.1:18080/token
+  # The idp on your machine too, on the same port as its NodePort — with
+# `127.0.0.1 idp.astrona.internal` in /etc/hosts, the same URL works here
+# and in the cluster: curl http://idp.astrona.internal:30080/token
   portForwards:
     - name: idp
       cluster: idp                      # forwarded from the idp cluster
       resource: svc/idp
       namespace: auth
       targetPort: 80
-      hostPort: 18080
+      hostPort: 30080
       scheme: http
       description: identity provider (try /token)
   kind:
