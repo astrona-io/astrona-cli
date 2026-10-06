@@ -106,6 +106,7 @@ func resourceRefs(cfg *config.LabConfig) []resourceRef {
 	for _, l := range cfg.KindLabs() {
 		addBlock("runtime.kind.labs["+l.Name+"].bootstrap", l.Bootstrap)
 		addBlock("runtime.kind.labs["+l.Name+"].testing", l.Testing)
+		add("runtime.kind.labs["+l.Name+"].teardown.init", l.Teardown.Init)
 	}
 	for _, vm := range cfg.Runtime.QEMU {
 		if vm.Bootstrap != nil {

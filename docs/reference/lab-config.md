@@ -204,6 +204,7 @@ Extra kind clusters that run side by side with the lab's own — e.g. an identit
 | `version`, `image`, `nodes`, `networking`, `featureGates`, `runtimeConfig`, `addons`, `preloadImages` | | Same as for the lab's own cluster (above). A gateway addon gets no host ports here |
 | `bootstrap` | [BootstrapConfig](#bootstrap-testing) | Sets this cluster up — runs before the lab's own bootstrap |
 | `testing` | [BootstrapConfig](#bootstrap-testing) | This cluster's part of the reference solution — `astrona test` applies it before the lab's own `testing` |
+| `teardown.init` | list of [ResourceItem](#resourceitem) | Best-effort scripts run before the lab is destroyed: after the lab's own teardown, in reverse start order, with `KUBECONFIG` pointing at this cluster. (Whether clusters are kept is the lab's `teardown.keepCluster`) |
 | `dependsOn` | list of strings | Other linked clusters (names) that must be up and ready — bootstrap and `waitFor` done — before this one is created. Its scripts get their `ASTRONA_LINK_*` addresses (and its cluster their `astrona-links` ConfigMap). Unknown names, self-dependencies and cycles are rejected |
 
 Paths are relative to the lab's config, like everywhere else; by convention each cluster keeps its files in `labs/<name>/` (`labs/idp/bootstrap/`, `labs/idp/testing/`).
@@ -323,7 +324,7 @@ See [Grading → Exam mode](../concepts/grading.md#exam-mode).
 | Field | Type | Description |
 |---|---|---|
 | `init` | list of [ResourceItem](#resourceitem) | Best-effort scripts run before the environment is destroyed |
-| `keepCluster` | bool | Skip destroying the environment after teardown scripts run |
+| `keepCluster` | bool | Skip destroying the environment (linked clusters included) after teardown scripts run |
 
 ## `ResourceItem`
 

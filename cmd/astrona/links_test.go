@@ -1,11 +1,14 @@
 package main
 
 import (
+	"os"
 	"strings"
 	"testing"
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/executor"
+	"astrona/internal/ui"
 
 	"gopkg.in/yaml.v3"
 )
@@ -82,5 +85,16 @@ func TestKindLabStatesFollowDependencies(t *testing.T) {
 	}
 	if got := notStarted(order[1:]); got != "app, the lab itself" {
 		t.Errorf("notStarted = %q", got)
+	}
+}
+
+// A teardown for an environment that doesn't exist runs on the host — but
+// must never inherit the user's own kubeconfig (and so their current
+// context).
+func TestTeardownFallbackHasNoClusterAccess(t *testing.T) {
+	env := teardownEnvironment("astro-no-such-lab-for-test", config.RuntimeConfig{Type: "kind"}, ui.Discard())
+	local, ok := env.Executor.(executor.LocalExecutor)
+	if !ok || local.Kubeconfig != os.DevNull {
+		t.Fatalf("fallback executor = %#v — want a LocalExecutor with KUBECONFIG=%s", env.Executor, os.DevNull)
 	}
 }
