@@ -64,3 +64,13 @@ func TestResetRejectsInvalidConfigBeforeDestroying(t *testing.T) {
 		t.Fatalf("error = %v, want the config error before any teardown", err)
 	}
 }
+
+func TestResetLinkedClusterRefuses(t *testing.T) {
+	cfg := &config.LabConfig{Metadata: config.MetadataConfig{Name: "rl"}, Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Labs: []config.KindLab{{Name: "idp"}}}}}
+	if err := resetLinkedCluster(cfg, ".", "astro-rl", "nope", true, &rootFlags{}); err == nil || !strings.Contains(err.Error(), "it has: idp") {
+		t.Errorf("unknown cluster = %v", err)
+	}
+	if err := resetLinkedCluster(cfg, ".", "astro-rl-no-such-lab", "idp", true, &rootFlags{}); err == nil || !strings.Contains(err.Error(), "isn't running") {
+		t.Errorf("lab not running = %v", err)
+	}
+}
