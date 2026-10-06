@@ -2653,6 +2653,7 @@
 <ul>
 <li>The config is validated <strong>before</strong> anything is destroyed — a broken config aborts with "nothing was reset" and leaves the existing lab as it was.</li>
 <li><code>teardown.keepCluster</code> is ignored: reset always recreates.</li>
+<li><code>--cluster &lt;name&gt;</code> rebuilds just one <a href="../../guides/linked-labs/">linked cluster</a> of a running lab, leaving the lab and its other clusters as they are.</li>
 <li>In a terminal it asks for confirmation; without a terminal it refuses unless <code>--yes</code> is passed.</li>
 </ul>
 <p>To pause a lab instead of losing it, see <a href="../runtimes/#pausing-a-lab-astrona-stop-astrona-start"><code>astrona stop</code> / <code>astrona start</code></a>.</p>

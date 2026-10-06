@@ -2745,6 +2745,10 @@
 <td>Stops/starts them with the lab (<code>start</code> brings them up first)</td>
 </tr>
 <tr>
+<td><code>astrona reset --cluster idp</code></td>
+<td>Rebuilds only that linked cluster of the running lab: its teardown, destroy, then create + bootstrap again (with the addresses of what it dependsOn). The lab and its other clusters are left alone; port forwards into it are restarted. Same name, so the lab's <code>ASTRONA_LINK_*</code>/<code>astrona-links</code> stay valid</td>
+</tr>
+<tr>
 <td><code>astrona reset</code> / <code>destroy</code></td>
 <td>Runs the lab's teardown, then each linked cluster's <code>teardown.init</code> (reverse start order, <code>KUBECONFIG</code> pointing at it), then removes everything. <code>teardown.keepCluster</code> keeps them all</td>
 </tr>
