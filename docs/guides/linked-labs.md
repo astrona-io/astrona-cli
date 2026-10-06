@@ -148,7 +148,7 @@ Linked clusters belong to the lab:
 
 Before bootstrap scripts run, `astrona run` and `astrona test` wait for the cluster's DNS (CoreDNS) — a script resolving a linked cluster's host in the first seconds after a cluster is created would otherwise fail with `bad address`.
 
-`astrona bundle` doesn't support labs with linked clusters yet.
+`astrona bundle` packs linked clusters too — each must pin its node image (`version` or `image`); see [Offline Bundles](offline-bundles.md).
 
 ## Planning resources
 

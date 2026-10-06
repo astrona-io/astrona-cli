@@ -42,5 +42,5 @@ After that it's an ordinary local lab — `run`, `test`, `reset`, `submit` work 
 - **The node image must be pinned** — `runtime.kind.version`/`image`, or `--node-image` when creating; kind's built-in default can't be determined reliably.
 - **No `type: url` scripts or manifests** — they're fetched at run time; make them local files.
 - **Not the `gatewayAPI` addon yet** — Envoy Gateway starts its proxy image at runtime and it isn't listed in its manifest.
-- **Not labs with linked clusters (`runtime.kind.labs`) yet** — each cluster would need its own node image and addons in the bundle.
+- **[Linked clusters](linked-labs.md) must pin their node image** (`version` or `image` on each `runtime.kind.labs` entry) — offline, an unpinned cluster would boot kind's default image, which may not be the one in the bundle. Their node images, preload images and addon manifests are bundled with the lab's (each once), and addon images are preloaded into every cluster that installs addons.
 - Bundles are per CPU architecture.
