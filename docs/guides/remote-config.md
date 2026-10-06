@@ -62,5 +62,6 @@ Only continue if you trust its author. Run it? [y/N]
 - The approval is pinned: to the **git commit** for `--git`, to the **SHA-256 of the config** for a URL. Running the same version again doesn't ask; a new commit or a changed config asks again ("This lab changed since you approved it").
 - Scripts and manifests with `type: url` are downloaded when they run, so their content isn't covered by the pin — they're flagged in the prompt.
 - Local configs (`-c ./my-lab`) are your own files and never prompt.
+- `astrona destroy` asks too, before running a remote lab's teardown scripts (only if it has any). Declining — or no terminal and no `--trust` — doesn't stop the destroy: the teardown scripts are skipped with a warning and the lab is removed anyway.
 - **CI / no terminal:** without a terminal, an unapproved remote lab is refused. Pass `--trust` to approve it — e.g. `astrona test --git https://github.com/org/labs --config labs/lab-01 --trust`. CI that tests its own checkout (`-c .`) needs nothing.
 - Approvals are stored in `~/.astrona/trust.json`; delete an entry (or the file) to be asked again.

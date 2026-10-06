@@ -92,14 +92,27 @@ func DestroyKindCluster(name string, rep *ui.Reporter) error {
 // returning a bare ScriptExecutor) so RunInitScripts can still resolve
 // per-VM targeting (ResourceItem.VM) for a multi-VM qemu lab's teardown
 // scripts.
+//
+// A qemu lab's scripts are written for (and approved to run) inside its
+// VMs, never on the host: when its VMs are gone or unreachable this returns
+// nil and the caller skips the scripts.
 func TeardownEnvironment(clusterName string, runtimeCfg config.RuntimeConfig, rep *ui.Reporter) *runtime.LabEnvironment {
+	qemu := runtimeCfg.Type == string(runtime.RuntimeQEMU)
 	hostOnly := &runtime.LabEnvironment{Executor: executor.LocalExecutor{Kubeconfig: os.DevNull}}
 	if !EnvironmentExists(clusterName, runtimeCfg) {
+		if qemu {
+			rep.Warn("lab VM(s) for '%s' don't exist — skipping teardown scripts (they only run inside the VMs)", clusterName)
+			return nil
+		}
 		rep.Warn("lab environment '%s' doesn't exist — running teardown scripts on the host, without cluster access", clusterName)
 		return hostOnly
 	}
 	env, err := runtime.LoadEnvironment(clusterName, runtimeCfg)
 	if err != nil {
+		if qemu {
+			rep.Warn("could not reach the lab VM(s) for teardown scripts, skipping them (they only run inside the VMs): %s", err)
+			return nil
+		}
 		rep.Warn("could not reach lab environment for teardown scripts, running on the host without cluster access instead: %s", err)
 		return hostOnly
 	}
