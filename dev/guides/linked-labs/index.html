@@ -1003,6 +1003,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Reaching a linked cluster">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stable-names-nameastronainternal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stable names: &lt;name&gt;.astrona.internal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#everything-astrona-publishes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Everything astrona publishes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2568,6 +2596,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Reaching a linked cluster">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#stable-names-nameastronainternal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stable names: &lt;name&gt;.astrona.internal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#everything-astrona-publishes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Everything astrona publishes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2706,7 +2762,7 @@
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    teardown/             # its teardown scripts
 </code></pre></div>
 <h2 id="reaching-a-linked-cluster">Reaching a linked cluster<a class="headerlink" href="#reaching-a-linked-cluster" title="Permanent link">&para;</a></h2>
-<p>All kind clusters share one container network, so pods and host scripts can reach a linked cluster's <strong>node</strong> by its container name — <code>&lt;cluster&gt;-control-plane</code>. Publish what the lab should reach as a <strong>NodePort</strong> Service with a fixed <code>nodePort</code>:</p>
+<p>All kind clusters share one container network, so a pod can reach a linked cluster's <strong>node</strong>. Publish what the lab should reach as a <strong>NodePort</strong> Service with a fixed <code>nodePort</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nt">metadata</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">,</span><span class="nt"> namespace</span><span class="p">:</span><span class="w"> </span><span class="nv">auth</span><span class="p p-Indicator">}</span>
@@ -2715,7 +2771,19 @@
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">selector</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">}</span>
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="nv">80</span><span class="p p-Indicator">,</span><span class="nt"> targetPort</span><span class="p">:</span><span class="w"> </span><span class="nv">80</span><span class="p p-Indicator">,</span><span class="nt"> nodePort</span><span class="p">:</span><span class="w"> </span><span class="nv">30080</span><span class="p p-Indicator">}]</span>
 </code></pre></div>
-<p>From the lab's cluster: <code>http://&lt;host&gt;:30080/</code>. A <code>ClusterIP</code> Service name or a pod IP from the other cluster is <strong>not</strong> reachable — each cluster has its own service and pod network.</p>
+<p>From any cluster of the lab: <strong><code>http://idp.astrona.internal:30080/</code></strong>. A <code>ClusterIP</code> Service name or a pod IP from the other cluster is <strong>not</strong> reachable — each cluster has its own service and pod network.</p>
+<h3 id="stable-names-nameastronainternal">Stable names: <code>&lt;name&gt;.astrona.internal</code><a class="headerlink" href="#stable-names-nameastronainternal" title="Permanent link">&para;</a></h3>
+<p>Every linked cluster gets a fixed DNS name, <code>&lt;name&gt;.astrona.internal</code>, that resolves to its node in every cluster of the lab — the lab's own and the other linked clusters. It's the <strong>same name under <code>astrona run</code> and <code>astrona test</code></strong> (where the container names differ), so manifests and configs can simply contain it: an OIDC issuer URL, a database host, a redirect URI.</p>
+<ul>
+<li>Astrona looks up each node's IPv4 and writes it into each cluster's CoreDNS config (a marked block in the <code>coredns</code> ConfigMap), refreshing it after <code>start</code> and <code>reset --cluster</code>, when IPs can change.</li>
+<li><code>.internal</code> is reserved for private use. (<code>*.localhost</code> wouldn't work: curl and other clients resolve it to <code>127.0.0.1</code> without asking DNS.)</li>
+<li>A lab that replaces CoreDNS's config with one lacking a <code>.:53</code> server block keeps the container names (<code>$ASTRONA_LINK_&lt;NAME&gt;_HOST</code>) instead.</li>
+</ul>
+<p><strong>The same URL on your machine:</strong> forward the service with <code>hostPort</code> equal to its <code>nodePort</code> (see <a href="#reaching-a-linked-cluster-from-your-machine">below</a>) and add the name to <code>/etc/hosts</code> once — then <code>http://idp.astrona.internal:30080</code> works in your browser and in the cluster, which is what an identity provider's issuer URL needs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>127.0.0.1 idp.astrona.internal
+</code></pre></div>
+<p>(astrona never edits <code>/etc/hosts</code> itself.)</p>
+<h3 id="everything-astrona-publishes">Everything astrona publishes<a class="headerlink" href="#everything-astrona-publishes" title="Permanent link">&para;</a></h3>
 <p>Astrona tells the lab where each linked cluster is:</p>
 <table>
 <thead>
@@ -2726,12 +2794,16 @@
 </thead>
 <tbody>
 <tr>
+<td>Every cluster's DNS</td>
+<td><code>&lt;name&gt;.astrona.internal</code></td>
+</tr>
+<tr>
 <td>The lab's bootstrap/testing/teardown scripts and <code>command</code> checks</td>
-<td><code>ASTRONA_LINK_&lt;NAME&gt;_HOST</code>, <code>ASTRONA_LINK_&lt;NAME&gt;_CONTEXT</code>, <code>ASTRONA_LINK_&lt;NAME&gt;_KUBECONFIG</code> (<code>&lt;NAME&gt;</code> upper-cased, <code>-</code> → <code>_</code>)</td>
+<td><code>ASTRONA_LINK_&lt;NAME&gt;_HOSTNAME</code> (the stable name), <code>_HOST</code> (the node's container name), <code>_CONTEXT</code>, <code>_KUBECONFIG</code> (<code>&lt;NAME&gt;</code> upper-cased, <code>-</code> → <code>_</code>)</td>
 </tr>
 <tr>
 <td>In the lab's cluster</td>
-<td>ConfigMap <code>astrona-links</code> in namespace <code>default</code>: <code>&lt;name&gt;.host</code>, <code>&lt;name&gt;.context</code></td>
+<td>ConfigMap <code>astrona-links</code> in namespace <code>default</code>: <code>&lt;name&gt;.hostname</code>, <code>&lt;name&gt;.host</code>, <code>&lt;name&gt;.context</code></td>
 </tr>
 <tr>
 <td><code>astrona shell</code></td>
@@ -2740,30 +2812,30 @@
 </tbody>
 </table>
 <p>A linked cluster's own <code>bootstrap</code>/<code>testing</code> scripts run with <code>KUBECONFIG</code> pointing at that cluster.</p>
-<p><strong>Never hard-code a linked cluster's host or name.</strong> Under <code>astrona test</code> every cluster has a different name (<code>astro-test-…</code>); read it from the env var or the ConfigMap instead.</p>
+<p><strong>Use the stable name, not the container name.</strong> Under <code>astrona test</code> every cluster has a different container name (<code>astro-test-…</code>) — <code>&lt;name&gt;.astrona.internal</code> doesn't change.</p>
 <h2 id="reaching-a-linked-cluster-from-your-machine">Reaching a linked cluster from your machine<a class="headerlink" href="#reaching-a-linked-cluster-from-your-machine" title="Permanent link">&para;</a></h2>
 <p>A port forward reaches a linked cluster with <code>cluster:</code> — the student's browser can open the identity provider's login page, a database client can connect to the db cluster:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">runtime</span><span class="p">:</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">portForwards</span><span class="p">:</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">      </span><span class="nt">cluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span><span class="w">              </span><span class="c1"># forwarded from the idp cluster</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">svc/idp</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">      </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auth</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">      </span><span class="nt">hostPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">18080</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">      </span><span class="nt">scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">runtime</span><span class="p">:</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">portForwards</span><span class="p">:</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">      </span><span class="nt">cluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span><span class="w">              </span><span class="c1"># forwarded from the idp cluster</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">svc/idp</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">      </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auth</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">      </span><span class="nt">hostPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30080</span><span class="w">           </span><span class="c1"># = the NodePort, so one URL works everywhere</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">      </span><span class="nt">scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
 </code></pre></div>
 <p>It belongs to the lab like any forward: started after every cluster is up, paused and resumed by <code>stop</code>/<code>start</code>, removed by <code>destroy</code>, listed by <code>astrona port-forward list</code>. Like all forwards it binds <code>127.0.0.1</code> only.</p>
 <h2 id="grading-across-clusters">Grading across clusters<a class="headerlink" href="#grading-across-clusters" title="Permanent link">&para;</a></h2>
 <p>A check grades the lab's own cluster unless it names a linked one with <code>cluster:</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">validation</span><span class="p">:</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp runs 2 replicas</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">      </span><span class="nt">cluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jsonpath</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deploy/idp -n auth</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">      </span><span class="nt">jsonpath</span><span class="p">:</span><span class="w"> </span><span class="s">"{.status.readyReplicas}"</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">      </span><span class="nt">expect</span><span class="p">:</span><span class="w"> </span><span class="s">"2"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">validation</span><span class="p">:</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp runs 2 replicas</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">      </span><span class="nt">cluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jsonpath</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deploy/idp -n auth</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">      </span><span class="nt">jsonpath</span><span class="p">:</span><span class="w"> </span><span class="s">"{.status.readyReplicas}"</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">      </span><span class="nt">expect</span><span class="p">:</span><span class="w"> </span><span class="s">"2"</span>
 </code></pre></div>
 <p>Works for every check type except <code>http</code> (which runs from your machine). A <code>command</code> check with <code>cluster:</code> gets that cluster's <code>KUBECONFIG</code>.</p>
 <h2 id="lifecycle">Lifecycle<a class="headerlink" href="#lifecycle" title="Permanent link">&para;</a></h2>
