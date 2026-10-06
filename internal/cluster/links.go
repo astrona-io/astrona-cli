@@ -9,10 +9,11 @@ import (
 	"strings"
 )
 
-// LinkState is a resolved link of a running lab: the link's name and the
-// kind cluster it points at. Saved at `astrona run` time in
+// LinkState is one of a lab's linked clusters (runtime.kind.labs): its
+// name in the config and its kind cluster. Saved at `astrona run` time in
 // ~/.astrona/kind/<lab>/links.json, so later commands (submit, shell,
-// status) know a lab's links without needing its config.
+// status, stop/start, destroy) know a lab's linked clusters without
+// needing its config.
 type LinkState struct {
 	Name    string `json:"name"`
 	Cluster string `json:"cluster"`
@@ -31,7 +32,7 @@ func (l LinkState) EnvPrefix() string {
 }
 
 // LinkEnv is the environment that tells a lab's scripts and command checks
-// where its linked labs are.
+// where its linked clusters are.
 func LinkEnv(links []LinkState) []string {
 	var env []string
 	for _, l := range links {

@@ -40,7 +40,9 @@ func TestLabSource(t *testing.T) {
 func TestLabRiskSummary(t *testing.T) {
 	cfg := &config.LabConfig{
 		Runtime: config.RuntimeConfig{
-			Kind:         &config.KindConfig{Addons: config.KindAddons{CertManager: true}, PreloadImages: []string{"nginx:1.27"}},
+			Kind: &config.KindConfig{Addons: config.KindAddons{CertManager: true}, PreloadImages: []string{"nginx:1.27"},
+				Labs: []config.KindLab{{Name: "idp", PreloadImages: []string{"keycloak:26"}, Bootstrap: config.BootstrapConfig{
+					Init: []config.ResourceItem{{Name: "realm", Type: "file", Source: "idp/realm.sh"}}}}}},
 			PortForwards: []config.PortForward{{Name: "web", Resource: "svc/web", HostPort: 8080}},
 		},
 		Bootstrap: config.BootstrapConfig{
@@ -57,6 +59,8 @@ func TestLabRiskSummary(t *testing.T) {
 		"installs addons (pinned, checksum-verified): cert-manager",
 		"pulls images: nginx:1.27",
 		"opens 127.0.0.1:8080 → svc/web",
+		"creates linked kind cluster 'idp', pulls images: keycloak:26",
+		"runs on this machine (bash): realm (idp/realm.sh)",
 		"⚠ fetched when it runs, NOT covered by this approval: https://x/y.sh",
 	} {
 		if !strings.Contains(got, want) {

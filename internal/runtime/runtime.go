@@ -51,7 +51,8 @@ type LabEnvironment struct {
 	Name        string
 	KubeContext string                             // "kind-"+name for kind; "" for qemu (no kubectl-reachable cluster this pass)
 	Kubeconfig  string                             // kind: the lab's isolated kubeconfig ("" for a lab created before isolation, or qemu)
-	ExtraEnv    []string                           // added to host scripts and command checks — linked labs' ASTRONA_LINK_* variables
+	ExtraEnv    []string                           // added to host scripts and command checks — linked clusters' ASTRONA_LINK_* variables
+	Links       []cluster.LinkState                // linked clusters (runtime.kind.labs), for checks with cluster:
 	Executor    executor.ScriptExecutor            // LocalExecutor for kind; SSHExecutor for a single-VM qemu lab; nil for multi-VM qemu
 	Executors   map[string]executor.ScriptExecutor // vm name -> SSHExecutor; only set for a multi-VM qemu lab
 }
@@ -304,13 +305,25 @@ func sshExecutorFor(h *config.QEMUHandle) executor.SSHExecutor {
 	}
 }
 
-// WithEnv adds extra variables (linked labs' ASTRONA_LINK_*) to the
-// environment host scripts and command checks run with. Only kind labs
-// run scripts on the host, so qemu environments are left alone.
-func (env *LabEnvironment) WithEnv(extra []string) {
-	if env.Type != RuntimeKind || len(extra) == 0 {
+// WithLinks records the lab's linked clusters — for checks with
+// cluster: — and adds their ASTRONA_LINK_* variables to the environment
+// host scripts and command checks run with. Linked clusters are kind-only,
+// so qemu environments are left alone.
+func (env *LabEnvironment) WithLinks(links []cluster.LinkState) {
+	if env.Type != RuntimeKind || len(links) == 0 {
 		return
 	}
-	env.ExtraEnv = append(env.ExtraEnv, extra...)
+	env.Links = append(env.Links, links...)
+	env.ExtraEnv = append(env.ExtraEnv, cluster.LinkEnv(links)...)
 	env.Executor = executor.LocalExecutor{Kubeconfig: env.Kubeconfig, ExtraEnv: env.ExtraEnv}
+}
+
+// Link returns the linked cluster named name, if this lab has it.
+func (env *LabEnvironment) Link(name string) (cluster.LinkState, bool) {
+	for _, l := range env.Links {
+		if l.Name == name {
+			return l, true
+		}
+	}
+	return cluster.LinkState{}, false
 }

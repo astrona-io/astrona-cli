@@ -1,89 +1,46 @@
 package main
 
 import (
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
-	"astrona/internal/ui"
 
 	"gopkg.in/yaml.v3"
 )
 
-func writeLab(t *testing.T, dir, body string) {
-	t.Helper()
-	os.MkdirAll(dir, 0700)
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(body), 0600); err != nil {
-		t.Fatal(err)
+func TestKindLabConfig(t *testing.T) {
+	cfg := &config.LabConfig{
+		Metadata: config.MetadataConfig{Name: "auth-lab"},
+		Runtime: config.RuntimeConfig{Type: "kind", Kind: &config.KindConfig{Labs: []config.KindLab{
+			{Name: "idp", PreloadImages: []string{"nginx:1.27-alpine"}, Addons: config.KindAddons{GatewayAPI: "envoy"},
+				Bootstrap: config.BootstrapConfig{Manifests: []config.ResourceItem{{Name: "idp", Type: "file", Source: "idp/idp.yaml"}}}},
+			{Name: "db"},
+		}}},
 	}
-}
-
-func TestResolveLink(t *testing.T) {
-	root := t.TempDir()
-	writeLab(t, filepath.Join(root, "idp-lab"), "metadata: {name: idp-lab}\n")
-	appDir := filepath.Join(root, "app-lab")
-	writeLab(t, appDir, "metadata: {name: app}\n")
-
-	ll, err := resolveLink(config.Link{Name: "idp", Lab: "../idp-lab"}, appDir, &rootFlags{fileName: "custom.yaml"})
-	if err != nil {
-		t.Fatal(err)
+	sub := kindLabConfig(cfg, cfg.KindLabs()[0])
+	if sub.Metadata.Name != "auth-lab-idp" || sub.Runtime.Type != "kind" || len(sub.Runtime.Kind.PreloadImages) != 1 || len(sub.Bootstrap.Manifests) != 1 {
+		t.Fatalf("linked cluster config = %+v", sub)
 	}
-	if ll.cluster != "astro-idp-lab" || ll.cfg == nil || ll.flags.fileName != "config.yaml" {
-		t.Fatalf("path link = %+v (the linked lab must use its own config.yaml)", ll)
+	if !sub.Runtime.Kind.Addons.SkipHostPorts {
+		t.Error("a linked cluster's gateway must not take the lab's host ports")
+	}
+	if len(sub.KindLabs()) != 0 {
+		t.Error("a linked cluster must not have linked clusters of its own")
 	}
 
-	byName, _ := resolveLink(config.Link{Name: "db", Lab: "shared-db"}, appDir, &rootFlags{})
-	if byName.cluster != "astro-shared-db" || byName.cfg != nil {
-		t.Fatalf("name link = %+v", byName)
+	states := kindLabStates(cfg, "astro-test-auth-lab")
+	if len(states) != 2 || states[0] != (cluster.LinkState{Name: "idp", Cluster: "astro-test-auth-lab-idp"}) || states[1].Cluster != "astro-test-auth-lab-db" {
+		t.Fatalf("states = %+v — test copies must get their own cluster names", states)
 	}
-
-	if _, err := resolveLink(config.Link{Name: "x", Lab: "../idp-lab"}, "https:/labs.example/app", &rootFlags{}); err == nil {
-		t.Error("URL config linked by path")
-	}
-
-	writeLab(t, filepath.Join(root, "vm-lab"), "metadata: {name: vm}\nruntime:\n  type: qemu\n  qemu: [{image: {type: file, source: x}}]\n")
-	if _, err := resolveLink(config.Link{Name: "vm", Lab: "../vm-lab"}, appDir, &rootFlags{}); err == nil || !strings.Contains(err.Error(), "only kind labs") {
-		t.Errorf("qemu link = %v", err)
-	}
-}
-
-func TestResolveLinkStaysInsideGitRepo(t *testing.T) {
-	outside := t.TempDir()
-	writeLab(t, filepath.Join(outside, "secret-lab"), "metadata: {name: secret}\n")
-	repo := filepath.Join(outside, "repo")
-	writeLab(t, filepath.Join(repo, "labs", "app"), "metadata: {name: app}\n")
-	if out, err := exec.Command("git", "-C", repo, "init", "-q").CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v %s", err, out)
-	}
-	flags := &rootFlags{gitURL: "https://example.com/labs.git", configPath: "labs/app"}
-	_, err := resolveLink(config.Link{Name: "s", Lab: "../../../secret-lab"}, filepath.Join(repo, "labs", "app"), flags)
-	if err == nil || !strings.Contains(err.Error(), "outside the lab's git repository") {
-		t.Fatalf("escape = %v", err)
-	}
-}
-
-func TestLinkCycleRefusedBeforeStarting(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	root := t.TempDir()
-	writeLab(t, filepath.Join(root, "a"), "metadata: {name: cyc-a}\nlinks: [{name: b, lab: ../b}]\n")
-	writeLab(t, filepath.Join(root, "b"), "metadata: {name: cyc-b}\nlinks: [{name: a, lab: ../a}]\n")
-	cfg, _, cleanup, err := LoadLabForCommand(&rootFlags{configPath: filepath.Join(root, "a"), fileName: "config.yaml"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	cleanup()
-	_, err = startLinkedLabs(cfg, filepath.Join(root, "a"), &rootFlags{}, ui.Discard(), map[string]bool{"astro-cyc-a": true}, 0)
-	if err == nil || !strings.Contains(err.Error(), "cycle") {
-		t.Fatalf("cycle = %v", err)
+	if kindLabStates(&config.LabConfig{}, "astro-x") != nil {
+		t.Error("lab without linked clusters has states")
 	}
 }
 
 func TestLinksConfigMap(t *testing.T) {
-	data, err := linksConfigMap([]cluster.LinkState{{Name: "idp", Cluster: "astro-idp-lab"}})
+	data, err := linksConfigMap([]cluster.LinkState{{Name: "idp", Cluster: "astro-app-idp"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +52,15 @@ func TestLinksConfigMap(t *testing.T) {
 	if err := yaml.Unmarshal(data, &cm); err != nil {
 		t.Fatal(err)
 	}
-	if cm.Kind != "ConfigMap" || cm.Metadata.Name != "astrona-links" || cm.Data["idp.host"] != "astro-idp-lab-control-plane" || cm.Data["idp.context"] != "kind-astro-idp-lab" {
+	if cm.Kind != "ConfigMap" || cm.Metadata.Name != "astrona-links" || cm.Data["idp.host"] != "astro-app-idp-control-plane" || cm.Data["idp.context"] != "kind-astro-app-idp" {
 		t.Fatalf("configmap = %+v", cm)
+	}
+}
+
+func TestMarkLinkedClusters(t *testing.T) {
+	rows := []labRow{{name: "astro-app", details: "kubectl --context kind-astro-app"}, {name: "astro-app-idp", details: "kubectl --context kind-astro-app-idp"}}
+	markLinkedClusters(rows, map[string]string{"astro-app-idp": "astro-app"})
+	if strings.Contains(rows[0].details, "linked") || !strings.HasPrefix(rows[1].details, "linked cluster of astro-app · kubectl") {
+		t.Fatalf("rows = %+v", rows)
 	}
 }

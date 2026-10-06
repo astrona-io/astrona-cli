@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/executor"
 	"astrona/internal/runtime"
@@ -194,15 +195,27 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 		result := CheckResult{Name: c.Name, Hint: c.Hint, Points: config.EffectivePoints(c.Points)}
 		checkStart := time.Now()
 
+		t, err := p.targetFor(c)
+		if err != nil {
+			result.Message = err.Error()
+			result.Duration = time.Since(checkStart)
+			results = append(results, result)
+			continue
+		}
+
 		switch strings.ToLower(c.Type) {
 		case "resourceexists":
-			args := append([]string{"--context", p.env.KubeContext, "get"}, strings.Fields(c.Resource)...)
-			out, err := exec.Command(kubectlPath, args...).CombinedOutput()
+			args := append([]string{"--context", t.context, "get"}, strings.Fields(c.Resource)...)
+			cmd := exec.Command(kubectlPath, args...)
+			cmd.Env = executor.KubeconfigEnv(t.kubeconfig)
+			out, err := cmd.CombinedOutput()
 			result.Pass = err == nil
 			result.Message = strings.TrimSpace(string(out))
 		case "podready":
-			args := append([]string{"--context", p.env.KubeContext, "wait", "--for=condition=Ready", fmt.Sprintf("--timeout=%ds", int(p.podReadyTimeout.Seconds()))}, strings.Fields(c.Resource)...)
-			out, err := exec.Command(kubectlPath, args...).CombinedOutput()
+			args := append([]string{"--context", t.context, "wait", "--for=condition=Ready", fmt.Sprintf("--timeout=%ds", int(p.podReadyTimeout.Seconds()))}, strings.Fields(c.Resource)...)
+			cmd := exec.Command(kubectlPath, args...)
+			cmd.Env = executor.KubeconfigEnv(t.kubeconfig)
+			out, err := cmd.CombinedOutput()
 			result.Pass = err == nil
 			result.Message = strings.TrimSpace(string(out))
 		case "command":
@@ -215,8 +228,9 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 
 			cmd := exec.Command(parts[0], parts[1:]...)
 			// Same KUBECONFIG lab scripts get, so a `kubectl ...` command
-			// check grades the lab's cluster, not the user's own context.
-			cmd.Env = executor.Env(p.env.Kubeconfig, p.env.ExtraEnv)
+			// check grades the lab's cluster, not the user's own context —
+			// or the linked cluster's, for a check with cluster.
+			cmd.Env = executor.Env(t.kubeconfig, p.env.ExtraEnv)
 			out, err := cmd.CombinedOutput()
 			trimmed := strings.TrimSpace(string(out))
 
@@ -224,9 +238,9 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 			result.Pass = err == nil && ok
 			result.Message = joinMessage(trimmed, why)
 		case "jsonpath":
-			args := append([]string{"--context", p.env.KubeContext, "get"}, strings.Fields(c.Resource)...)
+			args := append([]string{"--context", t.context, "get"}, strings.Fields(c.Resource)...)
 			args = append(args, "-o", "jsonpath="+c.JSONPath)
-			out, err := p.kubectl(kubectlPath, args...)
+			out, err := kubectl(kubectlPath, t.kubeconfig, args...)
 			if err != nil {
 				result.Message = out
 				break
@@ -237,8 +251,8 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 				result.Message = fmt.Sprintf("%s is %q — %s", c.JSONPath, out, why)
 			}
 		case "count":
-			args := append([]string{"--context", p.env.KubeContext, "get"}, strings.Fields(c.Resource)...)
-			out, err := p.kubectl(kubectlPath, append(args, "-o", "name")...)
+			args := append([]string{"--context", t.context, "get"}, strings.Fields(c.Resource)...)
+			out, err := kubectl(kubectlPath, t.kubeconfig, append(args, "-o", "name")...)
 			if err != nil {
 				result.Message = out
 				break
@@ -260,11 +274,31 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 	return results, nil
 }
 
-// kubectl runs kubectl with the lab's kubeconfig and returns trimmed
-// stdout — or, on failure, trimmed stdout+stderr as the error detail.
-func (p *Proctor) kubectl(kubectlPath string, args ...string) (string, error) {
+// checkTarget is the cluster a check grades: the lab's own, or a linked
+// cluster's (runtime.kind.labs).
+type checkTarget struct {
+	context, kubeconfig string
+}
+
+// targetFor picks c's cluster. A check with cluster grades that linked
+// cluster; one that isn't attached (lab started before it was added to
+// runtime.kind.labs) fails rather than silently grading the lab's own.
+func (p *Proctor) targetFor(c config.ValidationCheck) (checkTarget, error) {
+	if c.Cluster == "" {
+		return checkTarget{context: p.env.KubeContext, kubeconfig: p.env.Kubeconfig}, nil
+	}
+	l, ok := p.env.Link(c.Cluster)
+	if !ok {
+		return checkTarget{}, fmt.Errorf("linked cluster '%s' isn't running for this lab — `astrona reset` recreates the lab with it", c.Cluster)
+	}
+	return checkTarget{context: l.Context(), kubeconfig: cluster.ExistingKubeconfig(l.Cluster)}, nil
+}
+
+// kubectl runs kubectl with kubeconfig and returns trimmed stdout — or,
+// on failure, trimmed stdout+stderr as the error detail.
+func kubectl(kubectlPath, kubeconfig string, args ...string) (string, error) {
 	cmd := exec.Command(kubectlPath, args...)
-	cmd.Env = executor.KubeconfigEnv(p.env.Kubeconfig)
+	cmd.Env = executor.KubeconfigEnv(kubeconfig)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

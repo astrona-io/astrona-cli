@@ -1,0 +1,6 @@
+#!/bin/bash
+# The backend cluster's part of the reference solution — `astrona test`
+# runs it with KUBECONFIG pointing at the backend cluster.
+set -euo pipefail
+kubectl -n backend scale deploy/backend --replicas=2
+kubectl -n backend rollout status deploy/backend --timeout=120s

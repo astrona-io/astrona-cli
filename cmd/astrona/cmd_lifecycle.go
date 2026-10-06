@@ -42,8 +42,9 @@ func resolveLifecycleLab(labArg string, flags *rootFlags, want func(status strin
 	}
 
 	var matches []string
+	owners := linkedClusterOwners()
 	for _, r := range collectKindRows() {
-		if !strings.HasPrefix(r.name, "astro-test-") && want(r.status) {
+		if _, linked := owners[r.name]; !linked && !strings.HasPrefix(r.name, "astro-test-") && want(r.status) {
 			matches = append(matches, r.name)
 		}
 	}
@@ -64,6 +65,7 @@ func newStopCmd(flags *rootFlags) *cobra.Command {
 		Short:             "Pause a kind lab (frees CPU/RAM, keeps everything) — resume with astrona start",
 		Long: "Stop a kind lab's node containers and pause its port forwards. Nothing is deleted: " +
 			"`astrona start` brings the cluster, its workloads and its port forwards back.\n\n" +
+			"The lab's linked clusters (runtime.kind.labs) are stopped with it.\n\n" +
 			"Not supported for labs with more than one control plane — their node IPs change on " +
 			"restart, which breaks etcd. qemu labs aren't supported yet.\n\n" +
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab.",
@@ -73,13 +75,17 @@ func newStopCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			labs := append([]string{lab}, ownedClusters(lab, nil)...)
 			// Refuse an HA cluster before touching anything else.
-			cs, _, err := cluster.KindNodeContainers(lab)
-			if err != nil {
-				return err
-			}
-			if err := cluster.CheckRestartable(cs); err != nil {
-				return err
+			for _, l := range labs {
+				cs, _, err := cluster.KindNodeContainers(l)
+				if err != nil {
+					return err
+				}
+				if err := cluster.CheckRestartable(cs); err != nil {
+					return fmt.Errorf("%s: %w", l, err)
+				}
 			}
 
 			rep, err := ui.NewReporter("stop", lab, flags.verbose)
@@ -88,22 +94,36 @@ func newStopCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
-			if portforward.Count(lab) > 0 {
-				t := rep.Step("Pause port forwards")
-				if _, err := portforward.Pause(lab); err != nil {
-					return t.Fail(err)
+			for _, l := range labs {
+				if len(labs) > 1 {
+					rep.Section("Lab %s", l)
 				}
-				t.Done()
-			}
-			if err := cluster.StopKindCluster(lab, rep); err != nil {
-				return err
+				if err := stopLab(l, rep); err != nil {
+					return err
+				}
 			}
 
 			rep.Close()
-			fmt.Printf("\nLab %s stopped — its cluster, workloads and port forwards are kept.\nResume with: astrona start %s\n", lab, lab)
+			fmt.Printf("\nLab %s stopped — its cluster, workloads and port forwards are kept.\n", lab)
+			if len(labs) > 1 {
+				fmt.Printf("Linked clusters stopped too: %s.\n", strings.Join(labs[1:], ", "))
+			}
+			fmt.Printf("Resume with: astrona start %s\n", lab)
 			return nil
 		},
 	}
+}
+
+// stopLab pauses lab's port forwards and stops its node containers.
+func stopLab(lab string, rep *ui.Reporter) error {
+	if portforward.Count(lab) > 0 {
+		t := rep.Step("Pause port forwards")
+		if _, err := portforward.Pause(lab); err != nil {
+			return t.Fail(err)
+		}
+		t.Done()
+	}
+	return cluster.StopKindCluster(lab, rep)
 }
 
 func newStartCmd(flags *rootFlags) *cobra.Command {
@@ -112,7 +132,7 @@ func newStartCmd(flags *rootFlags) *cobra.Command {
 		ValidArgsFunction: labCompletion(isStoppedKind),
 		Short:             "Resume a kind lab paused with astrona stop",
 		Long: "Start a stopped kind lab's node containers, wait for its API, and restart its port " +
-			"forwards.\n\n" +
+			"forwards. Its linked clusters (runtime.kind.labs) are started first — the lab needs them.\n\n" +
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only stopped kind lab.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -129,25 +149,28 @@ func newStartCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
-			if err := cluster.StartKindCluster(lab, rep); err != nil {
-				return err
-			}
-			if err := cluster.WaitForDefaultServiceAccount("kind-"+lab, cluster.ExistingKubeconfig(lab), 3*time.Minute, rep); err != nil {
-				return err
-			}
-
-			var forwards []portforward.Forward
-			if saved := savedForwards(lab); len(saved) > 0 {
-				rep.Section("Port forwards")
-				forwards, err = startLabPortForwards(lab, saved, rep)
-				if err != nil {
-					rep.Warn("some port forwards could not be restarted — `astrona port-forward start -c <config>`")
+			// Linked clusters first — the lab's workloads may call them.
+			linked := ownedClusters(lab, nil)
+			for _, c := range linked {
+				rep.Section("Linked cluster %s", c)
+				if _, err := startLab(c, rep); err != nil {
+					return fmt.Errorf("linked cluster %s: %w", c, err)
 				}
+			}
+			if len(linked) > 0 {
+				rep.Section("Lab %s", lab)
+			}
+			forwards, err := startLab(lab, rep)
+			if err != nil {
+				return err
 			}
 
 			health, _ := kindAPIHealth(lab)
 			rep.Close()
 			fmt.Printf("\nLab %s started — %s.\n", lab, health)
+			if len(linked) > 0 {
+				fmt.Printf("Linked clusters started too: %s.\n", strings.Join(linked, ", "))
+			}
 			if !strings.HasPrefix(health, "Ready") {
 				fmt.Printf("Nodes can take a minute to report Ready after a restart — check `astrona list`.\n")
 			}
@@ -156,6 +179,27 @@ func newStartCmd(flags *rootFlags) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// startLab starts lab's node containers, waits for its API, and restarts
+// its saved port forwards.
+func startLab(lab string, rep *ui.Reporter) ([]portforward.Forward, error) {
+	if err := cluster.StartKindCluster(lab, rep); err != nil {
+		return nil, err
+	}
+	if err := cluster.WaitForDefaultServiceAccount("kind-"+lab, cluster.ExistingKubeconfig(lab), 3*time.Minute, rep); err != nil {
+		return nil, err
+	}
+	saved := savedForwards(lab)
+	if len(saved) == 0 {
+		return nil, nil
+	}
+	rep.Section("Port forwards")
+	forwards, err := startLabPortForwards(lab, saved, rep)
+	if err != nil {
+		rep.Warn("some port forwards could not be restarted — `astrona port-forward start -c <config>`")
+	}
+	return forwards, nil
 }
 
 // savedForwards returns the port forward specs recorded for lab (kept by

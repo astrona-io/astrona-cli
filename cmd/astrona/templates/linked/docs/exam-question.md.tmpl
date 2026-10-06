@@ -1,0 +1,12 @@
+# [[.Name]]
+
+This lab has **two kind clusters**: yours, and a `backend` cluster next to it. Your cluster can reach it — but not through a Service name; it's a different cluster.
+
+## Task
+
+Work with `astrona shell [[.Name]]` — both clusters' contexts are available there.
+
+1. In the **backend** cluster, scale Deployment `backend` (namespace `backend`) to **2 replicas**.
+2. In **your** cluster (namespace `default`), create a **Job named `call-backend`** (image `curlimages/curl:8.11.1`) that requests `http://<backend host>:30080/` and prints the response. The backend's host is in the ConfigMap `astrona-links`.
+
+When you're done: `astrona submit` (or `astrona submit --watch` while you work).

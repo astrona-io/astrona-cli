@@ -110,7 +110,7 @@ func validateLabForRun(cfg *config.LabConfig) error {
 			return err
 		}
 	}
-	if err := config.ValidateLinks(cfg); err != nil {
+	if err := config.ValidateKindLabs(cfg); err != nil {
 		return err
 	}
 	if err := config.ValidateExam(cfg); err != nil {
@@ -133,8 +133,9 @@ func validateLabForRun(cfg *config.LabConfig) error {
 
 // upLab creates cfg's environment under clusterName and runs everything
 // `astrona run` does on top — preload, addons, bootstrap, manifests,
-// readiness gates, port forwards — with links' addresses made available
-// to it. No summary output: used for the lab itself and for linked labs.
+// readiness gates, port forwards — with its linked clusters' addresses
+// made available to it. No summary output: used for the lab itself and for
+// its linked clusters.
 func upLab(cfg *config.LabConfig, baseDir, clusterName string, links []cluster.LinkState, forTest bool, rep *ui.Reporter) (*runtime.LabEnvironment, []portforward.Forward, error) {
 	// A test copy of a lab mustn't fight its real `run` for host ports.
 	if forTest && cfg.Runtime.Kind != nil {
@@ -211,13 +212,18 @@ func upLab(cfg *config.LabConfig, baseDir, clusterName string, links []cluster.L
 	return env, forwards, nil
 }
 
-// bringUpLab starts cfg's linked labs (if any aren't running), then the lab
+// bringUpLab creates cfg's linked clusters (runtime.kind.labs), then the lab
 // itself with everything `astrona run` does — preload, addons, bootstrap,
 // manifests, readiness gates, port forwards — and prints how to connect.
 // Shared by run and reset.
 func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui.Reporter) error {
 	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
-	links, err := startLinkedLabs(cfg, baseDir, flags, rep, map[string]bool{clusterName: true}, 0)
+	// Checked before linked clusters are (re)created — they'd otherwise be
+	// replaced under a lab that's still using them.
+	if len(cfg.KindLabs()) > 0 && kindClusterExists(clusterName) {
+		return fmt.Errorf("lab %s is already running — `astrona reset` starts it over", clusterName)
+	}
+	links, err := startKindLabs(cfg, baseDir, clusterName, false, rep)
 	if err != nil {
 		return err
 	}

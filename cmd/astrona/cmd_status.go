@@ -158,7 +158,7 @@ func printLabStatus(w io.Writer, st labStatus) {
 	for i, l := range st.links {
 		label := ""
 		if i == 0 {
-			label = "Links"
+			label = "Linked"
 		}
 		state := "not running"
 		if r, ok := st.linkRows[l.Cluster]; ok {

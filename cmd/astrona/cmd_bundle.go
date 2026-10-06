@@ -81,6 +81,9 @@ func bundleRefusal(cfg *config.LabConfig, nodeImage string) string {
 	if k := cfg.Runtime.Kind; k != nil && k.Addons.GatewayAPI != "" {
 		return addons.ErrNotBundleable.Error()
 	}
+	if len(cfg.KindLabs()) > 0 {
+		return "labs with linked clusters (runtime.kind.labs) can't be bundled yet"
+	}
 	if nodeImage == "" {
 		return "the node image isn't pinned — set runtime.kind.version (or image) in the lab, or pass --node-image (kind's built-in default can't be determined reliably)"
 	}

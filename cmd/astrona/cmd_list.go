@@ -65,6 +65,7 @@ func newListCmd() *cobra.Command {
 				return err
 			}
 			rows = append(rows, enrichKindHealth(collectKindRows())...)
+			markLinkedClusters(rows, linkedClusterOwners())
 
 			if output == "json" {
 				return printLabJSON(os.Stdout, rows)
@@ -462,4 +463,14 @@ func formatUptime(d time.Duration) string {
 		return fmt.Sprintf("%dm%ds", m, s)
 	}
 	return fmt.Sprintf("%ds", s)
+}
+
+// markLinkedClusters notes which rows are a lab's linked cluster
+// (runtime.kind.labs) — managed with that lab, not on their own.
+func markLinkedClusters(rows []labRow, owners map[string]string) {
+	for i := range rows {
+		if owner, ok := owners[rows[i].name]; ok {
+			rows[i].details = "linked cluster of " + owner + " · " + rows[i].details
+		}
+	}
 }

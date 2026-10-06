@@ -111,6 +111,12 @@
         "image": {
           "type": "string"
         },
+        "labs": {
+          "items": {
+            "$ref": "#/$defs/KindLab"
+          },
+          "type": "array"
+        },
         "networking": {
           "$ref": "#/$defs/KindNetworking"
         },
@@ -128,6 +134,54 @@
             "type": "string"
           },
           "type": "object"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "KindLab": {
+      "additionalProperties": false,
+      "properties": {
+        "addons": {
+          "$ref": "#/$defs/KindAddons"
+        },
+        "bootstrap": {
+          "$ref": "#/$defs/BootstrapConfig"
+        },
+        "featureGates": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "type": "object"
+        },
+        "image": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "networking": {
+          "$ref": "#/$defs/KindNetworking"
+        },
+        "nodes": {
+          "$ref": "#/$defs/KindNodes"
+        },
+        "preloadImages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "runtimeConfig": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "testing": {
+          "$ref": "#/$defs/BootstrapConfig"
         },
         "version": {
           "type": "string"
@@ -188,12 +242,6 @@
         "exam": {
           "$ref": "#/$defs/ExamConfig"
         },
-        "links": {
-          "items": {
-            "$ref": "#/$defs/Link"
-          },
-          "type": "array"
-        },
         "metadata": {
           "$ref": "#/$defs/MetadataConfig"
         },
@@ -208,18 +256,6 @@
         },
         "validation": {
           "$ref": "#/$defs/ValidationConfig"
-        }
-      },
-      "type": "object"
-    },
-    "Link": {
-      "additionalProperties": false,
-      "properties": {
-        "lab": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
         }
       },
       "type": "object"
@@ -474,6 +510,9 @@
     "ValidationCheck": {
       "additionalProperties": false,
       "properties": {
+        "cluster": {
+          "type": "string"
+        },
         "command": {
           "type": "string"
         },
