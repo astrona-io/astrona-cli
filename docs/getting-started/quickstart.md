@@ -20,7 +20,7 @@ astrona use examples/k8s-basics-01   # every command below now works on this lab
 astrona run
 ```
 
-`astrona use` remembers the lab (like kubectl's current context), so you don't repeat `-c` on every command; `astrona use` alone shows which lab, `--clear` forgets it. Lost track? Run **`astrona`** on its own: it shows the lab, whether it's running, the exam clock, your last result and the command to run next. `astrona list` marks the current lab too. Inside a lab directory that lab is used instead, and `-c`/`--git` — or the lab as an argument, `astrona run ./other-lab` — always win.
+`astrona use` remembers the lab (like kubectl's current context), so you don't repeat `-c` on every command; `astrona use` alone shows which lab, `--clear` forgets it. Lost track? Run **`astrona`** on its own: it shows the lab, whether it's running, the exam clock, your last result and the command to run next, followed by every command (the same list as `astrona --help`). `astrona list` marks the current lab too. Inside a lab directory that lab is used instead, and `-c`/`--git` — or the lab as an argument, `astrona run ./other-lab` — always win.
 
 This:
 

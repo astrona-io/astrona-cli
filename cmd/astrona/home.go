@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -54,8 +53,8 @@ func homeLabFor(cmd *cobra.Command, flags *rootFlags) (homeLab, bool) {
 	return homeLab{name: cfg.Metadata.Name, cluster: config.NormalizeClusterName(cfg.Metadata.Name), source: source, cfg: cfg}, true
 }
 
-// printHome is plain `astrona`: which lab, its state, exam clock, last
-// result, and what to do next.
+// printHome is the top of plain `astrona`: which lab, its state, exam
+// clock, last result, and what to do next.
 func printHome(w io.Writer, lab homeLab, ok bool, now time.Time) {
 	bold := func(s string) string { return ui.Paint(w, s, ui.Bold) }
 	others := otherRunningLabs(lab.cluster)
@@ -64,7 +63,6 @@ func printHome(w io.Writer, lab homeLab, ok bool, now time.Time) {
 		if len(others) > 0 {
 			fmt.Fprintf(w, "  Running:   %s\n", strings.Join(others, ", "))
 		}
-		fmt.Fprintf(w, "\n`astrona --help` lists every command.\n")
 		return
 	}
 
@@ -95,7 +93,6 @@ func printHome(w io.Writer, lab homeLab, ok bool, now time.Time) {
 	if len(others) > 0 {
 		fmt.Fprintf(w, "\nAlso running: %s (astrona list)\n", strings.Join(others, ", "))
 	}
-	fmt.Fprintf(w, "\n`astrona --help` lists every command.\n")
 }
 
 // otherRunningLabs are running labs other than except (no linked
@@ -112,10 +109,14 @@ func otherRunningLabs(except string) []string {
 	return out
 }
 
-// homeRun is the root command's Run: plain `astrona`.
+// homeRun is the root command's Run: plain `astrona` — the lab's status,
+// then every command, exactly as `astrona --help` lists them.
 func homeRun(flags *rootFlags) func(cmd *cobra.Command, args []string) {
 	return func(cmd *cobra.Command, args []string) {
 		lab, ok := homeLabFor(cmd, flags)
-		printHome(os.Stdout, lab, ok, time.Now())
+		out := cmd.OutOrStdout()
+		printHome(out, lab, ok, time.Now())
+		fmt.Fprintln(out)
+		_ = cmd.Help() // only fails writing to stdout, which has nowhere better to report
 	}
 }
