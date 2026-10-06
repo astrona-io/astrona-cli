@@ -1119,6 +1119,8 @@
       
         
       
+        
+      
     
     
     
@@ -1697,6 +1699,29 @@
   
   <span class="md-ellipsis">
     Astrona upgrade
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_progress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona progress
     
   </span>
   
@@ -2461,6 +2486,15 @@
 <a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>path/to/your-lab<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
 </code></pre></div>
 <p><code>astrona validate</code> catches config mistakes — a misspelled field, a missing script — without creating anything; see <a href="../../reference/lab-config/#editor-support-and-validation">editor support and validation</a> for autocompletion in your editor.</p>
+<p>Before publishing, check the lab isn't flaky:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>path/to/your-lab<span class="w"> </span>--repeat<span class="w"> </span><span class="m">5</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>Repeat summary — 5 runs:
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>  ✓  Deployment web runs 2 replicas  5/5
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>  ⚠  2 web pods exist                3/5  flaky
+</code></pre></div>
+<p><code>--repeat N</code> (up to 20) runs the whole lifecycle N times on fresh environments. A check that passes only sometimes almost always means grading raced the cluster — add a <code>waitFor</code> (in <code>testing</code> for the reference solution) for whatever the check depends on. Any failed or flaky run fails the command; with <code>--junit-xml</code>, each check is reported once with "passed k/N runs".</p>
 <p>This is the whole point of the <code>testing</code> stage: it bootstraps your lab, applies your reference solution, submits it to the Proctor, and tears down — proving a student who does everything right will actually pass. Run this locally before publishing, and wire it into CI (see <a href="../ci-integration/">CI Integration</a>) so a later edit to <code>validation</code> can't silently break the lab's own solution.</p>
 <h2 id="full-schema-reference">Full schema reference<a class="headerlink" href="#full-schema-reference" title="Permanent link">&para;</a></h2>
 <p>See <a href="../../reference/lab-config/">Lab Config Schema</a> for every field, type, and default.</p>

@@ -723,6 +723,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#progress-across-labs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Progress across labs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#submit-vs-test" class="md-nav__link">
     <span class="md-ellipsis">
       submit vs test
@@ -977,6 +986,8 @@
   
     
     
+      
+        
       
         
       
@@ -1645,6 +1656,29 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_progress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Astrona progress
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/cli/astrona_logs/" class="md-nav__link">
         
   
@@ -2056,6 +2090,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#progress-across-labs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Progress across labs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#submit-vs-test" class="md-nav__link">
     <span class="md-ellipsis">
       submit vs test
@@ -2249,6 +2292,16 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>submit<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
 </code></pre></div>
 <p>Writes a standard JUnit XML report alongside the terminal output — GitHub Actions, GitLab CI, Jenkins, and most other CI systems render this natively as a test report. See <a href="../../guides/ci-integration/">CI Integration</a>.</p>
+<h2 id="progress-across-labs">Progress across labs<a class="headerlink" href="#progress-across-labs" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>astrona<span class="w"> </span>progress
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>LAB            RESULT        BEST         ATTEMPTS   FASTEST PASS   LAST
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>k8s-web-01     passed (#2)   5/5 (100%)   3          18m0s          2h ago
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>net-policy-02  not yet       3/5 (60%)    4          -              1d ago
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>1 of 2 lab(s) passed.
+</code></pre></div>
+<p>Built from the attempt history every <code>astrona submit</code> records: whether and on which attempt you passed, your best score, how many attempts, the fastest passing time for exam labs, and when you last worked on it. <code>-o json</code> for export or scripts.</p>
 <h2 id="submit-vs-test"><code>submit</code> vs <code>test</code><a class="headerlink" href="#submit-vs-test" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
