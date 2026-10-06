@@ -3141,6 +3141,7 @@
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Submit the running lab to the Proctor for grading: every validation check and script runs, a failed one shows its hint (if the lab author wrote one), and you get a score. Every attempt is recorded — <code>astrona submit --history</code> lists them. <code>--watch</code> re-grades continuously while you work, without recording attempts.</p>
 <p>Passing means every check passes, or — when the lab sets validation.passPercent — reaching that score.</p>
+<p>Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona submit [lab] [flags]
 </code></pre></div>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
