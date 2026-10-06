@@ -1119,6 +1119,8 @@
       
         
       
+        
+      
     
     
     
@@ -1163,6 +1165,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../astrona_use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona use
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2953,7 +2983,7 @@
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Check a lab config (-c/--file/--git) without creating anything: unknown fields (typos like <code>waitfor</code> that would otherwise be silently ignored, with a did-you-mean), runtime/addon/port-forward/waitFor rules, validation check types, and that every local script, manifest and doc file it references exists.</p>
 <p>Exits non-zero on any ✗ — suitable as a CI step for lab repositories. For editor autocompletion, see the JSON Schema in the lab config reference.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona validate [flags]
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona validate [lab] [flags]
 </code></pre></div>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>  astrona validate -c ./labs/my-lab

@@ -1121,6 +1121,8 @@
       
         
       
+        
+      
     
     
     
@@ -1165,6 +1167,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../astrona_use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona use
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2955,7 +2985,7 @@
 <p>The config is validated before anything is destroyed, so a broken config never leaves you without a lab. teardown.keepCluster is ignored — reset always recreates.</p>
 <p>Asks for confirmation (everything done in the lab is lost); --yes skips it and is required when not running in a terminal.</p>
 <p>--cluster <name> rebuilds only that linked cluster (runtime.kind.clusters) of a running lab: its teardown scripts, destroy, then create and bootstrap it again (with the addresses of the clusters it dependsOn). The lab and its other clusters are left alone; port forwards into the rebuilt cluster are restarted.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona reset [flags]
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona reset [lab] [flags]
 </code></pre></div>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>  astrona reset -c ./labs/my-lab

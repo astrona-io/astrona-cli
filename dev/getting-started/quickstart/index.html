@@ -558,10 +558,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-bring-the-lab-up" class="md-nav__link">
+  <a href="#2-pick-the-lab-and-bring-it-up" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Bring the lab up
+        2. Pick the lab and bring it up
       
     </span>
   </a>
@@ -1238,6 +1238,8 @@
       
         
       
+        
+      
     
     
     
@@ -1282,6 +1284,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona use
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2831,10 +2861,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-bring-the-lab-up" class="md-nav__link">
+  <a href="#2-pick-the-lab-and-bring-it-up" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Bring the lab up
+        2. Pick the lab and bring it up
       
     </span>
   </a>
@@ -2927,9 +2957,11 @@
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona<span class="w"> </span>check
 </code></pre></div>
 <p>Fix anything reported as <code>✗</code> before continuing — <code>kind</code>, Docker/Podman, and <code>kubectl</code> are required for this example.</p>
-<h2 id="2-bring-the-lab-up">2. Bring the lab up<a class="headerlink" href="#2-bring-the-lab-up" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>run<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
+<h2 id="2-pick-the-lab-and-bring-it-up">2. Pick the lab and bring it up<a class="headerlink" href="#2-pick-the-lab-and-bring-it-up" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>use<span class="w"> </span>examples/k8s-basics-01<span class="w">   </span><span class="c1"># every command below now works on this lab</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>astrona<span class="w"> </span>run
 </code></pre></div>
+<p><code>astrona use</code> remembers the lab (like kubectl's current context), so you don't repeat <code>-c</code> on every command; <code>astrona use</code> alone shows which lab, <code>--clear</code> forgets it. Inside a lab directory that lab is used instead, and <code>-c</code>/<code>--git</code> — or the lab as an argument, <code>astrona run ./other-lab</code> — always win.</p>
 <p>This:</p>
 <ol>
 <li>Reads <code>examples/k8s-basics-01/config.yaml</code>.</li>
@@ -2940,11 +2972,11 @@
 <p>At this point the cluster is up and the trainee's actual work begins — this particular lab expects a <code>lab-ns</code> namespace with a <code>hello-config</code> ConfigMap holding specific content, which isn't created for you (that's the exercise).</p>
 <p>Progress prints as a compact step view; each step's full output goes to a log file under <code>~/.astrona/logs/</code> (path shown at the end) and is printed inline only if a step fails. Add <code>--verbose</code> to stream everything live instead. Revisit any past run's log with <a href="../../concepts/logs/"><code>astrona logs</code></a> — <code>astrona logs view</code> opens the latest in your pager.</p>
 <p>Read the task:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>docs<span class="w"> </span>question<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>docs<span class="w"> </span>question
 </code></pre></div>
-<p>(<code>astrona docs -c examples/k8s-basics-01</code> lists the lab's other docs — case study, prerequisites, and the step-by-step guide with the solution.)</p>
+<p>(<code>astrona docs</code> lists the lab's other docs — case study, prerequisites, and the step-by-step guide with the solution.)</p>
 <h2 id="3-inspect-it">3. Inspect it<a class="headerlink" href="#3-inspect-it" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>status<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>status
 </code></pre></div>
 <p>One screen for where you are with the lab: cluster health, how to connect, port forwards, the exam clock (timed labs), your last submission and score, and a suggested next step:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Lab astro-k8s-basics-01 (kind)
@@ -2999,16 +3031,16 @@
 </code></pre></div>
 <p>astrona never changes your own kubectl current-context — see <a href="../../concepts/runtimes/#kubeconfig-isolation">kubeconfig isolation</a>.</p>
 <h2 id="4-submit-for-grading">4. Submit for grading<a class="headerlink" href="#4-submit-for-grading" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>submit<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>submit
 </code></pre></div>
 <p>Hands the running cluster to the <a href="../../concepts/grading/">Proctor</a>, which runs this lab's <code>validation.checks</code> (does <code>lab-ns</code> exist? does <code>hello-config</code> exist?) and its <code>validation.script</code> (does the ConfigMap actually hold the right content?). Output is pytest-style — a PASS/FAIL line per check, then a summary — and the command's exit code reflects the verdict, so it's safe to gate a script on.</p>
 <h2 id="5-tear-it-down">5. Tear it down<a class="headerlink" href="#5-tear-it-down" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>astrona<span class="w"> </span>destroy<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>astrona<span class="w"> </span>destroy
 </code></pre></div>
 <p>Runs <code>teardown.init</code> scripts, then deletes the cluster (unless the config sets <code>teardown.keepCluster: true</code>).</p>
 <h2 id="the-lab-author-loop">The lab-author loop<a class="headerlink" href="#the-lab-author-loop" title="Permanent link">&para;</a></h2>
 <p>If you're <em>authoring</em> a lab rather than taking one, <code>astrona test</code> runs the whole thing non-interactively against a reference solution, to prove the lab is actually solvable before you publish it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>examples/k8s-basics-01<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
 </code></pre></div>
 <p>This bootstraps, applies <code>testing.manifests</code> (the reference solution — here, <code>examples/k8s-basics-01/solution/</code>), submits to the Proctor, and always tears down afterwards, even on failure. It runs against a <code>test-</code>-prefixed cluster name so it never collides with a lab you already have up via <code>astrona run</code>. See <a href="../../guides/ci-integration/">CI Integration</a> for wiring this into a pipeline.</p>
 <h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
