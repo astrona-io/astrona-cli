@@ -70,7 +70,7 @@ labs/
 
 ## Reaching a linked cluster
 
-All kind clusters share one container network, so pods and host scripts can reach a linked cluster's **node** by its container name — `<cluster>-control-plane`. Publish what the lab should reach as a **NodePort** Service with a fixed `nodePort`:
+All kind clusters share one container network, so a pod can reach a linked cluster's **node**. Publish what the lab should reach as a **NodePort** Service with a fixed `nodePort`:
 
 ```yaml
 apiVersion: v1
@@ -82,19 +82,38 @@ spec:
   ports: [{port: 80, targetPort: 80, nodePort: 30080}]
 ```
 
-From the lab's cluster: `http://<host>:30080/`. A `ClusterIP` Service name or a pod IP from the other cluster is **not** reachable — each cluster has its own service and pod network.
+From any cluster of the lab: **`http://idp.astrona.internal:30080/`**. A `ClusterIP` Service name or a pod IP from the other cluster is **not** reachable — each cluster has its own service and pod network.
+
+### Stable names: `<name>.astrona.internal`
+
+Every linked cluster gets a fixed DNS name, `<name>.astrona.internal`, that resolves to its node in every cluster of the lab — the lab's own and the other linked clusters. It's the **same name under `astrona run` and `astrona test`** (where the container names differ), so manifests and configs can simply contain it: an OIDC issuer URL, a database host, a redirect URI.
+
+- Astrona looks up each node's IPv4 and writes it into each cluster's CoreDNS config (a marked block in the `coredns` ConfigMap), refreshing it after `start` and `reset --cluster`, when IPs can change.
+- `.internal` is reserved for private use. (`*.localhost` wouldn't work: curl and other clients resolve it to `127.0.0.1` without asking DNS.)
+- A lab that replaces CoreDNS's config with one lacking a `.:53` server block keeps the container names (`$ASTRONA_LINK_<NAME>_HOST`) instead.
+
+**The same URL on your machine:** forward the service with `hostPort` equal to its `nodePort` (see [below](#reaching-a-linked-cluster-from-your-machine)) and add the name to `/etc/hosts` once — then `http://idp.astrona.internal:30080` works in your browser and in the cluster, which is what an identity provider's issuer URL needs:
+
+```
+127.0.0.1 idp.astrona.internal
+```
+
+(astrona never edits `/etc/hosts` itself.)
+
+### Everything astrona publishes
 
 Astrona tells the lab where each linked cluster is:
 
 | Where | What |
 |---|---|
-| The lab's bootstrap/testing/teardown scripts and `command` checks | `ASTRONA_LINK_<NAME>_HOST`, `ASTRONA_LINK_<NAME>_CONTEXT`, `ASTRONA_LINK_<NAME>_KUBECONFIG` (`<NAME>` upper-cased, `-` → `_`) |
-| In the lab's cluster | ConfigMap `astrona-links` in namespace `default`: `<name>.host`, `<name>.context` |
+| Every cluster's DNS | `<name>.astrona.internal` |
+| The lab's bootstrap/testing/teardown scripts and `command` checks | `ASTRONA_LINK_<NAME>_HOSTNAME` (the stable name), `_HOST` (the node's container name), `_CONTEXT`, `_KUBECONFIG` (`<NAME>` upper-cased, `-` → `_`) |
+| In the lab's cluster | ConfigMap `astrona-links` in namespace `default`: `<name>.hostname`, `<name>.host`, `<name>.context` |
 | `astrona shell` | Every cluster's kubeconfig: `kubectl --context "$ASTRONA_LINK_IDP_CONTEXT" …` works, plus the env vars. `astrona shell <lab> --cluster idp` makes the idp cluster the default context; `astrona kubeconfig <lab> --cluster idp` prints its kubeconfig |
 
 A linked cluster's own `bootstrap`/`testing` scripts run with `KUBECONFIG` pointing at that cluster.
 
-**Never hard-code a linked cluster's host or name.** Under `astrona test` every cluster has a different name (`astro-test-…`); read it from the env var or the ConfigMap instead.
+**Use the stable name, not the container name.** Under `astrona test` every cluster has a different container name (`astro-test-…`) — `<name>.astrona.internal` doesn't change.
 
 ## Reaching a linked cluster from your machine
 
@@ -108,7 +127,7 @@ runtime:
       resource: svc/idp
       namespace: auth
       targetPort: 80
-      hostPort: 18080
+      hostPort: 30080           # = the NodePort, so one URL works everywhere
       scheme: http
 ```
 

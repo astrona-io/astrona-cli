@@ -197,6 +197,7 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 	if err := attachLinks(env, clusterName, links, rep); err != nil {
 		return nil, false, err
 	}
+	refreshLinkNames(clusterName, true, rep)
 
 	// Before addons and bootstrap, so anything they start can use
 	// the preloaded images.

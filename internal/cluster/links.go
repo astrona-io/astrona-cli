@@ -23,6 +23,10 @@ type LinkState struct {
 // from any kind node (and so any pod) on the shared container network.
 func (l LinkState) Host() string { return l.Cluster + "-control-plane" }
 
+// Hostname is the linked cluster's stable name, <name>.astrona.internal —
+// see LinkDomain.
+func (l LinkState) Hostname() string { return l.Name + "." + LinkDomain }
+
 // Context is the linked cluster's kube context name.
 func (l LinkState) Context() string { return "kind-" + l.Cluster }
 
@@ -37,7 +41,7 @@ func LinkEnv(links []LinkState) []string {
 	var env []string
 	for _, l := range links {
 		p := l.EnvPrefix()
-		env = append(env, p+"_HOST="+l.Host(), p+"_CONTEXT="+l.Context())
+		env = append(env, p+"_HOST="+l.Host(), p+"_HOSTNAME="+l.Hostname(), p+"_CONTEXT="+l.Context())
 		if kc := ExistingKubeconfig(l.Cluster); kc != "" {
 			env = append(env, p+"_KUBECONFIG="+kc)
 		}

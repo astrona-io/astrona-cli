@@ -7,7 +7,7 @@ astrona run -c examples/linked-labs-01      # creates idp, then the lab
 astrona docs question -c examples/linked-labs-01
 astrona status linked-labs-01               # shows the linked cluster and its state
 astrona submit -c examples/linked-labs-01   # grades both clusters
-curl http://127.0.0.1:18080/token            # the idp from your machine (port forward with cluster: idp)
+curl http://127.0.0.1:30080/token            # the idp from your machine (port forward with cluster: idp)
 astrona test -c examples/linked-labs-01     # test copies of both, torn down after
 astrona destroy -c examples/linked-labs-01  # removes both
 ```

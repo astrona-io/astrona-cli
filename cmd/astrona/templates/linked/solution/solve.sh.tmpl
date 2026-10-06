@@ -1,8 +1,8 @@
 #!/bin/bash
 # The lab's own part of the reference solution for [[.Name]] (the backend
-# cluster's part is labs/backend/testing/). The backend's address comes
-# from astrona — never hard-coded.
+# cluster's part is labs/backend/testing/). The backend is reached by its
+# stable name, the same under `astrona run` and `astrona test`.
 set -euo pipefail
 kubectl create job call-backend --image=curlimages/curl:8.11.1 -- \
-  curl -fsS "http://${ASTRONA_LINK_BACKEND_HOST}:30080/"
+  curl -fsS http://backend.astrona.internal:30080/
 kubectl wait job/call-backend --for=condition=Complete --timeout=120s
