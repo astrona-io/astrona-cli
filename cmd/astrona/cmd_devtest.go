@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"astrona/internal/addons"
-	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/junit"
 	"astrona/internal/manifests"
@@ -147,14 +145,6 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 		rep.Warn("could not clean up a previous '%s' test environment, proceeding anyway: %s", clusterName, err)
 	}
 
-	// The test cluster must not compete with a real `run` of the
-	// same lab for the gateway's host ports.
-	if cfg.Runtime.Kind != nil {
-		k := *cfg.Runtime.Kind
-		k.Addons.SkipHostPorts = true
-		cfg.Runtime.Kind = &k
-	}
-
 	// Linked clusters come up first; their teardown is deferred before this
 	// lab's, so it runs after it (LIFO) — even on failure.
 	defer func() {
@@ -170,13 +160,14 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 		return nil, false, err
 	}
 
-	env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime, rep)
-	if err != nil {
-		return nil, false, fmt.Errorf("lab setup failed: %w", err)
+	// The same pipeline as `astrona run`, as a test copy (no host ports,
+	// no port forwards).
+	env, _, upErr := upLab(cfg, baseDir, clusterName, links, true, rep)
+	if env == nil {
+		return nil, false, upErr
 	}
-
-	// Registered before anything else can fail, so every later failure
-	// (addons included) still gets diagnostics and a teardown.
+	// Registered as soon as the environment exists, so every later failure
+	// (addons, bootstrap, …) still gets diagnostics and a teardown.
 	defer func() {
 		if wantDiagnostics(diagMode, retErr) {
 			rep.Section("Diagnostics")
@@ -200,58 +191,8 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 			rep.Warn("cluster delete failed: %s", err)
 		}
 	}()
-
-	if err := attachLinks(env, clusterName, links, rep); err != nil {
-		return nil, false, err
-	}
-	refreshLinkNames(clusterName, true, rep)
-
-	// Before addons and bootstrap, so anything they start can use
-	// the preloaded images.
-	if k := cfg.Runtime.Kind; k != nil && len(k.PreloadImages) > 0 {
-		rep.Section("Images")
-		if err := cluster.PreloadImages(clusterName, k.PreloadImages, rep); err != nil {
-			return nil, false, fmt.Errorf("image preload failed: %w", err)
-		}
-	}
-
-	if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {
-		rep.Section("Addons")
-		if err := addons.Install(k.Addons, env.KubeContext, rep); err != nil {
-			return nil, false, fmt.Errorf("addons failed: %w", err)
-		}
-	}
-
-	if err := installSharedCA(cfg, env, rep); err != nil {
-		return nil, false, err
-	}
-
-	if err := waitForClusterDNS(cfg, env, rep); err != nil {
-		return nil, false, fmt.Errorf("cluster DNS not ready: %w", err)
-	}
-
-	if scripts.HasBootstrapInit(cfg) {
-		rep.Section("Bootstrap")
-		if err := scripts.RunBootstrap(cfg, baseDir, env, rep); err != nil {
-			return nil, false, fmt.Errorf("bootstrap init scripts failed: %w", err)
-		}
-	}
-
-	if len(cfg.Bootstrap.Manifests) > 0 {
-		if env.KubeContext == "" {
-			return nil, false, fmt.Errorf("bootstrap.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
-		}
-		rep.Section("Bootstrap manifests")
-		if err := manifests.ApplyManifests(cfg.Bootstrap.Manifests, baseDir, env.KubeContext, rep); err != nil {
-			return nil, false, fmt.Errorf("bootstrap manifests failed: %w", err)
-		}
-	}
-
-	if len(cfg.Bootstrap.WaitFor) > 0 {
-		rep.Section("Bootstrap readiness")
-		if err := manifests.WaitFor(cfg.Bootstrap.WaitFor, env.KubeContext, rep); err != nil {
-			return nil, false, fmt.Errorf("lab did not become ready: %w", err)
-		}
+	if upErr != nil {
+		return nil, false, upErr
 	}
 
 	// Each linked cluster's part of the reference solution first, in
