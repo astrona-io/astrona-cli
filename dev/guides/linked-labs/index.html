@@ -2767,7 +2767,7 @@
 </tbody>
 </table>
 <p>Before bootstrap scripts run, <code>astrona run</code> and <code>astrona test</code> wait for the cluster's DNS (CoreDNS) — a script resolving a linked cluster's host in the first seconds after a cluster is created would otherwise fail with <code>bad address</code>.</p>
-<p><code>astrona bundle</code> doesn't support labs with linked clusters yet.</p>
+<p><code>astrona bundle</code> packs linked clusters too — each must pin its node image (<code>version</code> or <code>image</code>); see <a href="../offline-bundles/">Offline Bundles</a>.</p>
 <h2 id="planning-resources">Planning resources<a class="headerlink" href="#planning-resources" title="Permanent link">&para;</a></h2>
 <p>Each linked cluster is a full kind cluster: budget memory for all of them together (roughly 1–1.5 GiB per single-node cluster before workloads) — <code>astrona check -c &lt;lab&gt;</code> estimates it. A linked cluster's gateway addon gets no host ports, so it never clashes with the lab's own.</p>
 
