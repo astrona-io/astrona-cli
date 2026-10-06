@@ -29,7 +29,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 	var watchInterval time.Duration
 
 	cmd := &cobra.Command{
-		Use:   "submit",
+		Use:   "submit [lab]",
 		Short: "Submit the lab to the Proctor for grading",
 		Long: "Submit the running lab to the Proctor for grading: every validation check and script " +
 			"runs, a failed one shows its hint (if the lab author wrote one), and you get a score. " +
@@ -38,7 +38,9 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			"Passing means every check passes, or — when the lab sets validation.passPercent — " +
 			"reaching that score.",
 		SilenceUsage: true,
+		Args:         cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			useLabArg(args, flags) // a lab given as the argument wins over `astrona use`
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err

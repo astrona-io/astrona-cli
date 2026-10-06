@@ -140,7 +140,7 @@ func docRefs(cfg *config.LabConfig) map[string]string {
 
 func newValidateCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
-		Use:   "validate",
+		Use:   "validate [lab]",
 		Short: "Check a lab config for mistakes without running anything",
 		Long: "Check a lab config (-c/--file/--git) without creating anything: unknown fields (typos " +
 			"like `waitfor` that would otherwise be silently ignored, with a did-you-mean), runtime/" +
@@ -150,15 +150,16 @@ func newValidateCmd(flags *rootFlags) *cobra.Command {
 			"autocompletion, see the JSON Schema in the lab config reference.",
 		Example: `  astrona validate -c ./labs/my-lab
   astrona validate --git https://github.com/org/labs --config labs/lab-01`,
-		Args: cobra.NoArgs,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			useLabArg(args, flags) // a lab given as the argument wins over `astrona use`
 			finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
 			if err != nil {
 				return fmt.Errorf("path resolution failed: %w", err)
 			}
 			cfg, cleanup, err := config.LoadLabConfig(finalPath)
 			if err != nil {
-				return err
+				return withNoLabHint(err, flags)
 			}
 			defer cleanup()
 

@@ -81,6 +81,7 @@ nav:
       - CLI Reference:
           - reference/cli/astrona.md
           - Take a lab:
+              - reference/cli/astrona_use.md
               - reference/cli/astrona_run.md
               - reference/cli/astrona_docs.md
               - reference/cli/astrona_shell.md

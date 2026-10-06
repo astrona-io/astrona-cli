@@ -10,11 +10,14 @@ astrona check
 
 Fix anything reported as `✗` before continuing — `kind`, Docker/Podman, and `kubectl` are required for this example.
 
-## 2. Bring the lab up
+## 2. Pick the lab and bring it up
 
 ```sh
-astrona run -c examples/k8s-basics-01
+astrona use examples/k8s-basics-01   # every command below now works on this lab
+astrona run
 ```
+
+`astrona use` remembers the lab (like kubectl's current context), so you don't repeat `-c` on every command; `astrona use` alone shows which lab, `--clear` forgets it. Inside a lab directory that lab is used instead, and `-c`/`--git` — or the lab as an argument, `astrona run ./other-lab` — always win.
 
 This:
 
@@ -30,15 +33,15 @@ Progress prints as a compact step view; each step's full output goes to a log fi
 Read the task:
 
 ```sh
-astrona docs question -c examples/k8s-basics-01
+astrona docs question
 ```
 
-(`astrona docs -c examples/k8s-basics-01` lists the lab's other docs — case study, prerequisites, and the step-by-step guide with the solution.)
+(`astrona docs` lists the lab's other docs — case study, prerequisites, and the step-by-step guide with the solution.)
 
 ## 3. Inspect it
 
 ```sh
-astrona status -c examples/k8s-basics-01
+astrona status
 ```
 
 One screen for where you are with the lab: cluster health, how to connect, port forwards, the exam clock (timed labs), your last submission and score, and a suggested next step:
@@ -89,7 +92,7 @@ astrona never changes your own kubectl current-context — see [kubeconfig isola
 ## 4. Submit for grading
 
 ```sh
-astrona submit -c examples/k8s-basics-01
+astrona submit
 ```
 
 Hands the running cluster to the [Proctor](../concepts/grading.md), which runs this lab's `validation.checks` (does `lab-ns` exist? does `hello-config` exist?) and its `validation.script` (does the ConfigMap actually hold the right content?). Output is pytest-style — a PASS/FAIL line per check, then a summary — and the command's exit code reflects the verdict, so it's safe to gate a script on.
@@ -97,7 +100,7 @@ Hands the running cluster to the [Proctor](../concepts/grading.md), which runs t
 ## 5. Tear it down
 
 ```sh
-astrona destroy -c examples/k8s-basics-01
+astrona destroy
 ```
 
 Runs `teardown.init` scripts, then deletes the cluster (unless the config sets `teardown.keepCluster: true`).
@@ -107,7 +110,7 @@ Runs `teardown.init` scripts, then deletes the cluster (unless the config sets `
 If you're *authoring* a lab rather than taking one, `astrona test` runs the whole thing non-interactively against a reference solution, to prove the lab is actually solvable before you publish it:
 
 ```sh
-astrona test -c examples/k8s-basics-01 --junit-xml=report.xml
+astrona test examples/k8s-basics-01 --junit-xml=report.xml
 ```
 
 This bootstraps, applies `testing.manifests` (the reference solution — here, `examples/k8s-basics-01/solution/`), submits to the Proctor, and always tears down afterwards, even on failure. It runs against a `test-`-prefixed cluster name so it never collides with a lab you already have up via `astrona run`. See [CI Integration](../guides/ci-integration.md) for wiring this into a pipeline.
