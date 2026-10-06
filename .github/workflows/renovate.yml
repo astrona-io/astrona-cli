@@ -7,18 +7,51 @@ on:
   schedule:
     - cron: '0 1 * * *'
 
+# The workflow's own GITHUB_TOKEN only needs to read the repo; Renovate
+# acts with the GitHub App token minted below.
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
 jobs:
   renovate:
     name: Run Renovate
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
+      # Renovate must not run on the workflow's GITHUB_TOKEN: it's read-only
+      # here, and PRs it opens don't trigger CI — so nothing could be tested
+      # before auto-merge. Fail loudly instead of silently doing nothing.
+      - name: Check Renovate GitHub App is configured
+        env:
+          CLIENT_ID: ${{ vars.RENOVATE_APP_CLIENT_ID }}
+          HAS_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY != '' }}
+        run: |
+          if [ -z "$CLIENT_ID" ] || [ "$HAS_KEY" != "true" ]; then
+            echo "::error::Set the repository variable RENOVATE_APP_CLIENT_ID and secret RENOVATE_APP_PRIVATE_KEY (see .github/renovate.json5 header)."
+            exit 1
+          fi
+
+      - name: Mint GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3.2.0
+        with:
+          client-id: ${{ vars.RENOVATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+
       - name: Checkout code
         uses: actions/checkout@v7
 
       - name: Run Renovate
-        uses: renovatebot/github-action@v46.2.2
+        uses: renovatebot/github-action@v46.3.7
         with:
-          configurationFile: .github/renovate.json
-          token: ${{ secrets.RENOVATE_TOKEN || secrets.GITHUB_TOKEN }}
+          configurationFile: .github/renovate.json5
+          token: ${{ steps.app-token.outputs.token }}
         env:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
+          # Commit through the GitHub API so commits are signed and verified
+          # as the app.
+          RENOVATE_PLATFORM_COMMIT: enabled
