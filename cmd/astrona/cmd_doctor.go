@@ -59,7 +59,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			machine, engine := doctorMachine()
 			failed += rep.section("This machine", machine)
 
-			cfg, baseDir, err := doctorLoadLab(flags)
+			cfg, baseDir, err := doctorLoadLab(flags, labNamed(cmd, args, flags))
 			if err != nil {
 				failed += rep.section("Lab", []checkResult{doctorLabError(err)})
 				return doctorVerdict(rep, failed)
@@ -144,14 +144,14 @@ func doctorMachine() ([]checkResult, *engineInfo) {
 // lab was named and the current directory has none; any other failure —
 // a named lab that isn't there, a config that doesn't parse — is an error
 // for doctor to report.
-func doctorLoadLab(flags *rootFlags) (*config.LabConfig, string, error) {
+func doctorLoadLab(flags *rootFlags, named bool) (*config.LabConfig, string, error) {
 	path, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, false)
 	if err != nil {
-		return nil, "", noLabOr(err, flags)
+		return nil, "", noLabOr(err, named)
 	}
 	cfg, cleanup, err := config.LoadLabConfig(path)
 	if err != nil {
-		return nil, "", noLabOr(err, flags)
+		return nil, "", noLabOr(err, named)
 	}
 	cleanup()
 	baseDir := ""
@@ -161,10 +161,20 @@ func doctorLoadLab(flags *rootFlags) (*config.LabConfig, string, error) {
 	return cfg, baseDir, nil
 }
 
-// noLabOr is nil for "no lab named, none in the current directory" (the
-// same case withNoLabHint covers) and err otherwise.
-func noLabOr(err error, flags *rootFlags) error {
-	if errors.Is(err, os.ErrNotExist) && flags.configPath == "." && flags.gitURL == "" {
+// labNamed: the user picked a lab — as the argument, with -c/--file/--git,
+// or with `astrona use` — rather than doctor falling back to the current
+// directory. Decided from what was given, not the resolved values, so
+// `astrona doctor .` and `-c .` count as named.
+func labNamed(cmd *cobra.Command, args []string, flags *rootFlags) bool {
+	return (len(args) > 0 && args[0] != "") ||
+		cmd.Flags().Changed("config") || cmd.Flags().Changed("file") ||
+		flags.gitURL != "" || flags.fromCurrent
+}
+
+// noLabOr is nil for "no lab named, none in the current directory" and
+// err otherwise.
+func noLabOr(err error, named bool) error {
+	if !named && errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	return err
