@@ -20,7 +20,7 @@ Astrona shells out to a few external tools — `astrona check` (below) verifies 
 brew install astrona-io/tap/astrona
 ```
 
-The [tap](https://github.com/astrona-io/homebrew-tap) is updated by every release, pinned to the same binaries and SHA-256 values as the GitHub release. Upgrade with `brew upgrade astrona`, or `astrona upgrade` — on a Homebrew install it runs `brew upgrade astrona` for you instead of downloading the binary itself.
+The [tap](https://github.com/astrona-io/homebrew-tap) is updated by every release, pinned to the same binaries and SHA-256 values as the GitHub release. CI installs the formula with real Homebrew on macOS and Linux for every change that could affect it, and again from the tap right after each release. Upgrade with `brew upgrade astrona`, or `astrona upgrade` — on a Homebrew install it runs `brew upgrade astrona` for you instead of downloading the binary itself.
 
 What the Homebrew install gives you on top of the binary:
 
