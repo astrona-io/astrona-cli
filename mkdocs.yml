@@ -116,6 +116,7 @@ nav:
               - reference/cli/astrona_bundle_inspect.md
               - reference/cli/astrona_bundle_load.md
           - Troubleshoot:
+              - reference/cli/astrona_doctor.md
               - reference/cli/astrona_check.md
               - reference/cli/astrona_diagnose.md
               - reference/cli/astrona_logs.md

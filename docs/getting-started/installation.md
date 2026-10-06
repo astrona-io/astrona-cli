@@ -79,6 +79,24 @@ Lab astro-my-lab:
 - **Host ports** — every `portForwards` host port and the gateway addon's ports must be free (skipped while the lab itself is running).
 - The lab config is validated too (`runtime.kind`, `runtime.portForwards`).
 
+### When something isn't working: `astrona doctor`
+
+`astrona doctor` runs all of the above **and** looks at the running lab, then says what's wrong and how to fix it:
+
+```text
+Running lab astro-linked-labs-01:
+  ✓  nodes                                  Ready (1/1)
+  ✓  linked cluster idp                     Ready (1/1) · idp.astrona.internal
+  ✗  port forward idp                       Stopped · http://127.0.0.1:30080
+        fix: astrona port-forward start
+  ⚠  pods in astro-linked-labs-01-idp       1 unhealthy: auth/broken: ErrImagePull (…)
+        fix: astrona diagnose collects their logs and events
+
+Error: 1 problem(s) found — the ✗ lines above say how to fix each
+```
+
+It checks this machine (tools, container engine, inotify), the lab (its config, whether this astrona may run it, memory and free ports when it isn't running) and the running lab (nodes, linked clusters, port forwards, unhealthy pods, exam clock). It only reads — nothing is started or changed — and exits non-zero on any ✗. `--bundle` also writes the full [diagnostics bundle](../guides/ci-integration.md#diagnostics-on-failure). Unhealthy pods are ⚠, not ✗: in a lab they may be the exercise.
+
 ## Shell completion
 
 `astrona completion <shell>` prints a completion script for bash, zsh, fish or PowerShell. Besides commands and flags, it completes **lab names** from what's actually on your machine — `astrona destroy <TAB>`, `stop`, `start`, `shell`, `kubeconfig`, `diagnose`, `ssh`, `port-forward list|stop` — filtered to what makes sense (`start` offers stopped labs, `ssh` qemu VMs), each with its runtime and status. Type part of the name without `astro-` and the short form is completed.

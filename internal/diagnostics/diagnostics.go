@@ -440,3 +440,23 @@ func lastLine(b []byte) string {
 	}
 	return s
 }
+
+// UnhealthyPods lists k's unhealthy pods ("namespace/name: reason"), the
+// same ones a diagnostics bundle describes — without writing a bundle.
+func UnhealthyPods(k Kind) ([]string, error) {
+	cmd := exec.Command("kubectl", "--context", k.KubeContext, "get", "pods", "-A", "-o", "json", "--request-timeout=10s")
+	cmd.Env = executor.KubeconfigEnv(k.Kubeconfig)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("list pods: %w", err)
+	}
+	var list podList
+	if err := json.Unmarshal(out, &list); err != nil {
+		return nil, fmt.Errorf("parse pods: %w", err)
+	}
+	var lines []string
+	for _, p := range findProblems(list) {
+		lines = append(lines, p.line())
+	}
+	return lines, nil
+}
