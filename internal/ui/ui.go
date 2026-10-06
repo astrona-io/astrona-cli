@@ -395,8 +395,8 @@ func (t *Task) Fail(err error) error {
 	}
 
 	t.dumpCapture()
-	fmt.Fprintf(t.r.screen, "    error: %v\n", err)
-	fmt.Fprintf(t.r.screen, "%s\n", t.r.dim("    full log: "+t.r.logPath))
+	fmt.Fprintf(t.r.screen, "    %s %v\n", t.r.red("error:"), err)
+	fmt.Fprintf(t.r.screen, "%s\n", t.r.dim("    full log: "+t.r.logPath+" — open it with: astrona logs view"))
 	return err
 }
 

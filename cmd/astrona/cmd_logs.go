@@ -517,7 +517,7 @@ func newLogsCleanCmd() *cobra.Command {
 	cmd.Flags().DurationVar(&olderThan, "older-than", 0, "Only delete logs older than this (e.g. 168h)")
 	cmd.Flags().IntVar(&keep, "keep", 0, "Always retain the N newest matching logs")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be deleted and stop")
-	cmd.Flags().BoolVar(&yes, "yes", false, "Actually delete — without this, clean only previews")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Actually delete — without this, clean only previews")
 	return cmd
 }
 
