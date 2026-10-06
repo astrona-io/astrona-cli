@@ -56,9 +56,12 @@ func banner() string {
 	return colorize(ansiCyan+ansiBold, strings.Join(lines, "\n"))
 }
 
+// donateURL is where users can support Astrona.
+const donateURL = "https://liberapay.com/Astrona.io"
+
 // supportLine is appended to the root command's Long description, so it
 // shows on `astrona` and `astrona --help` without repeating on every
 // subcommand's help screen.
 func supportLine() string {
-	return colorize(ansiYellow, "Astrona is free and built on donations and community support — thank you to everyone who contributes, sponsors, and helps keep it going.")
+	return colorize(ansiYellow, "Astrona is free and built on donations and community support — thank you to everyone who contributes, sponsors, and helps keep it going.\nDonate: "+donateURL)
 }
