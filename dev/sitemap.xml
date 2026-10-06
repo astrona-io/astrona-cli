@@ -93,6 +93,14 @@
          <lastmod>2026-10-06</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_init/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_init_lab/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_kubeconfig/</loc>
          <lastmod>2026-10-06</lastmod>
     </url>
