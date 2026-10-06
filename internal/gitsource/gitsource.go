@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"astrona/internal/ui"
 )
 
 // gitCacheDir returns (creating if needed) the cache directory a given repo
@@ -116,7 +118,7 @@ func cloneOrUpdateGitRepo(url, ref, destDir string, verbose bool) error {
 			// fetch to have just succeeded, only to have succeeded at some
 			// point. Losing network here shouldn't break a lab that was
 			// already working offline.
-			fmt.Printf("[WARN] could not reach %s, using the cached checkout\n", url)
+			ui.Warnf("could not reach %s, using the cached checkout", url)
 		}
 	}
 
