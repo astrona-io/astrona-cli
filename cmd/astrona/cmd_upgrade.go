@@ -53,8 +53,8 @@ func newUpgradeCmd() *cobra.Command {
 				return fmt.Errorf("failed to resolve latest version tag")
 			}
 
-			if Version == latestTag && !force {
-				fmt.Printf("You are already running the latest version (%s).\n", Version)
+			if !newerRelease(latestTag, Version) && !force {
+				fmt.Printf("You are on %s; the latest release is %s — nothing to upgrade (--force reinstalls it).\n", Version, latestTag)
 				return nil
 			}
 

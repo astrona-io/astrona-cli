@@ -83,8 +83,11 @@ func releaseAsset(tag string) (url, sha string, err error) {
 	return "", "", fmt.Errorf("release %s has no binary for %s/%s", tag, goruntime.GOOS, goruntime.GOARCH)
 }
 
-// releaseTags lists published release tags, newest first.
-func releaseTags() ([]string, error) {
+// releaseTags lists published release tags, newest first (a variable so
+// tests can stay offline).
+var releaseTags = githubReleaseTags
+
+func githubReleaseTags() ([]string, error) {
 	var rels []githubRelease
 	if err := getJSON("https://api.github.com/repos/"+releaseRepo+"/releases?per_page=100", &rels); err != nil {
 		return nil, err
