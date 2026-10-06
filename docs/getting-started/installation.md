@@ -20,7 +20,7 @@ Astrona shells out to a few external tools — `astrona check` (below) verifies 
 brew install astrona-io/tap/astrona
 ```
 
-The [tap](https://github.com/astrona-io/homebrew-tap) is updated by every release, pinned to the same binaries and SHA-256 values as the GitHub release. Upgrade with `brew upgrade astrona` — `astrona upgrade` refuses to replace a binary Homebrew manages, and the update notice says `brew upgrade astrona` for a Homebrew install.
+The [tap](https://github.com/astrona-io/homebrew-tap) is updated by every release, pinned to the same binaries and SHA-256 values as the GitHub release. Upgrade with `brew upgrade astrona`, or `astrona upgrade` — on a Homebrew install it runs `brew upgrade astrona` for you instead of downloading the binary itself.
 
 ## Quick install (macOS & Linux)
 
@@ -136,13 +136,12 @@ It also completes:
 ## Staying up to date
 
 ```sh
-astrona upgrade            # installed with curl or by hand
-brew upgrade astrona       # installed with Homebrew
+astrona upgrade
 ```
 
-`astrona upgrade` checks GitHub for the latest release, downloads the binary for your OS/architecture, verifies it against the SHA-256 digest GitHub records for it (and its [build provenance](../guides/astrona-versions.md#build-provenance) when the GitHub CLI is installed), and atomically replaces the currently running executable — only when the release is newer than yours.
+`astrona upgrade` checks GitHub for the latest release, downloads the binary for your OS/architecture, verifies it against the SHA-256 digest GitHub records for it (and its [build provenance](../guides/astrona-versions.md#build-provenance) when the GitHub CLI is installed), and atomically replaces the currently running executable — only when the release is newer than yours. On a [Homebrew](#homebrew-macos-linux) install it runs `brew upgrade astrona` instead (`brew reinstall astrona` with `--force`), so Homebrew keeps track of the install.
 
-astrona tells you when a newer release exists — `[INFO] astrona v0.2.3 is available (you have v0.2.2) — astrona upgrade · what's new: <release notes>` (`brew upgrade astrona` for a Homebrew install) — at most **once a day**. It asks GitHub at most once a day too (cached in `~/.astrona/update-check.json`), so commands don't wait on the network. It never checks in CI (`CI`/`GITHUB_ACTIONS`/… set) or when stderr isn't a terminal; `ASTRONA_NO_UPDATE_CHECK=1` turns it off everywhere.
+astrona tells you when a newer release exists — `[INFO] astrona v0.2.3 is available (you have v0.2.2) — astrona upgrade · what's new: <release notes>` — at most **once a day**. It asks GitHub at most once a day too (cached in `~/.astrona/update-check.json`), so commands don't wait on the network. It never checks in CI (`CI`/`GITHUB_ACTIONS`/… set) or when stderr isn't a terminal; `ASTRONA_NO_UPDATE_CHECK=1` turns it off everywhere.
 
 Older releases can be installed next to the latest — see [Astrona Versions](../guides/astrona-versions.md).
 

@@ -70,4 +70,4 @@ PROCTOR: PASS
 
 ## Upgrading
 
-`astrona upgrade` installs the latest release over `astrona`, verified against the same GitHub digest, and only when it's actually newer than the one you have. Installed with Homebrew? Use `brew upgrade astrona` — `astrona upgrade` refuses to replace a binary Homebrew manages. `astrona versions install` works the same either way (it installs into `~/.astrona/bin`, not Homebrew's directory).
+`astrona upgrade` installs the latest release over `astrona`, verified against the same GitHub digest, and only when it's actually newer than the one you have. Installed with Homebrew? Then `astrona upgrade` runs `brew upgrade astrona` (`brew reinstall astrona` with `--force`) instead of downloading the binary itself, so Homebrew keeps track of the install. `astrona versions install` works the same either way (it installs into `~/.astrona/bin`, not Homebrew's directory).
