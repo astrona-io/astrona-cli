@@ -109,7 +109,7 @@ func cloneOrUpdateGitRepo(url, ref, destDir string, verbose bool) error {
 
 	if _, err := os.Stat(filepath.Join(destDir, ".git")); os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "Cloning %s ...\n", url)
-		if err := runGit(gitPath, "", out, "clone", url, destDir); err != nil {
+		if err := runGit(gitPath, "", out, "clone", "--", url, destDir); err != nil {
 			return fail("can't clone "+url, err)
 		}
 	} else {
@@ -135,7 +135,10 @@ func cloneOrUpdateGitRepo(url, ref, destDir string, verbose bool) error {
 		target = ref // tag or commit sha
 	}
 
-	if err := runGit(gitPath, destDir, out, "checkout", "--force", "-B", "astrona-lab", target); err != nil {
+	// The trailing "--" pins target as a revision, never a pathspec. A
+	// leading "-" is rejected up front in ResolveGitConfigSource, so it
+	// can't be read as an option either (--end-of-options needs git 2.24+).
+	if err := runGit(gitPath, destDir, out, "checkout", "--force", "-B", "astrona-lab", target, "--"); err != nil {
 		return fail(fmt.Sprintf("can't check out '%s' from %s", target, url), err)
 	}
 
@@ -150,6 +153,15 @@ func cloneOrUpdateGitRepo(url, ref, destDir string, verbose bool) error {
 // returns that local path — callers treat the result exactly like any
 // other local --config directory, no special-casing needed downstream.
 func ResolveGitConfigSource(url, ref string, verbose bool) (string, error) {
+	// Both come from flags or a remote path.yaml and become git arguments:
+	// a leading "-" would be parsed as an option (e.g. --upload-pack=<cmd>).
+	if strings.HasPrefix(url, "-") {
+		return "", fmt.Errorf("invalid git URL '%s': must not start with '-'", url)
+	}
+	if strings.HasPrefix(ref, "-") {
+		return "", fmt.Errorf("invalid git ref '%s': must not start with '-'", ref)
+	}
+
 	destDir, err := gitCacheDir(url, ref)
 	if err != nil {
 		return "", err

@@ -129,11 +129,12 @@ func New(cmdName, labName string, opts Options) (*Reporter, error) {
 		}
 		stamp := time.Now().UTC().Format("20060102T150405Z")
 		logPath = filepath.Join(dir, fmt.Sprintf("%s-%s-%s.log", sanitize(cmdName), sanitize(labName), stamp))
-	} else if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+	} else if err := os.MkdirAll(filepath.Dir(logPath), 0o700); err != nil {
 		return nil, fmt.Errorf("create log directory: %w", err)
 	}
 
-	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	// Owner-only: the log holds full script output and the command line.
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("open log file %s: %w", logPath, err)
 	}

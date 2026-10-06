@@ -32,3 +32,14 @@ func JoinWithinBaseDir(baseDir, source string) (string, error) {
 
 	return joined, nil
 }
+
+// JoinStrictlyWithinBaseDir is JoinWithinBaseDir without the absolute-path
+// pass-through: source must be relative and stay inside baseDir. For paths
+// that only ever make sense inside baseDir (lab docs, content bundle
+// entries), where an absolute path is never a legitimate choice.
+func JoinStrictlyWithinBaseDir(baseDir, source string) (string, error) {
+	if filepath.IsAbs(source) {
+		return "", fmt.Errorf("path '%s' must be relative, not absolute", source)
+	}
+	return JoinWithinBaseDir(baseDir, source)
+}

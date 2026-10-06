@@ -63,11 +63,12 @@ func labConfigResults(cfg *config.LabConfig, baseDir string) []checkResult {
 	docs := docRefs(cfg)
 	for _, where := range sortedKeysOf(docs) {
 		path := docs[where]
-		full, err := config.JoinWithinBaseDir(baseDir, path)
-		if err == nil {
-			_, err = os.Stat(full)
-		}
+		full, err := config.JoinStrictlyWithinBaseDir(baseDir, path)
 		if err != nil {
+			res = append(res, checkResult{status: checkWarn, name: where, detail: err.Error()})
+			continue
+		}
+		if _, err := os.Stat(full); err != nil {
 			res = append(res, checkResult{status: checkWarn, name: where, detail: fmt.Sprintf("'%s' not found", path)})
 		}
 	}

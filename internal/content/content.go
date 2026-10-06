@@ -8,6 +8,9 @@ package content
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -108,6 +111,43 @@ func LoadTrainingPath(path string) (*TrainingPath, error) {
 	if tp.Kind != TrainingPathKind {
 		return nil, fmt.Errorf("%s: unsupported kind %q, expected %q", path, tp.Kind, TrainingPathKind)
 	}
+	if err := tp.validatePaths(); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 
 	return &tp, nil
+}
+
+// pathSegment is what stage IDs and content refs may contain: they become
+// single directory names in a built bundle (<output>/<stage-id>/<ref>).
+var pathSegment = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+
+func validPathSegment(s string) bool {
+	return pathSegment.MatchString(s) && s != "." && !strings.Contains(s, "..")
+}
+
+// validatePaths rejects stage IDs, refs and paths that could make `content
+// build` read or write outside its directories. path.yaml often comes from
+// a cloned remote repo, so an absolute content path (copying local files
+// like ~/.ssh into the bundle) or a stage ID like "/home/me" or "../x"
+// (writing outside --output) must fail here, before anything is fetched.
+func (tp *TrainingPath) validatePaths() error {
+	for i, stage := range tp.Spec.Stages {
+		if !validPathSegment(stage.ID) {
+			return fmt.Errorf("spec.stages[%d].id %q is invalid: use only letters, digits, '.', '_' and '-' (no '..')", i, stage.ID)
+		}
+		for j, item := range stage.Content {
+			where := fmt.Sprintf("spec.stages[%d].content[%d]", i, j)
+			if !validPathSegment(item.Ref) {
+				return fmt.Errorf("%s.ref %q is invalid: use only letters, digits, '.', '_' and '-' (no '..')", where, item.Ref)
+			}
+			if filepath.IsAbs(item.Path) || strings.HasPrefix(item.Path, "/") || strings.HasPrefix(item.Path, `\`) {
+				return fmt.Errorf("%s.path %q must be relative to the content repository", where, item.Path)
+			}
+			if clean := filepath.Clean(item.Path); clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+				return fmt.Errorf("%s.path %q escapes the content repository", where, item.Path)
+			}
+		}
+	}
+	return nil
 }
