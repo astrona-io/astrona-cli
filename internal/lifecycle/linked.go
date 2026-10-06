@@ -80,7 +80,7 @@ func StartLinkedClusters(cfg *config.LabConfig, baseDir, labCluster string, forT
 			err = ApplyWAN(name, l.WAN, rep)
 		}
 		if err != nil {
-			err = fmt.Errorf("linked cluster '%s' (%s): %w", l.Name, name, err)
+			err = linkedClusterError(l, name, err)
 			if rest := notStarted(order[i+1:]); rest != "" {
 				err = fmt.Errorf("%w — not started: %s", err, rest)
 			}
@@ -91,6 +91,12 @@ func StartLinkedClusters(cfg *config.LabConfig, baseDir, labCluster string, forT
 	// Clusters created earlier learn the names of later ones.
 	RefreshLinkNames(labCluster, true, rep)
 	return states, nil
+}
+
+// linkedClusterError names which linked cluster failed — the same wording
+// on the sequential and --parallel paths.
+func linkedClusterError(l config.KindCluster, clusterName string, err error) error {
+	return fmt.Errorf("linked cluster '%s' (%s): %w", l.Name, clusterName, err)
 }
 
 // ApplyWAN applies a linked cluster's wan conditions (none: no-op).
