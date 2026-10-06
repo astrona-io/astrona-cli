@@ -281,6 +281,9 @@
     "PortForward": {
       "additionalProperties": false,
       "properties": {
+        "cluster": {
+          "type": "string"
+        },
         "description": {
           "type": "string"
         },

@@ -135,7 +135,11 @@ func startOne(exe, lab string, pf config.PortForward) error {
 		return fmt.Errorf("failed to create state dir '%s': %w", dir, err)
 	}
 
-	spec := Spec{Lab: lab, KubeContext: "kind-" + lab, Forward: pf, StartedAt: time.Now()}
+	spec := Spec{Lab: lab, Forward: pf, StartedAt: time.Now()}
+	if pf.Cluster != "" {
+		spec.Cluster = config.KindLabClusterName(lab, pf.Cluster)
+	}
+	spec.KubeContext = "kind-" + spec.Target()
 	if err := writeJSONAtomic(filepath.Join(dir, specFile), spec); err != nil {
 		return err
 	}

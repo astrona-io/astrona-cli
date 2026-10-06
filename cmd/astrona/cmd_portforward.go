@@ -161,8 +161,12 @@ func printPortForwardHints(w io.Writer, fs []portforward.Forward) {
 	for _, f := range fs {
 		pf := f.Spec.Forward.Normalized()
 		state := f.Effective()
-		fmt.Fprintf(tw, "    %s\t%s\t%s\t->  %s:%d (ns %s)\t%s\n",
-			pf.Name, state, portforward.LocalURL(pf), pf.Resource, pf.TargetPort, pf.Namespace, pf.Description)
+		where := "ns " + pf.Namespace
+		if pf.Cluster != "" {
+			where += ", cluster " + pf.Cluster
+		}
+		fmt.Fprintf(tw, "    %s\t%s\t%s\t->  %s:%d (%s)\t%s\n",
+			pf.Name, state, portforward.LocalURL(pf), pf.Resource, pf.TargetPort, where, pf.Description)
 		if state != portforward.StateReady && f.Status.LastError != "" {
 			notes = append(notes, fmt.Sprintf("    %s: %s", pf.Name, f.Status.LastError))
 		}
@@ -231,6 +235,10 @@ func newPortForwardStartCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer configCleanup()
 
+			// Also checks every forward's cluster: is a linked cluster.
+			if err := config.ValidateKindLabs(cfg); err != nil {
+				return err
+			}
 			if err := config.ValidatePortForwards(cfg.Runtime); err != nil {
 				return err
 			}

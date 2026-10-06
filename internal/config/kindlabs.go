@@ -187,9 +187,9 @@ func KindLabOrder(labs []KindLab) ([]KindLab, error) {
 	return order, nil
 }
 
-// validateCheckClusters checks every `cluster:` on a validation check names
-// a linked cluster — a stray one must never be silently graded against
-// the lab's own cluster instead.
+// validateCheckClusters checks every `cluster:` on a validation check or
+// port forward names a linked cluster — a stray one must never silently
+// act on the lab's own cluster instead.
 func validateCheckClusters(cfg *LabConfig, names map[string]bool) error {
 	check := func(where string, checks []ValidationCheck) error {
 		for i, c := range checks {
@@ -207,6 +207,11 @@ func validateCheckClusters(cfg *LabConfig, names map[string]bool) error {
 	}
 	if err := check("validation", cfg.Validation.Checks); err != nil {
 		return err
+	}
+	for _, pf := range cfg.Runtime.PortForwards {
+		if pf.Cluster != "" && !names[pf.Cluster] {
+			return fmt.Errorf("runtime.portForwards '%s': cluster '%s' isn't in runtime.kind.labs", pf.Name, pf.Cluster)
+		}
 	}
 	for _, vm := range cfg.Runtime.QEMU {
 		if vm.Validation != nil {

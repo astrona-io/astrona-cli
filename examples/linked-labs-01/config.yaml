@@ -17,6 +17,16 @@ metadata:
 
 runtime:
   type: kind
+  # The idp's token endpoint on your machine too: curl http://127.0.0.1:18080/token
+  portForwards:
+    - name: idp
+      cluster: idp                      # forwarded from the idp cluster
+      resource: svc/idp
+      namespace: auth
+      targetPort: 80
+      hostPort: 18080
+      scheme: http
+      description: identity provider (try /token)
   kind:
     preloadImages: [curlimages/curl:8.11.1]
     labs:
