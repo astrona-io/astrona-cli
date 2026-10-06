@@ -31,6 +31,28 @@ runtime:
 
 Each entry takes the same cluster fields as `runtime.kind` (version, nodes, networking, addons, preloadImages, …) plus its own `bootstrap` and `testing`. Up to 5 per lab; names are lowercase letters, digits and `-` (max 20 characters). See [`runtime.kind.labs`](../reference/lab-config.md#runtimekindlabsn).
 
+### Dependencies and start order
+
+Clusters are created **one at a time**, never in parallel: every linked cluster first, then the lab's own. Each one is only created once the previous is fully ready — its bootstrap done and its `waitFor` gates passed. Use `dependsOn` when one linked cluster needs another:
+
+```yaml
+    labs:
+      - name: db
+        bootstrap: {manifests: [{name: db, type: file, source: labs/db/bootstrap/db.yaml}],
+                    waitFor: [{resource: statefulset/db, namespace: data}]}
+      - name: idp
+        dependsOn: [db]          # created only once db is ready
+        bootstrap:
+          init:
+            - {name: configure, type: file, source: labs/idp/bootstrap/configure.sh}   # gets $ASTRONA_LINK_DB_HOST
+```
+
+- Dependencies are created first; otherwise clusters start in the order listed.
+- A cluster's scripts get the `ASTRONA_LINK_*` addresses of the clusters it depends on (the lab's own scripts get all of them).
+- If a cluster fails, the run stops there: nothing that depends on it — and not the lab itself — is started, and the error says what was skipped. `astrona destroy` cleans up what was created.
+- Unknown names, a cluster depending on itself, and cycles are rejected by `astrona validate`.
+- `astrona test` applies the clusters' `testing` blocks in the same order; `astrona start` restarts them in it.
+
 ### Folder layout
 
 Paths are relative to `config.yaml`, like everywhere else. By convention each linked cluster keeps its files in its own folder under `labs/`, next to `docs/` and `solution/`:

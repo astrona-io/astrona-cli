@@ -41,6 +41,10 @@ type KindLab struct {
 	// under labs/<name>/.
 	Bootstrap BootstrapConfig `yaml:"bootstrap"`
 	Testing   BootstrapConfig `yaml:"testing"`
+	// DependsOn names linked clusters that must be up and ready (bootstrap
+	// and waitFor done) before this one is created. Its scripts get their
+	// ASTRONA_LINK_* addresses. If one fails, this one isn't started.
+	DependsOn []string `yaml:"dependsOn"`
 }
 
 // Cluster is l's kind cluster shape. Gateway host ports are always
@@ -119,7 +123,68 @@ func ValidateKindLabs(cfg *LabConfig) error {
 			}
 		}
 	}
+	if _, err := KindLabOrder(labs); err != nil {
+		return err
+	}
 	return validateCheckClusters(cfg, names)
+}
+
+// KindLabOrder returns labs in start order: every cluster after the ones
+// it depends on, otherwise in config order. Errors on an unknown or
+// duplicate dependency, a self-dependency, or a cycle.
+func KindLabOrder(labs []KindLab) ([]KindLab, error) {
+	index := map[string]int{}
+	for i, l := range labs {
+		index[l.Name] = i
+	}
+	pending := make([]int, len(labs)) // unmet dependencies per cluster
+	for i, l := range labs {
+		seen := map[string]bool{}
+		for _, d := range l.DependsOn {
+			where := "runtime.kind.labs[" + l.Name + "].dependsOn"
+			switch _, ok := index[d]; {
+			case d == l.Name:
+				return nil, fmt.Errorf("%s: a cluster can't depend on itself", where)
+			case !ok:
+				return nil, fmt.Errorf("%s: '%s' isn't in runtime.kind.labs", where, d)
+			case seen[d]:
+				return nil, fmt.Errorf("%s: '%s' is listed twice", where, d)
+			}
+			seen[d] = true
+			pending[i]++
+		}
+	}
+	done := make([]bool, len(labs))
+	var order []KindLab
+	for len(order) < len(labs) {
+		next := -1
+		for i := range labs {
+			if !done[i] && pending[i] == 0 {
+				next = i
+				break
+			}
+		}
+		if next < 0 {
+			var stuck []string
+			for i, l := range labs {
+				if !done[i] {
+					stuck = append(stuck, l.Name)
+				}
+			}
+			return nil, fmt.Errorf("runtime.kind.labs: dependsOn forms a cycle between %s", strings.Join(stuck, ", "))
+		}
+		picked := labs[next]
+		done[next] = true
+		order = append(order, picked)
+		for i, l := range labs {
+			for _, d := range l.DependsOn {
+				if d == picked.Name {
+					pending[i]--
+				}
+			}
+		}
+	}
+	return order, nil
 }
 
 // validateCheckClusters checks every `cluster:` on a validation check names

@@ -150,6 +150,12 @@
         "bootstrap": {
           "$ref": "#/$defs/BootstrapConfig"
         },
+        "dependsOn": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "featureGates": {
           "additionalProperties": {
             "type": "boolean"

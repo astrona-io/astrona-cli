@@ -203,8 +203,11 @@ Extra kind clusters that run side by side with the lab's own — e.g. an identit
 | `version`, `image`, `nodes`, `networking`, `featureGates`, `runtimeConfig`, `addons`, `preloadImages` | | Same as for the lab's own cluster (above). A gateway addon gets no host ports here |
 | `bootstrap` | [BootstrapConfig](#bootstrap-testing) | Sets this cluster up — runs before the lab's own bootstrap |
 | `testing` | [BootstrapConfig](#bootstrap-testing) | This cluster's part of the reference solution — `astrona test` applies it before the lab's own `testing` |
+| `dependsOn` | list of strings | Other linked clusters (names) that must be up and ready — bootstrap and `waitFor` done — before this one is created. Its scripts get their `ASTRONA_LINK_*` addresses (and its cluster their `astrona-links` ConfigMap). Unknown names, self-dependencies and cycles are rejected |
 
 Paths are relative to the lab's config, like everywhere else; by convention each cluster keeps its files in `labs/<name>/` (`labs/idp/bootstrap/`, `labs/idp/testing/`).
+
+Clusters are created one at a time: dependencies first, otherwise in the order listed; the lab's own cluster last. The first one that fails stops the run — nothing depending on it is started.
 
 ```yaml
 runtime:

@@ -237,9 +237,13 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 		}
 	}
 
-	// Each linked cluster's part of the reference solution first, then the
-	// lab's own — which may rely on it.
-	for _, l := range cfg.KindLabs() {
+	// Each linked cluster's part of the reference solution first, in
+	// dependency order, then the lab's own — which may rely on them.
+	order, err := config.KindLabOrder(cfg.KindLabs())
+	if err != nil {
+		return nil, false, err
+	}
+	for _, l := range order {
 		if isEmptyBlock(l.Testing) {
 			continue
 		}
