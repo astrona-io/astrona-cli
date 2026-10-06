@@ -7,6 +7,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/exam"
 	"astrona/internal/portforward"
+	"astrona/internal/scripts"
 	"astrona/internal/ui"
 )
 
@@ -37,6 +38,34 @@ func destroyOwnedClusters(names []string, rep *ui.Reporter) {
 	for _, n := range names {
 		if err := destroyKindLab(n, rep); err != nil {
 			rep.Warn("could not destroy linked cluster %s: %s", n, err)
+		}
+	}
+}
+
+// runLinkedTeardown runs each linked cluster's teardown scripts — reverse
+// start order, so a cluster tears down before the ones it depends on —
+// with KUBECONFIG pointing at it. Best effort: failures only warn.
+func runLinkedTeardown(labs []config.KindLab, labCluster, baseDir string, rep *ui.Reporter) {
+	order, err := config.KindLabOrder(labs)
+	if err != nil {
+		order = labs
+	}
+	for i := len(order) - 1; i >= 0; i-- {
+		l := order[i]
+		if len(l.Teardown.Init) == 0 {
+			continue
+		}
+		name := config.KindLabClusterName(labCluster, l.Name)
+		// Never fall back to the host's own kubectl context: a script meant
+		// for a cluster that's gone must not run against the user's.
+		if !kindClusterExists(name) {
+			rep.Info("linked cluster '%s' isn't running — skipping its teardown scripts", l.Name)
+			continue
+		}
+		rep.Section("Teardown: cluster %s", l.Name)
+		env := teardownEnvironment(name, config.RuntimeConfig{Type: "kind", Kind: l.Cluster()}, rep)
+		if err := scripts.RunOnEveryVM(l.Teardown.Init, baseDir, env, nil, rep); err != nil {
+			rep.Warn("teardown scripts failed for linked cluster '%s': %s", l.Name, err)
 		}
 	}
 }

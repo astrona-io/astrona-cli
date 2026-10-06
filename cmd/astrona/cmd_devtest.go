@@ -157,7 +157,11 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 
 	// Linked clusters come up first; their teardown is deferred before this
 	// lab's, so it runs after it (LIFO) — even on failure.
-	defer func() { destroyOwnedClusters(ownedClusters(clusterName, cfg.KindLabs()), rep) }()
+	defer func() {
+		if !cfg.Teardown.KeepCluster { // kept with the lab, like its own cluster
+			destroyOwnedClusters(ownedClusters(clusterName, cfg.KindLabs()), rep)
+		}
+	}()
 	links, err := startKindLabs(cfg, baseDir, clusterName, true, flags.parallel, rep)
 	if err != nil {
 		return nil, false, err
@@ -182,6 +186,7 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 				rep.Warn("teardown scripts failed: %s", err)
 			}
 		}
+		runLinkedTeardown(cfg.KindLabs(), clusterName, baseDir, rep)
 
 		if cfg.Teardown.KeepCluster {
 			rep.Info("keepCluster is set, leaving cluster '%s' running.", clusterName)

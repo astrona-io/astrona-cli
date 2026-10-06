@@ -41,10 +41,20 @@ type KindLab struct {
 	// under labs/<name>/.
 	Bootstrap BootstrapConfig `yaml:"bootstrap"`
 	Testing   BootstrapConfig `yaml:"testing"`
+	// Teardown runs before the lab is destroyed — after the lab's own
+	// teardown, in reverse start order — with KUBECONFIG pointing at this
+	// cluster. Best effort, like the lab's.
+	Teardown KindLabTeardown `yaml:"teardown"`
 	// DependsOn names linked clusters that must be up and ready (bootstrap
 	// and waitFor done) before this one is created. Its scripts get their
 	// ASTRONA_LINK_* addresses. If one fails, this one isn't started.
 	DependsOn []string `yaml:"dependsOn"`
+}
+
+// KindLabTeardown is a linked cluster's teardown: scripts only — whether
+// clusters are kept is the lab's teardown.keepCluster.
+type KindLabTeardown struct {
+	Init []ResourceItem `yaml:"init"`
 }
 
 // Cluster is l's kind cluster shape. Gateway host ports are always

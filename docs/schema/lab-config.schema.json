@@ -186,11 +186,26 @@
           },
           "type": "object"
         },
+        "teardown": {
+          "$ref": "#/$defs/KindLabTeardown"
+        },
         "testing": {
           "$ref": "#/$defs/BootstrapConfig"
         },
         "version": {
           "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "KindLabTeardown": {
+      "additionalProperties": false,
+      "properties": {
+        "init": {
+          "items": {
+            "$ref": "#/$defs/ResourceItem"
+          },
+          "type": "array"
         }
       },
       "type": "object"

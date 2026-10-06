@@ -61,6 +61,8 @@ teardown:
 ```
 
 - `init` scripts run first — same `file`/`folder`/`url` shape as `bootstrap.init`, best-effort (a failing teardown script only warns, it never blocks the cluster from being deleted).
+- If the lab's environment is already gone, the scripts still run on the host for host-side cleanup — with `KUBECONFIG=/dev/null`, so a script's `kubectl` can never reach your own current context instead of the lab.
+- Linked clusters (`runtime.kind.labs`) can have their own `teardown.init`; they run after the lab's, in reverse start order, each with `KUBECONFIG` pointing at its cluster (skipped if that cluster is gone).
 - `keepCluster: true` skips deleting the environment afterwards — useful while iterating on a lab locally, since `astrona destroy` re-run without it will still clean up.
 
 ## Starting over: `astrona reset`
@@ -74,6 +76,7 @@ astrona reset -c ./labs/my-lab --yes    # no prompt (required in scripts/CI)
 
 - The config is validated **before** anything is destroyed — a broken config aborts with "nothing was reset" and leaves the existing lab as it was.
 - `teardown.keepCluster` is ignored: reset always recreates.
+- `--cluster <name>` rebuilds just one [linked cluster](../guides/linked-labs.md) of a running lab, leaving the lab and its other clusters as they are.
 - In a terminal it asks for confirmation; without a terminal it refuses unless `--yes` is passed.
 
 To pause a lab instead of losing it, see [`astrona stop` / `astrona start`](runtimes.md#pausing-a-lab-astrona-stop-astrona-start).

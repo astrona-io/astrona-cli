@@ -78,6 +78,7 @@ labs/
   idp/
     bootstrap/            # sets up the idp cluster
     testing/              # the idp cluster's part of the reference solution
+    teardown/             # its teardown scripts
 ```
 
 ## Reaching a linked cluster
@@ -152,7 +153,8 @@ Linked clusters belong to the lab:
 | `astrona run` | Creates the linked clusters (bootstrap included), then the lab. Refused while the lab is running — `astrona reset` starts it over |
 | `astrona list` / `status` | A linked cluster is listed as `linked cluster of <lab>`; `status` shows each one's state. Commands that pick "the only running lab" ignore linked clusters |
 | `astrona stop` / `start` | Stops/starts them with the lab (`start` brings them up first) |
-| `astrona reset` / `destroy` | Removes them with the lab |
+| `astrona reset --cluster idp` | Rebuilds only that linked cluster of the running lab: its teardown, destroy, then create + bootstrap again (with the addresses of what it dependsOn). The lab and its other clusters are left alone; port forwards into it are restarted. Same name, so the lab's `ASTRONA_LINK_*`/`astrona-links` stay valid |
+| `astrona reset` / `destroy` | Runs the lab's teardown, then each linked cluster's `teardown.init` (reverse start order, `KUBECONFIG` pointing at it), then removes everything. `teardown.keepCluster` keeps them all |
 | `astrona test` | Creates test copies of every cluster, applies each linked cluster's `testing`, then the lab's, grades, and tears everything down — even on failure |
 | `astrona check` | Counts their memory in the lab's estimate |
 | `astrona diagnose` / `test --diagnostics` | Collects every linked cluster too, under `clusters/<cluster>/` in the bundle |
