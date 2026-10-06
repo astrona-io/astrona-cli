@@ -879,6 +879,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#machine-readable-output-o-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Machine-readable output: -o json
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#other-ci-systems" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3049,6 +3060,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#machine-readable-output-o-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Machine-readable output: -o json
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#other-ci-systems" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3227,6 +3249,46 @@
 </tbody>
 </table>
 <p>The same bundle can be collected from a running lab with <a href="../../reference/cli/astrona_diagnose/"><code>astrona diagnose</code></a>.</p>
+<h2 id="machine-readable-output-o-json">Machine-readable output: <code>-o json</code><a class="headerlink" href="#machine-readable-output-o-json" title="Permanent link">&para;</a></h2>
+<p>Every command whose output is data takes <code>-o json</code> and then prints exactly one JSON document on stdout — progress, warnings and script output go to stderr — so it can be piped straight into <code>jq</code>, a script or a UI:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>JSON</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>astrona submit -o json</code></td>
+<td><code>{lab, pass, earned, max, percent, attempt, checks: [{name, pass, points, message, hint, durationMs}]}</code> (hints left out under exam conditions; still recorded as an attempt; exit codes as above)</td>
+</tr>
+<tr>
+<td><code>astrona submit --history -o json</code></td>
+<td>the recorded attempts</td>
+</tr>
+<tr>
+<td><code>astrona status -o json</code></td>
+<td>health, context, port forwards, linked clusters, exam clock, last attempt, suggested next step</td>
+</tr>
+<tr>
+<td><code>astrona validate</code> / <code>check</code> / <code>doctor -o json</code></td>
+<td><code>{ok, problems, results: [{section, name, status: ok\|warn\|fail, detail, fix}]}</code> — exit code still non-zero on any <code>fail</code></td>
+</tr>
+<tr>
+<td><code>astrona list</code> / <code>port-forward list</code> / <code>progress</code> / <code>logs list</code> / <code>images list</code> / <code>versions list -o json</code></td>
+<td>the listed items</td>
+</tr>
+<tr>
+<td><code>astrona use -o json</code></td>
+<td>the current lab, or <code>null</code></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>submit<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.checks[] | select(.pass | not) | .name'</span><span class="w">   </span><span class="c1"># what failed</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>astrona<span class="w"> </span>doctor<span class="w"> </span>-o<span class="w"> </span>json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.results[] | select(.status == "fail")'</span>
+</code></pre></div>
+<p><code>--watch</code> modes redraw a live view and don't combine with <code>-o json</code>.</p>
 <h2 id="other-ci-systems">Other CI systems<a class="headerlink" href="#other-ci-systems" title="Permanent link">&para;</a></h2>
 <p>The same commands (<code>astrona check</code>, <code>astrona validate -c &lt;path&gt;</code>, <code>astrona test -c &lt;path&gt; --junit-xml=&lt;path&gt; --diagnostics-dir=&lt;path&gt;</code>, upload the XML and — on failure — the diagnostics directory) work anywhere that can run a Linux binary and understands JUnit XML — GitLab CI (<code>artifacts: reports: junit:</code>), Jenkins (<code>junit</code> post-build step), etc.</p>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
@@ -3254,9 +3316,9 @@
 </tbody>
 </table>
 <p>So a pipeline can treat them differently, e.g. retry a <code>1</code> (infrastructure) but not a <code>2</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>.<span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="nv">code</span><span class="o">=</span><span class="nv">$?</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="o">[</span><span class="w"> </span><span class="nv">$code</span><span class="w"> </span>-eq<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"::error::the reference solution doesn't pass its own checks"</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nb">exit</span><span class="w"> </span><span class="nv">$code</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>.<span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="nv">code</span><span class="o">=</span><span class="nv">$?</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="o">[</span><span class="w"> </span><span class="nv">$code</span><span class="w"> </span>-eq<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"::error::the reference solution doesn't pass its own checks"</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nb">exit</span><span class="w"> </span><span class="nv">$code</span>
 </code></pre></div>
 
 
