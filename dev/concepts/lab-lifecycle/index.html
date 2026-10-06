@@ -746,6 +746,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Command output">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#questions-astrona-asks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Questions astrona asks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3115,6 +3132,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Command output">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#questions-astrona-asks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Questions astrona asks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3250,6 +3284,34 @@ red (hints on what to do next follow in the normal color), <code>[WARN]</code> i
 <code>[INFO]</code> in cyan, and grading results as green <code>PASS</code> / red <code>FAIL</code> with a
 yellow <code>hint:</code>. Set <code>NO_COLOR=1</code> to turn colors off everywhere; piped and
 redirected output never has them.</p>
+<p>When a step fails, its error and the tail of its output are printed with the
+path of the full log — <code>astrona logs view</code> opens it.</p>
+<h3 id="questions-astrona-asks">Questions astrona asks<a class="headerlink" href="#questions-astrona-asks" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer it up front with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Throw a lab away? (<code>reset</code>, <code>logs clean</code>)</td>
+<td><code>--yes</code> / <code>-y</code></td>
+</tr>
+<tr>
+<td>Run a lab from a URL, git repo or bundle? (shows what it will do)</td>
+<td><code>--trust</code></td>
+</tr>
+<tr>
+<td>Download and install the astrona version a lab needs?</td>
+<td><code>--install-version</code></td>
+</tr>
+</tbody>
+</table>
+<p>The last two approve running someone else's code, so they have their own
+flags rather than a general <code>-y</code>. Without a terminal astrona never waits for
+an answer: it stops and names the flag.</p>
 <p>For a <code>qemu</code> lab, a successful <code>astrona run</code> also prints a <strong>Connect:</strong> block
 with the ready-to-paste <code>astrona ssh &lt;name&gt;</code> command for each VM.</p>
 <p>For a <code>kind</code> lab with <a href="../runtimes/#port-forwards"><code>runtime.portForwards</code></a>, <code>astrona run</code> starts those forwards after
