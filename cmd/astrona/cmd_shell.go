@@ -73,8 +73,44 @@ func labKubeconfig(lab string) (string, error) {
 	return cluster.WriteLabKubeconfig(lab, ui.Discard())
 }
 
+// linkedCluster finds the kind cluster of linked cluster name in lab's
+// links, with a helpful error naming the ones it has.
+func linkedCluster(lab, name string, links []cluster.LinkState) (string, error) {
+	var names []string
+	for _, l := range links {
+		if l.Name == name {
+			return l.Cluster, nil
+		}
+		names = append(names, l.Name)
+	}
+	if len(names) == 0 {
+		return "", fmt.Errorf("lab %s has no linked clusters (runtime.kind.labs)", lab)
+	}
+	return "", fmt.Errorf("lab %s has no linked cluster '%s' — it has: %s", lab, name, strings.Join(names, ", "))
+}
+
+// shellKubeconfigs is the KUBECONFIG list for a lab shell: the lab's own
+// kubeconfig and every linked cluster's, with target's first (kubectl
+// merges the list; the first file's current-context wins). target "" is
+// the lab's own cluster. kubeconfigOf returns "" for a cluster without one.
+func shellKubeconfigs(own, target string, links []cluster.LinkState, kubeconfigOf func(string) string) []string {
+	paths := []string{own}
+	for _, l := range links {
+		kc := kubeconfigOf(l.Cluster)
+		switch {
+		case kc == "":
+		case l.Cluster == target:
+			paths = append([]string{kc}, paths...)
+		default:
+			paths = append(paths, kc)
+		}
+	}
+	return paths
+}
+
 func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
-	return &cobra.Command{
+	var clusterFlag string
+	cmd := &cobra.Command{
 		Use:               "kubeconfig [lab-name]",
 		ValidArgsFunction: labCompletion(isKind),
 		Short:             "Print the path of a kind lab's own kubeconfig",
@@ -82,12 +118,19 @@ func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
 			"which contains only that lab's cluster.\n\n" +
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab.",
 		Example: `  export KUBECONFIG=$(astrona kubeconfig my-lab)
-  kubectl --kubeconfig "$(astrona kubeconfig)" get pods -A`,
+  kubectl --kubeconfig "$(astrona kubeconfig)" get pods -A
+  kubectl --kubeconfig "$(astrona kubeconfig my-lab --cluster idp)" get pods -A`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lab, err := resolveKindLab(firstArg(args), flags)
 			if err != nil {
 				return err
+			}
+			if clusterFlag != "" {
+				links, _ := labLinks(lab)
+				if lab, err = linkedCluster(lab, clusterFlag, links); err != nil {
+					return err
+				}
 			}
 			path, err := labKubeconfig(lab)
 			if err != nil {
@@ -97,10 +140,13 @@ func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "A linked cluster's kubeconfig instead (its runtime.kind.labs name)")
+	return cmd
 }
 
 func newShellCmd(flags *rootFlags) *cobra.Command {
-	return &cobra.Command{
+	var clusterFlag string
+	cmd := &cobra.Command{
 		Use:               "shell [lab-name] [-- command [args...]]",
 		ValidArgsFunction: labCompletion(isKind),
 		Short:             "Open a shell (or run one command) with kubectl pointed at a kind lab",
@@ -109,11 +155,15 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 			"current-context. Type `exit` to leave. $" + labShellEnvVar + " holds the lab name inside " +
 			"the shell (add it to your prompt if you like).\n\n" +
 			"After `--`, runs that one command instead of a shell (no shell parsing).\n\n" +
+			"A lab with linked clusters (runtime.kind.labs) gets all of them: `kubectl --context " +
+			"$ASTRONA_LINK_<NAME>_CONTEXT` reaches one. --cluster <name> makes a linked cluster the " +
+			"default instead.\n\n" +
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab. " +
 			"For qemu labs, use `astrona ssh`.",
 		Example: `  astrona shell my-lab
   astrona shell -- kubectl get pods -A
-  astrona shell my-lab -- k9s`,
+  astrona shell my-lab -- k9s
+  astrona shell my-lab --cluster idp`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			labArgs, command := args, []string(nil)
 			if dash := cmd.ArgsLenAtDash(); dash >= 0 {
@@ -137,16 +187,17 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			// Linked clusters' kubeconfigs join the lab's own (kubectl merges a
-			// KUBECONFIG list; the first file's current-context wins), so
-			// `kubectl --context kind-<linked cluster>` works in the shell too.
+			// Linked clusters' kubeconfigs join the lab's own, so `kubectl
+			// --context kind-<linked cluster>` works in the shell too; --cluster
+			// puts one first, making it the default context.
 			links, linkEnv := labLinks(lab)
-			kubeconfigs := []string{kubeconfig}
-			for _, l := range links {
-				if kc := cluster.ExistingKubeconfig(l.Cluster); kc != "" {
-					kubeconfigs = append(kubeconfigs, kc)
+			target := lab
+			if clusterFlag != "" {
+				if target, err = linkedCluster(lab, clusterFlag, links); err != nil {
+					return err
 				}
 			}
+			kubeconfigs := shellKubeconfigs(kubeconfig, target, links, cluster.ExistingKubeconfig)
 			env := append(os.Environ(), "KUBECONFIG="+strings.Join(kubeconfigs, string(os.PathListSeparator)), labShellEnvVar+"="+lab)
 			env = append(env, linkEnv...)
 
@@ -160,7 +211,7 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 			if shell == "" {
 				shell = "/bin/sh"
 			}
-			fmt.Fprintf(os.Stderr, "Entering lab shell for %s — kubectl now targets context kind-%s. Type `exit` to leave.\n", lab, lab)
+			fmt.Fprintf(os.Stderr, "Entering lab shell for %s — kubectl now targets context kind-%s. Type `exit` to leave.\n", lab, target)
 			c := exec.Command(shell)
 			c.Env = env
 			err = runAttached(c)
@@ -172,6 +223,8 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 			return err
 		},
 	}
+	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "Make a linked cluster (its runtime.kind.labs name) the default kubectl context")
+	return cmd
 }
 
 // runAttached runs c on this terminal. Ctrl-C is meant for the child (it

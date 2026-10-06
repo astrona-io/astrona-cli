@@ -89,7 +89,7 @@ Astrona tells the lab where each linked cluster is:
 |---|---|
 | The lab's bootstrap/testing/teardown scripts and `command` checks | `ASTRONA_LINK_<NAME>_HOST`, `ASTRONA_LINK_<NAME>_CONTEXT`, `ASTRONA_LINK_<NAME>_KUBECONFIG` (`<NAME>` upper-cased, `-` → `_`) |
 | In the lab's cluster | ConfigMap `astrona-links` in namespace `default`: `<name>.host`, `<name>.context` |
-| `astrona shell` | Every cluster's kubeconfig: `kubectl --context "$ASTRONA_LINK_IDP_CONTEXT" …` works, plus the env vars |
+| `astrona shell` | Every cluster's kubeconfig: `kubectl --context "$ASTRONA_LINK_IDP_CONTEXT" …` works, plus the env vars. `astrona shell <lab> --cluster idp` makes the idp cluster the default context; `astrona kubeconfig <lab> --cluster idp` prints its kubeconfig |
 
 A linked cluster's own `bootstrap`/`testing` scripts run with `KUBECONFIG` pointing at that cluster.
 
