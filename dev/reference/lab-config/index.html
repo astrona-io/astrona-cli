@@ -4453,7 +4453,7 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <tr>
 <td><code>source</code></td>
 <td>string</td>
-<td>Path (relative to the lab's base directory) or URL, depending on <code>type</code></td>
+<td>Path (relative to the lab's base directory) or URL, depending on <code>type</code>. A <code>url</code> source must be <code>https://</code> (redirects to <code>http://</code> are refused); scripts and manifests alike are downloaded to a size-capped temp file (50 MiB) and run/applied from there</td>
 </tr>
 <tr>
 <td><code>hint</code></td>

@@ -3439,7 +3439,7 @@
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span><span class="w">      </span><span class="c1"># or "folder" or "url" (manifests: "file" | "folder" | "url")</span>
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"path/or/URL"</span>
 </code></pre></div>
-<p><code>url</code> sources are downloaded to a size-capped temp file before running — <code>https://</code> only for the lab config itself, and every download has an explicit byte cap so a misbehaving remote can't exhaust disk.</p>
+<p><code>url</code> sources — scripts and manifests alike — are downloaded to a size-capped temp file before running or applying (a manifest URL is never handed to <code>kubectl apply -f &lt;url&gt;</code> directly). Every remote download (scripts, manifests, the lab config, QEMU base images, astrona release binaries) is <code>https://</code> only, and that includes redirects: a redirect to a plain <code>http://</code> URL is refused rather than followed. Every download also has an explicit byte cap so a misbehaving remote can't exhaust disk.</p>
 <h2 id="command-output">Command output<a class="headerlink" href="#command-output" title="Permanent link">&para;</a></h2>
 <p><code>astrona run</code>, <code>test</code>, <code>submit</code>, and <code>destroy</code> render progress as a compact
 per-phase step view — one line per step (<code>✓</code> done, <code>✗</code> failed, <code>-</code> skipped)
