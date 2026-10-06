@@ -201,28 +201,13 @@ func upLab(cfg *config.LabConfig, baseDir, clusterName string, links []cluster.L
 		return env, nil, fmt.Errorf("cluster DNS not ready: %w", err)
 	}
 
-	if scripts.HasBootstrapInit(cfg) {
-		rep.Section("Bootstrap")
-		if err := scripts.RunBootstrap(cfg, baseDir, env, rep); err != nil {
-			return env, nil, fmt.Errorf("init scripts failed: %w", err)
-		}
+	// What exists now is the platform (kube-system, addons, …); the soft
+	// reset deletes every namespace created after it.
+	if err := recordBaseline(env); err != nil {
+		rep.Warn("could not record the lab's baseline (reset --soft won't work): %s", err)
 	}
-
-	if len(cfg.Bootstrap.Manifests) > 0 {
-		if env.KubeContext == "" {
-			return env, nil, fmt.Errorf("bootstrap.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
-		}
-		rep.Section("Manifests")
-		if err := manifests.ApplyManifests(cfg.Bootstrap.Manifests, baseDir, env.KubeContext, rep); err != nil {
-			return env, nil, fmt.Errorf("bootstrap manifests failed: %w", err)
-		}
-	}
-
-	if len(cfg.Bootstrap.WaitFor) > 0 {
-		rep.Section("Readiness")
-		if err := manifests.WaitFor(cfg.Bootstrap.WaitFor, env.KubeContext, rep); err != nil {
-			return env, nil, fmt.Errorf("lab did not become ready: %w", err)
-		}
+	if err := bootstrapLab(cfg, baseDir, env, rep); err != nil {
+		return env, nil, err
 	}
 
 	// Started last, once manifests are applied and readiness gates
@@ -295,4 +280,33 @@ func configFlagHint(baseDir string) string {
 		return ""
 	}
 	return " -c " + baseDir
+}
+
+// bootstrapLab runs cfg's bootstrap on env: init scripts, manifests, then
+// readiness gates. Part of upLab; reset --soft runs it again.
+func bootstrapLab(cfg *config.LabConfig, baseDir string, env *runtime.LabEnvironment, rep *ui.Reporter) error {
+	if scripts.HasBootstrapInit(cfg) {
+		rep.Section("Bootstrap")
+		if err := scripts.RunBootstrap(cfg, baseDir, env, rep); err != nil {
+			return fmt.Errorf("init scripts failed: %w", err)
+		}
+	}
+
+	if len(cfg.Bootstrap.Manifests) > 0 {
+		if env.KubeContext == "" {
+			return fmt.Errorf("bootstrap.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
+		}
+		rep.Section("Manifests")
+		if err := manifests.ApplyManifests(cfg.Bootstrap.Manifests, baseDir, env.KubeContext, rep); err != nil {
+			return fmt.Errorf("bootstrap manifests failed: %w", err)
+		}
+	}
+
+	if len(cfg.Bootstrap.WaitFor) > 0 {
+		rep.Section("Readiness")
+		if err := manifests.WaitFor(cfg.Bootstrap.WaitFor, env.KubeContext, rep); err != nil {
+			return fmt.Errorf("lab did not become ready: %w", err)
+		}
+	}
+	return nil
 }
