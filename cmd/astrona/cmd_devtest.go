@@ -70,7 +70,9 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
-			if err := config.ValidateWaitFor(cfg); err != nil {
+			// Up front, before anything is created: a broken config is an
+			// error (exit 1), not a failed grade (exit 2).
+			if err := lifecycle.Validate(cfg); err != nil {
 				return err
 			}
 
@@ -78,9 +80,6 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 
 			// Forwards are for a human at a browser, not CI — and would
 			// clash on host ports with a real `astrona run` of the same lab.
-			if err := config.ValidatePortForwards(cfg.Runtime); err != nil {
-				return err
-			}
 			if len(cfg.Runtime.PortForwards) > 0 {
 				rep.Info("Skipping %d runtime.portForwards entr(ies) — not started by `astrona test`.", len(cfg.Runtime.PortForwards))
 			}

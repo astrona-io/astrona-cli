@@ -279,6 +279,9 @@ func DeleteKindCluster(clusterName string, rep *ui.Reporter) error {
 	t := rep.Step("Delete kind cluster %q", clusterName)
 
 	cmd := exec.Command(kindPath, "delete", "cluster", "--name", clusterName)
+	// Same provider selection as create: without it, kind falls back to
+	// docker on a machine where docker is installed but only podman runs.
+	cmd.Env = kindEnv()
 	out := t.Output()
 	cmd.Stdout = out
 	cmd.Stderr = out

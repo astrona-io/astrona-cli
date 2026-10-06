@@ -62,6 +62,7 @@ astrona run -c ./my-lab --parallel 3
 ```
 
 - `dependsOn` still holds: a cluster starts as soon as everything it depends on is ready, so independent clusters come up together.
+- The `kind create cluster` step itself runs one at a time, so your kubectl current-context is still restored correctly and `~/.kube/config` is never written by two creates at once; everything after it (addons, bootstrap, readiness) runs in parallel.
 - After the first failure **nothing new starts**; clusters already being created finish, and the error lists what was never started. `astrona destroy` cleans up what exists.
 - Each cluster logs to its own run log (`~/.astrona/logs/linked-<cluster>-…`); the screen shows one line per cluster as it becomes ready or fails, with the log path on failure.
 - The lab's own cluster is still created last, after all of them.

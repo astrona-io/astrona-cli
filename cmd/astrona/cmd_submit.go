@@ -71,6 +71,12 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 
+			// A broken config (bad check type, apiVersion…) is an error
+			// (exit 1), not a failed grade (exit 2) — and isn't recorded.
+			if err := lifecycle.Validate(cfg); err != nil {
+				return err
+			}
+
 			// Grading runs validation scripts and command checks on this
 			// machine.
 			if err := requireTrust(flags, cfg, baseDir); err != nil {
