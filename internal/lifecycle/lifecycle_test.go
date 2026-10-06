@@ -99,6 +99,16 @@ func TestTeardownFallbackHasNoClusterAccess(t *testing.T) {
 	}
 }
 
+// A qemu lab's teardown scripts were approved to run inside its VMs: with
+// the VMs gone they're skipped, never run on the host.
+func TestTeardownQEMUNeverFallsBackToHost(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	rt := config.RuntimeConfig{Type: "qemu", QEMU: []config.QEMUVM{{Name: "vm1"}}}
+	if env := TeardownEnvironment("astro-no-such-lab-for-test", rt, ui.Discard()); env != nil {
+		t.Fatalf("qemu teardown without VMs = %#v — want nil (skip, never the host)", env)
+	}
+}
+
 func TestSharedCAManifestsAndPropagation(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	ca, err := cluster.EnsureLabCA("astro-ca-lab")

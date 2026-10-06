@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -25,6 +26,8 @@ type teardownInfo struct {
 	clusterName string
 	teardown    config.TeardownConfig
 	runtime     config.RuntimeConfig
+	cfg         *config.LabConfig // the loaded config, for the trust check
+	skipScripts bool              // the lab isn't trusted: destroy it without running its scripts
 }
 
 // loadTeardownInfo tries to load finalPath for the extra info destroy can
@@ -53,6 +56,7 @@ func loadTeardownInfo(finalPath string) (teardownInfo, func(), error) {
 	}
 	info.teardown = cfg.Teardown
 	info.runtime = cfg.Runtime
+	info.cfg = cfg
 
 	return info, cleanup, nil
 }
@@ -111,10 +115,11 @@ func destroyByDiscovery(rep *ui.Reporter) error {
 	for _, r := range realLabs {
 		rep.Info("No lab config found — auto-detected the only running astrona lab: '%s' (%s runtime). Destroying it (teardown scripts skipped, config unknown).", r.name, r.runtime)
 		owned := lifecycle.OwnedClusters(r.name, nil)
-		if err := runtime.DestroyEnvironment(r.name, config.RuntimeConfig{Type: r.runtime}, rep); err != nil {
+		err := runtime.DestroyEnvironment(r.name, config.RuntimeConfig{Type: r.runtime}, rep)
+		lifecycle.DestroyOwnedClusters(owned, rep) // even when the lab itself failed — never leak them
+		if err != nil {
 			return fmt.Errorf("failed to destroy '%s': %w", r.name, err)
 		}
-		lifecycle.DestroyOwnedClusters(owned, rep)
 	}
 	for _, r := range test {
 		rep.Info("Cleaning up leftover test lab '%s' (%s runtime).", r.name, r.runtime)
@@ -250,6 +255,43 @@ func qemuStateExists(name string) bool { return hypervisor.StateExists(name) }
 
 func kindClusterExists(name string) bool { return cluster.Exists(name) }
 
+// hasTeardownScripts reports whether destroying the lab would run any of its
+// scripts — its own teardown.init or a linked cluster's.
+func hasTeardownScripts(info teardownInfo) bool {
+	if len(info.teardown.Init) > 0 {
+		return true
+	}
+	if info.runtime.Kind != nil {
+		for _, l := range info.runtime.Kind.Clusters {
+			if len(l.Teardown.Init) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// teardownTrusted applies run's trust check before destroy runs a lab's
+// teardown scripts. Unlike run it never fails: destroy is best-effort, so an
+// unapproved remote lab (refused, or no terminal and no --trust) is still
+// destroyed — only its scripts are skipped. Labs with no teardown scripts
+// aren't asked about at all; local labs are trusted as everywhere else.
+func teardownTrusted(flags *rootFlags, info teardownInfo, baseDir string, rep *ui.Reporter) bool {
+	if info.cfg == nil || !hasTeardownScripts(info) {
+		return true
+	}
+	err := requireTrust(flags, info.cfg, baseDir)
+	switch {
+	case err == nil:
+		return true
+	case errors.Is(err, errNotTrusted):
+		rep.Warn("not trusted — skipping the lab's teardown scripts and destroying it without them (pass --trust to run them)")
+	default:
+		rep.Warn("skipping the lab's teardown scripts: %s — destroying it without them", err) // no terminal: err names --trust
+	}
+	return false
+}
+
 // tearDownLabEnvironment runs teardown scripts (if any) then destroys
 // clusterName's environment. hardFail controls whether a destroy failure is
 // returned to the caller or just logged — used to make the "test-<lab>"
@@ -261,18 +303,21 @@ func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir strin
 	if !hardFail && !lifecycle.EnvironmentExists(clusterName, info.runtime) {
 		return nil
 	}
-	if len(info.teardown.Init) > 0 {
-		rep.Section("Teardown: %s", clusterName)
-		env := lifecycle.TeardownEnvironment(clusterName, info.runtime, rep)
-		if err := scripts.RunOnEveryVM(info.teardown.Init, baseDir, env, info.runtime.QEMU, rep); err != nil {
-			rep.Warn("teardown scripts failed for '%s': %s", clusterName, err)
-		}
-	}
 	var labs []config.KindCluster
 	if info.runtime.Kind != nil {
 		labs = info.runtime.Kind.Clusters
 	}
-	lifecycle.RunLinkedTeardown(labs, clusterName, baseDir, rep)
+	if !info.skipScripts {
+		if len(info.teardown.Init) > 0 {
+			rep.Section("Teardown: %s", clusterName)
+			if env := lifecycle.TeardownEnvironment(clusterName, info.runtime, rep); env != nil {
+				if err := scripts.RunOnEveryVM(info.teardown.Init, baseDir, env, info.runtime.QEMU, rep); err != nil {
+					rep.Warn("teardown scripts failed for '%s': %s", clusterName, err)
+				}
+			}
+		}
+		lifecycle.RunLinkedTeardown(labs, clusterName, baseDir, rep)
+	}
 
 	if info.teardown.KeepCluster {
 		rep.Info("keepCluster is set, leaving cluster '%s' running.", clusterName)
@@ -280,13 +325,14 @@ func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir strin
 	}
 
 	owned := lifecycle.OwnedClusters(clusterName, labs) // read before destroy removes the saved state
-	if err := runtime.DestroyEnvironment(clusterName, info.runtime, rep); err != nil {
+	err := runtime.DestroyEnvironment(clusterName, info.runtime, rep)
+	lifecycle.DestroyOwnedClusters(owned, rep) // even when the lab itself failed — never leak them
+	if err != nil {
 		if hardFail {
 			return fmt.Errorf("lab teardown failed: %w", err)
 		}
 		rep.Warn("teardown failed for '%s': %s", clusterName, err)
 	}
-	lifecycle.DestroyOwnedClusters(owned, rep)
 
 	return nil
 }
@@ -314,7 +360,10 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			"(same list `astrona list` shows, with or without the 'astro-' prefix) and destroys every match — " +
 			"e.g. `astrona destroy 'qemu-jumphost-*'` (quote it so your shell doesn't expand the glob itself). " +
 			"No config needed, same trade-offs as a single name.\n\n" +
-			"A lab's linked clusters (runtime.kind.clusters) are destroyed with it.",
+			"A lab's linked clusters (runtime.kind.clusters) are destroyed with it.\n\n" +
+			"A remote lab (--git, URL, catalog) that has teardown scripts asks for approval first, like `run` — " +
+			"--trust approves it up front. If it isn't approved (declined, or no terminal and no --trust), " +
+			"its teardown scripts are skipped and the lab is still destroyed.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			labName := "-"
@@ -350,6 +399,10 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 				rep.Warn("could not load lab config from '%s' (%s) — falling back to auto-discovery of running astrona labs", finalPath, loadErr)
 				return destroyByDiscovery(rep)
 			}
+
+			// A remote lab's teardown scripts are its code too: approve
+			// them like run does, but never let a refusal stop the destroy.
+			info.skipScripts = !teardownTrusted(flags, info, baseDir, rep)
 
 			clusterName := config.NormalizeClusterName(info.clusterName)
 			if err := tearDownLabEnvironment(clusterName, info, baseDir, true, rep); err != nil {

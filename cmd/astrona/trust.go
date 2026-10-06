@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -140,6 +141,10 @@ func describeSource(it config.ResourceItem) string {
 	return name
 }
 
+// errNotTrusted is requireTrust's error when the user answers no to the
+// prompt.
+var errNotTrusted = errors.New("not trusted — nothing was run")
+
 // requireTrust stops a remote lab from running anything until the user
 // has approved this exact version of it — once per version. --trust
 // approves without asking (CI); without a terminal it refuses.
@@ -163,7 +168,7 @@ func requireTrust(flags *rootFlags, cfg *config.LabConfig, baseDir string) error
 		return fmt.Errorf("lab %s (%s) hasn't been approved to run on this machine — review it, then pass --trust", src.Location, shortPin(src.Pin))
 	}
 	if !confirmTrust(os.Stdin, promptOut, *src, status, prevPin, labRiskSummary(cfg)) {
-		return fmt.Errorf("not trusted — nothing was run")
+		return errNotTrusted
 	}
 	return trust.Approve(*src, time.Now())
 }

@@ -10,6 +10,7 @@ import (
 
 	"astrona/internal/config"
 	"astrona/internal/trust"
+	"astrona/internal/ui"
 )
 
 func TestLabSource(t *testing.T) {
@@ -117,5 +118,40 @@ func TestRequireTrust(t *testing.T) {
 	}
 	if err := requireTrust(&rootFlags{}, &config.LabConfig{SourcePath: filepath.Join(os.TempDir(), "c.yaml")}, ""); err != nil {
 		t.Fatalf("local config prompted: %v", err)
+	}
+}
+
+// destroy runs a lab's teardown scripts only once the lab is trusted — and
+// never fails over it: an unapproved remote lab is destroyed without them.
+func TestTeardownTrusted(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	script := []config.ResourceItem{{Name: "cleanup", Type: "file", Source: "cleanup.sh"}}
+	remote := func(cfg config.LabConfig) teardownInfo {
+		cfg.SourcePath, cfg.SourceSHA256 = "https://labs.example/config.yaml", "abc"
+		return teardownInfo{teardown: cfg.Teardown, runtime: cfg.Runtime, cfg: &cfg}
+	}
+	withScript := remote(config.LabConfig{Teardown: config.TeardownConfig{Init: script}})
+	linkedScript := remote(config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{
+		Clusters: []config.KindCluster{{Name: "idp", Teardown: config.KindClusterTeardown{Init: script}}}}}})
+	local := config.LabConfig{SourcePath: filepath.Join(os.TempDir(), "c.yaml"), Teardown: config.TeardownConfig{Init: script}}
+
+	for _, tc := range []struct {
+		name  string
+		flags rootFlags
+		info  teardownInfo
+		want  bool
+	}{
+		{"remote with teardown, no terminal, no --trust", rootFlags{}, withScript, false},
+		{"remote linked-cluster teardown, no --trust", rootFlags{}, linkedScript, false},
+		{"remote without teardown scripts: nothing to approve", rootFlags{}, remote(config.LabConfig{}), true},
+		{"local lab", rootFlags{}, teardownInfo{teardown: local.Teardown, cfg: &local}, true},
+		{"no config", rootFlags{}, teardownInfo{teardown: local.Teardown}, true},
+		{"remote with --trust", rootFlags{trust: true}, withScript, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := teardownTrusted(&tc.flags, tc.info, "", ui.Discard()); got != tc.want {
+				t.Errorf("teardownTrusted = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }
