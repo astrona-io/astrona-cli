@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -166,6 +167,45 @@ func requireTrust(flags *rootFlags, cfg *config.LabConfig, baseDir string) error
 		return fmt.Errorf("not trusted — nothing was run")
 	}
 	return trust.Approve(*src, time.Now())
+}
+
+// requireTrustUnparsed is requireTrust for a remote lab this astrona can't
+// parse (it was written for another version), before handing it over.
+// With no config to show what the lab does, there is no prompt: it goes
+// ahead only when this exact version is already approved, or with --trust.
+func requireTrustUnparsed(flags *rootFlags, pe *config.ParseError, baseDir string) error {
+	src, err := labSource(flags, &config.LabConfig{SourcePath: pe.Path, SourceSHA256: pe.SHA256}, baseDir)
+	if err != nil || src == nil {
+		return err
+	}
+	status, _, err := trust.Check(*src)
+	if err != nil {
+		return err
+	}
+	if status == trust.Trusted {
+		return nil
+	}
+	if flags.trust {
+		fmt.Fprintf(os.Stderr, "Trusting %s at %s (--trust).\n", src.Location, shortPin(src.Pin))
+		return trust.Approve(*src, time.Now())
+	}
+	return fmt.Errorf("lab %s (%s) hasn't been approved to run on this machine, and this astrona can't read its config to show what it does — review it, then pass --trust", src.Location, shortPin(src.Pin))
+}
+
+// handoverApproval is the trust check ensureLabVersion runs before handing
+// a lab to another astrona: requireTrust when cfg loaded, otherwise
+// requireTrustUnparsed for the config loadErr couldn't parse.
+func handoverApproval(flags *rootFlags, cfg *config.LabConfig, loadErr error, baseDir string) func() error {
+	return func() error {
+		if cfg != nil {
+			return requireTrust(flags, cfg, baseDir)
+		}
+		var pe *config.ParseError
+		if !errors.As(loadErr, &pe) {
+			return fmt.Errorf("can't check whether this lab is trusted: %w", loadErr)
+		}
+		return requireTrustUnparsed(flags, pe, baseDir)
+	}
 }
 
 func confirmTrust(in io.Reader, out io.Writer, src trust.Source, status trust.Status, prevPin string, summary []string) bool {

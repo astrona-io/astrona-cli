@@ -37,40 +37,75 @@ func versionsDir() (string, error) {
 	return filepath.Join(home, ".astrona", "bin"), nil
 }
 
-// installedVersions finds astrona-<version> binaries in ~/.astrona/bin,
-// then on PATH, newest first (the ~/.astrona/bin one wins a tie).
-func installedVersions() []installedVersion {
-	var dirs []string
-	if d, err := versionsDir(); err == nil {
-		dirs = append(dirs, d)
+// minHandoverVersion is the oldest astrona a lab is ever handed over to
+// (or installed for). astronaVersion comes from the lab, which may be
+// someone else's: without this floor a remote lab could ask for a release
+// from before trust prompts (added in 0.2.0) and have its scripts run
+// without the user ever approving it.
+const minHandoverVersion = "0.2.0"
+
+// handoverFloor is minHandoverVersion, parsed.
+func handoverFloor() version.V {
+	v, err := version.Parse(minHandoverVersion)
+	if err != nil {
+		panic("minHandoverVersion: " + err.Error())
 	}
-	dirs = append(dirs, filepath.SplitList(os.Getenv("PATH"))...)
-	seen := map[string]bool{}
+	return v
+}
+
+// installedVersions finds the astrona-<version> binaries in ~/.astrona/bin,
+// newest first. Only there — PATH isn't searched, so a stray astrona-*
+// binary elsewhere never gets to run a lab.
+func installedVersions() []installedVersion {
+	dir, err := versionsDir()
+	if err != nil {
+		return nil
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
 	var out []installedVersion
-	for _, dir := range dirs {
-		entries, err := os.ReadDir(dir)
+	for _, e := range entries {
+		name, ok := strings.CutPrefix(e.Name(), "astrona-")
+		if !ok {
+			continue
+		}
+		v, err := version.Parse(name)
 		if err != nil {
 			continue
 		}
-		for _, e := range entries {
-			name, ok := strings.CutPrefix(e.Name(), "astrona-")
-			if !ok {
-				continue
-			}
-			v, err := version.Parse(name)
-			if err != nil || seen[v.String()] {
-				continue
-			}
-			path := filepath.Join(dir, e.Name())
-			if info, err := os.Stat(path); err != nil || info.IsDir() || info.Mode()&0111 == 0 {
-				continue
-			}
-			seen[v.String()] = true
-			out = append(out, installedVersion{v, path})
+		path := filepath.Join(dir, e.Name())
+		if info, err := os.Stat(path); err != nil || info.IsDir() || info.Mode()&0111 == 0 {
+			continue
 		}
+		out = append(out, installedVersion{v, path})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].v.Compare(out[j].v) > 0 })
 	return out
+}
+
+// handoverCandidates are the installed versions a lab may be handed over
+// to: those not older than minHandoverVersion.
+func handoverCandidates() []installedVersion {
+	floor := handoverFloor()
+	var out []installedVersion
+	for _, iv := range installedVersions() {
+		if iv.v.Compare(floor) >= 0 {
+			out = append(out, iv)
+		}
+	}
+	return out
+}
+
+// belowFloorError explains why a lab that only fits an astrona older than
+// minHandoverVersion isn't handed over.
+func belowFloorError(c version.Constraint) error {
+	return fmt.Errorf("this lab needs astrona %s, and astrona never hands a lab over to a version older than %s — "+
+		"those run a lab's scripts without asking you to approve it first\n"+
+		"ask the lab's author to allow astrona %s or newer (astronaVersion), or, only if you trust the lab, "+
+		"run that version yourself: astrona versions install <version>, then astrona-<version>",
+		c, minHandoverVersion, minHandoverVersion)
 }
 
 // newestAllowed is the newest of vs that c allows.
@@ -87,7 +122,11 @@ func newestAllowed(c version.Constraint, vs []installedVersion) (installedVersio
 // astronaVersion: c. If not, it hands the whole command over to the newest
 // installed astrona-<version> that may — replacing this process, so it
 // doesn't return — or explains which version to install.
-func ensureLabVersion(constraint string, flags *rootFlags) error {
+//
+// approve is the lab's trust check. It runs before anything is installed
+// or handed over, so this astrona — not the one the lab asks for —
+// decides whether a remote lab runs at all.
+func ensureLabVersion(constraint string, flags *rootFlags, approve func() error) error {
 	if constraint == "" {
 		return nil
 	}
@@ -110,12 +149,23 @@ func ensureLabVersion(constraint string, flags *rootFlags) error {
 		return fmt.Errorf("this lab needs astrona %s; astrona %s handed it to %s, which doesn't fit either", c, from, cur)
 	}
 
-	target, ok := newestAllowed(c, installedVersions())
-	if !ok {
-		target, err = offerInstall(c, cur, flags)
-		if err != nil {
+	target, installed := newestAllowed(c, handoverCandidates())
+	var want version.V
+	if !installed {
+		if want, err = releaseFor(c, cur); err != nil {
 			return err
 		}
+	}
+	if err := approve(); err != nil {
+		return err
+	}
+	if !installed {
+		if target, err = offerInstall(c, cur, want, flags); err != nil {
+			return err
+		}
+	}
+	if target.v.Compare(handoverFloor()) < 0 {
+		return belowFloorError(c)
 	}
 
 	ui.Infof("this lab needs astrona %s — running it with astrona %s (%s)", c, target.v, target.path)
@@ -131,16 +181,24 @@ var execHandover = syscall.Exec
 // promptIn is where the install question's answer is read from.
 var promptIn io.Reader = os.Stdin
 
-// offerInstall installs the newest release c allows, when none is
-// installed: without asking with --install-version, after a yes at the
-// terminal, and otherwise not at all — a lab config, which may come from
-// someone else's repository, never makes astrona download and run a
-// program on its own.
-func offerInstall(c version.Constraint, cur version.V, flags *rootFlags) (installedVersion, error) {
-	want, found := newestRelease(c)
-	if !found {
-		return installedVersion{}, fmt.Errorf("this lab needs astrona %s, and this is %s — no published release fits (`astrona versions available`)", c, cur)
+// releaseFor is the published release a lab needing c is installed with:
+// the newest c allows, never one older than minHandoverVersion.
+func releaseFor(c version.Constraint, cur version.V) (version.V, error) {
+	if want, found := newestRelease(c, handoverFloor()); found {
+		return want, nil
 	}
+	if _, found := newestRelease(c, version.V{}); found {
+		return version.V{}, belowFloorError(c)
+	}
+	return version.V{}, fmt.Errorf("this lab needs astrona %s, and this is %s — no published release fits (`astrona versions available`)", c, cur)
+}
+
+// offerInstall installs release want (the newest c allows), when no
+// fitting version is installed: without asking with --install-version,
+// after a yes at the terminal, and otherwise not at all — a lab config,
+// which may come from someone else's repository, never makes astrona
+// download and run a program on its own.
+func offerInstall(c version.Constraint, cur, want version.V, flags *rootFlags) (installedVersion, error) {
 	needs := fmt.Sprintf("this lab needs astrona %s, and this is %s", c, cur)
 	if !flags.installVersion {
 		if !stdinIsTerminal() {
@@ -158,8 +216,9 @@ func offerInstall(c version.Constraint, cur version.V, flags *rootFlags) (instal
 	return installedVersion{v: want, path: path}, nil
 }
 
-// newestRelease is the newest published release c allows.
-func newestRelease(c version.Constraint) (version.V, bool) {
+// newestRelease is the newest published release c allows that isn't older
+// than floor.
+func newestRelease(c version.Constraint, floor version.V) (version.V, bool) {
 	tags, err := releaseTags()
 	if err != nil {
 		return version.V{}, false
@@ -167,7 +226,7 @@ func newestRelease(c version.Constraint) (version.V, bool) {
 	var best version.V
 	found := false
 	for _, t := range tags {
-		if v, err := version.Parse(t); err == nil && c.Allows(v) && (!found || v.Compare(best) > 0) {
+		if v, err := version.Parse(t); err == nil && c.Allows(v) && v.Compare(floor) >= 0 && (!found || v.Compare(best) > 0) {
 			best, found = v, true
 		}
 	}
@@ -243,7 +302,9 @@ func newVersionsCmd() *cobra.Command {
 			"~/.astrona/bin — the newest stays `astrona` — and `astrona` hands a lab's commands to " +
 			"the newest installed version it allows, automatically. If none is installed, it offers " +
 			"to install the right one (at a terminal; --install-version installs without asking, " +
-			"e.g. in CI).\n\n" +
+			"e.g. in CI). A remote lab must be trusted (--trust) before it's handed over, and never to a " +
+			"version older than " + minHandoverVersion + " (the first with trust prompts); only " +
+			"~/.astrona/bin is searched, not PATH.\n\n" +
 			"Downloads are verified against the SHA-256 digest GitHub records for each release " +
 			"binary. Add ~/.astrona/bin to your PATH to run e.g. astrona-0.2.1 directly.",
 		RunE: func(cmd *cobra.Command, args []string) error { return listVersions("") },

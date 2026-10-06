@@ -213,7 +213,7 @@ func doctorVersion(cfg *config.LabConfig) checkResult {
 	case c.Allows(cur):
 		r.detail = fmt.Sprintf("needs %s — this astrona (%s) fits", c, cur)
 	default:
-		if iv, ok := newestAllowed(c, installedVersions()); ok {
+		if iv, ok := newestAllowed(c, handoverCandidates()); ok {
 			r.status = checkWarn
 			r.detail = fmt.Sprintf("needs %s — commands run it with astrona %s (installed)", c, iv.v)
 		} else {

@@ -167,13 +167,13 @@ func newValidateCmd(flags *rootFlags) *cobra.Command {
 			cfg, cleanup, err := config.LoadLabConfig(finalPath)
 			if err != nil {
 				if want := labVersionFromLoadError(err); want != "" {
-					if verr := ensureLabVersion(want, flags); verr != nil {
+					if verr := ensureLabVersion(want, flags, handoverApproval(flags, nil, err, filepath.Dir(finalPath))); verr != nil {
 						return verr
 					}
 				}
 				return withNoLabHint(err, flags)
 			}
-			if err := ensureLabVersion(cfg.AstronaVersion, flags); err != nil {
+			if err := ensureLabVersion(cfg.AstronaVersion, flags, handoverApproval(flags, cfg, nil, filepath.Dir(finalPath))); err != nil {
 				cleanup()
 				return err
 			}
