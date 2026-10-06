@@ -64,8 +64,11 @@ func newPortForwardListCmd() *cobra.Command {
   astrona pf list --watch`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if output != "" && output != "wide" {
-				return fmt.Errorf("unsupported --output '%s' (only 'wide')", output)
+			if err := checkOutput(output, "wide"); err != nil {
+				return err
+			}
+			if output == "json" && watch {
+				return fmt.Errorf("--watch redraws a table; -o json lists once")
 			}
 			lab := ""
 			if len(args) == 1 {
@@ -77,6 +80,9 @@ func newPortForwardListCmd() *cobra.Command {
 				fs, err := portforward.List(lab)
 				if err != nil {
 					return err
+				}
+				if output == "json" {
+					return printJSON(forwardsJSON(fs))
 				}
 				printPortForwardTable(os.Stdout, fs, wide)
 				return nil
@@ -103,7 +109,7 @@ func newPortForwardListCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&output, "output", "o", "", "Output format: 'wide' adds namespace, PID and last error")
+	cmd.Flags().StringVarP(&output, "output", "o", "", "Output format: json, or wide (adds namespace, PID and last error)")
 	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Refresh every 2s until Ctrl-C")
 	return cmd
 }

@@ -29,10 +29,10 @@ func TestDoctorVersion(t *testing.T) {
 			t.Errorf("%q = %v %q", c.constraint, r.status, r.detail)
 		}
 	}
-	if err := doctorVerdict(0); err != nil {
+	if err := doctorVerdict(&report{}, 0); err != nil {
 		t.Errorf("no problems = %v", err)
 	}
-	if err := doctorVerdict(2); err == nil || !strings.Contains(err.Error(), "2 problem(s)") {
+	if err := doctorVerdict(&report{}, 2); err == nil || !strings.Contains(err.Error(), "2 problem(s)") {
 		t.Errorf("problems = %v", err)
 	}
 }

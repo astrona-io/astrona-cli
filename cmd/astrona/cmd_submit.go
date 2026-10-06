@@ -25,7 +25,7 @@ import (
 // validation.checks/validation.script directly. flags is bound to the root
 // command's persistent flags.
 func newSubmitCmd(flags *rootFlags) *cobra.Command {
-	var junitPath string
+	var junitPath, output string
 	var noHints, history, watch bool
 	var watchInterval time.Duration
 
@@ -51,10 +51,19 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
 
+			if err := checkOutput(output); err != nil {
+				return err
+			}
 			if history {
 				attempts, err := proctor.LoadAttempts(clusterName)
 				if err != nil {
 					return err
+				}
+				if output == "json" {
+					if attempts == nil {
+						attempts = []proctor.Attempt{}
+					}
+					return printJSON(attempts)
 				}
 				printAttempts(os.Stdout, clusterName, attempts)
 				return nil
@@ -99,21 +108,34 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 				pr.HideHints()
 			}
 			if watch {
+				if output == "json" {
+					return fmt.Errorf("--watch redraws a live view; -o json grades once")
+				}
 				rep.Close()
 				return watchGrading(pr, cfg, clusterName, watchInterval, examState)
 			}
 			previous, _ := proctor.LoadAttempts(clusterName)
-			results, pass, err := pr.Grade(cfg)
+			grade := pr.Grade
+			if output == "json" {
+				grade = pr.Evaluate          // no human report: the JSON is the output
+				pr.ScriptOutputTo(os.Stderr) // and nothing else on stdout
+			}
+			results, pass, err := grade(cfg)
 			if err != nil {
 				return err
 			}
 
 			now := time.Now()
+			overTime := false
 			if examState != nil {
-				fmt.Printf("Time: %s\n", examState.Summary(now))
+				if output != "json" {
+					fmt.Printf("Time: %s\n", examState.Summary(now))
+				}
 				if examState.Over(now) && cfg.Exam.Strict && pass {
-					pass = false
-					fmt.Printf("Submitted after the time limit — not counted as a pass (exam.strict).\n")
+					pass, overTime = false, true
+					if output != "json" {
+						fmt.Printf("Submitted after the time limit — not counted as a pass (exam.strict).\n")
+					}
 				}
 			}
 
@@ -125,6 +147,20 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			}
 			if err := proctor.RecordAttempt(clusterName, attempt); err != nil {
 				rep.Warn("could not record this attempt: %s", err)
+			}
+			if output == "json" {
+				if junitPath != "" {
+					if err := junit.WriteJUnitReport(junitPath, clusterName, results); err != nil {
+						rep.Warn("failed to write JUnit report: %s", err)
+					}
+				}
+				if err := printJSON(submissionJSON(cfg, clusterName, results, pass, overTime, len(previous)+1, pr.HintsHidden(), now)); err != nil {
+					return err
+				}
+				if !pass {
+					return notPassed("submission did not pass grading")
+				}
+				return nil
 			}
 			printProgress(os.Stdout, previous, attempt)
 
@@ -149,6 +185,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&history, "history", false, "List previous attempts for this lab instead of grading")
 	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Re-grade continuously while you work (Ctrl-C to stop; not recorded as attempts)")
 	cmd.Flags().DurationVar(&watchInterval, "interval", 5*time.Second, "How often --watch re-grades (minimum 2s)")
+	addOutputFlag(cmd, &output)
 
 	return cmd
 }
@@ -226,4 +263,42 @@ func printAttempts(w io.Writer, lab string, attempts []proctor.Attempt) {
 	}
 	tw.Flush()
 	fmt.Fprintf(w, "\nBest: %d/%d · %d attempt(s)\n", best.Earned, best.Max, len(attempts))
+}
+
+type checkJSON struct {
+	Name       string `json:"name"`
+	Pass       bool   `json:"pass"`
+	Points     int    `json:"points"`
+	Message    string `json:"message,omitempty"`
+	Hint       string `json:"hint,omitempty"`
+	DurationMs int64  `json:"durationMs"`
+}
+
+type submissionResult struct {
+	Lab         string      `json:"lab"`
+	Pass        bool        `json:"pass"`
+	Earned      int         `json:"earned"`
+	Max         int         `json:"max"`
+	Percent     float64     `json:"percent"`
+	PassPercent int         `json:"passPercent,omitempty"`
+	OverTime    bool        `json:"overTime,omitempty"`
+	Attempt     int         `json:"attempt"`
+	Time        time.Time   `json:"time"`
+	Checks      []checkJSON `json:"checks"`
+}
+
+// submissionJSON is `astrona submit -o json`. Hints are left out when the
+// lab hides them (exam conditions).
+func submissionJSON(cfg *config.LabConfig, lab string, results []proctor.CheckResult, pass, overTime bool, attempt int, hideHints bool, now time.Time) submissionResult {
+	sc := proctor.ScoreOf(results)
+	out := submissionResult{Lab: lab, Pass: pass, Earned: sc.Earned, Max: sc.Max, Percent: sc.Percent(),
+		PassPercent: cfg.Validation.PassPercent, OverTime: overTime, Attempt: attempt, Time: now, Checks: []checkJSON{}}
+	for _, r := range results {
+		c := checkJSON{Name: r.Name, Pass: r.Pass, Points: r.Points, Message: r.Message, DurationMs: r.Duration.Milliseconds()}
+		if !r.Pass && !hideHints {
+			c.Hint = r.Hint
+		}
+		out.Checks = append(out.Checks, c)
+	}
+	return out
 }
