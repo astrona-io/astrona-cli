@@ -76,6 +76,7 @@ astrona reset -c ./labs/my-lab --yes    # no prompt (required in scripts/CI)
 
 - The config is validated **before** anything is destroyed — a broken config aborts with "nothing was reset" and leaves the existing lab as it was.
 - `teardown.keepCluster` is ignored: reset always recreates.
+- `--cluster <name>` rebuilds just one [linked cluster](../guides/linked-labs.md) of a running lab, leaving the lab and its other clusters as they are.
 - In a terminal it asks for confirmation; without a terminal it refuses unless `--yes` is passed.
 
 To pause a lab instead of losing it, see [`astrona stop` / `astrona start`](runtimes.md#pausing-a-lab-astrona-stop-astrona-start).
