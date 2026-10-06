@@ -341,7 +341,7 @@ Shared shape for every script/manifest reference (`bootstrap.init`, `bootstrap.m
 | `name` | string | Label printed as the step runs |
 | `description` | string | Optional, printed alongside `name` |
 | `type` | string | `"file"` \| `"folder"` \| `"url"` (manifests support all three; scripts too) |
-| `source` | string | Path (relative to the lab's base directory) or URL, depending on `type` |
+| `source` | string | Path (relative to the lab's base directory) or URL, depending on `type`. A `url` source must be `https://` (redirects to `http://` are refused); scripts and manifests alike are downloaded to a size-capped temp file (50 MiB) and run/applied from there |
 | `hint` | string | Validation scripts only: shown when the script fails |
 | `points` | int | Validation scripts only: weight in the score (default `1`) |
 

@@ -750,7 +750,7 @@ func checkURLFreshness(source string, prior *ImageCacheMeta) (fresh bool, etag, 
 		return false, "", "", fmt.Errorf("failed to build freshness check request for '%s': %w", source, err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := config.HTTPSOnlyClient(freshnessCheckTimeout).Do(req)
 	if err != nil {
 		return false, "", "", fmt.Errorf("failed to reach '%s' to check for updates: %w", source, err)
 	}

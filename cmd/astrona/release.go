@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/config"
 	"astrona/internal/version"
 )
 
@@ -24,7 +25,9 @@ const (
 	maxReleaseBinary = 256 << 20
 )
 
-var releaseClient = &http.Client{Timeout: 5 * time.Minute}
+// releaseClient downloads release binaries; redirects (GitHub sends asset
+// downloads to its CDN) must stay on https.
+var releaseClient = config.HTTPSOnlyClient(5 * time.Minute)
 
 // releaseAssetName is this machine's binary in a release.
 func releaseAssetName() string {
@@ -49,7 +52,7 @@ func getJSONWithin(url string, v any, timeout time.Duration) error {
 		return err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	resp, err := (&http.Client{Timeout: timeout}).Do(req)
+	resp, err := config.HTTPSOnlyClient(timeout).Do(req)
 	if err != nil {
 		return err
 	}
