@@ -62,7 +62,9 @@ The codebase is organized in a standard, logical Go folder structure:
 
 - Errors: wrap with context using `%w`, return early, let Cobra turn errors into a non-zero exit.
 - Cleanup: functions that create temp resources (e.g. `DownloadToTemp`) return a `func()` cleanup alongside the value/error — call it with `defer` at the call site.
-- Output: user-facing progress messages go to stdout via `fmt.Printf`; no external logger.
+- Output: user-facing progress messages go to stdout via `fmt.Printf`; no external logger. Warnings/notices via `ui.Warnf`/`ui.Infof` (stderr, colored only on a terminal).
+- Prompts: a confirmation takes `--yes`/`-y`; approving someone else's code (remote lab, another astrona binary) takes its own explicit flag (`--trust`, `--install-version`), never `-y`. Without a terminal, never block — fail and name the flag.
+- Exit codes: `notPassed(...)` (exit 2) for "graded, didn't pass"; any other error exits 1.
 - Naming: exported Go-style `PascalCase` for functions and types reused across packages.
 - Grading: any code path that decides whether a lab passes must go through `Proctor.Grade` (`internal/proctor/proctor.go`).
 - Docs: any change that adds/renames a flag, command, config field, or alters user-facing behavior must update `docs/` (mkdocs site — `docs/reference/cli/` for commands, `docs/reference/lab-config.md` for config fields, `docs/concepts/` for behavior/architecture changes, `docs/guides/` for workflow changes) in the same change, not as a follow-up.

@@ -123,6 +123,21 @@ red (hints on what to do next follow in the normal color), `[WARN]` in yellow,
 yellow `hint:`. Set `NO_COLOR=1` to turn colors off everywhere; piped and
 redirected output never has them.
 
+When a step fails, its error and the tail of its output are printed with the
+path of the full log — `astrona logs view` opens it.
+
+### Questions astrona asks
+
+| Question | Answer it up front with |
+|---|---|
+| Throw a lab away? (`reset`, `logs clean`) | `--yes` / `-y` |
+| Run a lab from a URL, git repo or bundle? (shows what it will do) | `--trust` |
+| Download and install the astrona version a lab needs? | `--install-version` |
+
+The last two approve running someone else's code, so they have their own
+flags rather than a general `-y`. Without a terminal astrona never waits for
+an answer: it stops and names the flag.
+
 For a `qemu` lab, a successful `astrona run` also prints a **Connect:** block
 with the ready-to-paste `astrona ssh <name>` command for each VM.
 

@@ -72,7 +72,7 @@ func newUpgradeCmd() *cobra.Command {
 				return fmt.Errorf("%w — if it's a permission problem, run with sudo", err)
 			}
 
-			fmt.Printf("Successfully upgraded astrona to %s!\n", latestTag)
+			fmt.Printf("Successfully upgraded astrona to %s!\nWhat's new: https://github.com/%s/releases/tag/%s\n", latestTag, releaseRepo, latestTag)
 			return nil
 		},
 	}
