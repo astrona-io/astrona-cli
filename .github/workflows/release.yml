@@ -12,6 +12,13 @@ jobs:
   build-release:
     name: Build and Release
     runs-on: ubuntu-latest
+    # Signed build provenance: proves each binary was built by this
+    # workflow from this repo (`gh attestation verify`, and astrona's own
+    # upgrade / versions install when gh is available).
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       matrix:
         goos: [linux, darwin]
@@ -32,6 +39,11 @@ jobs:
         run: |
           BINARY_NAME="astrona-${{ matrix.goos }}-${{ matrix.goarch }}"
           go build -v -ldflags "-X main.Version=${{ github.ref_name }}" -o "$BINARY_NAME" ./cmd/astrona
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: astrona-${{ matrix.goos }}-${{ matrix.goarch }}
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
@@ -56,6 +68,8 @@ jobs:
         run: |
           mkdir dist
           find artifacts -type f -exec cp {} dist/ \;
+          # For checking a download by hand: sha256sum -c SHA256SUMS
+          (cd dist && sha256sum astrona-* > SHA256SUMS)
           ls -R dist/
 
       - name: Create Release

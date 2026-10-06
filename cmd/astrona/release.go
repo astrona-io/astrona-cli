@@ -9,10 +9,13 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
 	"time"
+
+	"astrona/internal/version"
 )
 
 const (
@@ -144,6 +147,13 @@ func downloadVerifiedRelease(tag, dest string) error {
 	if got := hex.EncodeToString(h.Sum(nil)); got != want {
 		return fmt.Errorf("checksum mismatch for %s: got sha256:%s, GitHub says sha256:%s — not installed", url, got, want)
 	}
+	_, note, err := verifyProvenance(tmp.Name(), tag)
+	if err != nil {
+		return err
+	}
+	if note != "" {
+		fmt.Fprintf(os.Stderr, "  %s\n", note)
+	}
 	if err := os.Chmod(tmp.Name(), 0755); err != nil {
 		return err
 	}
@@ -151,4 +161,60 @@ func downloadVerifiedRelease(tag, dest string) error {
 		return fmt.Errorf("install %s: %w", dest, err)
 	}
 	return nil
+}
+
+// provenance is the outcome of checking a downloaded binary's build
+// attestation with the GitHub CLI.
+type provenance int
+
+const (
+	provenanceVerified    provenance = iota // built by our release workflow
+	provenanceUnavailable                   // gh missing/not logged in, or a release from before attestations
+)
+
+// verifyProvenance checks path against the build-provenance attestation
+// GitHub stores for releases of releaseRepo — an extra check on top of
+// the SHA-256 digest, when the GitHub CLI is available. An attestation
+// that exists but doesn't verify is an error; no way to check (no gh, not
+// logged in, an older release without one) is provenanceUnavailable.
+// lastUnattestedRelease is the newest release built before releases
+// carried attestations; any newer one must have one.
+const lastUnattestedRelease = "0.2.2"
+
+func verifyProvenance(path, tag string) (provenance, string, error) {
+	gh, err := exec.LookPath("gh")
+	if err != nil {
+		return provenanceUnavailable, "install the GitHub CLI (gh) to also verify build provenance", nil
+	}
+	out, err := exec.Command(gh, "attestation", "verify", path, "--repo", releaseRepo,
+		"--signer-workflow", releaseRepo+"/.github/workflows/release.yml").CombinedOutput()
+	if err == nil {
+		return provenanceVerified, "build provenance verified (built by " + releaseRepo + "'s release workflow)", nil
+	}
+	msg := strings.ToLower(string(out))
+	switch {
+	// gh answers a release without attestations with "no attestations
+	// found" or, from the API, an HTTP 404.
+	case strings.Contains(msg, "no attestations found"), strings.Contains(msg, "no attestation found"), strings.Contains(msg, "http 404"):
+		// Fine for an old release — but a newer one without its
+		// attestation may have been replaced.
+		if v, err := version.Parse(tag); err == nil {
+			last, _ := version.Parse(lastUnattestedRelease)
+			if v.Compare(last) > 0 {
+				return provenanceUnavailable, "", fmt.Errorf("astrona %s should carry a build provenance attestation but has none — not installed", tag)
+			}
+		}
+		return provenanceUnavailable, "this release predates build provenance attestations", nil
+	case strings.Contains(msg, "gh auth login"), strings.Contains(msg, "authentication"), strings.Contains(msg, "http 401"):
+		return provenanceUnavailable, "log in with `gh auth login` to also verify build provenance", nil
+	}
+	return provenanceUnavailable, "", fmt.Errorf("build provenance of %s did NOT verify — not installed: %s", filepath.Base(path), lastLines(string(out), 3))
+}
+
+func lastLines(s string, n int) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, " / ")
 }
