@@ -93,6 +93,9 @@ type Options struct {
 	// Screen is where the spinner and status lines are written. Defaults
 	// to os.Stderr when nil.
 	Screen io.Writer
+	// Raw is where verbose mode streams subprocess output. Defaults to
+	// os.Stdout when nil; os.Stderr keeps stdout free for -o json.
+	Raw io.Writer
 	// LogPath overrides the run log file location. Defaults to
 	// ~/.astrona/logs/<cmdName>-<labName>-<UTC timestamp>.log when empty.
 	LogPath string
@@ -112,6 +115,10 @@ func New(cmdName, labName string, opts Options) (*Reporter, error) {
 	screen := opts.Screen
 	if screen == nil {
 		screen = os.Stderr
+	}
+	raw := opts.Raw
+	if raw == nil {
+		raw = os.Stdout
 	}
 
 	logPath := opts.LogPath
@@ -137,7 +144,7 @@ func New(cmdName, labName string, opts Options) (*Reporter, error) {
 		verbose: opts.Verbose,
 		color:   screenIsColorTTY(screen),
 		screen:  screen,
-		raw:     os.Stdout,
+		raw:     raw,
 		logW:    f,
 		logC:    f,
 		logPath: logPath,
