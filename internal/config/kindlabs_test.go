@@ -83,3 +83,40 @@ func TestKindLabMirrorsKindConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestKindLabOrder(t *testing.T) {
+	names := func(labs []KindLab) string {
+		var out []string
+		for _, l := range labs {
+			out = append(out, l.Name)
+		}
+		return strings.Join(out, ",")
+	}
+	labs := []KindLab{
+		{Name: "app", DependsOn: []string{"idp", "db"}},
+		{Name: "idp", DependsOn: []string{"db"}},
+		{Name: "cache"},
+		{Name: "db"},
+	}
+	order, err := KindLabOrder(labs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := names(order); got != "cache,db,idp,app" {
+		t.Errorf("order = %s — dependencies first, otherwise config order", got)
+	}
+
+	for name, bad := range map[string][]KindLab{
+		"cycle":     {{Name: "a", DependsOn: []string{"b"}}, {Name: "b", DependsOn: []string{"a"}}},
+		"self":      {{Name: "a", DependsOn: []string{"a"}}},
+		"unknown":   {{Name: "a", DependsOn: []string{"zz"}}},
+		"duplicate": {{Name: "a", DependsOn: []string{"b", "b"}}, {Name: "b"}},
+	} {
+		if _, err := KindLabOrder(bad); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+		if ValidateKindLabs(labsCfg(bad)) == nil {
+			t.Errorf("%s: ValidateKindLabs accepted", name)
+		}
+	}
+}

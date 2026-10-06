@@ -30,11 +30,14 @@ func TestKindLabConfig(t *testing.T) {
 		t.Error("a linked cluster must not have linked clusters of its own")
 	}
 
-	states := kindLabStates(cfg, "astro-test-auth-lab")
+	_, states, err := kindLabStates(cfg, "astro-test-auth-lab")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(states) != 2 || states[0] != (cluster.LinkState{Name: "idp", Cluster: "astro-test-auth-lab-idp"}) || states[1].Cluster != "astro-test-auth-lab-db" {
 		t.Fatalf("states = %+v — test copies must get their own cluster names", states)
 	}
-	if kindLabStates(&config.LabConfig{}, "astro-x") != nil {
+	if _, none, _ := kindLabStates(&config.LabConfig{}, "astro-x"); none != nil {
 		t.Error("lab without linked clusters has states")
 	}
 }
@@ -62,5 +65,22 @@ func TestMarkLinkedClusters(t *testing.T) {
 	markLinkedClusters(rows, map[string]string{"astro-app-idp": "astro-app"})
 	if strings.Contains(rows[0].details, "linked") || !strings.HasPrefix(rows[1].details, "linked cluster of astro-app · kubectl") {
 		t.Fatalf("rows = %+v", rows)
+	}
+}
+
+func TestKindLabStatesFollowDependencies(t *testing.T) {
+	cfg := &config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Labs: []config.KindLab{
+		{Name: "app", DependsOn: []string{"db"}},
+		{Name: "db"},
+	}}}}
+	order, states, err := kindLabStates(cfg, "astro-x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if order[0].Name != "db" || states[0].Cluster != "astro-x-db" || states[1].Cluster != "astro-x-app" {
+		t.Fatalf("order = %+v, states = %+v — db must come first", order, states)
+	}
+	if got := notStarted(order[1:]); got != "app, the lab itself" {
+		t.Errorf("notStarted = %q", got)
 	}
 }

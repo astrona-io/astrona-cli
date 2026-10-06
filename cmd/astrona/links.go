@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
@@ -27,56 +28,80 @@ func kindLabConfig(cfg *config.LabConfig, l config.KindLab) *config.LabConfig {
 }
 
 // kindLabStates is where cfg's linked clusters are (or will be) for the lab
-// running as labCluster.
-func kindLabStates(cfg *config.LabConfig, labCluster string) []cluster.LinkState {
+// running as labCluster, in start order (dependencies first) — the order
+// `astrona start` brings them back in.
+func kindLabStates(cfg *config.LabConfig, labCluster string) ([]config.KindLab, []cluster.LinkState, error) {
+	order, err := config.KindLabOrder(cfg.KindLabs())
+	if err != nil {
+		return nil, nil, err
+	}
 	var states []cluster.LinkState
-	for _, l := range cfg.KindLabs() {
+	for _, l := range order {
 		states = append(states, cluster.LinkState{Name: l.Name, Cluster: config.KindLabClusterName(labCluster, l.Name)})
 	}
-	return states
+	return order, states, nil
 }
 
 // startKindLabs creates cfg's linked clusters (runtime.kind.labs) for the
-// lab running as labCluster, each with its own preload, addons, bootstrap
-// and readiness gates, and returns where they are. A leftover cluster of
-// the same name (a failed earlier run) is replaced — linked clusters
-// belong to the lab, nothing else uses them. The states are saved before
-// anything is created, so `astrona destroy` finds every cluster even if
-// this fails halfway.
+// lab running as labCluster, one at a time in dependency order: each only
+// once everything it dependsOn is up and ready (bootstrap and waitFor
+// done), with their addresses available to its scripts. The first failure
+// stops it — nothing that depends on a broken cluster is started. A
+// leftover cluster of the same name (a failed earlier run) is replaced —
+// linked clusters belong to the lab, nothing else uses them. The states
+// are saved before anything is created, so `astrona destroy` finds every
+// cluster even if this fails halfway.
 func startKindLabs(cfg *config.LabConfig, baseDir, labCluster string, forTest bool, rep *ui.Reporter) ([]cluster.LinkState, error) {
-	states := kindLabStates(cfg, labCluster)
-	if len(states) == 0 {
-		return nil, nil
+	order, states, err := kindLabStates(cfg, labCluster)
+	if err != nil || len(states) == 0 {
+		return nil, err
 	}
 	if err := cluster.WriteLinks(labCluster, states); err != nil {
 		return nil, fmt.Errorf("save linked clusters: %w", err)
 	}
-	for i, l := range cfg.KindLabs() {
+	byName := map[string]cluster.LinkState{}
+	for i, l := range order {
 		name := states[i].Cluster
+		var deps []cluster.LinkState
+		for _, d := range l.DependsOn {
+			deps = append(deps, byName[d])
+		}
 		sub := kindLabConfig(cfg, l)
 		if err := runtime.DestroyEnvironment(name, sub.Runtime, rep); err != nil {
 			rep.Warn("could not clean up a previous '%s', proceeding anyway: %s", name, err)
 		}
 		rep.Section("Linked cluster '%s'", l.Name)
-		if _, _, err := upLab(sub, baseDir, name, nil, forTest, rep); err != nil {
-			return nil, fmt.Errorf("linked cluster '%s' (%s): %w", l.Name, name, err)
+		if _, _, err := upLab(sub, baseDir, name, deps, forTest, rep); err != nil {
+			err = fmt.Errorf("linked cluster '%s' (%s): %w", l.Name, name, err)
+			if rest := notStarted(order[i+1:]); rest != "" {
+				err = fmt.Errorf("%w — not started: %s", err, rest)
+			}
+			return nil, err
 		}
+		byName[l.Name] = states[i]
 	}
 	return states, nil
 }
 
-// attachLinks tells a freshly created lab where its linked clusters are:
-// env vars for host scripts and command checks, saved state for later
-// commands, and a ConfigMap astrona-links (namespace default) in the
-// cluster.
+// notStarted names the clusters a failed start skipped, plus the lab.
+func notStarted(rest []config.KindLab) string {
+	names := make([]string, 0, len(rest)+1)
+	for _, l := range rest {
+		names = append(names, l.Name)
+	}
+	return strings.Join(append(names, "the lab itself"), ", ")
+}
+
+// attachLinks tells a freshly created cluster where the clusters it uses
+// are (the lab: all its linked clusters; a linked cluster: its dependsOn):
+// env vars for host scripts and command checks, and a ConfigMap
+// astrona-links (namespace default). The lab's own list is saved by
+// startKindLabs, for later commands.
 func attachLinks(env *runtime.LabEnvironment, clusterName string, links []cluster.LinkState, rep *ui.Reporter) error {
 	if len(links) == 0 {
 		return nil
 	}
 	env.WithLinks(links)
-	if err := cluster.WriteLinks(clusterName, links); err != nil {
-		return fmt.Errorf("save linked clusters: %w", err)
-	}
 	t := rep.Step("Publish links (ConfigMap astrona-links)")
 	cm, err := linksConfigMap(links)
 	if err != nil {
