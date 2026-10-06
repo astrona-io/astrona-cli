@@ -190,6 +190,35 @@ spec:
 - astrona never adds the CA to your system's trust store.
 - `sharedCA` is lab-wide: set it on `runtime.kind`, not on a linked cluster.
 
+## Simulating a remote site
+
+A linked cluster can behave like a site across a WAN — slow, lossy, bandwidth-limited:
+
+```yaml
+    labs:
+      - name: idp
+        wan:
+          latency: 80ms      # added per round trip
+          jitter: 10ms
+          loss: 1%
+          rate: 10mbit
+```
+
+astrona applies it with `tc netem` on every node of that cluster, **after** the cluster is set up (its bootstrap and readiness gates run at full speed), and re-applies it after `astrona start` — a restart drops it. It delays what the cluster sends, so the latency is added once per round trip; it affects all its traffic, including `kubectl` from your machine.
+
+### Changing conditions live: `astrona net`
+
+For exercises like "the identity provider got slow" or "the site is down — what breaks?":
+
+```sh
+astrona net my-lab --cluster idp --latency 400ms --jitter 50ms --loss 10%
+astrona net my-lab --cluster idp --partition     # nothing it sends gets through
+astrona net my-lab --cluster idp --heal          # back to the config's wan (or none)
+astrona net my-lab --cluster idp --show          # what each node has now
+```
+
+Without `--cluster` it acts on the lab's own cluster. Changes last until `--heal`, `astrona start` (which re-applies the config) or `destroy`. While a cluster is partitioned astrona can't reach its API either — `--heal` still works, it runs inside the node containers. `astrona status` shows each linked cluster's configured conditions.
+
 ## Grading across clusters
 
 A check grades the lab's own cluster unless it names a linked one with `cluster:`:

@@ -164,7 +164,11 @@ func printLabStatus(w io.Writer, st labStatus) {
 		if r, ok := st.linkRows[l.Cluster]; ok {
 			state = r.status
 		}
-		field(label, fmt.Sprintf("%s → %s (%s) · host %s", l.Name, l.Cluster, state, l.Host()))
+		line := fmt.Sprintf("%s → %s (%s) · %s", l.Name, l.Cluster, state, l.Hostname())
+		if !l.WAN.IsZero() {
+			line += " · wan " + describeWAN(l.WAN)
+		}
+		field(label, line)
 	}
 
 	if st.exam != nil {

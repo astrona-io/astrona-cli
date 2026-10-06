@@ -156,6 +156,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.AddCommand(newDiagnoseCmd(flags))
 	rootCmd.AddCommand(newBundleCmd(flags))
 	rootCmd.AddCommand(newPortForwardCmd(flags))
+	rootCmd.AddCommand(newNetCmd(flags))
 	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(newLogsCmd())
 	rootCmd.AddCommand(newInitCmd())

@@ -197,6 +197,9 @@ func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string
 	if _, _, err := upLab(kindLabConfig(cfg, l), baseDir, target, deps, false, rep); err != nil {
 		return fmt.Errorf("linked cluster '%s' (%s): %w", l.Name, target, err)
 	}
+	if err := applyWANStep(target, l.WAN, rep); err != nil {
+		return fmt.Errorf("linked cluster '%s' (%s): %w", l.Name, target, err)
+	}
 	// Its node has a new IP; every cluster of the lab needs to know it.
 	refreshLinkNames(clusterName, false, rep)
 

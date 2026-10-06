@@ -33,6 +33,10 @@ runtime:
     labs:
       - name: idp                       # kind cluster astro-linked-labs-01-idp
         preloadImages: [nginx:1.27-alpine]
+        # A remote site: 30ms more per round trip. Try a worse one live:
+        #   astrona net linked-labs-01 --cluster idp --latency 400ms --loss 10%
+        #   astrona net linked-labs-01 --cluster idp --partition   (then --heal)
+        wan: {latency: 30ms}
         bootstrap:
           manifests:
             - name: token service
