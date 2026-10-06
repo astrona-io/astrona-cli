@@ -29,6 +29,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"astrona/internal/config"
 )
 
 const (
@@ -274,6 +276,14 @@ func Extract(src, dest string) (*Manifest, error) {
 	}
 	if m.FormatVersion != FormatVersion {
 		return nil, fmt.Errorf("bundle format %d isn't supported by this astrona (expects %d)", m.FormatVersion, FormatVersion)
+	}
+	// Lab names the dir `bundle load` unpacks into (under
+	// ~/.astrona/bundles) — never let it carry a path. Empty is a lab
+	// without metadata.name.
+	if m.Lab != "" {
+		if err := config.ValidateName(m.Lab); err != nil {
+			return nil, fmt.Errorf("%s lab: %w", ManifestName, err)
+		}
 	}
 	for _, im := range m.Images {
 		if err := verifyFile(dest, im.File, im.SHA256); err != nil {

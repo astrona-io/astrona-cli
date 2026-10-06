@@ -64,6 +64,35 @@ func TestCacheSlug(t *testing.T) {
 	}
 }
 
+func TestQEMUStateDirStaysInBaseDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	dir, err := qemuStateDir("astro-lab-vm1")
+	if err != nil {
+		t.Fatalf("valid name: %v", err)
+	}
+	if want := filepath.Join(home, ".astrona", "qemu", "astro-lab-vm1"); dir != want {
+		t.Errorf("dir = %q, want %q", dir, want)
+	}
+
+	for _, name := range []string{"", "..", "astro-x/../../../Documents", "../x", "a/b", "a,b"} {
+		if dir, err := qemuStateDir(name); err == nil {
+			t.Errorf("qemuStateDir(%q) = %q, want error", name, dir)
+		}
+		if _, err := ConsoleLogPath(name); err == nil {
+			t.Errorf("ConsoleLogPath(%q): want error", name)
+		}
+		if StateExists(name) {
+			t.Errorf("StateExists(%q) = true", name)
+		}
+	}
+	// Nothing was created outside the qemu base dir.
+	if _, err := os.Stat(filepath.Join(home, "Documents")); !os.IsNotExist(err) {
+		t.Errorf("escaped dir created: %v", err)
+	}
+}
+
 func TestCachedImagePathIncludesSlugAndHash(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

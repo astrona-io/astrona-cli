@@ -46,13 +46,17 @@ teardown: {}     # TeardownConfig
 
 | Field | Type | Description |
 |---|---|---|
-| `name` | string | Lab name — becomes the cluster/VM name, prefixed `astro-` |
+| `name` | string | Lab name — becomes the cluster/VM name, prefixed `astro-`. Must start with a letter or digit and contain only letters, digits, `.`, `_` and `-` (no `/`, `,`, spaces or `..`) — see [Names](#names) |
 | `docs.prerequisites` | string | Path to a prerequisites doc |
 | `docs.examQuestion` | string | Path to the formal, self-contained task statement |
 | `docs.caseStudy` | string | Path to a softer, hint-driven version of the same task |
 | `docs.guide` | string | Path to the full step-by-step walkthrough |
 
 Doc paths are relative to `config.yaml` and must stay inside the lab directory; students read them with [`astrona docs`](cli/astrona_docs.md).
+
+### Names
+
+`metadata.name`, `runtime.qemu[].name` and `runtime.kind.clusters[].name` become directory names under `~/.astrona/` (state that `astrona destroy` deletes) and parts of qemu command lines, so they must match `^[A-Za-z0-9][A-Za-z0-9._-]*$` and must not contain `..`. Every command checks this when it loads the config and refuses the lab otherwise, e.g. `metadata.name: invalid name 'x/../y': must start with a letter or digit …`. (`runtime.kind.clusters[].name` has a stricter rule of its own, below.) `astrona bundle load` applies the same rule to the lab name recorded in a bundle.
 
 ## `runtime`
 
@@ -100,7 +104,7 @@ runtime:
 
 | Field | Type | Description |
 |---|---|---|
-| `name` | string | Required once there's more than one entry; leave empty for a single-VM lab |
+| `name` | string | Required once there's more than one entry; leave empty for a single-VM lab. Same character rule as `metadata.name` — see [Names](#names) |
 | `image.type` | string | `"file"` \| `"url"` \| `"oci"` |
 | `image.source` | string | Path, URL, or OCI reference, depending on `type` |
 | `image.checksum` | string | e.g. `sha256:...` — recommended |

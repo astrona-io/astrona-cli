@@ -364,7 +364,12 @@ func newBundleLoadCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
+			// bundle.Extract already validated m.Lab; dest is RemoveAll'd,
+			// so check again that it's a direct child of root.
 			dest := filepath.Join(root, fmt.Sprintf("%s-%s", m.Lab, sum[:12]))
+			if filepath.Dir(dest) != filepath.Clean(root) {
+				return fmt.Errorf("bundle lab name '%s' escapes %s", m.Lab, root)
+			}
 			if err := os.RemoveAll(dest); err != nil {
 				return err
 			}

@@ -103,7 +103,14 @@ func TestSchemaFileUpToDate(t *testing.T) {
 
 func TestSchemaEnumsPointAtRealFields(t *testing.T) {
 	types := configTypes()
+	keys := []string{}
 	for key := range schemaEnums {
+		keys = append(keys, key)
+	}
+	for key := range schemaPatterns {
+		keys = append(keys, key)
+	}
+	for _, key := range keys {
 		typ, field, _ := strings.Cut(key, ".")
 		tt, ok := types[typ]
 		if !ok {

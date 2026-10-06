@@ -100,11 +100,30 @@ func qemuStateDir(clusterName string) (string, error) {
 		return "", err
 	}
 
-	dir := filepath.Join(base, clusterName)
+	dir, err := labDirWithin(base, clusterName)
+	if err != nil {
+		return "", err
+	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create qemu state dir '%s': %w", dir, err)
 	}
 
+	return dir, nil
+}
+
+// labDirWithin joins clusterName onto base, refusing a name that isn't a
+// single safe path component or a result that isn't strictly inside base.
+// Defence in depth: LoadLabConfig already validates the names, but this
+// dir is later os.RemoveAll'd by DestroyQEMUVM.
+func labDirWithin(base, clusterName string) (string, error) {
+	if err := config.ValidateName(clusterName); err != nil {
+		return "", fmt.Errorf("qemu lab name: %w", err)
+	}
+	dir := filepath.Join(base, clusterName)
+	rel, err := filepath.Rel(base, dir)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || strings.ContainsRune(rel, filepath.Separator) {
+		return "", fmt.Errorf("qemu state dir for '%s' escapes '%s'", clusterName, base)
+	}
 	return dir, nil
 }
 
@@ -116,7 +135,11 @@ func ConsoleLogPath(clusterName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, clusterName, "console.log"), nil
+	dir, err := labDirWithin(base, clusterName)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "console.log"), nil
 }
 
 // normalizeArch maps the handful of spellings a lab author might write to
@@ -2306,6 +2329,10 @@ func StateExists(name string) bool {
 	if err != nil {
 		return false
 	}
-	_, err = os.Stat(filepath.Join(home, ".astrona", "qemu", name, "handle.json"))
+	dir, err := labDirWithin(filepath.Join(home, ".astrona", "qemu"), name)
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(filepath.Join(dir, "handle.json"))
 	return err == nil
 }

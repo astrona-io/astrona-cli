@@ -34,6 +34,14 @@ var schemaEnums = map[string][]string{
 	"QEMUImageSource.type":         {"file", "url", "oci"},
 }
 
+// schemaPatterns are regex constraints on string fields, same keys as
+// schemaEnums. (The "no '..'" half of ValidateName isn't expressed here;
+// `astrona validate` still enforces it.)
+var schemaPatterns = map[string]string{
+	"MetadataConfig.name": namePattern.String(),
+	"QEMUVM.name":         namePattern.String(),
+}
+
 // Schema returns the JSON Schema (draft 2020-12) for config.yaml,
 // generated from the LabConfig structs — every object rejects unknown
 // keys, matching `astrona validate`.
@@ -85,6 +93,9 @@ func schemaFor(t reflect.Type, defs map[string]any) map[string]any {
 				p := schemaFor(f.Type, defs)
 				if enum, ok := schemaEnums[name+"."+key]; ok {
 					p["enum"] = enum
+				}
+				if pattern, ok := schemaPatterns[name+"."+key]; ok {
+					p["pattern"] = pattern
 				}
 				if schemaDeprecated[name+"."+key] {
 					p["deprecated"] = true

@@ -7,10 +7,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
+	"astrona/internal/config"
 	"astrona/internal/executor"
 	"astrona/internal/ui"
 )
@@ -27,10 +27,6 @@ import (
 
 const kubeconfigFile = "kubeconfig"
 
-// labNamePattern keeps the <lab> path component from escaping
-// ~/.astrona/kind (lab names come from config metadata.name).
-var labNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
-
 // KindStateDir returns ~/.astrona/kind (not created).
 func KindStateDir() (string, error) {
 	home, err := os.UserHomeDir()
@@ -41,8 +37,9 @@ func KindStateDir() (string, error) {
 }
 
 func labStateDir(lab string) (string, error) {
-	if !labNamePattern.MatchString(lab) || strings.Contains(lab, "..") {
-		return "", fmt.Errorf("invalid lab name '%s'", lab)
+	// Keeps the <lab> path component from escaping ~/.astrona/kind.
+	if err := config.ValidateName(lab); err != nil {
+		return "", fmt.Errorf("lab name: %w", err)
 	}
 	base, err := KindStateDir()
 	if err != nil {

@@ -378,11 +378,42 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 	}
 	config.UnknownFields = unknown
 	config.moveDeprecatedLabs()
+	if err := config.ValidateNames(); err != nil {
+		return nil, cleanup, fmt.Errorf("lab config %s: %w", configPath, err)
+	}
 	sum := sha256.Sum256(body)
 	config.SourcePath = configPath
 	config.SourceSHA256 = hex.EncodeToString(sum[:])
 
 	return &config, cleanup, nil
+}
+
+// ValidateNames checks every config name that becomes a path component or
+// part of one — metadata.name, runtime.qemu[].name and
+// runtime.kind.clusters[].name — with ValidateName. LoadLabConfig runs it,
+// so every command (destroy included) refuses such a config before
+// touching the filesystem. Empty metadata/VM names are left to the code
+// that defaults or requires them.
+func (c *LabConfig) ValidateNames() error {
+	if c.Metadata.Name != "" {
+		if err := ValidateName(c.Metadata.Name); err != nil {
+			return fmt.Errorf("metadata.name: %w", err)
+		}
+	}
+	for i, vm := range c.Runtime.QEMU {
+		if vm.Name == "" {
+			continue
+		}
+		if err := ValidateName(vm.Name); err != nil {
+			return fmt.Errorf("runtime.qemu[%d].name: %w", i, err)
+		}
+	}
+	for i, l := range c.KindClusters() {
+		if err := ValidateName(l.Name); err != nil {
+			return fmt.Errorf("runtime.kind.clusters[%d].name: %w", i, err)
+		}
+	}
+	return nil
 }
 
 // NormalizeClusterName prefixes clusterName with "astro-" if it doesn't already
