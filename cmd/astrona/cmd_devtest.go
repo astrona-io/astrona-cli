@@ -44,7 +44,9 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			"tools, config) — see the CI guide.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			useLabArg(args, flags) // a lab given as the argument wins over `astrona use`
+			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
+				return err
+			}
 			if err := validateDiagnosticsMode(diagMode); err != nil {
 				return err
 			}

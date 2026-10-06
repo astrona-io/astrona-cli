@@ -46,7 +46,9 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			useLabArg(args, flags)
+			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
+				return err
+			}
 			if err := checkOutput(output); err != nil {
 				return err
 			}

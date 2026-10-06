@@ -30,7 +30,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			useLabArg(args, flags) // a lab given as the argument wins over `astrona use`
+			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
+				return err
+			}
 			if flags.configPath == "" {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
 			}

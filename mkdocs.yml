@@ -77,11 +77,16 @@ nav:
       - Offline Bundles: guides/offline-bundles.md
       - Linked Labs: guides/linked-labs.md
       - Astrona Versions: guides/astrona-versions.md
+      - Lab Catalog: guides/lab-catalog.md
   - Reference:
       - Lab Config Schema: reference/lab-config.md
       - CLI Reference:
           - reference/cli/astrona.md
           - Take a lab:
+              - reference/cli/astrona_labs.md
+              - reference/cli/astrona_labs_add.md
+              - reference/cli/astrona_labs_remove.md
+              - reference/cli/astrona_labs_sources.md
               - reference/cli/astrona_use.md
               - reference/cli/astrona_run.md
               - reference/cli/astrona_docs.md
