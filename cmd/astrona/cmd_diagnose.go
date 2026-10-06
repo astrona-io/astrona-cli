@@ -10,6 +10,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/diagnostics"
 	"astrona/internal/hypervisor"
+	"astrona/internal/lifecycle"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
 
@@ -82,7 +83,7 @@ type linkedDiagnostics struct {
 // (the idp didn't come up) is often why the lab's own checks fail.
 func collectLinkedDiagnostics(lab string, labs []config.KindCluster, dir string, rep *ui.Reporter) []linkedDiagnostics {
 	var out []linkedDiagnostics
-	for _, c := range ownedClusters(lab, labs) {
+	for _, c := range lifecycle.OwnedClusters(lab, labs) {
 		sum, err := diagnostics.CollectKind(diagnostics.Kind{
 			Name: c, KubeContext: "kind-" + c, Kubeconfig: cluster.ExistingKubeconfig(c),
 		}, filepath.Join(dir, "clusters", c), rep)

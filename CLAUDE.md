@@ -28,6 +28,8 @@ The codebase is organized in a standard, logical Go folder structure:
 - **`internal/`** — Modular business logic packages:
   - `config` — Lab config models and parsing (`config.go`), unverified base image downloading/caching utility (`download.go`), and directory/path guards (`path.go`).
   - `runtime` — Dispatches runtime creation and environment state (`runtime.go`).
+  - `lifecycle` — The lab pipeline every command uses: `Up` (create → links → preload → addons → lab CA → DNS → bootstrap → readiness → port forwards), linked clusters (`StartLinkedClusters`, dependency order, `--parallel`), stable names and WAN, shared CA, linked-cluster teardown, `SoftReset`. Printing, prompts and flags stay in `cmd/astrona`.
+  - `version` — Release versions and `astronaVersion` constraints.
   - `cluster` — Handles container engine detection and Kind cluster lifecycle (`cluster.go`).
   - `hypervisor` — Manages QEMU VM background processes, UEFI vars, and multi-NIC topology (`hypervisor.go`).
   - `executor` — Defines shell execution abstractions on the host or over SSH (`executor.go`).

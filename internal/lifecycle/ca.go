@@ -1,18 +1,17 @@
-package main
+package lifecycle
 
 import (
+	"astrona/internal/cluster"
+	"astrona/internal/config"
+	"astrona/internal/executor"
+	"astrona/internal/runtime"
+	"astrona/internal/ui"
 	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
-
-	"astrona/internal/cluster"
-	"astrona/internal/config"
-	"astrona/internal/executor"
-	"astrona/internal/runtime"
-	"astrona/internal/ui"
 
 	"gopkg.in/yaml.v3"
 )
@@ -27,14 +26,14 @@ func webhookNotReady(out string) bool {
 		(strings.Contains(out, "connection refused") || strings.Contains(out, "no endpoints available") || strings.Contains(out, "context deadline exceeded"))
 }
 
-// caEnvVar points host scripts, command checks and `astrona shell` at the
+// CAEnvVar points host scripts, command checks and `astrona shell` at the
 // lab CA's certificate.
-const caEnvVar = "ASTRONA_CA_CERT"
+const CAEnvVar = "ASTRONA_CA_CERT"
 
-// prepareSharedCA creates the lab's CA (runtime.kind.sharedCA) before any
+// PrepareSharedCA creates the lab's CA (runtime.kind.sharedCA) before any
 // of its clusters, and records which lab's CA they install. No-op without
 // sharedCA.
-func prepareSharedCA(cfg *config.LabConfig, labCluster string) error {
+func PrepareSharedCA(cfg *config.LabConfig, labCluster string) error {
 	k := cfg.Runtime.Kind
 	if k == nil || !k.SharedCA {
 		return nil
@@ -48,7 +47,7 @@ func prepareSharedCA(cfg *config.LabConfig, labCluster string) error {
 	return nil
 }
 
-// installSharedCA puts the lab CA into env's freshly created cluster —
+// InstallSharedCA puts the lab CA into env's freshly created cluster —
 // after addons (cert-manager must be up for the ClusterIssuer), before
 // bootstrap — and points host scripts at its certificate:
 //   - ConfigMap astrona-ca (ca.crt) in default: what pods mount to trust it
@@ -57,7 +56,7 @@ func prepareSharedCA(cfg *config.LabConfig, labCluster string) error {
 //     default otherwise
 //
 // The key goes to kubectl on stdin, never on its command line.
-func installSharedCA(cfg *config.LabConfig, env *runtime.LabEnvironment, rep *ui.Reporter) error {
+func InstallSharedCA(cfg *config.LabConfig, env *runtime.LabEnvironment, rep *ui.Reporter) error {
 	k := cfg.Runtime.Kind
 	if env.Type != runtime.RuntimeKind || k == nil || !k.SharedCA || k.CALab == "" {
 		return nil
@@ -91,7 +90,7 @@ func installSharedCA(cfg *config.LabConfig, env *runtime.LabEnvironment, rep *ui
 		time.Sleep(3 * time.Second)
 	}
 	t.Done()
-	env.AddEnv(caEnvVar + "=" + ca.CertPath)
+	env.AddEnv(CAEnvVar + "=" + ca.CertPath)
 	return nil
 }
 
@@ -142,10 +141,10 @@ func sharedCAManifests(ca cluster.LabCA, certManager bool) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// labCAEnv is the CA variable for a running lab with a shared CA.
-func labCAEnv(lab string) []string {
+// CAEnv is the CA variable for a running lab with a shared CA.
+func CAEnv(lab string) []string {
 	if ca, ok := cluster.ExistingLabCA(lab); ok {
-		return []string{caEnvVar + "=" + ca.CertPath}
+		return []string{CAEnvVar + "=" + ca.CertPath}
 	}
 	return nil
 }

@@ -123,3 +123,25 @@ func StartKindCluster(clusterName string, rep *ui.Reporter) error {
 	t.Done()
 	return nil
 }
+
+// Exists reports whether kind cluster name exists (running or stopped):
+// a container with kind's cluster label named <name>-control-plane.
+func Exists(name string) bool {
+	engine, err := DetectContainerEngine()
+	if err != nil {
+		return false
+	}
+	out, err := exec.Command(engine.Path, "ps", "-a",
+		"--filter", "label=io.x-k8s.kind.cluster",
+		"--format", "{{.Names}}").Output()
+	if err != nil {
+		return false
+	}
+	target := name + "-control-plane"
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if strings.TrimSpace(line) == target {
+			return true
+		}
+	}
+	return false
+}

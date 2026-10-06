@@ -9,6 +9,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
@@ -92,7 +93,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			if err := validateLabForRun(cfg); err != nil {
+			if err := lifecycle.Validate(cfg); err != nil {
 				return fmt.Errorf("lab config is invalid, nothing was reset: %w", err)
 			}
 			if err := validateParallel(flags.parallel); err != nil {
@@ -119,10 +120,10 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 				defer rep.Close()
-				if err := prepareSharedCA(cfg, clusterName); err != nil { // the lab's existing CA
+				if err := lifecycle.PrepareSharedCA(cfg, clusterName); err != nil { // the lab's existing CA
 					return err
 				}
-				forwards, err := softResetLab(cfg, baseDir, clusterName, clusterFlag, rep)
+				forwards, err := lifecycle.SoftReset(cfg, baseDir, clusterName, clusterFlag, rep)
 				if err != nil {
 					return err
 				}
@@ -180,7 +181,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 // from the config, with its dependencies' addresses. Port forwards into it
 // are restarted (their supervisors give up when the cluster goes away).
 func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string, yes bool, flags *rootFlags) error {
-	order, states, err := kindClusterStates(cfg, clusterName)
+	order, states, err := lifecycle.ClusterStates(cfg, clusterName)
 	if err != nil {
 		return err
 	}
@@ -191,7 +192,7 @@ func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string
 		}
 	}
 	if idx < 0 {
-		_, err := linkedCluster(clusterName, name, states)
+		_, err := lifecycle.FindLinkedCluster(clusterName, name, states)
 		return err
 	}
 	if !kindClusterExists(clusterName) {
@@ -215,14 +216,14 @@ func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string
 	}
 	defer rep.Close()
 
-	runLinkedTeardown([]config.KindCluster{l}, clusterName, baseDir, rep)
+	lifecycle.RunLinkedTeardown([]config.KindCluster{l}, clusterName, baseDir, rep)
 	if kindClusterExists(target) {
-		if err := destroyKindCluster(target, rep); err != nil {
+		if err := lifecycle.DestroyKindCluster(target, rep); err != nil {
 			return fmt.Errorf("could not remove linked cluster %s, nothing was recreated: %w", target, err)
 		}
 	}
 
-	if err := prepareSharedCA(cfg, clusterName); err != nil { // the lab's existing CA
+	if err := lifecycle.PrepareSharedCA(cfg, clusterName); err != nil { // the lab's existing CA
 		return err
 	}
 	byName := map[string]cluster.LinkState{}
@@ -234,20 +235,20 @@ func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string
 		deps = append(deps, byName[d])
 	}
 	rep.Section("Linked cluster '%s'", l.Name)
-	if _, _, err := upLab(kindClusterConfig(cfg, l), baseDir, target, deps, false, rep); err != nil {
+	if _, _, err := lifecycle.Up(lifecycle.LinkedClusterConfig(cfg, l), baseDir, target, deps, false, rep); err != nil {
 		return fmt.Errorf("linked cluster '%s' (%s): %w", l.Name, target, err)
 	}
-	if err := applyWANStep(target, l.WAN, rep); err != nil {
+	if err := lifecycle.ApplyWAN(target, l.WAN, rep); err != nil {
 		return fmt.Errorf("linked cluster '%s' (%s): %w", l.Name, target, err)
 	}
 	// Its node has a new IP; every cluster of the lab needs to know it.
-	refreshLinkNames(clusterName, false, rep)
+	lifecycle.RefreshLinkNames(clusterName, false, rep)
 
 	var forwards []portforward.Forward
 	for _, pf := range cfg.Runtime.PortForwards {
 		if pf.Cluster == l.Name {
 			rep.Section("Port forwards")
-			forwards, err = startLabPortForwards(clusterName, cfg.Runtime.PortForwards, rep)
+			forwards, err = lifecycle.StartPortForwards(clusterName, cfg.Runtime.PortForwards, rep)
 			if err != nil {
 				rep.Warn("some port forwards could not be restarted — `astrona port-forward start -c <config>`")
 			}

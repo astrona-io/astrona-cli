@@ -17,6 +17,7 @@ import (
 	"astrona/internal/bundle"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/lifecycle"
 	"astrona/internal/trust"
 	"astrona/internal/ui"
 
@@ -149,7 +150,7 @@ func newBundleCreateCmd(flags *rootFlags) *cobra.Command {
 			if strings.HasPrefix(baseDir, "http") {
 				return fmt.Errorf("bundle a local or --git lab (a URL-only config has no lab directory to pack)")
 			}
-			if err := validateLabForRun(cfg); err != nil {
+			if err := lifecycle.Validate(cfg); err != nil {
 				return err
 			}
 			if nodeImage == "" {

@@ -8,6 +8,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
@@ -76,7 +77,7 @@ func newStopCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			labs := append([]string{lab}, ownedClusters(lab, nil)...)
+			labs := append([]string{lab}, lifecycle.OwnedClusters(lab, nil)...)
 			// Refuse an HA cluster before touching anything else.
 			for _, l := range labs {
 				cs, _, err := cluster.KindNodeContainers(l)
@@ -150,7 +151,7 @@ func newStartCmd(flags *rootFlags) *cobra.Command {
 			defer rep.Close()
 
 			// Linked clusters first — the lab's workloads may call them.
-			linked := ownedClusters(lab, nil)
+			linked := lifecycle.OwnedClusters(lab, nil)
 			saved, _ := cluster.ReadLinks(lab)
 			for _, c := range linked {
 				rep.Section("Linked cluster %s", c)
@@ -160,7 +161,7 @@ func newStartCmd(flags *rootFlags) *cobra.Command {
 				// A restart drops netem — re-apply the configured conditions.
 				for _, l := range saved {
 					if l.Cluster == c {
-						if err := applyWANStep(c, l.WAN, rep); err != nil {
+						if err := lifecycle.ApplyWAN(c, l.WAN, rep); err != nil {
 							rep.Warn("could not re-apply wan conditions on %s: %s", c, err)
 						}
 					}
@@ -174,7 +175,7 @@ func newStartCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			// Node IPs may have changed with the restart.
-			refreshLinkNames(lab, false, rep)
+			lifecycle.RefreshLinkNames(lab, false, rep)
 
 			health, _ := kindAPIHealth(lab)
 			rep.Close()
@@ -206,7 +207,7 @@ func startLab(lab string, rep *ui.Reporter) ([]portforward.Forward, error) {
 		return nil, nil
 	}
 	rep.Section("Port forwards")
-	forwards, err := startLabPortForwards(lab, saved, rep)
+	forwards, err := lifecycle.StartPortForwards(lab, saved, rep)
 	if err != nil {
 		rep.Warn("some port forwards could not be restarted — `astrona port-forward start -c <config>`")
 	}

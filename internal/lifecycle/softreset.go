@@ -1,12 +1,6 @@
-package main
+package lifecycle
 
 import (
-	"fmt"
-	"os/exec"
-	"slices"
-	"strings"
-	"time"
-
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
@@ -14,6 +8,11 @@ import (
 	"astrona/internal/portforward"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
+	"fmt"
+	"os/exec"
+	"slices"
+	"strings"
+	"time"
 )
 
 // softResetKinds are the namespaced kinds a soft reset clears out of the
@@ -102,16 +101,16 @@ func softResetCluster(cfg *config.LabConfig, baseDir string, env *runtime.LabEnv
 	}
 	t.Done()
 
-	if err := bootstrapLab(cfg, baseDir, env, rep); err != nil {
+	if err := Bootstrap(cfg, baseDir, env, rep); err != nil {
 		return fmt.Errorf("bootstrap after the soft reset failed — `astrona reset` (without --soft) starts over completely: %w", err)
 	}
 	return nil
 }
 
-// softResetLab soft-resets the running lab clusterName: each linked
+// SoftReset soft-resets the running lab clusterName: each linked
 // cluster in start order (or only the one named), then the lab's own —
 // and restarts the lab's port forwards, whose targets were recreated.
-func softResetLab(cfg *config.LabConfig, baseDir, clusterName, only string, rep *ui.Reporter) ([]portforward.Forward, error) {
+func SoftReset(cfg *config.LabConfig, baseDir, clusterName, only string, rep *ui.Reporter) ([]portforward.Forward, error) {
 	if err := softResetClusters(cfg, baseDir, clusterName, only, rep); err != nil {
 		return nil, err
 	}
@@ -119,7 +118,7 @@ func softResetLab(cfg *config.LabConfig, baseDir, clusterName, only string, rep 
 		return nil, nil
 	}
 	rep.Section("Port forwards")
-	forwards, err := startLabPortForwards(clusterName, cfg.Runtime.PortForwards, rep)
+	forwards, err := StartPortForwards(clusterName, cfg.Runtime.PortForwards, rep)
 	if err != nil {
 		rep.Warn("some port forwards could not be restarted — `astrona port-forward start`")
 	}
@@ -130,15 +129,15 @@ func softResetClusters(cfg *config.LabConfig, baseDir, clusterName, only string,
 	if cfg.Runtime.Type != "" && cfg.Runtime.Type != string(runtime.RuntimeKind) {
 		return fmt.Errorf("reset --soft supports kind labs only — use `astrona reset`")
 	}
-	if !kindClusterExists(clusterName) {
+	if !cluster.Exists(clusterName) {
 		return fmt.Errorf("lab %s isn't running — `astrona run` creates it", clusterName)
 	}
-	order, states, err := kindClusterStates(cfg, clusterName)
+	order, states, err := ClusterStates(cfg, clusterName)
 	if err != nil {
 		return err
 	}
 	if only != "" {
-		if _, err := linkedCluster(clusterName, only, states); err != nil {
+		if _, err := FindLinkedCluster(clusterName, only, states); err != nil {
 			return err
 		}
 	}
@@ -150,7 +149,7 @@ func softResetClusters(cfg *config.LabConfig, baseDir, clusterName, only string,
 		if only != "" && l.Name != only {
 			continue
 		}
-		sub := kindClusterConfig(cfg, l)
+		sub := LinkedClusterConfig(cfg, l)
 		env, err := runtime.LoadEnvironment(states[i].Cluster, sub.Runtime)
 		if err != nil {
 			return fmt.Errorf("linked cluster '%s': %w", l.Name, err)
@@ -160,7 +159,7 @@ func softResetClusters(cfg *config.LabConfig, baseDir, clusterName, only string,
 			deps = append(deps, byName[d])
 		}
 		env.WithLinks(deps)
-		env.AddEnv(labCAEnv(clusterName)...)
+		env.AddEnv(CAEnv(clusterName)...)
 		rep.Section("Linked cluster '%s'", l.Name)
 		if err := softResetCluster(sub, baseDir, env, rep); err != nil {
 			return fmt.Errorf("linked cluster '%s': %w", l.Name, err)
@@ -174,9 +173,9 @@ func softResetClusters(cfg *config.LabConfig, baseDir, clusterName, only string,
 	if err != nil {
 		return err
 	}
-	links, _ := labLinks(clusterName)
+	links, _ := Links(clusterName)
 	env.WithLinks(links)
-	env.AddEnv(labCAEnv(clusterName)...)
+	env.AddEnv(CAEnv(clusterName)...)
 	rep.Section("Lab: %s", cfg.Metadata.Name)
 	if err := softResetCluster(cfg, baseDir, env, rep); err != nil {
 		return err

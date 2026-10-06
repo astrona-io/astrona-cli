@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"astrona/internal/config"
+	"astrona/internal/lifecycle"
 	"astrona/internal/scripts"
 
 	"github.com/spf13/cobra"
@@ -37,7 +38,7 @@ func labConfigResults(cfg *config.LabConfig, baseDir string) []checkResult {
 	if cfg.Metadata.Name == "" {
 		fail("metadata.name", "missing — the lab would be named 'astrona-lab'")
 	}
-	if err := validateLabForRun(cfg); err != nil {
+	if err := lifecycle.Validate(cfg); err != nil {
 		fail("runtime / gates", err.Error())
 	}
 	for i, c := range cfg.Validation.Checks {

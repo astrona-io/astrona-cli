@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"astrona/internal/config"
+	"astrona/internal/lifecycle"
 
 	"github.com/spf13/cobra"
 )
@@ -64,7 +65,7 @@ func clusterFlagCompletion(flags *rootFlags, nameArg bool) func(*cobra.Command, 
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
 		var names []string
 		if nameArg && len(args) > 0 {
-			links, _ := labLinks(config.NormalizeClusterName(args[0]))
+			links, _ := lifecycle.Links(config.NormalizeClusterName(args[0]))
 			for _, l := range links {
 				names = append(names, l.Name)
 			}

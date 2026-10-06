@@ -10,6 +10,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/lifecycle"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
 
@@ -73,22 +74,6 @@ func labKubeconfig(lab string) (string, error) {
 	return cluster.WriteLabKubeconfig(lab, ui.Discard())
 }
 
-// linkedCluster finds the kind cluster of linked cluster name in lab's
-// links, with a helpful error naming the ones it has.
-func linkedCluster(lab, name string, links []cluster.LinkState) (string, error) {
-	var names []string
-	for _, l := range links {
-		if l.Name == name {
-			return l.Cluster, nil
-		}
-		names = append(names, l.Name)
-	}
-	if len(names) == 0 {
-		return "", fmt.Errorf("lab %s has no linked clusters (runtime.kind.clusters)", lab)
-	}
-	return "", fmt.Errorf("lab %s has no linked cluster '%s' — it has: %s", lab, name, strings.Join(names, ", "))
-}
-
 // shellKubeconfigs is the KUBECONFIG list for a lab shell: the lab's own
 // kubeconfig and every linked cluster's, with target's first (kubectl
 // merges the list; the first file's current-context wins). target "" is
@@ -127,8 +112,8 @@ func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			if clusterFlag != "" {
-				links, _ := labLinks(lab)
-				if lab, err = linkedCluster(lab, clusterFlag, links); err != nil {
+				links, _ := lifecycle.Links(lab)
+				if lab, err = lifecycle.FindLinkedCluster(lab, clusterFlag, links); err != nil {
 					return err
 				}
 			}
@@ -191,17 +176,17 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 			// Linked clusters' kubeconfigs join the lab's own, so `kubectl
 			// --context kind-<linked cluster>` works in the shell too; --cluster
 			// puts one first, making it the default context.
-			links, linkEnv := labLinks(lab)
+			links, linkEnv := lifecycle.Links(lab)
 			target := lab
 			if clusterFlag != "" {
-				if target, err = linkedCluster(lab, clusterFlag, links); err != nil {
+				if target, err = lifecycle.FindLinkedCluster(lab, clusterFlag, links); err != nil {
 					return err
 				}
 			}
 			kubeconfigs := shellKubeconfigs(kubeconfig, target, links, cluster.ExistingKubeconfig)
 			env := append(os.Environ(), "KUBECONFIG="+strings.Join(kubeconfigs, string(os.PathListSeparator)), labShellEnvVar+"="+lab)
 			env = append(env, linkEnv...)
-			env = append(env, labCAEnv(lab)...)
+			env = append(env, lifecycle.CAEnv(lab)...)
 
 			if len(command) > 0 {
 				c := exec.Command(command[0], command[1:]...)

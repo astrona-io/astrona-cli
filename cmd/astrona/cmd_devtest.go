@@ -7,6 +7,7 @@ import (
 
 	"astrona/internal/config"
 	"astrona/internal/junit"
+	"astrona/internal/lifecycle"
 	"astrona/internal/manifests"
 	"astrona/internal/proctor"
 	"astrona/internal/runtime"
@@ -153,20 +154,20 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 	// lab's, so it runs after it (LIFO) — even on failure.
 	defer func() {
 		if !cfg.Teardown.KeepCluster { // kept with the lab, like its own cluster
-			destroyOwnedClusters(ownedClusters(clusterName, cfg.KindClusters()), rep)
+			lifecycle.DestroyOwnedClusters(lifecycle.OwnedClusters(clusterName, cfg.KindClusters()), rep)
 		}
 	}()
-	if err := prepareSharedCA(cfg, clusterName); err != nil {
+	if err := lifecycle.PrepareSharedCA(cfg, clusterName); err != nil {
 		return nil, false, err
 	}
-	links, err := startKindClusters(cfg, baseDir, clusterName, true, flags.parallel, rep)
+	links, err := lifecycle.StartLinkedClusters(cfg, baseDir, clusterName, true, flags.parallel, rep)
 	if err != nil {
 		return nil, false, err
 	}
 
 	// The same pipeline as `astrona run`, as a test copy (no host ports,
 	// no port forwards).
-	env, _, upErr := upLab(cfg, baseDir, clusterName, links, true, rep)
+	env, _, upErr := lifecycle.Up(cfg, baseDir, clusterName, links, true, rep)
 	if env == nil {
 		// Creation failed partway — kind may already have made the cluster.
 		if err := runtime.DestroyEnvironment(clusterName, cfg.Runtime, rep); err != nil {
@@ -188,7 +189,7 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 				rep.Warn("teardown scripts failed: %s", err)
 			}
 		}
-		runLinkedTeardown(cfg.KindClusters(), clusterName, baseDir, rep)
+		lifecycle.RunLinkedTeardown(cfg.KindClusters(), clusterName, baseDir, rep)
 
 		if cfg.Teardown.KeepCluster {
 			rep.Info("keepCluster is set, leaving cluster '%s' running.", clusterName)
@@ -214,7 +215,7 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 			continue
 		}
 		name := config.LinkedClusterName(clusterName, l.Name)
-		linkEnv, err := runtime.LoadEnvironment(name, kindClusterConfig(cfg, l).Runtime)
+		linkEnv, err := runtime.LoadEnvironment(name, lifecycle.LinkedClusterConfig(cfg, l).Runtime)
 		if err != nil {
 			return nil, false, fmt.Errorf("linked cluster '%s': %w", l.Name, err)
 		}
