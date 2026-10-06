@@ -139,7 +139,8 @@ func astronaDepChecks() []depCheck {
 // own toolchain) is a non-zero exit; a missing optional one (qemu, git) is
 // a warning only, since it's only needed for a specific runtime or flag.
 func newCheckCmd(flags *rootFlags) *cobra.Command {
-	return &cobra.Command{
+	var output string
+	cmd := &cobra.Command{
 		Use:   "check",
 		Short: "Check this machine can run labs (tools, container engine, a lab's memory and ports)",
 		Long: "Check that astrona's dependencies are installed, that the container engine is running " +
@@ -149,6 +150,12 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 			"Exits non-zero on any ✗; ⚠ warnings don't fail.",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkOutput(output); err != nil {
+				return err
+			}
+			if output == "json" {
+				return checkAsJSON(cmd, flags)
+			}
 			checks := astronaDepChecks()
 
 			missingRequired := 0
@@ -206,4 +213,39 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 			return nil
 		},
 	}
+	addOutputFlag(cmd, &output)
+	return cmd
+}
+
+// checkAsJSON is `astrona check -o json`: the same checks as one document.
+func checkAsJSON(cmd *cobra.Command, flags *rootFlags) error {
+	rep := &report{json: true}
+	var deps []checkResult
+	for _, c := range astronaDepChecks() {
+		found, detail := c.find()
+		switch {
+		case found:
+			deps = append(deps, checkResult{name: c.name, detail: detail})
+		case c.required:
+			deps = append(deps, checkResult{status: checkFail, name: c.name, detail: c.note, hint: "install: " + c.installHint})
+		default:
+			deps = append(deps, checkResult{status: checkWarn, name: c.name, detail: c.note, hint: "install: " + c.installHint})
+		}
+	}
+	rep.section("Dependencies", deps)
+	envRes, engine := checkEngine()
+	if goruntime.GOOS == "linux" {
+		envRes = append(envRes, checkInotify("/proc")...)
+	}
+	rep.section("Container engine", envRes)
+	explicit := cmd.Flags().Changed("config") || cmd.Flags().Changed("file") || cmd.Flags().Changed("git")
+	cfg, baseDir, cleanup, err := loadLabForCheck(flags, explicit)
+	defer cleanup()
+	if err != nil {
+		return err
+	}
+	if cfg != nil {
+		rep.section("Lab "+config.NormalizeClusterName(cfg.Metadata.Name), checkLab(cfg, baseDir, engine))
+	}
+	return rep.done(fmt.Errorf("%d check(s) failed", failedCount(rep.results)))
 }

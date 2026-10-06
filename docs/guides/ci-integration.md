@@ -98,6 +98,26 @@ Secrets, ConfigMaps and kubeconfigs are never collected. Pod `describe` output d
 
 The same bundle can be collected from a running lab with [`astrona diagnose`](../reference/cli/astrona_diagnose.md).
 
+## Machine-readable output: `-o json`
+
+Every command whose output is data takes `-o json` and then prints exactly one JSON document on stdout — progress, warnings and script output go to stderr — so it can be piped straight into `jq`, a script or a UI:
+
+| Command | JSON |
+|---|---|
+| `astrona submit -o json` | `{lab, pass, earned, max, percent, attempt, checks: [{name, pass, points, message, hint, durationMs}]}` (hints left out under exam conditions; still recorded as an attempt; exit codes as above) |
+| `astrona submit --history -o json` | the recorded attempts |
+| `astrona status -o json` | health, context, port forwards, linked clusters, exam clock, last attempt, suggested next step |
+| `astrona validate` / `check` / `doctor -o json` | `{ok, problems, results: [{section, name, status: ok\|warn\|fail, detail, fix}]}` — exit code still non-zero on any `fail` |
+| `astrona list` / `port-forward list` / `progress` / `logs list` / `images list` / `versions list -o json` | the listed items |
+| `astrona use -o json` | the current lab, or `null` |
+
+```sh
+astrona submit -o json | jq -r '.checks[] | select(.pass | not) | .name'   # what failed
+astrona doctor -o json | jq '.results[] | select(.status == "fail")'
+```
+
+`--watch` modes redraw a live view and don't combine with `-o json`.
+
 ## Other CI systems
 
 The same commands (`astrona check`, `astrona validate -c <path>`, `astrona test -c <path> --junit-xml=<path> --diagnostics-dir=<path>`, upload the XML and — on failure — the diagnostics directory) work anywhere that can run a Linux binary and understands JUnit XML — GitLab CI (`artifacts: reports: junit:`), Jenkins (`junit` post-build step), etc.

@@ -96,6 +96,10 @@ func (p *Proctor) Quiet() {
 	p.podReadyTimeout = 2 * time.Second
 }
 
+// ScriptOutputTo sends validation scripts' output to w instead of stdout —
+// e.g. stderr, when stdout carries a JSON result.
+func (p *Proctor) ScriptOutputTo(w io.Writer) { p.scriptOut = w }
+
 // HideHints suppresses failed checks' hints in Grade's report (e.g. exam
 // conditions).
 func (p *Proctor) HideHints() { p.hideHints = true }

@@ -140,7 +140,8 @@ func docRefs(cfg *config.LabConfig) map[string]string {
 }
 
 func newValidateCmd(flags *rootFlags) *cobra.Command {
-	return &cobra.Command{
+	var output string
+	cmd := &cobra.Command{
 		Use:   "validate [lab]",
 		Short: "Check a lab config for mistakes without running anything",
 		Long: "Check a lab config (-c/--file/--git) without creating anything: unknown fields (typos " +
@@ -153,7 +154,10 @@ func newValidateCmd(flags *rootFlags) *cobra.Command {
   astrona validate --git https://github.com/org/labs --config labs/lab-01`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			useLabArg(args, flags) // a lab given as the argument wins over `astrona use`
+			useLabArg(args, flags)
+			if err := checkOutput(output); err != nil {
+				return err
+			} // a lab given as the argument wins over `astrona use`
 			finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
 			if err != nil {
 				return withNoLabHint(err, flags)
@@ -178,13 +182,20 @@ func newValidateCmd(flags *rootFlags) *cobra.Command {
 				baseDir = filepath.Dir(finalPath)
 			}
 
-			if failed := printCheckResults(finalPath, labConfigResults(cfg, baseDir)); failed > 0 {
+			rep := &report{json: output == "json"}
+			failed := rep.section(finalPath, labConfigResults(cfg, baseDir))
+			if rep.json {
+				return rep.done(fmt.Errorf("%d problem(s) in the lab config", failed))
+			}
+			if failed > 0 {
 				return fmt.Errorf("%d problem(s) in the lab config", failed)
 			}
 			fmt.Println("\nLab config is valid.")
 			return nil
 		},
 	}
+	addOutputFlag(cmd, &output)
+	return cmd
 }
 
 func sortedKeysOf(m map[string]string) []string {

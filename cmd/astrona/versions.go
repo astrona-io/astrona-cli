@@ -246,14 +246,17 @@ func newVersionsCmd() *cobra.Command {
 			"e.g. in CI).\n\n" +
 			"Downloads are verified against the SHA-256 digest GitHub records for each release " +
 			"binary. Add ~/.astrona/bin to your PATH to run e.g. astrona-0.2.1 directly.",
-		RunE: func(cmd *cobra.Command, args []string) error { return listVersions() },
+		RunE: func(cmd *cobra.Command, args []string) error { return listVersions("") },
 	}
-	cmd.AddCommand(&cobra.Command{
+	var output string
+	list := &cobra.Command{
 		Use:   "list",
 		Short: "List this astrona and the older versions installed next to it",
 		Args:  cobra.NoArgs,
-		RunE:  func(cmd *cobra.Command, args []string) error { return listVersions() },
-	})
+		RunE:  func(cmd *cobra.Command, args []string) error { return listVersions(output) },
+	}
+	addOutputFlag(list, &output)
+	cmd.AddCommand(list)
 	cmd.AddCommand(&cobra.Command{
 		Use:               "install <version>",
 		ValidArgsFunction: versionCompletion(false),
@@ -320,7 +323,24 @@ func newVersionsCmd() *cobra.Command {
 	return cmd
 }
 
-func listVersions() error {
+func listVersions(output string) error {
+	if err := checkOutput(output); err != nil {
+		return err
+	}
+	if output == "json" {
+		type entry struct {
+			Version string `json:"version"`
+			Path    string `json:"path"`
+		}
+		out := struct {
+			Current   entry   `json:"current"`
+			Installed []entry `json:"installed"`
+		}{Current: entry{Version: Version, Path: executablePath()}, Installed: []entry{}}
+		for _, iv := range installedVersions() {
+			out.Installed = append(out.Installed, entry{Version: iv.v.String(), Path: iv.path})
+		}
+		return printJSON(out)
+	}
 	fmt.Printf("astrona %s  (%s)\n", Version, executablePath())
 	vs := installedVersions()
 	if len(vs) == 0 {

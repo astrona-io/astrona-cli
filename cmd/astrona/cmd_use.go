@@ -132,6 +132,7 @@ func isGitURL(s string) bool {
 
 func newUseCmd(flags *rootFlags) *cobra.Command {
 	var forget bool
+	var output string
 	cmd := &cobra.Command{
 		Use:   "use [lab]",
 		Short: "Pick the lab every other command works on (like kubectl's current context)",
@@ -159,6 +160,12 @@ func newUseCmd(flags *rootFlags) *cobra.Command {
 				c, err := loadCurrentLab()
 				if err != nil {
 					return err
+				}
+				if err := checkOutput(output); err != nil {
+					return err
+				}
+				if output == "json" {
+					return printJSON(c) // null when no lab is picked
 				}
 				if c == nil {
 					fmt.Println("No current lab. Pick one: astrona use <lab-dir | config URL | git URL>")
@@ -201,6 +208,7 @@ func newUseCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&forget, "clear", false, "Forget the current lab")
+	addOutputFlag(cmd, &output)
 	return cmd
 }
 

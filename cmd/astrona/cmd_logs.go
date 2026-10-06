@@ -94,7 +94,10 @@ func newLogsListCmd() *cobra.Command {
 	}
 
 	bindListFilters(cmd, &lf)
-	cmd.Flags().StringVar(&format, "format", "table", "Output format: table, json, yaml")
+	cmd.Flags().StringVarP(&format, "output", "o", "table", "Output format: table, json, yaml")
+	// --format: its name before -o/--output, kept working.
+	cmd.Flags().StringVar(&format, "format", "table", "Same as --output")
+	_ = cmd.Flags().MarkHidden("format")
 	return cmd
 }
 

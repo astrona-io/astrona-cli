@@ -26,6 +26,7 @@ const maxDoctorPods = 5
 
 func newDoctorCmd(flags *rootFlags) *cobra.Command {
 	var bundle bool
+	var output string
 	cmd := &cobra.Command{
 		Use:   "doctor [lab]",
 		Short: "Find out why something isn't working: this machine, the lab config and the running lab",
@@ -46,15 +47,19 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			useLabArg(args, flags)
+			if err := checkOutput(output); err != nil {
+				return err
+			}
+			rep := &report{json: output == "json"}
 			failed := 0
 
 			machine, engine := doctorMachine()
-			failed += printCheckResults("This machine", machine)
+			failed += rep.section("This machine", machine)
 
 			cfg, baseDir, ok := doctorLoadLab(flags)
 			if !ok {
-				fmt.Printf("\nNo lab here — pass one (astrona doctor ./path/to/lab), -c, or pick one with `astrona use`.\n")
-				return doctorVerdict(failed)
+				rep.note("\nNo lab here — pass one (astrona doctor ./path/to/lab), -c, or pick one with `astrona use`.\n")
+				return doctorVerdict(rep, failed)
 			}
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
 			running := kindClusterExists(clusterName) || qemuStateExists(clusterName)
@@ -65,13 +70,13 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 			} else {
 				labRes = append(labRes, checkLab(cfg, baseDir, engine)...)
 			}
-			failed += printCheckResults("Lab "+cfg.Metadata.Name, labRes)
+			failed += rep.section("Lab "+cfg.Metadata.Name, labRes)
 
 			if !running {
-				fmt.Printf("\nThe lab isn't running — start it: astrona run\n")
-				return doctorVerdict(failed)
+				rep.note("\nThe lab isn't running — start it: astrona run\n")
+				return doctorVerdict(rep, failed)
 			}
-			failed += printCheckResults("Running lab "+clusterName, doctorRunning(clusterName))
+			failed += rep.section("Running lab "+clusterName, doctorRunning(clusterName))
 
 			if bundle {
 				if env, err := runtime.LoadEnvironment(clusterName, cfg.Runtime); err == nil {
@@ -80,17 +85,22 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 					rep.Close()
 				}
 			}
-			return doctorVerdict(failed)
+			return doctorVerdict(rep, failed)
 		},
 	}
 	cmd.Flags().BoolVar(&bundle, "bundle", false, "Also write the full diagnostics bundle of the running lab")
+	addOutputFlag(cmd, &output)
 	return cmd
 }
 
-func doctorVerdict(failed int) error {
+func doctorVerdict(rep *report, failed int) error {
+	err := fmt.Errorf("%d problem(s) found — the ✗ lines above say how to fix each", failed)
+	if rep.json {
+		return rep.done(err)
+	}
 	fmt.Println()
 	if failed > 0 {
-		return fmt.Errorf("%d problem(s) found — the ✗ lines above say how to fix each", failed)
+		return err
 	}
 	fmt.Println("No problems found. (⚠ lines are worth a look but don't block anything.)")
 	return nil
@@ -131,7 +141,7 @@ func doctorLoadLab(flags *rootFlags) (*config.LabConfig, string, bool) {
 	}
 	cfg, cleanup, err := config.LoadLabConfig(path)
 	if err != nil {
-		fmt.Printf("\n%s %s\n", ui.Paint(os.Stdout, "✗", ui.Red), err)
+		fmt.Fprintf(os.Stderr, "\n%s %s\n", ui.Paint(os.Stderr, "✗", ui.Red), err)
 		return nil, "", false
 	}
 	cleanup()

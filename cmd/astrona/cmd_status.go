@@ -87,7 +87,8 @@ func resolveStatusLab(labArg string, flags *rootFlags) (string, *config.LabConfi
 }
 
 func newStatusCmd(flags *rootFlags) *cobra.Command {
-	return &cobra.Command{
+	var output string
+	cmd := &cobra.Command{
 		Use:               "status [lab-name]",
 		Short:             "One-screen overview of a lab: health, access, exam clock, last result",
 		ValidArgsFunction: labCompletion(nil),
@@ -96,6 +97,9 @@ func newStatusCmd(flags *rootFlags) *cobra.Command {
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only running lab.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkOutput(output); err != nil {
+				return err
+			}
 			name, cfg, cleanup, err := resolveStatusLab(firstArg(args), flags)
 			if err != nil {
 				return err
@@ -120,10 +124,70 @@ func newStatusCmd(flags *rootFlags) *cobra.Command {
 					st.linkRows[l.Cluster] = r
 				}
 			}
+			if output == "json" {
+				return printJSON(statusJSON(st))
+			}
 			printLabStatus(os.Stdout, st)
 			return nil
 		},
 	}
+	addOutputFlag(cmd, &output)
+	return cmd
+}
+
+type statusResult struct {
+	Name           string              `json:"name"`
+	Runtime        string              `json:"runtime"`
+	Status         string              `json:"status"`
+	Kubernetes     string              `json:"kubernetes,omitempty"`
+	Uptime         string              `json:"uptime,omitempty"`
+	Context        string              `json:"context,omitempty"`
+	PortForwards   []forwardJSON       `json:"portForwards"`
+	LinkedClusters []linkedClusterJSON `json:"linkedClusters"`
+	Exam           *examJSON           `json:"exam,omitempty"`
+	Attempts       int                 `json:"attempts"`
+	LastAttempt    *proctor.Attempt    `json:"lastAttempt,omitempty"`
+	Next           string              `json:"next"`
+}
+
+type linkedClusterJSON struct {
+	Name     string `json:"name"`
+	Cluster  string `json:"cluster"`
+	Status   string `json:"status"`
+	Hostname string `json:"hostname"`
+}
+
+type examJSON struct {
+	StartedAt        time.Time `json:"startedAt"`
+	LimitSeconds     int64     `json:"limitSeconds"`
+	RemainingSeconds int64     `json:"remainingSeconds"`
+	Over             bool      `json:"over"`
+}
+
+func statusJSON(st labStatus) statusResult {
+	out := statusResult{Name: st.row.name, Runtime: st.row.runtime, Status: st.row.status, Uptime: st.row.uptime,
+		PortForwards: forwardsJSON(st.forwards), LinkedClusters: []linkedClusterJSON{}, Attempts: len(st.attempts), Next: nextStep(st)}
+	if st.row.version != "-" {
+		out.Kubernetes = st.row.version
+	}
+	if st.row.runtime == "kind" {
+		out.Context = "kind-" + st.row.name
+	}
+	for _, l := range st.links {
+		status := "not running"
+		if r, ok := st.linkRows[l.Cluster]; ok {
+			status = r.status
+		}
+		out.LinkedClusters = append(out.LinkedClusters, linkedClusterJSON{Name: l.Name, Cluster: l.Cluster, Status: status, Hostname: l.Hostname()})
+	}
+	if st.exam != nil {
+		out.Exam = &examJSON{StartedAt: st.exam.StartedAt, LimitSeconds: int64(st.exam.Limit.Seconds()),
+			RemainingSeconds: int64(st.exam.Remaining(st.now).Seconds()), Over: st.exam.Over(st.now)}
+	}
+	if n := len(st.attempts); n > 0 {
+		out.LastAttempt = &st.attempts[n-1]
+	}
+	return out
 }
 
 func printLabStatus(w io.Writer, st labStatus) {

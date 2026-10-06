@@ -29,19 +29,43 @@ func newImagesCmd() *cobra.Command {
 }
 
 func newImagesListCmd() *cobra.Command {
-	return &cobra.Command{
+	var output string
+	cmd := &cobra.Command{
 		Use:          "list",
 		Short:        "List cached qemu base images (~/.astrona/cache/images)",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkOutput(output); err != nil {
+				return err
+			}
 			entries, err := listImageCache()
 			if err != nil {
 				return err
+			}
+			if output == "json" {
+				out := make([]imageJSON, 0, len(entries))
+				for _, e := range entries {
+					out = append(out, imageJSON{File: e.file, Source: e.source, Type: e.imageType, Verified: e.verified,
+						Digest: e.digest, SizeBytes: e.sizeBytes, CachedAt: e.cachedAt})
+				}
+				return printJSON(out)
 			}
 			printImageCacheTable(entries)
 			return nil
 		},
 	}
+	addOutputFlag(cmd, &output)
+	return cmd
+}
+
+type imageJSON struct {
+	File      string    `json:"file"`
+	Source    string    `json:"source,omitempty"`
+	Type      string    `json:"type,omitempty"`
+	Verified  bool      `json:"verified"`
+	Digest    string    `json:"digest,omitempty"`
+	SizeBytes int64     `json:"sizeBytes"`
+	CachedAt  time.Time `json:"cachedAt,omitzero"`
 }
 
 // imageCacheEntry is one row of `astrona images list` — a cached *.qcow2 in
