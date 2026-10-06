@@ -2659,6 +2659,7 @@
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  idp/
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    bootstrap/            # sets up the idp cluster
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    testing/              # the idp cluster's part of the reference solution
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    teardown/             # its teardown scripts
 </code></pre></div>
 <h2 id="reaching-a-linked-cluster">Reaching a linked cluster<a class="headerlink" href="#reaching-a-linked-cluster" title="Permanent link">&para;</a></h2>
 <p>All kind clusters share one container network, so pods and host scripts can reach a linked cluster's <strong>node</strong> by its container name — <code>&lt;cluster&gt;-control-plane</code>. Publish what the lab should reach as a <strong>NodePort</strong> Service with a fixed <code>nodePort</code>:</p>
@@ -2745,7 +2746,7 @@
 </tr>
 <tr>
 <td><code>astrona reset</code> / <code>destroy</code></td>
-<td>Removes them with the lab</td>
+<td>Runs the lab's teardown, then each linked cluster's <code>teardown.init</code> (reverse start order, <code>KUBECONFIG</code> pointing at it), then removes everything. <code>teardown.keepCluster</code> keeps them all</td>
 </tr>
 <tr>
 <td><code>astrona test</code></td>

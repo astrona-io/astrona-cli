@@ -3353,6 +3353,11 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <td>This cluster's part of the reference solution — <code>astrona test</code> applies it before the lab's own <code>testing</code></td>
 </tr>
 <tr>
+<td><code>teardown.init</code></td>
+<td>list of <a href="#resourceitem">ResourceItem</a></td>
+<td>Best-effort scripts run before the lab is destroyed: after the lab's own teardown, in reverse start order, with <code>KUBECONFIG</code> pointing at this cluster. (Whether clusters are kept is the lab's <code>teardown.keepCluster</code>)</td>
+</tr>
+<tr>
 <td><code>dependsOn</code></td>
 <td>list of strings</td>
 <td>Other linked clusters (names) that must be up and ready — bootstrap and <code>waitFor</code> done — before this one is created. Its scripts get their <code>ASTRONA_LINK_*</code> addresses (and its cluster their <code>astrona-links</code> ConfigMap). Unknown names, self-dependencies and cycles are rejected</td>
@@ -3653,7 +3658,7 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <tr>
 <td><code>keepCluster</code></td>
 <td>bool</td>
-<td>Skip destroying the environment after teardown scripts run</td>
+<td>Skip destroying the environment (linked clusters included) after teardown scripts run</td>
 </tr>
 </tbody>
 </table>
