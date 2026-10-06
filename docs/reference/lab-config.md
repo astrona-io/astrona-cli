@@ -52,7 +52,7 @@ teardown: {}     # TeardownConfig
 | `docs.caseStudy` | string | Path to a softer, hint-driven version of the same task |
 | `docs.guide` | string | Path to the full step-by-step walkthrough |
 
-Doc paths are relative to `config.yaml` and must stay inside the lab directory; students read them with [`astrona docs`](cli/astrona_docs.md).
+Doc paths are relative to `config.yaml` and must stay inside the lab directory (absolute paths are rejected); students read them with [`astrona docs`](cli/astrona_docs.md).
 
 ## `runtime`
 

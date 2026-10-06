@@ -41,7 +41,8 @@ func labDocs(cfg *config.LabConfig) []labDoc {
 }
 
 // readLabDoc reads a doc relative to the lab's config: within baseDir for
-// a local/git config (JoinWithinBaseDir — a doc path can't escape it), or
+// a local/git config (JoinStrictlyWithinBaseDir — a doc path must be
+// relative and can't escape it), or
 // resolved against the config's URL (https only, size-capped) for a remote
 // config.
 func readLabDoc(configPath, docPath string) (string, error) {
@@ -67,7 +68,7 @@ func readLabDoc(configPath, docPath string) (string, error) {
 		return string(data), err
 	}
 
-	full, err := config.JoinWithinBaseDir(filepath.Dir(configPath), docPath)
+	full, err := config.JoinStrictlyWithinBaseDir(filepath.Dir(configPath), docPath)
 	if err != nil {
 		return "", err
 	}
