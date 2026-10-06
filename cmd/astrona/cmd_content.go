@@ -21,7 +21,7 @@ import (
 func newContentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "content",
-		Short: "Manage and scaffold lab content (for teachers and authors)",
+		Short: "Validate, build and scaffold course content (sections of labs)",
 		Long:  "Manage and scaffold lab content inside the Astrona ecosystem. This command suite is specifically tailored for teachers, instructors, and content authors to help create, structure, and bootstrap hands-on labs (ATS) and course sections (ATP).",
 	}
 

@@ -35,6 +35,8 @@ just docs
 
 opens a live-reloading local copy. The CLI reference under `docs/reference/cli/` is **generated** (via `astrona docgen`, a hidden command wired into `just docs`/`just build-docs`) — don't hand-edit it, edit the command's `Short`/`Long`/flag descriptions in `cmd/astrona/cmd_*.go` instead.
 
+**Adding a command:** put it in a help group in `cmd/astrona/groups.go` (`astrona --help` lists commands by group, in workflow order) and add its generated page(s) to the matching group of the CLI Reference in `mkdocs.yml`. Unit tests fail if either is missing.
+
 Versioning and deployment (on push to `main` and on release tags) are handled by [`.github/workflows/docs.yml`](https://github.com/astrona-io/astrona-cli/blob/main/.github/workflows/docs.yml) — see that file for the exact `mike deploy` invocations.
 
 ## Security-sensitive areas

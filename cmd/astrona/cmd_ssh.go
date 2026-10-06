@@ -34,7 +34,7 @@ func newSSHCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:               "ssh <lab-name>",
 		ValidArgsFunction: labCompletion(isQEMU),
-		Short:             "SSH into a running qemu lab VM (name as shown by 'astrona list', with or without the 'astro-' prefix)",
+		Short:             "SSH into a running qemu lab's VM",
 		Args:              cobra.ExactArgs(1),
 		SilenceUsage:      true,
 		RunE: func(cmd *cobra.Command, args []string) error {
