@@ -69,6 +69,8 @@ func startKindClusters(cfg *config.LabConfig, baseDir, labCluster string, forTes
 		if err := startKindClustersParallel(cfg, order, states, baseDir, forTest, parallel, rep); err != nil {
 			return nil, err
 		}
+		// Clusters created earlier learn the names of later ones.
+		refreshLinkNames(labCluster, true, rep)
 		return states, nil
 	}
 	byName := map[string]cluster.LinkState{}
@@ -96,6 +98,8 @@ func startKindClusters(cfg *config.LabConfig, baseDir, labCluster string, forTes
 		}
 		byName[l.Name] = states[i]
 	}
+	// Clusters created earlier learn the names of later ones.
+	refreshLinkNames(labCluster, true, rep)
 	return states, nil
 }
 
