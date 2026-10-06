@@ -1,17 +1,11 @@
-// Renovate for astrona-cli — run by .github/workflows/renovate.yml as a
-// GitHub App (so its PRs trigger CI). One-time setup, by an org owner:
-//
-//   1. Org settings → Developer settings → GitHub Apps → New GitHub App
-//      (webhook off). Repository permissions: Contents, Pull requests,
-//      Issues, Workflows: read & write; Checks, Commit statuses,
-//      Dependabot alerts: read-only. Install it on astrona-cli only.
-//   2. Repo → Settings → Secrets and variables → Actions:
-//      variable RENOVATE_APP_CLIENT_ID = the app's Client ID,
-//      secret   RENOVATE_APP_PRIVATE_KEY = a generated private key (.pem).
+// Renovate for astrona-cli — run by Mend's hosted Renovate GitHub App
+// (installed on the astrona-io org; https://developer.mend.io shows its
+// jobs and logs). Its PRs trigger CI like any other PR.
 //
 // Auto-merge: Go module minor/patch updates are handed to GitHub's native
 // auto-merge, which merges only once the required checks on main (Lint,
-// Unit tests, E2E) pass. Major updates and the Go toolchain stay manual.
+// Unit tests, E2E) pass. Major updates, the Go toolchain and GitHub
+// Actions updates stay manual.
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: ['config:recommended'],
