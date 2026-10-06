@@ -848,6 +848,8 @@
       
         
       
+        
+      
     
     
     
@@ -992,6 +994,34 @@
     
   
     Offline Bundles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/linked-labs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linked Labs
   
 
     
@@ -2591,7 +2621,7 @@
 <a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">      </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5m</span>
 </code></pre></div>
 <ul>
-<li><code>init</code> — scripts run in order, through whichever executor the runtime provides (host bash for <code>kind</code>, SSH into the VM for <code>qemu</code>). A <code>folder</code> source runs every file inside in filename order — number them (<code>01-x.sh</code>, <code>02-y.sh</code>) to control ordering.</li>
+<li><code>init</code> — scripts run in order (on kind, after the cluster's DNS is up), through whichever executor the runtime provides (host bash for <code>kind</code>, SSH into the VM for <code>qemu</code>). A <code>folder</code> source runs every file inside in filename order — number them (<code>01-x.sh</code>, <code>02-y.sh</code>) to control ordering.</li>
 <li><code>manifests</code> — applied with <code>kubectl apply</code> against the cluster's context. Requires a <code>kind</code> runtime (or a runtime with a kubectl-reachable cluster) — <code>astrona run</code> errors out immediately if <code>bootstrap.manifests</code> is set on a runtime with none.</li>
 <li><code>waitFor</code> — readiness gates, checked in order after <code>manifests</code>. <code>kubectl apply</code> returns as soon as the API server accepts the objects, while pods may still be pulling images; without a gate, "ready" only means "applied". Each gate waits (default 2 minutes) for a rollout to finish or a condition to be met, and retries while its target doesn't exist yet (an operator creating it, a CRD still registering). If a gate times out, <code>astrona run</code> fails and prints the target's current state plus the namespace's recent events. kind only. See <a href="../../reference/lab-config/#waitfor"><code>WaitFor</code></a>.</li>
 </ul>
