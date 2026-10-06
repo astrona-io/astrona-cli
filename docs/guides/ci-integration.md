@@ -104,4 +104,18 @@ The same commands (`astrona check`, `astrona validate -c <path>`, `astrona test 
 
 ## Exit codes
 
-`astrona test` (and `astrona submit`) exit `0` only on a Proctor PASS. A missing dependency, a failed bootstrap step, or a FAIL verdict all exit non-zero — no extra flag needed to make CI fail correctly.
+`astrona test` and `astrona submit` exit `0` only on a Proctor PASS — anything else fails CI, no extra flag needed. The code tells you which kind of failure it was:
+
+| Exit code | Meaning |
+|---|---|
+| `0` | Graded, and the lab passed |
+| `1` | astrona, the lab's setup or the environment failed — a missing tool, a failed bootstrap step, a broken config, a lab that isn't running. Nothing was graded (or a `--repeat` run broke before grading) |
+| `2` | Graded, and the lab **didn't pass** — the checks ran and the solution is wrong (for `--repeat`: every failed run was graded, none broke) |
+
+So a pipeline can treat them differently, e.g. retry a `1` (infrastructure) but not a `2`:
+
+```sh
+astrona test -c . ; code=$?
+[ $code -eq 2 ] && echo "::error::the reference solution doesn't pass its own checks"
+exit $code
+```

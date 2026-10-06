@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"text/tabwriter"
@@ -121,5 +122,9 @@ func printRepeatSummary(w io.Writer, runs []testRun) error {
 		fmt.Fprintf(w, " · %d flaky check(s) — usually a missing waitFor before grading", flaky)
 	}
 	fmt.Fprintln(w)
-	return fmt.Errorf("%d of %d runs failed (%d flaky, %d always-failing check(s), %d setup failure(s))", failedRuns, len(runs), flaky, failing, setupFailures)
+	msg := fmt.Sprintf("%d of %d runs failed (%d flaky, %d always-failing check(s), %d setup failure(s))", failedRuns, len(runs), flaky, failing, setupFailures)
+	if setupFailures > 0 {
+		return errors.New(msg) // something broke, not just grading
+	}
+	return notPassed(msg)
 }

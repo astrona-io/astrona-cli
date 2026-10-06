@@ -38,7 +38,9 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			"grade it, and always tear down — proving the lab's own solution passes its checks.\n\n" +
 			"--repeat N runs the whole lifecycle N times on fresh environments and reports any check " +
 			"that doesn't pass every time (flaky), so race-prone checks are caught before students " +
-			"hit them.",
+			"hit them.\n\n" +
+			"Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong (setup, " +
+			"tools, config) — see the CI guide.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			useLabArg(args, flags) // a lab given as the argument wins over `astrona use`
@@ -234,7 +236,7 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 	}
 	if !pass {
 		fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, false, 0))
-		return results, false, fmt.Errorf("reference solution did not pass grading")
+		return results, false, notPassed("reference solution did not pass grading")
 	}
 	fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, true, 0))
 	return results, true, nil
