@@ -11,9 +11,9 @@ import (
 	"astrona/internal/config"
 )
 
-func TestScheduleKindLabsRespectsDependenciesAndLimit(t *testing.T) {
+func TestScheduleKindClustersRespectsDependenciesAndLimit(t *testing.T) {
 	// db and cache are independent; idp needs db; app needs idp and cache.
-	order, err := config.KindLabOrder([]config.KindLab{
+	order, err := config.KindClusterOrder([]config.KindCluster{
 		{Name: "app", DependsOn: []string{"idp", "cache"}},
 		{Name: "idp", DependsOn: []string{"db"}},
 		{Name: "db"},
@@ -47,7 +47,7 @@ func TestScheduleKindLabsRespectsDependenciesAndLimit(t *testing.T) {
 		running.Add(-1)
 		return nil
 	}
-	skipped, err := scheduleKindLabs(order, 2, start, scheduleHooks{})
+	skipped, err := scheduleKindClusters(order, 2, start, scheduleHooks{})
 	if err != nil || len(skipped) != 0 {
 		t.Fatalf("err = %v, skipped = %v", err, skipped)
 	}
@@ -59,8 +59,8 @@ func TestScheduleKindLabsRespectsDependenciesAndLimit(t *testing.T) {
 	}
 }
 
-func TestScheduleKindLabsStopsAfterFailure(t *testing.T) {
-	order, _ := config.KindLabOrder([]config.KindLab{
+func TestScheduleKindClustersStopsAfterFailure(t *testing.T) {
+	order, _ := config.KindClusterOrder([]config.KindCluster{
 		{Name: "db"},
 		{Name: "idp", DependsOn: []string{"db"}},
 		{Name: "cache"},
@@ -68,7 +68,7 @@ func TestScheduleKindLabsStopsAfterFailure(t *testing.T) {
 	})
 	boom := errors.New("db broke")
 	var startedNames []string
-	skipped, err := scheduleKindLabs(order, 2, func(i int) error {
+	skipped, err := scheduleKindClusters(order, 2, func(i int) error {
 		if order[i].Name == "db" {
 			return boom
 		}

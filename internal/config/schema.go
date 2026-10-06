@@ -18,6 +18,10 @@ const SchemaURL = "https://cli.astrona.io/schema/lab-config.schema.json"
 // schemaEnums are the closed value sets for string fields, keyed
 // "<GoType>.<yaml key>". Kept next to the generator so the schema can't
 // silently miss one.
+var schemaDeprecated = map[string]bool{
+	"KindConfig.labs": true, // renamed to clusters
+}
+
 var schemaEnums = map[string][]string{
 	"RuntimeConfig.type":           {"kind", "qemu"},
 	"ResourceItem.type":            {"file", "folder", "url"},
@@ -81,6 +85,9 @@ func schemaFor(t reflect.Type, defs map[string]any) map[string]any {
 				p := schemaFor(f.Type, defs)
 				if enum, ok := schemaEnums[name+"."+key]; ok {
 					p["enum"] = enum
+				}
+				if schemaDeprecated[name+"."+key] {
+					p["deprecated"] = true
 				}
 				props[key] = p
 			}

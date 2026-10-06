@@ -20,11 +20,11 @@ import (
 // and lets a user show the lab in their prompt.
 const labShellEnvVar = "ASTRONA_LAB"
 
-// resolveKindLab picks the kind lab a kubeconfig/shell command acts on, in
+// resolveKindCluster picks the kind lab a kubeconfig/shell command acts on, in
 // order: an explicit lab-name argument; the lab config resolved from
 // -c/--file/--git (if it loads and is a kind lab); otherwise the only
 // running astrona kind lab. Refuses to guess between several.
-func resolveKindLab(labArg string, flags *rootFlags) (string, error) {
+func resolveKindCluster(labArg string, flags *rootFlags) (string, error) {
 	if labArg != "" {
 		name := config.NormalizeClusterName(labArg)
 		if !kindClusterExists(name) {
@@ -47,19 +47,19 @@ func resolveKindLab(labArg string, flags *rootFlags) (string, error) {
 
 	// A linked cluster is part of its lab, not a lab to pick.
 	owners := linkedClusterOwners()
-	var kindLabs []string
+	var kindClusters []string
 	for _, r := range collectKindRows() {
 		if _, linked := owners[r.name]; !linked && !strings.HasPrefix(r.name, "astro-test-") {
-			kindLabs = append(kindLabs, r.name)
+			kindClusters = append(kindClusters, r.name)
 		}
 	}
-	switch len(kindLabs) {
+	switch len(kindClusters) {
 	case 0:
 		return "", fmt.Errorf("no astrona kind lab is running — start one with `astrona run`")
 	case 1:
-		return kindLabs[0], nil
+		return kindClusters[0], nil
 	default:
-		return "", fmt.Errorf("several kind labs are running — pick one: %s", strings.Join(kindLabs, ", "))
+		return "", fmt.Errorf("several kind labs are running — pick one: %s", strings.Join(kindClusters, ", "))
 	}
 }
 
@@ -84,7 +84,7 @@ func linkedCluster(lab, name string, links []cluster.LinkState) (string, error) 
 		names = append(names, l.Name)
 	}
 	if len(names) == 0 {
-		return "", fmt.Errorf("lab %s has no linked clusters (runtime.kind.labs)", lab)
+		return "", fmt.Errorf("lab %s has no linked clusters (runtime.kind.clusters)", lab)
 	}
 	return "", fmt.Errorf("lab %s has no linked cluster '%s' — it has: %s", lab, name, strings.Join(names, ", "))
 }
@@ -122,7 +122,7 @@ func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
   kubectl --kubeconfig "$(astrona kubeconfig my-lab --cluster idp)" get pods -A`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lab, err := resolveKindLab(firstArg(args), flags)
+			lab, err := resolveKindCluster(firstArg(args), flags)
 			if err != nil {
 				return err
 			}
@@ -140,7 +140,7 @@ func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "A linked cluster's kubeconfig instead (its runtime.kind.labs name)")
+	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "A linked cluster's kubeconfig instead (its runtime.kind.clusters name)")
 	return cmd
 }
 
@@ -155,8 +155,8 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 			"current-context. Type `exit` to leave. $" + labShellEnvVar + " holds the lab name inside " +
 			"the shell (add it to your prompt if you like).\n\n" +
 			"After `--`, runs that one command instead of a shell (no shell parsing).\n\n" +
-			"A lab with linked clusters (runtime.kind.labs) gets all of them: `kubectl --context " +
-			"$ASTRONA_LINK_<NAME>_CONTEXT` reaches one. --cluster <name> makes a linked cluster the " +
+			"A lab with linked clusters (runtime.kind.clusters) gets all of them: `kubectl --context " +
+			"$ASTRONA_CLUSTER_<NAME>_CONTEXT` reaches one. --cluster <name> makes a linked cluster the " +
 			"default instead.\n\n" +
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab. " +
 			"For qemu labs, use `astrona ssh`.",
@@ -178,7 +178,7 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
-			lab, err := resolveKindLab(firstArg(labArgs), flags)
+			lab, err := resolveKindCluster(firstArg(labArgs), flags)
 			if err != nil {
 				return err
 			}
@@ -224,7 +224,7 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 			return err
 		},
 	}
-	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "Make a linked cluster (its runtime.kind.labs name) the default kubectl context")
+	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "Make a linked cluster (its runtime.kind.clusters name) the default kubectl context")
 	return cmd
 }
 

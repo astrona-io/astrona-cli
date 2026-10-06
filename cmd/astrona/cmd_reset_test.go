@@ -66,7 +66,7 @@ func TestResetRejectsInvalidConfigBeforeDestroying(t *testing.T) {
 }
 
 func TestResetLinkedClusterRefuses(t *testing.T) {
-	cfg := &config.LabConfig{Metadata: config.MetadataConfig{Name: "rl"}, Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Labs: []config.KindLab{{Name: "idp"}}}}}
+	cfg := &config.LabConfig{Metadata: config.MetadataConfig{Name: "rl"}, Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Clusters: []config.KindCluster{{Name: "idp"}}}}}
 	if err := resetLinkedCluster(cfg, ".", "astro-rl", "nope", true, &rootFlags{}); err == nil || !strings.Contains(err.Error(), "it has: idp") {
 		t.Errorf("unknown cluster = %v", err)
 	}

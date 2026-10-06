@@ -466,7 +466,7 @@ func formatUptime(d time.Duration) string {
 }
 
 // markLinkedClusters notes which rows are a lab's linked cluster
-// (runtime.kind.labs) — managed with that lab, not on their own.
+// (runtime.kind.clusters) — managed with that lab, not on their own.
 func markLinkedClusters(rows []labRow, owners map[string]string) {
 	for i := range rows {
 		if owner, ok := owners[rows[i].name]; ok {

@@ -65,7 +65,7 @@ func newStopCmd(flags *rootFlags) *cobra.Command {
 		Short:             "Pause a kind lab (frees CPU/RAM, keeps everything) — resume with astrona start",
 		Long: "Stop a kind lab's node containers and pause its port forwards. Nothing is deleted: " +
 			"`astrona start` brings the cluster, its workloads and its port forwards back.\n\n" +
-			"The lab's linked clusters (runtime.kind.labs) are stopped with it.\n\n" +
+			"The lab's linked clusters (runtime.kind.clusters) are stopped with it.\n\n" +
 			"Not supported for labs with more than one control plane — their node IPs change on " +
 			"restart, which breaks etcd. qemu labs aren't supported yet.\n\n" +
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab.",
@@ -132,7 +132,7 @@ func newStartCmd(flags *rootFlags) *cobra.Command {
 		ValidArgsFunction: labCompletion(isStoppedKind),
 		Short:             "Resume a kind lab paused with astrona stop",
 		Long: "Start a stopped kind lab's node containers, wait for its API, and restart its port " +
-			"forwards. Its linked clusters (runtime.kind.labs) are started first — the lab needs them.\n\n" +
+			"forwards. Its linked clusters (runtime.kind.clusters) are started first — the lab needs them.\n\n" +
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only stopped kind lab.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

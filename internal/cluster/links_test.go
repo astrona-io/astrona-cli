@@ -12,7 +12,11 @@ func TestLinkStateAndEnv(t *testing.T) {
 		t.Fatalf("host/context = %s %s", l.Host(), l.Context())
 	}
 	env := strings.Join(LinkEnv([]LinkState{l}), "\n")
-	for _, want := range []string{"ASTRONA_LINK_MY_IDP_HOST=astro-idp-lab-control-plane", "ASTRONA_LINK_MY_IDP_CONTEXT=kind-astro-idp-lab"} {
+	// The current names, and the pre-v0.3 ones labs may still use.
+	for _, want := range []string{
+		"ASTRONA_CLUSTER_MY_IDP_HOST=astro-idp-lab-control-plane", "ASTRONA_CLUSTER_MY_IDP_HOSTNAME=my-idp.astrona.internal", "ASTRONA_CLUSTER_MY_IDP_CONTEXT=kind-astro-idp-lab",
+		"ASTRONA_LINK_MY_IDP_HOST=astro-idp-lab-control-plane", "ASTRONA_LINK_MY_IDP_CONTEXT=kind-astro-idp-lab",
+	} {
 		if !strings.Contains(env, want) {
 			t.Errorf("env missing %s:\n%s", want, env)
 		}

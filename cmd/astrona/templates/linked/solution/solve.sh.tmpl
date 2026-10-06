@@ -1,6 +1,6 @@
 #!/bin/bash
 # The lab's own part of the reference solution for [[.Name]] (the backend
-# cluster's part is labs/backend/testing/). The backend is reached by its
+# cluster's part is clusters/backend/testing/). The backend is reached by its
 # stable name, the same under `astrona run` and `astrona test`.
 set -euo pipefail
 kubectl create job call-backend --image=curlimages/curl:8.11.1 -- \

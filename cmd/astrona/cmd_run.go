@@ -67,7 +67,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 
 // addParallelFlag adds --parallel to a command that creates a lab.
 func addParallelFlag(cmd *cobra.Command, flags *rootFlags) {
-	cmd.Flags().IntVar(&flags.parallel, "parallel", 1, fmt.Sprintf("Create up to N linked clusters (runtime.kind.labs) at once, 1-%d (default 1: one at a time). dependsOn is still respected, and after a failure nothing new starts", maxParallel))
+	cmd.Flags().IntVar(&flags.parallel, "parallel", 1, fmt.Sprintf("Create up to N linked clusters (runtime.kind.clusters) at once, 1-%d (default 1: one at a time). dependsOn is still respected, and after a failure nothing new starts", maxParallel))
 }
 
 // validateParallel checks --parallel.
@@ -119,6 +119,9 @@ func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clust
 // mistake, not something to discover after a 1-minute cluster boot (or,
 // for `astrona reset`, after the old lab is already gone).
 func validateLabForRun(cfg *config.LabConfig) error {
+	if err := config.ValidateAPIVersion(cfg); err != nil {
+		return err
+	}
 	if err := config.ValidateKindConfig(cfg.Runtime); err != nil {
 		return err
 	}
@@ -127,7 +130,7 @@ func validateLabForRun(cfg *config.LabConfig) error {
 			return err
 		}
 	}
-	if err := config.ValidateKindLabs(cfg); err != nil {
+	if err := config.ValidateKindClusters(cfg); err != nil {
 		return err
 	}
 	if err := config.ValidateExam(cfg); err != nil {
@@ -233,7 +236,7 @@ func upLab(cfg *config.LabConfig, baseDir, clusterName string, links []cluster.L
 	return env, forwards, nil
 }
 
-// bringUpLab creates cfg's linked clusters (runtime.kind.labs), then the lab
+// bringUpLab creates cfg's linked clusters (runtime.kind.clusters), then the lab
 // itself with everything `astrona run` does — preload, addons, bootstrap,
 // manifests, readiness gates, port forwards — and prints how to connect.
 // Shared by run and reset.
@@ -241,13 +244,13 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
 	// Checked before linked clusters are (re)created — they'd otherwise be
 	// replaced under a lab that's still using them.
-	if len(cfg.KindLabs()) > 0 && kindClusterExists(clusterName) {
+	if len(cfg.KindClusters()) > 0 && kindClusterExists(clusterName) {
 		return fmt.Errorf("lab %s is already running — `astrona reset` starts it over", clusterName)
 	}
 	if err := prepareSharedCA(cfg, clusterName); err != nil {
 		return err
 	}
-	links, err := startKindLabs(cfg, baseDir, clusterName, false, flags.parallel, rep)
+	links, err := startKindClusters(cfg, baseDir, clusterName, false, flags.parallel, rep)
 	if err != nil {
 		return err
 	}

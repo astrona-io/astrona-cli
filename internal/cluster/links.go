@@ -11,7 +11,7 @@ import (
 	"astrona/internal/config"
 )
 
-// LinkState is one of a lab's linked clusters (runtime.kind.labs): its
+// LinkState is one of a lab's linked clusters (runtime.kind.clusters): its
 // name in the config and its kind cluster. Saved at `astrona run` time in
 // ~/.astrona/kind/<lab>/links.json, so later commands (submit, shell,
 // status, stop/start, destroy) know a lab's linked clusters without
@@ -35,9 +35,20 @@ func (l LinkState) Hostname() string { return l.Name + "." + LinkDomain }
 // Context is the linked cluster's kube context name.
 func (l LinkState) Context() string { return "kind-" + l.Cluster }
 
-// EnvPrefix mirrors config.Link.EnvPrefix.
+// EnvPrefix is the cluster's environment variable prefix, e.g.
+// ASTRONA_CLUSTER_IDP — mirrors config.KindCluster.EnvPrefix.
 func (l LinkState) EnvPrefix() string {
-	return "ASTRONA_LINK_" + strings.ToUpper(strings.ReplaceAll(l.Name, "-", "_"))
+	return "ASTRONA_CLUSTER_" + envName(l.Name)
+}
+
+// legacyEnvPrefix is the pre-v0.3 prefix (ASTRONA_LINK_IDP), still
+// published so labs written for it keep working.
+func (l LinkState) legacyEnvPrefix() string {
+	return "ASTRONA_LINK_" + envName(l.Name)
+}
+
+func envName(name string) string {
+	return strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
 }
 
 // LinkEnv is the environment that tells a lab's scripts and command checks
@@ -45,10 +56,12 @@ func (l LinkState) EnvPrefix() string {
 func LinkEnv(links []LinkState) []string {
 	var env []string
 	for _, l := range links {
-		p := l.EnvPrefix()
-		env = append(env, p+"_HOST="+l.Host(), p+"_HOSTNAME="+l.Hostname(), p+"_CONTEXT="+l.Context())
-		if kc := ExistingKubeconfig(l.Cluster); kc != "" {
-			env = append(env, p+"_KUBECONFIG="+kc)
+		kc := ExistingKubeconfig(l.Cluster)
+		for _, p := range []string{l.EnvPrefix(), l.legacyEnvPrefix()} {
+			env = append(env, p+"_HOST="+l.Host(), p+"_HOSTNAME="+l.Hostname(), p+"_CONTEXT="+l.Context())
+			if kc != "" {
+				env = append(env, p+"_KUBECONFIG="+kc)
+			}
 		}
 	}
 	return env

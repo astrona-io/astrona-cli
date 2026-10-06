@@ -1,13 +1,13 @@
 # [[.Name]]
 
-An [Astrona](https://cli.astrona.io) lab with two kind clusters side by side: the lab's own, and **backend** (`runtime.kind.labs` in `config.yaml`) — a service published as NodePort 30080.
+An [Astrona](https://cli.astrona.io) lab with two kind clusters side by side: the lab's own, and **backend** (`runtime.kind.clusters` in `config.yaml`) — a service published as NodePort 30080.
 
 ```
 config.yaml
 docs/                      # student docs
 solution/                  # the lab's own reference solution (astrona test)
-labs/backend/bootstrap/    # sets up the backend cluster
-labs/backend/testing/      # the backend cluster's part of the reference solution
+clusters/backend/bootstrap/    # sets up the backend cluster
+clusters/backend/testing/      # the backend cluster's part of the reference solution
 ```
 
 ```sh
@@ -18,6 +18,6 @@ astrona submit              # grades both clusters (checks with cluster: backend
 astrona destroy -c .        # removes both
 ```
 
-Authoring: `astrona validate -c .` checks the config; `astrona test -c .` creates test copies of both clusters and proves the reference solution (`solution/` and `labs/backend/testing/`) passes every check. `.github/workflows/lab.yml` runs both on every pull request.
+Authoring: `astrona validate -c .` checks the config; `astrona test -c .` creates test copies of both clusters and proves the reference solution (`solution/` and `clusters/backend/testing/`) passes every check. `.github/workflows/lab.yml` runs both on every pull request.
 
 Guide: https://cli.astrona.io/guides/linked-labs/

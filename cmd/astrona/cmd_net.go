@@ -22,7 +22,7 @@ func newNetCmd(flags *rootFlags) *cobra.Command {
 		ValidArgsFunction: labCompletion(isKind),
 		Short:             "Change network conditions of a running lab's cluster (latency, loss, partition)",
 		Long: "Change the network conditions of one cluster of a running kind lab — a linked cluster " +
-			"(--cluster <name>, runtime.kind.labs) or, without --cluster, the lab's own — to simulate " +
+			"(--cluster <name>, runtime.kind.clusters) or, without --cluster, the lab's own — to simulate " +
 			"a slow or flaky remote site, or cut it off entirely:\n\n" +
 			"  --latency/--jitter/--loss/--rate   set conditions (tc netem on every node of the cluster)\n" +
 			"  --partition                        drop everything it sends (100% loss) — it's unreachable\n" +
@@ -46,7 +46,7 @@ func newNetCmd(flags *rootFlags) *cobra.Command {
 			if n != 1 {
 				return fmt.Errorf("pick one: conditions (--latency/--jitter/--loss/--rate), --partition, --heal or --show")
 			}
-			lab, err := resolveKindLab(firstArg(args), flags)
+			lab, err := resolveKindCluster(firstArg(args), flags)
 			if err != nil {
 				return err
 			}
@@ -90,7 +90,7 @@ func newNetCmd(flags *rootFlags) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "The linked cluster (its runtime.kind.labs name); default: the lab's own cluster")
+	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "The linked cluster (its runtime.kind.clusters name); default: the lab's own cluster")
 	cmd.Flags().StringVar(&w.Latency, "latency", "", "Latency added per round trip, e.g. 200ms")
 	cmd.Flags().StringVar(&w.Jitter, "jitter", "", "Latency variation, e.g. 30ms (needs --latency)")
 	cmd.Flags().StringVar(&w.Loss, "loss", "", "Packet loss, e.g. 5%")

@@ -41,7 +41,7 @@ func TestLabRiskSummary(t *testing.T) {
 	cfg := &config.LabConfig{
 		Runtime: config.RuntimeConfig{
 			Kind: &config.KindConfig{Addons: config.KindAddons{CertManager: true}, PreloadImages: []string{"nginx:1.27"},
-				Labs: []config.KindLab{{Name: "idp", PreloadImages: []string{"keycloak:26"}, Bootstrap: config.BootstrapConfig{
+				Clusters: []config.KindCluster{{Name: "idp", PreloadImages: []string{"keycloak:26"}, Bootstrap: config.BootstrapConfig{
 					Init: []config.ResourceItem{{Name: "realm", Type: "file", Source: "idp/realm.sh"}}}}}},
 			PortForwards: []config.PortForward{{Name: "web", Resource: "svc/web", HostPort: 8080}},
 		},

@@ -1,6 +1,6 @@
 # Linked Labs
 
-Some things can only be practised with two systems: an app logging in against an external identity provider, a client calling a service in another cluster, network policy between "sites". A lab can run **extra kind clusters side by side** with its own — declared under `runtime.kind.labs` in the same `config.yaml` — and knows how to reach them.
+Some things can only be practised with two systems: an app logging in against an external identity provider, a client calling a service in another cluster, network policy between "sites". A lab can run **extra kind clusters side by side** with its own — declared under `runtime.kind.clusters` in the same `config.yaml` — and knows how to reach them.
 
 The worked reference is [`examples/linked-labs-01`](https://github.com/astrona-io/astrona-cli/tree/main/examples/linked-labs-01): an `idp` cluster serving a token endpoint, and a task to log in against it from the lab's own cluster. `astrona init lab <dir> --linked` scaffolds a lab like it.
 
@@ -14,41 +14,41 @@ runtime:
   type: kind
   kind:
     preloadImages: [curlimages/curl:8.11.1]     # the lab's own cluster
-    labs:
+    clusters:
       - name: idp                                # kind cluster astro-auth-lab-idp
         preloadImages: [nginx:1.27-alpine]
         nodes: {workers: 0}
         addons: {certManager: true}
         bootstrap:
           manifests:
-            - {name: idp, type: file, source: labs/idp/bootstrap/idp.yaml}
+            - {name: idp, type: file, source: clusters/idp/bootstrap/idp.yaml}
           waitFor:
             - {resource: deploy/idp, namespace: auth}
         testing:                                 # its part of the reference solution
           init:
-            - {name: seed users, type: file, source: labs/idp/testing/seed.sh}
+            - {name: seed users, type: file, source: clusters/idp/testing/seed.sh}
 ```
 
-Each entry takes the same cluster fields as `runtime.kind` (version, nodes, networking, addons, preloadImages, …) plus its own `bootstrap` and `testing`. Up to 5 per lab; names are lowercase letters, digits and `-` (max 20 characters). See [`runtime.kind.labs`](../reference/lab-config.md#runtimekindlabsn).
+Each entry takes the same cluster fields as `runtime.kind` (version, nodes, networking, addons, preloadImages, …) plus its own `bootstrap` and `testing`. Up to 5 per lab; names are lowercase letters, digits and `-` (max 20 characters). See [`runtime.kind.clusters`](../reference/lab-config.md#runtimekindclustersn).
 
 ### Dependencies and start order
 
 By default clusters are created **one at a time**: every linked cluster first, then the lab's own. Each one is only created once the previous is fully ready — its bootstrap done and its `waitFor` gates passed. Use `dependsOn` when one linked cluster needs another:
 
 ```yaml
-    labs:
+    clusters:
       - name: db
-        bootstrap: {manifests: [{name: db, type: file, source: labs/db/bootstrap/db.yaml}],
+        bootstrap: {manifests: [{name: db, type: file, source: clusters/db/bootstrap/db.yaml}],
                     waitFor: [{resource: statefulset/db, namespace: data}]}
       - name: idp
         dependsOn: [db]          # created only once db is ready
         bootstrap:
           init:
-            - {name: configure, type: file, source: labs/idp/bootstrap/configure.sh}   # gets $ASTRONA_LINK_DB_HOST
+            - {name: configure, type: file, source: clusters/idp/bootstrap/configure.sh}   # gets $ASTRONA_CLUSTER_DB_HOST
 ```
 
 - Dependencies are created first; otherwise clusters start in the order listed.
-- A cluster's scripts get the `ASTRONA_LINK_*` addresses of the clusters it depends on (the lab's own scripts get all of them).
+- A cluster's scripts get the `ASTRONA_CLUSTER_*` addresses of the clusters it depends on (the lab's own scripts get all of them).
 - If a cluster fails, the run stops there: nothing that depends on it — and not the lab itself — is started, and the error says what was skipped. `astrona destroy` cleans up what was created.
 - Unknown names, a cluster depending on itself, and cycles are rejected by `astrona validate`.
 - `astrona test` applies the clusters' `testing` blocks in the same order; `astrona start` restarts them in it.
@@ -68,18 +68,29 @@ astrona run -c ./my-lab --parallel 3
 
 ### Folder layout
 
-Paths are relative to `config.yaml`, like everywhere else. By convention each linked cluster keeps its files in its own folder under `labs/`, next to `docs/` and `solution/`:
+Paths are relative to `config.yaml`, like everywhere else. By convention each linked cluster keeps its files in its own folder under `clusters/`, next to `docs/` and `solution/`:
 
 ```
 config.yaml
 docs/                     # student docs
 solution/                 # the lab's own reference solution
-labs/
+clusters/
   idp/
     bootstrap/            # sets up the idp cluster
     testing/              # the idp cluster's part of the reference solution
     teardown/             # its teardown scripts
 ```
+
+### Renamed in v0.3
+
+astrona v0.2.1 called these names differently. The old ones still work, so existing labs keep running — switch when convenient:
+
+| v0.2.1 | Now |
+|---|---|
+| `runtime.kind.labs` | `runtime.kind.clusters` — `labs` is still read, with a deprecation warning from `run` and `validate` |
+| `ASTRONA_LINK_<NAME>_*` | `ASTRONA_CLUSTER_<NAME>_*` — both are set |
+| ConfigMap `astrona-links` | ConfigMap `astrona-clusters` — both are published, with the same data |
+| folders under `labs/` | `clusters/` — only a convention; your paths keep working |
 
 ## Reaching a linked cluster
 
@@ -103,7 +114,7 @@ Every linked cluster gets a fixed DNS name, `<name>.astrona.internal`, that reso
 
 - Astrona looks up each node's IPv4 and writes it into each cluster's CoreDNS config (a marked block in the `coredns` ConfigMap), refreshing it after `start` and `reset --cluster`, when IPs can change.
 - `.internal` is reserved for private use. (`*.localhost` wouldn't work: curl and other clients resolve it to `127.0.0.1` without asking DNS.)
-- A lab that replaces CoreDNS's config with one lacking a `.:53` server block keeps the container names (`$ASTRONA_LINK_<NAME>_HOST`) instead.
+- A lab that replaces CoreDNS's config with one lacking a `.:53` server block keeps the container names (`$ASTRONA_CLUSTER_<NAME>_HOST`) instead.
 
 **The same URL on your machine:** forward the service with `hostPort` equal to its `nodePort` (see [below](#reaching-a-linked-cluster-from-your-machine)) and add the name to `/etc/hosts` once — then `http://idp.astrona.internal:30080` works in your browser and in the cluster, which is what an identity provider's issuer URL needs:
 
@@ -120,9 +131,9 @@ Astrona tells the lab where each linked cluster is:
 | Where | What |
 |---|---|
 | Every cluster's DNS | `<name>.astrona.internal` |
-| The lab's bootstrap/testing/teardown scripts and `command` checks | `ASTRONA_LINK_<NAME>_HOSTNAME` (the stable name), `_HOST` (the node's container name), `_CONTEXT`, `_KUBECONFIG` (`<NAME>` upper-cased, `-` → `_`) |
-| In the lab's cluster | ConfigMap `astrona-links` in namespace `default`: `<name>.hostname`, `<name>.host`, `<name>.context` |
-| `astrona shell` | Every cluster's kubeconfig: `kubectl --context "$ASTRONA_LINK_IDP_CONTEXT" …` works, plus the env vars. `astrona shell <lab> --cluster idp` makes the idp cluster the default context; `astrona kubeconfig <lab> --cluster idp` prints its kubeconfig |
+| The lab's bootstrap/testing/teardown scripts and `command` checks | `ASTRONA_CLUSTER_<NAME>_HOSTNAME` (the stable name), `_HOST` (the node's container name), `_CONTEXT`, `_KUBECONFIG` (`<NAME>` upper-cased, `-` → `_`) |
+| In the lab's cluster | ConfigMap `astrona-clusters` in namespace `default`: `<name>.hostname`, `<name>.host`, `<name>.context` |
+| `astrona shell` | Every cluster's kubeconfig: `kubectl --context "$ASTRONA_CLUSTER_IDP_CONTEXT" …` works, plus the env vars. `astrona shell <lab> --cluster idp` makes the idp cluster the default context; `astrona kubeconfig <lab> --cluster idp` prints its kubeconfig |
 
 A linked cluster's own `bootstrap`/`testing` scripts run with `KUBECONFIG` pointing at that cluster.
 
@@ -155,12 +166,12 @@ runtime:
   type: kind
   kind:
     sharedCA: true
-    labs:
+    clusters:
       - name: idp
         addons: {certManager: true}
         bootstrap:
           manifests:
-            - {name: idp, type: file, source: labs/idp/bootstrap/idp.yaml}
+            - {name: idp, type: file, source: clusters/idp/bootstrap/idp.yaml}
           waitFor:
             - {resource: certificate/idp, namespace: auth, condition: Ready, timeout: 3m}
 ```
@@ -195,7 +206,7 @@ spec:
 A linked cluster can behave like a site across a WAN — slow, lossy, bandwidth-limited:
 
 ```yaml
-    labs:
+    clusters:
       - name: idp
         wan:
           latency: 80ms      # added per round trip
@@ -245,7 +256,7 @@ Linked clusters belong to the lab:
 | `astrona run` | Creates the linked clusters (bootstrap included), then the lab. Refused while the lab is running — `astrona reset` starts it over |
 | `astrona list` / `status` | A linked cluster is listed as `linked cluster of <lab>`; `status` shows each one's state. Commands that pick "the only running lab" ignore linked clusters |
 | `astrona stop` / `start` | Stops/starts them with the lab (`start` brings them up first) |
-| `astrona reset --cluster idp` | Rebuilds only that linked cluster of the running lab: its teardown, destroy, then create + bootstrap again (with the addresses of what it dependsOn). The lab and its other clusters are left alone; port forwards into it are restarted. Same name, so the lab's `ASTRONA_LINK_*`/`astrona-links` stay valid |
+| `astrona reset --cluster idp` | Rebuilds only that linked cluster of the running lab: its teardown, destroy, then create + bootstrap again (with the addresses of what it dependsOn). The lab and its other clusters are left alone; port forwards into it are restarted. Same name, so the lab's `ASTRONA_CLUSTER_*`/`astrona-clusters` stay valid |
 | `astrona reset` / `destroy` | Runs the lab's teardown, then each linked cluster's `teardown.init` (reverse start order, `KUBECONFIG` pointing at it), then removes everything. `teardown.keepCluster` keeps them all |
 | `astrona test` | Creates test copies of every cluster, applies each linked cluster's `testing`, then the lab's, grades, and tears everything down — even on failure |
 | `astrona check` | Counts their memory in the lab's estimate |

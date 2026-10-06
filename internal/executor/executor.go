@@ -29,7 +29,7 @@ type ScriptExecutor interface {
 type LocalExecutor struct {
 	Kubeconfig string
 	// ExtraEnv is added to the script's environment — a linked cluster's
-	// ASTRONA_LINK_* variables.
+	// ASTRONA_CLUSTER_* variables.
 	ExtraEnv []string
 }
 

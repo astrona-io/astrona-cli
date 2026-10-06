@@ -32,6 +32,7 @@ checks the config without creating anything and exits non-zero on any problem �
 ## Top level
 
 ```yaml
+apiVersion: astrona.io/v1   # config format (optional; a newer one is refused)
 metadata: {}     # MetadataConfig
 runtime: {}      # RuntimeConfig — omit entirely for a kind cluster
 bootstrap: {}    # BootstrapConfig
@@ -75,7 +76,7 @@ kind only (rejected for `type: qemu`). Each entry becomes a background, auto-res
 | `targetPort` | int | Required. Port on the service/pod, `1`–`65535` |
 | `scheme` | string | `http` \| `https` \| `tcp` (default) — only changes the URL printed after `run` |
 | `description` | string | Optional, printed next to the URL after `run` |
-| `cluster` | string | Forward from a [linked cluster](#runtimekindlabsn) (its name) instead of the lab's own — e.g. an identity provider's login page |
+| `cluster` | string | Forward from a [linked cluster](#runtimekindclustersn) (its name) instead of the lab's own — e.g. an identity provider's login page |
 
 ```yaml
 runtime:
@@ -156,7 +157,7 @@ kind only (rejected for `type: qemu`). Omit it and the lab gets a plain `kind cr
 | `runtimeConfig` | map[string]string | API groups to enable/disable (`"true"`/`"false"`), e.g. `"resource.k8s.io/v1beta1": "true"` |
 | `addons` | [Addons](#runtimekindaddons) | Cluster components installed right after the cluster is created |
 | `preloadImages` | list of strings | Images loaded into every node before addons/bootstrap, e.g. `[nginx:1.27-alpine]` — explicit tag or digest required (not `:latest`), max 30. See [Preloaded images](../concepts/runtimes.md#preloaded-images-runtimekindpreloadimages) |
-| `labs` | list of [KindLab](#runtimekindlabsn) | Extra kind clusters running side by side with the lab's own (max 5) |
+| `clusters` | list of [KindCluster](#runtimekindclustersn) | Extra kind clusters running side by side with the lab's own (max 5). Called `labs` before v0.3 — still accepted, with a deprecation warning |
 | `sharedCA` | bool | Give the lab its own certificate authority, installed in its cluster and every linked cluster: ConfigMap `astrona-ca` (`ca.crt`) in `default`; with the `certManager` addon a ClusterIssuer `astrona-ca`. Scripts, command checks and `astrona shell` get `$ASTRONA_CA_CERT`. See [TLS between clusters](../guides/linked-labs.md#tls-between-clusters-a-shared-ca) |
 
 ```yaml
@@ -195,13 +196,13 @@ runtime:
       gatewayAPI: envoy        # Gateways with gatewayClassName: eg
 ```
 
-#### `runtime.kind.labs[N]`
+#### `runtime.kind.clusters[N]`
 
 Extra kind clusters that run side by side with the lab's own — e.g. an identity provider, a database, a second "site". They belong to the lab: `astrona run` creates them first, and `stop`, `start`, `reset`, `destroy` and `test` handle them together with the lab. See the [Linked Labs guide](../guides/linked-labs.md).
 
 | Field | Type | Description |
 |---|---|---|
-| `name` | string | Required. How the lab refers to the cluster: `ASTRONA_LINK_<NAME>_*` env vars, `astrona-links` ConfigMap keys, `cluster:` on checks. Lowercase letters, digits, `-`; max 20 characters; unique. The kind cluster is `astro-<lab>-<name>` |
+| `name` | string | Required. How the lab refers to the cluster: `ASTRONA_CLUSTER_<NAME>_*` env vars, `astrona-clusters` ConfigMap keys, `cluster:` on checks. Lowercase letters, digits, `-`; max 20 characters; unique. The kind cluster is `astro-<lab>-<name>` |
 | `version`, `image`, `nodes`, `networking`, `featureGates`, `runtimeConfig`, `addons`, `preloadImages` | | Same as for the lab's own cluster (above). A gateway addon gets no host ports here |
 | `bootstrap` | [BootstrapConfig](#bootstrap-testing) | Sets this cluster up — runs before the lab's own bootstrap |
 | `testing` | [BootstrapConfig](#bootstrap-testing) | This cluster's part of the reference solution — `astrona test` applies it before the lab's own `testing` |
@@ -209,9 +210,9 @@ Extra kind clusters that run side by side with the lab's own — e.g. an identit
 | `wan.latency` / `wan.jitter` | string | Simulate a remote site: latency added per round trip (e.g. `80ms`) and its variation (`10ms`, needs `latency`) — see [Simulating a remote site](../guides/linked-labs.md#simulating-a-remote-site) |
 | `wan.loss` | string | Share of packets dropped, `0%`–`100%` |
 | `wan.rate` | string | Bandwidth cap, e.g. `10mbit` (`kbit`, `mbit`, `gbit`) |
-| `dependsOn` | list of strings | Other linked clusters (names) that must be up and ready — bootstrap and `waitFor` done — before this one is created. Its scripts get their `ASTRONA_LINK_*` addresses (and its cluster their `astrona-links` ConfigMap). Unknown names, self-dependencies and cycles are rejected |
+| `dependsOn` | list of strings | Other linked clusters (names) that must be up and ready — bootstrap and `waitFor` done — before this one is created. Its scripts get their `ASTRONA_CLUSTER_*` addresses (and its cluster their `astrona-clusters` ConfigMap). Unknown names, self-dependencies and cycles are rejected |
 
-Paths are relative to the lab's config, like everywhere else; by convention each cluster keeps its files in `labs/<name>/` (`labs/idp/bootstrap/`, `labs/idp/testing/`).
+Paths are relative to the lab's config, like everywhere else; by convention each cluster keeps its files in `clusters/<name>/` (`clusters/idp/bootstrap/`, `clusters/idp/testing/`).
 
 Clusters are created one at a time: dependencies first, otherwise in the order listed; the lab's own cluster last. The first one that fails stops the run — nothing depending on it is started.
 
@@ -219,12 +220,12 @@ Clusters are created one at a time: dependencies first, otherwise in the order l
 runtime:
   type: kind
   kind:
-    labs:
+    clusters:
       - name: idp
         preloadImages: [nginx:1.27-alpine]
         bootstrap:
           manifests:
-            - {name: idp, type: file, source: labs/idp/bootstrap/idp.yaml}
+            - {name: idp, type: file, source: clusters/idp/bootstrap/idp.yaml}
           waitFor:
             - {resource: deploy/idp, namespace: auth}
 ```
@@ -309,7 +310,7 @@ Validation scripts also take `hint` and `points` (see `ValidationCheck`).
 | `expectStatus` | int | `http` checks: expected status (default `200`) |
 | `hint` | string | Shown to the student only when this check fails — a nudge, not the answer |
 | `points` | int | Weight in the score (default `1`) |
-| `cluster` | string | Grade the check in this linked cluster (a [`runtime.kind.labs`](#runtimekindlabsn) name) instead of the lab's own. Not for `http` checks |
+| `cluster` | string | Grade the check in this linked cluster (a [`runtime.kind.clusters`](#runtimekindclustersn) name) instead of the lab's own. Not for `http` checks |
 
 ## `exam`
 

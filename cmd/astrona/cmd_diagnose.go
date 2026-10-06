@@ -66,7 +66,7 @@ func collectDiagnostics(env *runtime.LabEnvironment, cfg *config.LabConfig, clus
 		rep.Warn("could not collect diagnostics: %s", err)
 		return
 	}
-	linked := collectLinkedDiagnostics(clusterName, cfg.KindLabs(), dir, rep)
+	linked := collectLinkedDiagnostics(clusterName, cfg.KindClusters(), dir, rep)
 	printDiagnosticsSummary(os.Stderr, sum)
 	printLinkedDiagnostics(os.Stderr, linked)
 }
@@ -77,10 +77,10 @@ type linkedDiagnostics struct {
 	sum     diagnostics.Summary
 }
 
-// collectLinkedDiagnostics collects every linked cluster (runtime.kind.labs)
+// collectLinkedDiagnostics collects every linked cluster (runtime.kind.clusters)
 // of the lab running as lab into dir/clusters/<cluster> — a failure there
 // (the idp didn't come up) is often why the lab's own checks fail.
-func collectLinkedDiagnostics(lab string, labs []config.KindLab, dir string, rep *ui.Reporter) []linkedDiagnostics {
+func collectLinkedDiagnostics(lab string, labs []config.KindCluster, dir string, rep *ui.Reporter) []linkedDiagnostics {
 	var out []linkedDiagnostics
 	for _, c := range ownedClusters(lab, labs) {
 		sum, err := diagnostics.CollectKind(diagnostics.Kind{
@@ -159,7 +159,7 @@ func newDiagnoseCmd(flags *rootFlags) *cobra.Command {
 		Long: "Collect a debugging bundle from a running lab into a directory: for kind, nodes, pods, " +
 			"workloads, events, describe + logs of every unhealthy pod, `kind export logs`, and a " +
 			"summary.md listing what's wrong — and the same for each linked cluster " +
-			"(runtime.kind.labs), under clusters/<cluster>/; for qemu, the VM's serial console log. Secrets, " +
+			"(runtime.kind.clusters), under clusters/<cluster>/; for qemu, the VM's serial console log. Secrets, " +
 			"ConfigMaps and kubeconfigs are never collected.\n\n" +
 			"`astrona test` does the same automatically when it fails (see --diagnostics).\n\n" +
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab.",
@@ -179,7 +179,7 @@ func newDiagnoseCmd(flags *rootFlags) *cobra.Command {
 			defer rep.Close()
 
 			if lab == "" {
-				lab, err = resolveKindLab(firstArg(args), flags)
+				lab, err = resolveKindCluster(firstArg(args), flags)
 				if err != nil {
 					return err
 				}

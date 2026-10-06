@@ -8,7 +8,7 @@ import (
 )
 
 // WANConditions simulate a remote site for a linked cluster
-// (runtime.kind.labs[].wan): `tc netem` on every node of the cluster adds
+// (runtime.kind.clusters[].wan): `tc netem` on every node of the cluster adds
 // latency (once per round trip — it delays what leaves the cluster),
 // jitter, packet loss and a bandwidth cap to all its traffic. Applied once
 // the cluster is set up, so its own bootstrap isn't slowed.

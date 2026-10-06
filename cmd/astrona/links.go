@@ -19,9 +19,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// kindLabConfig is linked cluster l of cfg as a lab of its own, for
+// kindClusterConfig is linked cluster l of cfg as a lab of its own, for
 // upLab: l's cluster shape and bootstrap, named <lab>-<name>.
-func kindLabConfig(cfg *config.LabConfig, l config.KindLab) *config.LabConfig {
+func kindClusterConfig(cfg *config.LabConfig, l config.KindCluster) *config.LabConfig {
 	k := l.Cluster()
 	if parent := cfg.Runtime.Kind; parent != nil && parent.SharedCA {
 		k.SharedCA, k.CALab = true, parent.CALab
@@ -33,22 +33,22 @@ func kindLabConfig(cfg *config.LabConfig, l config.KindLab) *config.LabConfig {
 	}
 }
 
-// kindLabStates is where cfg's linked clusters are (or will be) for the lab
+// kindClusterStates is where cfg's linked clusters are (or will be) for the lab
 // running as labCluster, in start order (dependencies first) — the order
 // `astrona start` brings them back in.
-func kindLabStates(cfg *config.LabConfig, labCluster string) ([]config.KindLab, []cluster.LinkState, error) {
-	order, err := config.KindLabOrder(cfg.KindLabs())
+func kindClusterStates(cfg *config.LabConfig, labCluster string) ([]config.KindCluster, []cluster.LinkState, error) {
+	order, err := config.KindClusterOrder(cfg.KindClusters())
 	if err != nil {
 		return nil, nil, err
 	}
 	var states []cluster.LinkState
 	for _, l := range order {
-		states = append(states, cluster.LinkState{Name: l.Name, Cluster: config.KindLabClusterName(labCluster, l.Name), WAN: l.WAN})
+		states = append(states, cluster.LinkState{Name: l.Name, Cluster: config.LinkedClusterName(labCluster, l.Name), WAN: l.WAN})
 	}
 	return order, states, nil
 }
 
-// startKindLabs creates cfg's linked clusters (runtime.kind.labs) for the
+// startKindClusters creates cfg's linked clusters (runtime.kind.clusters) for the
 // lab running as labCluster, one at a time in dependency order: each only
 // once everything it dependsOn is up and ready (bootstrap and waitFor
 // done), with their addresses available to its scripts. The first failure
@@ -57,8 +57,8 @@ func kindLabStates(cfg *config.LabConfig, labCluster string) ([]config.KindLab, 
 // linked clusters belong to the lab, nothing else uses them. The states
 // are saved before anything is created, so `astrona destroy` finds every
 // cluster even if this fails halfway.
-func startKindLabs(cfg *config.LabConfig, baseDir, labCluster string, forTest bool, parallel int, rep *ui.Reporter) ([]cluster.LinkState, error) {
-	order, states, err := kindLabStates(cfg, labCluster)
+func startKindClusters(cfg *config.LabConfig, baseDir, labCluster string, forTest bool, parallel int, rep *ui.Reporter) ([]cluster.LinkState, error) {
+	order, states, err := kindClusterStates(cfg, labCluster)
 	if err != nil || len(states) == 0 {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func startKindLabs(cfg *config.LabConfig, baseDir, labCluster string, forTest bo
 		return nil, fmt.Errorf("save linked clusters: %w", err)
 	}
 	if parallel > 1 && len(order) > 1 {
-		if err := startKindLabsParallel(cfg, order, states, baseDir, forTest, parallel, rep); err != nil {
+		if err := startKindClustersParallel(cfg, order, states, baseDir, forTest, parallel, rep); err != nil {
 			return nil, err
 		}
 		return states, nil
@@ -78,7 +78,7 @@ func startKindLabs(cfg *config.LabConfig, baseDir, labCluster string, forTest bo
 		for _, d := range l.DependsOn {
 			deps = append(deps, byName[d])
 		}
-		sub := kindLabConfig(cfg, l)
+		sub := kindClusterConfig(cfg, l)
 		if err := runtime.DestroyEnvironment(name, sub.Runtime, rep); err != nil {
 			rep.Warn("could not clean up a previous '%s', proceeding anyway: %s", name, err)
 		}
@@ -135,7 +135,7 @@ func describeWAN(w config.WANConditions) string {
 }
 
 // notStarted names the clusters a failed start skipped, plus the lab.
-func notStarted(rest []config.KindLab) string {
+func notStarted(rest []config.KindCluster) string {
 	names := make([]string, 0, len(rest)+1)
 	for _, l := range rest {
 		names = append(names, l.Name)
@@ -146,14 +146,14 @@ func notStarted(rest []config.KindLab) string {
 // attachLinks tells a freshly created cluster where the clusters it uses
 // are (the lab: all its linked clusters; a linked cluster: its dependsOn):
 // env vars for host scripts and command checks, and a ConfigMap
-// astrona-links (namespace default). The lab's own list is saved by
-// startKindLabs, for later commands.
+// astrona-clusters (namespace default). The lab's own list is saved by
+// startKindClusters, for later commands.
 func attachLinks(env *runtime.LabEnvironment, clusterName string, links []cluster.LinkState, rep *ui.Reporter) error {
 	if len(links) == 0 {
 		return nil
 	}
 	env.WithLinks(links)
-	t := rep.Step("Publish links (ConfigMap astrona-links)")
+	t := rep.Step("Publish linked clusters (ConfigMap astrona-clusters)")
 	cm, err := linksConfigMap(links)
 	if err != nil {
 		return t.Fail(err)
@@ -166,7 +166,7 @@ func attachLinks(env *runtime.LabEnvironment, clusterName string, links []cluste
 	cmd.Stdin = bytes.NewReader(cm)
 	cmd.Stdout, cmd.Stderr = t.Output(), t.Output()
 	if err := cmd.Run(); err != nil {
-		return t.Fail(fmt.Errorf("apply ConfigMap astrona-links: %w", err))
+		return t.Fail(fmt.Errorf("apply ConfigMap astrona-clusters: %w", err))
 	}
 	t.Done()
 	return resolveLinkNames(env, links, rep)
@@ -237,7 +237,7 @@ func patchLinkNames(kubeContext, kubeconfig string, hosts map[string]string, wai
 	}
 	corefile, err := cluster.WithLinkHosts(string(out), hosts)
 	if err != nil {
-		t.Skip("%s — use the container names ($ASTRONA_LINK_<NAME>_HOST)", err)
+		t.Skip("%s — use the container names ($ASTRONA_CLUSTER_<NAME>_HOST)", err)
 		return nil
 	}
 	if corefile == string(out) {
@@ -266,7 +266,7 @@ func patchLinkNames(kubeContext, kubeconfig string, hosts map[string]string, wai
 	return nil
 }
 
-// linksConfigMap renders the astrona-links ConfigMap: "<link>.host" and
+// linksConfigMap renders the astrona-clusters ConfigMap: "<name>.host" and
 // "<link>.context" per link.
 func linksConfigMap(links []cluster.LinkState) ([]byte, error) {
 	data := map[string]string{}
@@ -275,12 +275,25 @@ func linksConfigMap(links []cluster.LinkState) ([]byte, error) {
 		data[l.Name+".hostname"] = l.Hostname()
 		data[l.Name+".context"] = l.Context()
 	}
-	return yaml.Marshal(map[string]any{
-		"apiVersion": "v1",
-		"kind":       "ConfigMap",
-		"metadata":   map[string]any{"name": "astrona-links", "namespace": "default", "labels": map[string]string{"app.kubernetes.io/managed-by": "astrona"}},
-		"data":       data,
-	})
+	// astrona-clusters, plus the same data under its pre-v0.3 name
+	// astrona-links so labs written for that keep working.
+	var out []byte
+	for i, name := range []string{"astrona-clusters", "astrona-links"} {
+		doc, err := yaml.Marshal(map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata":   map[string]any{"name": name, "namespace": "default", "labels": map[string]string{"app.kubernetes.io/managed-by": "astrona"}},
+			"data":       data,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if i > 0 {
+			out = append(out, []byte("---\n")...)
+		}
+		out = append(out, doc...)
+	}
+	return out, nil
 }
 
 // labLinks returns a running lab's saved linked clusters, with the

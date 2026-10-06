@@ -68,7 +68,7 @@ func TestScaffoldLinkedLabIsValidAsGenerated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{".github/workflows/lab.yml", "README.md", "config.yaml", "labs/backend/bootstrap/backend.yaml", "labs/backend/testing/scale.sh", "solution/solve.sh", "docs/exam-question.md"} {
+	for _, want := range []string{".github/workflows/lab.yml", "README.md", "config.yaml", "clusters/backend/bootstrap/backend.yaml", "clusters/backend/testing/scale.sh", "solution/solve.sh", "docs/exam-question.md"} {
 		found := false
 		for _, f := range files {
 			found = found || f == want
@@ -87,7 +87,7 @@ func TestScaffoldLinkedLabIsValidAsGenerated(t *testing.T) {
 			t.Errorf("generated lab doesn't validate: %s %s %s", r.name, r.detail, r.hint)
 		}
 	}
-	if labs := cfg.KindLabs(); len(labs) != 1 || labs[0].Name != "backend" {
+	if labs := cfg.KindClusters(); len(labs) != 1 || labs[0].Name != "backend" {
 		t.Fatalf("linked clusters = %+v", labs)
 	}
 	graded := false
@@ -100,7 +100,7 @@ func TestScaffoldLinkedLabIsValidAsGenerated(t *testing.T) {
 	if info, _ := os.Stat(filepath.Join(dir, "solution", "solve.sh")); info == nil || info.Mode()&0100 == 0 {
 		t.Error("solve.sh isn't executable")
 	}
-	m, _ := os.ReadFile(filepath.Join(dir, "labs", "backend", "bootstrap", "backend.yaml"))
+	m, _ := os.ReadFile(filepath.Join(dir, "clusters", "backend", "bootstrap", "backend.yaml"))
 	if !strings.Contains(string(m), "hello from auth-01-backend") {
 		t.Error("backend manifest not rendered")
 	}

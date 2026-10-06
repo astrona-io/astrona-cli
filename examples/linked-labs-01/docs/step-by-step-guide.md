@@ -17,4 +17,4 @@ astrona submit
 
 Why it works: every kind cluster runs on the same container network, so a pod in your cluster can reach the idp cluster's node. Astrona points `idp.astrona.internal` at that node in your cluster's DNS. The idp publishes its Service as a **NodePort** (30080) — a `ClusterIP` Service or a pod IP of the other cluster wouldn't be reachable.
 
-You can look at the other side too: `kubectl --context "$ASTRONA_LINK_IDP_CONTEXT" -n auth get pods,svc` works inside `astrona shell linked-labs-01`.
+You can look at the other side too: `kubectl --context "$ASTRONA_CLUSTER_IDP_CONTEXT" -n auth get pods,svc` works inside `astrona shell linked-labs-01`.

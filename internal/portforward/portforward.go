@@ -137,7 +137,7 @@ func startOne(exe, lab string, pf config.PortForward) error {
 
 	spec := Spec{Lab: lab, Forward: pf, StartedAt: time.Now()}
 	if pf.Cluster != "" {
-		spec.Cluster = config.KindLabClusterName(lab, pf.Cluster)
+		spec.Cluster = config.LinkedClusterName(lab, pf.Cluster)
 	}
 	spec.KubeContext = "kind-" + spec.Target()
 	if err := writeJSONAtomic(filepath.Join(dir, specFile), spec); err != nil {

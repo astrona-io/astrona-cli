@@ -43,9 +43,9 @@ func applyBundleImages(cfg *config.LabConfig, baseDir string) {
 		cfg.Runtime.Kind = &config.KindConfig{}
 	}
 	cfg.Runtime.Kind.PreloadImages = images
-	for i, l := range cfg.Runtime.Kind.Labs {
+	for i, l := range cfg.Runtime.Kind.Clusters {
 		if !l.Addons.IsZero() {
-			cfg.Runtime.Kind.Labs[i].PreloadImages = mergeImages(l.PreloadImages, extra)
+			cfg.Runtime.Kind.Clusters[i].PreloadImages = mergeImages(l.PreloadImages, extra)
 		}
 	}
 }
@@ -101,7 +101,7 @@ func bundleRefusal(cfg *config.LabConfig, nodeImage string) string {
 	if k := cfg.Runtime.Kind; k != nil && k.Addons.GatewayAPI != "" {
 		return addons.ErrNotBundleable.Error()
 	}
-	for _, l := range cfg.KindLabs() {
+	for _, l := range cfg.KindClusters() {
 		if l.Addons.GatewayAPI != "" {
 			return fmt.Sprintf("linked cluster '%s': %s", l.Name, addons.ErrNotBundleable)
 		}
@@ -196,7 +196,7 @@ func newBundleCreateCmd(flags *rootFlags) *cobra.Command {
 			if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {
 				addonSets = append(addonSets, k.Addons)
 			}
-			for _, l := range cfg.KindLabs() {
+			for _, l := range cfg.KindClusters() {
 				add(l.Cluster().NodeImage(), "node")
 				for _, im := range l.PreloadImages {
 					add(im, "preload")

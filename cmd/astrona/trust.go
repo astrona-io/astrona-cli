@@ -100,7 +100,7 @@ func labRiskSummary(cfg *config.LabConfig) []string {
 	if k := cfg.Runtime.Kind; k != nil && k.SharedCA {
 		lines = append(lines, "creates a certificate authority for the lab and installs it in its clusters (key kept in ~/.astrona and in the clusters)")
 	}
-	for _, l := range cfg.KindLabs() {
+	for _, l := range cfg.KindClusters() {
 		line := "creates linked kind cluster '" + l.Name + "'"
 		if len(l.PreloadImages) > 0 {
 			line += ", pulls images: " + strings.Join(l.PreloadImages, ", ")
