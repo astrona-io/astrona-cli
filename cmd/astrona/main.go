@@ -28,6 +28,7 @@ type rootFlags struct {
 	gitURL     string
 	gitRef     string
 	verbose    bool
+	trust      bool
 }
 
 // Version is the current version of the astrona-cli binary, burnt in at build
@@ -129,6 +130,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&flags.gitURL, "git", "", "Git repository URL to clone/pull (https://, git@host:, or ssh://) — --config then selects a subdirectory within it")
 	rootCmd.PersistentFlags().StringVar(&flags.gitRef, "git-ref", "", "Git branch, tag, or commit to check out (used with --git; default: the repo's default branch)")
 	// No -v shorthand: Cobra reserves it for the auto-generated --version flag.
+	rootCmd.PersistentFlags().BoolVar(&flags.trust, "trust", false, "Approve running a remote (--git / URL) lab without asking — for CI; review the lab first")
 	rootCmd.PersistentFlags().BoolVar(&flags.verbose, "verbose", false, "Stream the full output of every underlying command instead of the compact step view")
 
 	rootCmd.AddCommand(newRunCmd(flags))

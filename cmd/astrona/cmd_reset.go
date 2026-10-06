@@ -69,6 +69,10 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer configCleanup()
 
+			if err := requireTrust(flags, cfg, baseDir); err != nil {
+				return err
+			}
+
 			if err := validateLabForRun(cfg); err != nil {
 				return fmt.Errorf("lab config is invalid, nothing was reset: %w", err)
 			}
