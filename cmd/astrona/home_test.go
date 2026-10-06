@@ -42,3 +42,36 @@ func TestHomeLabFor(t *testing.T) {
 		t.Errorf("lab in the current directory = %+v, %v", lab, ok)
 	}
 }
+
+// Plain `astrona` shows the lab's status and then every command, the same
+// list `astrona --help` prints.
+func TestBareAstronaListsEveryCommand(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("ASTRONA_NO_UPDATE_CHECK", "1")
+	t.Chdir(t.TempDir())
+
+	run := func(args ...string) string {
+		root := newRootCmd(&rootFlags{})
+		var buf bytes.Buffer
+		root.SetOut(&buf)
+		root.SetErr(&bytes.Buffer{})
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("astrona %v: %v", args, err)
+		}
+		return buf.String()
+	}
+
+	bare, help := run(), run("--help")
+	if !strings.Contains(bare, "No lab picked") {
+		t.Errorf("bare astrona lacks the status block:\n%s", bare)
+	}
+	if !strings.HasSuffix(bare, help) {
+		t.Errorf("bare astrona doesn't end with the --help output:\n%s", bare)
+	}
+	for _, c := range newRootCmd(&rootFlags{}).Commands() {
+		if c.IsAvailableCommand() && !strings.Contains(bare, "  "+c.Name()+" ") {
+			t.Errorf("bare astrona doesn't list %q", c.Name())
+		}
+	}
+}
