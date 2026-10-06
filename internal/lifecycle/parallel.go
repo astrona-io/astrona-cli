@@ -136,10 +136,14 @@ func startLinkedClustersParallel(cfg *config.LabConfig, order []config.KindClust
 		if err := runtime.DestroyEnvironment(name, sub.Runtime, subRep); err != nil {
 			subRep.Warn("could not clean up a previous '%s', proceeding anyway: %s", name, err)
 		}
-		if _, _, err := Up(sub, baseDir, name, deps, forTest, subRep); err != nil {
-			return err
+		_, _, err := Up(sub, baseDir, name, deps, forTest, subRep)
+		if err == nil {
+			err = ApplyWAN(name, l.WAN, subRep)
 		}
-		return ApplyWAN(name, l.WAN, subRep)
+		if err != nil {
+			return linkedClusterError(l, name, err)
+		}
+		return nil
 	}
 
 	rep.Section("Linked clusters (up to %d at once)", parallel)

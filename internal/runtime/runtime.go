@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"astrona/internal/cluster"
@@ -78,6 +79,26 @@ func vmNames(executors map[string]executor.ScriptExecutor) []string {
 	return names
 }
 
+// kindCreateMu serializes kind cluster creation within this process.
+// `--parallel` linked clusters call CreateEnvironment concurrently; without
+// it, one goroutine's PreserveCurrentContext could record the context
+// another's kind create had just switched to (leaving the user on a
+// kind-astro-… context), and the kind creates would write ~/.kube/config
+// at the same time. Everything after creation still runs in parallel.
+var kindCreateMu sync.Mutex
+
+// withPreservedContext runs create between preserve() and the restore func
+// it returns, holding kindCreateMu for the whole preserve→create→restore
+// section so concurrent callers never interleave.
+func withPreservedContext(preserve func() func(), create func() error) error {
+	kindCreateMu.Lock()
+	defer kindCreateMu.Unlock()
+	restore := preserve()
+	err := create()
+	restore()
+	return err
+}
+
 // CreateEnvironment brings up a fresh lab environment: a kind cluster, or —
 // for qemu — one VM or several named ones (runtime.qemu, see IsMultiVM).
 func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.Reporter) (*LabEnvironment, error) {
@@ -93,9 +114,10 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.R
 		}
 		// kind create always switches the user's current-context to the
 		// new cluster; put it back once it's done, success or not.
-		restoreContext := cluster.PreserveCurrentContext(rep)
-		err := cluster.CreateKindCluster(name, cfg.Kind, rep)
-		restoreContext()
+		err := withPreservedContext(
+			func() func() { return cluster.PreserveCurrentContext(rep) },
+			func() error { return cluster.CreateKindCluster(name, cfg.Kind, rep) },
+		)
 		if err != nil {
 			return nil, err
 		}

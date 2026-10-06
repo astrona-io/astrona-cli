@@ -207,6 +207,8 @@ Key differences from `kind`:
 - `astrona ssh <lab-name>` opens an interactive session into a running VM (name as shown by `astrona list`, with or without the `astro-` prefix) as `student` by default — override with `--user`. Root SSH login is disabled on the VM. After `astrona run` finishes, a **Connect:** block prints the ready-to-paste `astrona ssh <name>` command for each VM.
 - `student` can be locked down (sudo removed, password auth disabled) without affecting bootstrap/testing/teardown, since those always run as the independent `astrona` account.
 - Base images are cached under `~/.astrona/cache/images` — inspect with `astrona images list`. Checksum verification is strongly recommended (`image.checksum`/`image.checksums`) but not required; an unverified image falls back to an online freshness check plus the existing cache.
+- A base image must be self-contained: astrona refuses a qcow2 that declares its own backing file or an external data file (`data_file`), since either is a path stored in the image that could point at any file on your machine. The one exception is an `oci` artifact that ships a delta together with its base (e.g. `image.qcow2` backed by `base.qcow2`): astrona flattens the two into one image, but only after checking that every file in the backing chain resolves — symlinks included — to a file inside the pulled artifact, is qcow2, and declares its backing format explicitly.
+- `astrona destroy` only signals the saved qemu PID if that process is still this VM's `qemu-system` process (started with `-name astrona-<lab>`). If the PID now belongs to something else — e.g. after a host reboot — it warns, leaves that process alone, and just removes the lab's state.
 
 ### Image sources
 

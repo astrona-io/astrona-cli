@@ -328,7 +328,7 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 
 		fmt.Fprintf(os.Stderr, "Fetching lab configuration from %s...\n", configPath)
 
-		client := &http.Client{Timeout: 30 * time.Second}
+		client := HTTPSOnlyClient(30 * time.Second)
 
 		resp, err := client.Get(configPath)
 		if err != nil {

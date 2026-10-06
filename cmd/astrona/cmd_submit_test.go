@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -54,5 +56,33 @@ func TestPrintAttemptsTimed(t *testing.T) {
 		if !strings.Contains(buf.String(), want) {
 			t.Errorf("missing %q:\n%s", want, buf.String())
 		}
+	}
+}
+
+// An invalid lab config fails `submit` and `test` up front as a plain
+// error (exit 1) — never graded into a "didn't pass" (exit 2).
+func TestSubmitAndTestRejectInvalidConfig(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("PATH", t.TempDir()) // nothing real gets run, even if validation regressed
+	dir := t.TempDir()
+	cfg := "metadata: {name: bad-check}\nvalidation:\n  checks:\n    - {name: pods, type: count, resource: pods}\n"
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(cfg), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, command := range []string{"submit", "test"} {
+		t.Run(command, func(t *testing.T) {
+			root := newRootCmd(&rootFlags{})
+			root.SetArgs([]string{command, "-c", dir})
+			root.SetOut(&bytes.Buffer{})
+			root.SetErr(&bytes.Buffer{})
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), "count check needs min and/or max") {
+				t.Fatalf("error = %v, want the config validation error", err)
+			}
+			if code := exitCodeFor(err); code != exitError {
+				t.Fatalf("exit code = %d, want %d", code, exitError)
+			}
+		})
 	}
 }

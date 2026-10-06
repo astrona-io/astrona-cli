@@ -176,7 +176,8 @@ func RunOnEveryVM(scripts []config.ResourceItem, baseDir string, env *runtime.La
 
 // ResolveLocalSource turns a ResourceItem into a path kubectl/bash can use
 // directly: a local file/folder is joined against baseDir and checked to
-// exist, a URL is passed through unchanged (kubectl can apply URLs itself).
+// exist, a URL is passed through unchanged once it's checked to be https://
+// (the caller downloads it — see manifests.ApplyManifests).
 func ResolveLocalSource(item config.ResourceItem, baseDir string) (string, error) {
 	switch strings.ToLower(item.Type) {
 	case "file", "folder":
@@ -191,6 +192,9 @@ func ResolveLocalSource(item config.ResourceItem, baseDir string) (string, error
 
 		return path, nil
 	case "url":
+		if !strings.HasPrefix(item.Source, "https://") {
+			return "", fmt.Errorf("refusing to use non-https URL '%s' for '%s': only https:// sources are allowed", item.Source, item.Name)
+		}
 		return item.Source, nil
 	default:
 		return "", fmt.Errorf("unsupported type '%s' for '%s' (must be 'file', 'folder', or 'url')", item.Type, item.Name)

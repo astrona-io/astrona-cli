@@ -399,7 +399,7 @@ func trustBundle(flags *rootFlags, src, sum string, cfg *config.LabConfig, m *bu
 	}
 	summary := labRiskSummary(cfg)
 	summary = append(summary, fmt.Sprintf("loads %d image(s) into your container engine", len(m.Images)))
-	if !confirmTrust(os.Stdin, os.Stdout, tsrc, status, prev, summary) {
+	if !confirmTrust(os.Stdin, promptOut, tsrc, status, prev, summary) {
 		return errors.New("not trusted — nothing was loaded")
 	}
 	return trust.Approve(tsrc, time.Now())

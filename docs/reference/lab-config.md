@@ -52,7 +52,7 @@ teardown: {}     # TeardownConfig
 | `docs.caseStudy` | string | Path to a softer, hint-driven version of the same task |
 | `docs.guide` | string | Path to the full step-by-step walkthrough |
 
-Doc paths are relative to `config.yaml` and must stay inside the lab directory; students read them with [`astrona docs`](cli/astrona_docs.md).
+Doc paths are relative to `config.yaml` and must stay inside the lab directory (absolute paths are rejected); students read them with [`astrona docs`](cli/astrona_docs.md).
 
 ### Names
 
@@ -345,7 +345,7 @@ Shared shape for every script/manifest reference (`bootstrap.init`, `bootstrap.m
 | `name` | string | Label printed as the step runs |
 | `description` | string | Optional, printed alongside `name` |
 | `type` | string | `"file"` \| `"folder"` \| `"url"` (manifests support all three; scripts too) |
-| `source` | string | Path (relative to the lab's base directory) or URL, depending on `type` |
+| `source` | string | Path (relative to the lab's base directory) or URL, depending on `type`. A `url` source must be `https://` (redirects to `http://` are refused); scripts and manifests alike are downloaded to a size-capped temp file (50 MiB) and run/applied from there |
 | `hint` | string | Validation scripts only: shown when the script fails |
 | `points` | int | Validation scripts only: weight in the score (default `1`) |
 

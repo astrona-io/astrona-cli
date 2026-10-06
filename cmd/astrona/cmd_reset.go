@@ -41,6 +41,10 @@ func confirmReset(in io.Reader, out io.Writer, lab string) bool {
 	return confirmYes(in, out, fmt.Sprintf("Reset %s? This deletes the lab and everything done in it, then recreates it from the config.", lab))
 }
 
+// promptOut is where interactive questions are written: stderr, so stdout
+// carries only a command's output (exactly one document under -o json).
+var promptOut io.Writer = os.Stderr
+
 // confirmYes asks question on in/out; only "y"/"yes" (any case) confirms.
 func confirmYes(in io.Reader, out io.Writer, question string) bool {
 	fmt.Fprintf(out, "%s [y/N] ", question)
@@ -112,7 +116,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 					if !isatty.IsTerminal(os.Stdin.Fd()) {
 						return fmt.Errorf("refusing to reset '%s' without confirmation — pass --yes when not running in a terminal", clusterName)
 					}
-					if !confirmYes(os.Stdin, os.Stdout, fmt.Sprintf("Soft-reset %s? Its lab namespaces and what's in default are deleted, then its bootstrap runs again.", what)) {
+					if !confirmYes(os.Stdin, promptOut, fmt.Sprintf("Soft-reset %s? Its lab namespaces and what's in default are deleted, then its bootstrap runs again.", what)) {
 						fmt.Println("Reset cancelled — nothing was changed.")
 						return nil
 					}
@@ -143,7 +147,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				if !isatty.IsTerminal(os.Stdin.Fd()) {
 					return fmt.Errorf("refusing to reset '%s' without confirmation — pass --yes when not running in a terminal", clusterName)
 				}
-				if !confirmReset(os.Stdin, os.Stdout, clusterName) {
+				if !confirmReset(os.Stdin, promptOut, clusterName) {
 					fmt.Println("Reset cancelled — nothing was changed.")
 					return nil
 				}
@@ -206,7 +210,7 @@ func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string
 		if !isatty.IsTerminal(os.Stdin.Fd()) {
 			return fmt.Errorf("refusing to reset '%s' without confirmation — pass --yes when not running in a terminal", target)
 		}
-		if !confirmYes(os.Stdin, os.Stdout, fmt.Sprintf("Reset linked cluster %s? Everything done in it is lost; it's recreated from the config.", target)) {
+		if !confirmYes(os.Stdin, promptOut, fmt.Sprintf("Reset linked cluster %s? Everything done in it is lost; it's recreated from the config.", target)) {
 			fmt.Println("Reset cancelled — nothing was changed.")
 			return nil
 		}

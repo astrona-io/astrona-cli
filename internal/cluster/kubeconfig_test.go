@@ -129,6 +129,33 @@ func TestWriteAndRemoveLabKubeconfig(t *testing.T) {
 	}
 }
 
+// On a podman-only machine (docker installed but not answering), kind
+// delete must use the podman provider, like create does.
+func TestDeleteKindClusterUsesPodmanProvider(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	bin := t.TempDir()
+	envFile := filepath.Join(bin, "kind-env")
+	scripts := map[string]string{
+		"docker": "#!/bin/sh\nexit 1\n",
+		"podman": "#!/bin/sh\nexit 0\n",
+		"kind":   "#!/bin/sh\necho \"provider=$KIND_EXPERIMENTAL_PROVIDER\" > \"" + envFile + "\"\n",
+	}
+	for name, body := range scripts {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin)
+	t.Setenv("KIND_EXPERIMENTAL_PROVIDER", "")
+
+	if err := DeleteKindCluster("astro-x", ui.Discard()); err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, envFile); got != "provider=podman" {
+		t.Fatalf("kind delete ran with %q, want provider=podman", got)
+	}
+}
+
 func TestKubeconfigPathRejectsUnsafeLabNames(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	for _, lab := range []string{"", "../x", "a/b", ".hidden", "a..b"} {
