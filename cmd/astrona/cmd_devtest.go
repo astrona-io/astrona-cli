@@ -31,7 +31,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 	var repeat int
 
 	cmd := &cobra.Command{
-		Use:          "test",
+		Use:          "test [lab]",
 		Short:        "Run the full lab lifecycle for CI: bootstrap, testing, submit, teardown",
 		SilenceUsage: true,
 		Long: "Run the full lab lifecycle for CI: bootstrap, apply the reference solution (testing), " +
@@ -39,7 +39,9 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			"--repeat N runs the whole lifecycle N times on fresh environments and reports any check " +
 			"that doesn't pass every time (flaky), so race-prone checks are caught before students " +
 			"hit them.",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			useLabArg(args, flags) // a lab given as the argument wins over `astrona use`
 			if err := validateDiagnosticsMode(diagMode); err != nil {
 				return err
 			}

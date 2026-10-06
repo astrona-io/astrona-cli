@@ -24,13 +24,15 @@ import (
 // flags.
 func newRunCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "run",
+		Use:   "run [lab]",
 		Short: "Start a lab: create its cluster(s) or VM(s) and set it up",
 		Long: "Spin up a lab environment: create the kind cluster or qemu VM(s), run bootstrap init scripts, " +
 			"and apply bootstrap manifests.\n\n" +
 			"For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) " +
 			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			useLabArg(args, flags) // a lab given as the argument wins over `astrona use`
 			if flags.configPath == "" {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
 			}
