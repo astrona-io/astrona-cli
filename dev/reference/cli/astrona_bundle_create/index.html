@@ -10,28 +10,28 @@
       
       
       
-        <link rel="canonical" href="https://cli.astrona.io/dev/getting-started/quickstart/">
+        <link rel="canonical" href="https://cli.astrona.io/dev/reference/cli/astrona_bundle_create/">
       
       
-        <link rel="prev" href="../installation/">
+        <link rel="prev" href="../astrona_bundle/">
       
       
-        <link rel="next" href="../../concepts/runtimes/">
+        <link rel="next" href="../astrona_bundle_load/">
       
       
-      <link rel="icon" href="../../assets/favicon.svg">
+      <link rel="icon" href="../../../assets/favicon.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
     
     
       
-        <title>Quickstart - Astrona CLI</title>
+        <title>Astrona bundle create - Astrona CLI</title>
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.342714a4.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.342714a4.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -44,9 +44,9 @@
       
     
     
-      <link rel="stylesheet" href="../../stylesheets/extra.css">
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
     
-    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#quickstart" class="md-skip">
+        <a href="#astrona-bundle-create" class="md-skip">
           Skip to content
         </a>
       
@@ -88,9 +88,9 @@
 
 <header class="md-header" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="Astrona CLI" class="md-header__button md-logo" aria-label="Astrona CLI" data-md-component="logo">
+    <a href="../../.." title="Astrona CLI" class="md-header__button md-logo" aria-label="Astrona CLI" data-md-component="logo">
       
-  <img src="../../assets/logo.svg" alt="logo">
+  <img src="../../../assets/logo.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -107,7 +107,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Quickstart
+              Astrona bundle create
             
           </span>
         </div>
@@ -194,7 +194,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../.." class="md-tabs__link">
+      <a href="../../.." class="md-tabs__link">
         
   
   
@@ -211,13 +211,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../installation/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../../getting-started/installation/" class="md-tabs__link">
           
   
   
@@ -239,7 +237,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../concepts/runtimes/" class="md-tabs__link">
+        <a href="../../../concepts/runtimes/" class="md-tabs__link">
           
   
   
@@ -261,7 +259,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../guides/authoring-a-lab/" class="md-tabs__link">
+        <a href="../../../guides/authoring-a-lab/" class="md-tabs__link">
           
   
   
@@ -279,11 +277,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../reference/lab-config/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../lab-config/" class="md-tabs__link">
           
   
   
@@ -303,7 +303,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../contributing/" class="md-tabs__link">
+      <a href="../../../contributing/" class="md-tabs__link">
         
   
   
@@ -338,9 +338,9 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="Astrona CLI" class="md-nav__button md-logo" aria-label="Astrona CLI" data-md-component="logo">
+    <a href="../../.." title="Astrona CLI" class="md-nav__button md-logo" aria-label="Astrona CLI" data-md-component="logo">
       
-  <img src="../../assets/logo.svg" alt="logo">
+  <img src="../../../assets/logo.svg" alt="logo">
 
     </a>
     Astrona CLI
@@ -367,7 +367,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href="../../.." class="md-nav__link">
         
   
   
@@ -386,10 +386,8 @@
       
   
   
-    
   
   
-  
     
     
       
@@ -401,22 +399,19 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
             
   
   
@@ -429,7 +424,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             Getting Started
@@ -443,7 +438,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation/" class="md-nav__link">
+      <a href="../../../getting-started/installation/" class="md-nav__link">
         
   
   
@@ -463,32 +458,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Quickstart
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../getting-started/quickstart/" class="md-nav__link">
         
   
   
@@ -499,89 +472,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-check-your-toolchain" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Check your toolchain
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-bring-the-lab-up" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. Bring the lab up
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-inspect-it" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Inspect it
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-submit-for-grading" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. Submit for grading
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-tear-it-down" class="md-nav__link">
-    <span class="md-ellipsis">
-      5. Tear it down
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-lab-author-loop" class="md-nav__link">
-    <span class="md-ellipsis">
-      The lab-author loop
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next" class="md-nav__link">
-    <span class="md-ellipsis">
-      Next
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -654,7 +544,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/runtimes/" class="md-nav__link">
+      <a href="../../../concepts/runtimes/" class="md-nav__link">
         
   
   
@@ -677,7 +567,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/lab-lifecycle/" class="md-nav__link">
+      <a href="../../../concepts/lab-lifecycle/" class="md-nav__link">
         
   
   
@@ -700,7 +590,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/grading/" class="md-nav__link">
+      <a href="../../../concepts/grading/" class="md-nav__link">
         
   
   
@@ -723,7 +613,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../concepts/logs/" class="md-nav__link">
+      <a href="../../../concepts/logs/" class="md-nav__link">
         
   
   
@@ -806,7 +696,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/authoring-a-lab/" class="md-nav__link">
+      <a href="../../../guides/authoring-a-lab/" class="md-nav__link">
         
   
   
@@ -829,7 +719,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/ci-integration/" class="md-nav__link">
+      <a href="../../../guides/ci-integration/" class="md-nav__link">
         
   
   
@@ -852,7 +742,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/remote-config/" class="md-nav__link">
+      <a href="../../../guides/remote-config/" class="md-nav__link">
         
   
   
@@ -875,7 +765,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/offline-bundles/" class="md-nav__link">
+      <a href="../../../guides/offline-bundles/" class="md-nav__link">
         
   
   
@@ -902,8 +792,10 @@
       
   
   
+    
   
   
+  
     
     
       
@@ -915,19 +807,22 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
@@ -940,7 +835,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             Reference
@@ -954,7 +849,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/lab-config/" class="md-nav__link">
+      <a href="../../lab-config/" class="md-nav__link">
         
   
   
@@ -974,8 +869,10 @@
                 
   
   
+    
   
   
+  
     
     
       
@@ -1066,18 +963,21 @@
     
       
       
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" >
         
           
-          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="">
             
   
   
@@ -1090,7 +990,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5_2">
             <span class="md-nav__icon md-icon"></span>
             CLI Reference
@@ -1104,7 +1004,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona/" class="md-nav__link">
+      <a href="../astrona/" class="md-nav__link">
         
   
   
@@ -1127,7 +1027,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_run/" class="md-nav__link">
+      <a href="../astrona_run/" class="md-nav__link">
         
   
   
@@ -1150,7 +1050,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_docs/" class="md-nav__link">
+      <a href="../astrona_docs/" class="md-nav__link">
         
   
   
@@ -1173,7 +1073,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_destroy/" class="md-nav__link">
+      <a href="../astrona_destroy/" class="md-nav__link">
         
   
   
@@ -1196,7 +1096,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_stop/" class="md-nav__link">
+      <a href="../astrona_stop/" class="md-nav__link">
         
   
   
@@ -1219,7 +1119,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_start/" class="md-nav__link">
+      <a href="../astrona_start/" class="md-nav__link">
         
   
   
@@ -1242,7 +1142,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_reset/" class="md-nav__link">
+      <a href="../astrona_reset/" class="md-nav__link">
         
   
   
@@ -1265,7 +1165,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_submit/" class="md-nav__link">
+      <a href="../astrona_submit/" class="md-nav__link">
         
   
   
@@ -1288,7 +1188,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_test/" class="md-nav__link">
+      <a href="../astrona_test/" class="md-nav__link">
         
   
   
@@ -1311,7 +1211,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_check/" class="md-nav__link">
+      <a href="../astrona_check/" class="md-nav__link">
         
   
   
@@ -1334,7 +1234,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_validate/" class="md-nav__link">
+      <a href="../astrona_validate/" class="md-nav__link">
         
   
   
@@ -1357,7 +1257,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_list/" class="md-nav__link">
+      <a href="../astrona_list/" class="md-nav__link">
         
   
   
@@ -1380,7 +1280,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_status/" class="md-nav__link">
+      <a href="../astrona_status/" class="md-nav__link">
         
   
   
@@ -1403,7 +1303,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_images/" class="md-nav__link">
+      <a href="../astrona_images/" class="md-nav__link">
         
   
   
@@ -1426,7 +1326,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_images_list/" class="md-nav__link">
+      <a href="../astrona_images_list/" class="md-nav__link">
         
   
   
@@ -1449,7 +1349,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_ssh/" class="md-nav__link">
+      <a href="../astrona_ssh/" class="md-nav__link">
         
   
   
@@ -1472,7 +1372,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_shell/" class="md-nav__link">
+      <a href="../astrona_shell/" class="md-nav__link">
         
   
   
@@ -1495,7 +1395,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_kubeconfig/" class="md-nav__link">
+      <a href="../astrona_kubeconfig/" class="md-nav__link">
         
   
   
@@ -1518,7 +1418,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_diagnose/" class="md-nav__link">
+      <a href="../astrona_diagnose/" class="md-nav__link">
         
   
   
@@ -1541,7 +1441,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_bundle/" class="md-nav__link">
+      <a href="../astrona_bundle/" class="md-nav__link">
         
   
   
@@ -1561,10 +1461,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_bundle_create/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Astrona bundle create
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1575,6 +1495,90 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#astrona-bundle-create" class="md-nav__link">
+    <span class="md-ellipsis">
+      astrona bundle create
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="astrona bundle create">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Examples
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Options
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#options-inherited-from-parent-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      Options inherited from parent commands
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      SEE ALSO
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SEE ALSO">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#auto-generated-by-spf13cobra-on-6-oct-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      Auto generated by spf13/cobra on 6-Oct-2026
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1587,7 +1591,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_bundle_load/" class="md-nav__link">
+      <a href="../astrona_bundle_load/" class="md-nav__link">
         
   
   
@@ -1610,7 +1614,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_bundle_inspect/" class="md-nav__link">
+      <a href="../astrona_bundle_inspect/" class="md-nav__link">
         
   
   
@@ -1633,7 +1637,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_port-forward/" class="md-nav__link">
+      <a href="../astrona_port-forward/" class="md-nav__link">
         
   
   
@@ -1656,7 +1660,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_port-forward_list/" class="md-nav__link">
+      <a href="../astrona_port-forward_list/" class="md-nav__link">
         
   
   
@@ -1679,7 +1683,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_port-forward_start/" class="md-nav__link">
+      <a href="../astrona_port-forward_start/" class="md-nav__link">
         
   
   
@@ -1702,7 +1706,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_port-forward_stop/" class="md-nav__link">
+      <a href="../astrona_port-forward_stop/" class="md-nav__link">
         
   
   
@@ -1725,7 +1729,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_upgrade/" class="md-nav__link">
+      <a href="../astrona_upgrade/" class="md-nav__link">
         
   
   
@@ -1748,7 +1752,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_progress/" class="md-nav__link">
+      <a href="../astrona_progress/" class="md-nav__link">
         
   
   
@@ -1771,7 +1775,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_logs/" class="md-nav__link">
+      <a href="../astrona_logs/" class="md-nav__link">
         
   
   
@@ -1794,7 +1798,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_logs_list/" class="md-nav__link">
+      <a href="../astrona_logs_list/" class="md-nav__link">
         
   
   
@@ -1817,7 +1821,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_logs_view/" class="md-nav__link">
+      <a href="../astrona_logs_view/" class="md-nav__link">
         
   
   
@@ -1840,7 +1844,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_logs_path/" class="md-nav__link">
+      <a href="../astrona_logs_path/" class="md-nav__link">
         
   
   
@@ -1863,7 +1867,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_logs_export/" class="md-nav__link">
+      <a href="../astrona_logs_export/" class="md-nav__link">
         
   
   
@@ -1886,7 +1890,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_logs_clean/" class="md-nav__link">
+      <a href="../astrona_logs_clean/" class="md-nav__link">
         
   
   
@@ -1909,7 +1913,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_init/" class="md-nav__link">
+      <a href="../astrona_init/" class="md-nav__link">
         
   
   
@@ -1932,7 +1936,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_init_lab/" class="md-nav__link">
+      <a href="../astrona_init_lab/" class="md-nav__link">
         
   
   
@@ -1955,7 +1959,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_content/" class="md-nav__link">
+      <a href="../astrona_content/" class="md-nav__link">
         
   
   
@@ -1978,7 +1982,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_content_init/" class="md-nav__link">
+      <a href="../astrona_content_init/" class="md-nav__link">
         
   
   
@@ -2001,7 +2005,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_content_validate/" class="md-nav__link">
+      <a href="../astrona_content_validate/" class="md-nav__link">
         
   
   
@@ -2024,7 +2028,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_content_build/" class="md-nav__link">
+      <a href="../astrona_content_build/" class="md-nav__link">
         
   
   
@@ -2062,7 +2066,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../contributing/" class="md-nav__link">
+      <a href="../../../contributing/" class="md-nav__link">
         
   
   
@@ -2094,8 +2098,6 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -2104,65 +2106,68 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-check-your-toolchain" class="md-nav__link">
+  <a href="#astrona-bundle-create" class="md-nav__link">
     <span class="md-ellipsis">
-      1. Check your toolchain
+      astrona bundle create
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="astrona bundle create">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Examples
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#2-bring-the-lab-up" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Bring the lab up
+      Options
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#3-inspect-it" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#options-inherited-from-parent-commands" class="md-nav__link">
     <span class="md-ellipsis">
-      3. Inspect it
+      Options inherited from parent commands
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#4-submit-for-grading" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
-      4. Submit for grading
+      SEE ALSO
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SEE ALSO">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#auto-generated-by-spf13cobra-on-6-oct-2026" class="md-nav__link">
+    <span class="md-ellipsis">
+      Auto generated by spf13/cobra on 6-Oct-2026
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#5-tear-it-down" class="md-nav__link">
-    <span class="md-ellipsis">
-      5. Tear it down
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#the-lab-author-loop" class="md-nav__link">
-    <span class="md-ellipsis">
-      The lab-author loop
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next" class="md-nav__link">
-    <span class="md-ellipsis">
-      Next
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2182,7 +2187,7 @@
 
 
   
-    <a href="https://github.com/astrona-io/astrona-cli/edit/main/docs/getting-started/quickstart.md" title="Edit this page" class="md-content__button md-icon">
+    <a href="https://github.com/astrona-io/astrona-cli/edit/main/docs/reference/cli/astrona_bundle_create.md" title="Edit this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2190,101 +2195,34 @@
   
 
 
-<h1 id="quickstart">Quickstart<a class="headerlink" href="#quickstart" title="Permanent link">&para;</a></h1>
-<p>This walks through the full loop — bring a lab up, work on it, get graded, tear it down — using the <a href="https://github.com/astrona-io/astrona-cli/tree/main/examples/k8s-basics-01"><code>examples/k8s-basics-01</code></a> lab shipped in the repo. Clone the repo first, or point <code>--git</code> at it directly (see <a href="../../guides/remote-config/">Remote Config Sources</a>).</p>
-<h2 id="1-check-your-toolchain">1. Check your toolchain<a class="headerlink" href="#1-check-your-toolchain" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona<span class="w"> </span>check
+  <h1>Astrona bundle create</h1>
+
+<h2 id="astrona-bundle-create">astrona bundle create<a class="headerlink" href="#astrona-bundle-create" title="Permanent link">&para;</a></h2>
+<p>Create an offline bundle of a lab</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona bundle create [flags]
 </code></pre></div>
-<p>Fix anything reported as <code>✗</code> before continuing — <code>kind</code>, Docker/Podman, and <code>kubectl</code> are required for this example.</p>
-<h2 id="2-bring-the-lab-up">2. Bring the lab up<a class="headerlink" href="#2-bring-the-lab-up" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>run<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
+<h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>  astrona bundle create -c ./labs/k8s-web-01 -o k8s-web-01.tar.gz
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  astrona bundle create -c . -o lab.tar.gz --node-image kindest/node:v1.31.2
 </code></pre></div>
-<p>This:</p>
-<ol>
-<li>Reads <code>examples/k8s-basics-01/config.yaml</code>.</li>
-<li>Creates a <code>kind</code> cluster named <code>astro-k8s-basics-01</code> (astrona prefixes every cluster it creates with <code>astro-</code>).</li>
-<li>Runs the lab's <code>bootstrap.init</code> scripts (here, <code>hello.sh</code>).</li>
-<li>Applies any <code>bootstrap.manifests</code>.</li>
-</ol>
-<p>At this point the cluster is up and the trainee's actual work begins — this particular lab expects a <code>lab-ns</code> namespace with a <code>hello-config</code> ConfigMap holding specific content, which isn't created for you (that's the exercise).</p>
-<p>Progress prints as a compact step view; each step's full output goes to a log file under <code>~/.astrona/logs/</code> (path shown at the end) and is printed inline only if a step fails. Add <code>--verbose</code> to stream everything live instead. Revisit any past run's log with <a href="../../concepts/logs/"><code>astrona logs</code></a> — <code>astrona logs view</code> opens the latest in your pager.</p>
-<p>Read the task:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>docs<span class="w"> </span>question<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
+<h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>  -h, --help                help for create
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>      --node-image string   Node image to bundle when the lab doesn't pin runtime.kind.version/image
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  -o, --output string       Bundle file to write (.tar.gz)
 </code></pre></div>
-<p>(<code>astrona docs -c examples/k8s-basics-01</code> lists the lab's other docs — case study, prerequisites, and the step-by-step guide with the solution.)</p>
-<h2 id="3-inspect-it">3. Inspect it<a class="headerlink" href="#3-inspect-it" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>status<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
+<h3 id="options-inherited-from-parent-commands">Options inherited from parent commands<a class="headerlink" href="#options-inherited-from-parent-commands" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>  -c, --config string    Path or URL to the lab config directory (with --git: a subdirectory within the cloned repo) (default ".")
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  -f, --file string      Configuration file name override (default "config.yaml")
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>      --git string       Git repository URL to clone/pull (https://, git@host:, or ssh://) — --config then selects a subdirectory within it
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>      --git-ref string   Git branch, tag, or commit to check out (used with --git; default: the repo's default branch)
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>      --trust            Approve running a remote (--git / URL) lab without asking — for CI; review the lab first
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>      --verbose          Stream the full output of every underlying command instead of the compact step view
 </code></pre></div>
-<p>One screen for where you are with the lab: cluster health, how to connect, port forwards, the exam clock (timed labs), your last submission and score, and a suggested next step:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Lab astro-k8s-basics-01 (kind)
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  Cluster      Ready (1/1) · Kubernetes v1.37.0 · up 28s
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  Connect      astrona shell astro-k8s-basics-01
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>  Last submit  1/2 points (50%) FAIL · 3m0s ago · attempt #1
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>Next: astrona submit to grade your work
-</code></pre></div>
-<p>For every lab on the machine:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>astrona<span class="w"> </span>list
-</code></pre></div>
-<p>Shows every astrona-managed lab (kind clusters and qemu VMs), with runtime, status, and uptime — a <code>kubectl get</code>-style table. For kind labs, STATUS is live cluster health:</p>
-<table>
-<thead>
-<tr>
-<th>STATUS</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>Ready (n/n)</code></td>
-<td>every node is Ready</td>
-</tr>
-<tr>
-<td><code>NotReady (r/n)</code></td>
-<td>only <code>r</code> of <code>n</code> nodes Ready — e.g. a CNI that isn't installed yet</td>
-</tr>
-<tr>
-<td><code>Unreachable</code></td>
-<td>node containers are up but the API doesn't answer (3s timeout)</td>
-</tr>
-<tr>
-<td><code>Degraded (r/n containers running)</code></td>
-<td>some node containers stopped</td>
-</tr>
-<tr>
-<td><code>Stopped</code></td>
-<td>all node containers stopped</td>
-</tr>
-</tbody>
-</table>
-<p><code>astrona list -o wide</code> adds the Kubernetes version and port-forward status (<code>1/1 Ready</code>); <code>-o json</code> prints the same for scripts.</p>
-<p>Work with the cluster from a lab shell — your <code>$SHELL</code> with <code>kubectl</code> pointed at the lab (type <code>exit</code> to leave):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>astrona<span class="w"> </span>shell<span class="w"> </span>k8s-basics-01
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>ns
-</code></pre></div>
-<p>or from any terminal, without switching anything:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span>kind-astro-k8s-basics-01<span class="w"> </span>get<span class="w"> </span>ns
-</code></pre></div>
-<p>astrona never changes your own kubectl current-context — see <a href="../../concepts/runtimes/#kubeconfig-isolation">kubeconfig isolation</a>.</p>
-<h2 id="4-submit-for-grading">4. Submit for grading<a class="headerlink" href="#4-submit-for-grading" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>submit<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
-</code></pre></div>
-<p>Hands the running cluster to the <a href="../../concepts/grading/">Proctor</a>, which runs this lab's <code>validation.checks</code> (does <code>lab-ns</code> exist? does <code>hello-config</code> exist?) and its <code>validation.script</code> (does the ConfigMap actually hold the right content?). Output is pytest-style — a PASS/FAIL line per check, then a summary — and the command's exit code reflects the verdict, so it's safe to gate a script on.</p>
-<h2 id="5-tear-it-down">5. Tear it down<a class="headerlink" href="#5-tear-it-down" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>astrona<span class="w"> </span>destroy<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
-</code></pre></div>
-<p>Runs <code>teardown.init</code> scripts, then deletes the cluster (unless the config sets <code>teardown.keepCluster: true</code>).</p>
-<h2 id="the-lab-author-loop">The lab-author loop<a class="headerlink" href="#the-lab-author-loop" title="Permanent link">&para;</a></h2>
-<p>If you're <em>authoring</em> a lab rather than taking one, <code>astrona test</code> runs the whole thing non-interactively against a reference solution, to prove the lab is actually solvable before you publish it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
-</code></pre></div>
-<p>This bootstraps, applies <code>testing.manifests</code> (the reference solution — here, <code>examples/k8s-basics-01/solution/</code>), submits to the Proctor, and always tears down afterwards, even on failure. It runs against a <code>test-</code>-prefixed cluster name so it never collides with a lab you already have up via <code>astrona run</code>. See <a href="../../guides/ci-integration/">CI Integration</a> for wiring this into a pipeline.</p>
-<h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
+<h3 id="see-also">SEE ALSO<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h3>
 <ul>
-<li><a href="../../guides/authoring-a-lab/">Authoring a Lab</a> — build your own <code>config.yaml</code> from scratch.</li>
-<li><a href="../../concepts/runtimes/">Runtimes</a> — when to reach for <code>qemu</code> instead of the default <code>kind</code> backend.</li>
+<li><a href="../astrona_bundle/">astrona bundle</a>    - Pack a lab with everything it downloads, for machines without internet</li>
 </ul>
+<h6 id="auto-generated-by-spf13cobra-on-6-oct-2026">Auto generated by spf13/cobra on 6-Oct-2026<a class="headerlink" href="#auto-generated-by-spf13cobra-on-6-oct-2026" title="Permanent link">&para;</a></h6>
 
 
 
@@ -2322,7 +2260,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../installation/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Installation">
+          <a href="../astrona_bundle/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Astrona bundle">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2332,20 +2270,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Installation
+                Astrona bundle
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../concepts/runtimes/" class="md-footer__link md-footer__link--next" aria-label="Next: Runtimes (kind vs qemu)">
+          <a href="../astrona_bundle_load/" class="md-footer__link md-footer__link--next" aria-label="Next: Astrona bundle load">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Runtimes (kind vs qemu)
+                Astrona bundle load
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -2411,10 +2349,10 @@
     
     
       
-      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link", "content.action.edit"], "search": "../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link", "content.action.edit"], "search": "../../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.13a4f30d.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.13a4f30d.min.js"></script>
       
     
   </body>

@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://cli.astrona.io/dev/getting-started/quickstart/">
+        <link rel="canonical" href="https://cli.astrona.io/dev/guides/offline-bundles/">
       
       
-        <link rel="prev" href="../installation/">
+        <link rel="prev" href="../remote-config/">
       
       
-        <link rel="next" href="../../concepts/runtimes/">
+        <link rel="next" href="../../reference/lab-config/">
       
       
       <link rel="icon" href="../../assets/favicon.svg">
@@ -24,7 +24,7 @@
     
     
       
-        <title>Quickstart - Astrona CLI</title>
+        <title>Offline Bundles - Astrona CLI</title>
       
     
     
@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#quickstart" class="md-skip">
+        <a href="#offline-bundles" class="md-skip">
           Skip to content
         </a>
       
@@ -107,7 +107,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Quickstart
+              Offline Bundles
             
           </span>
         </div>
@@ -211,13 +211,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../installation/" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
           
   
   
@@ -257,11 +255,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../guides/authoring-a-lab/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../authoring-a-lab/" class="md-tabs__link">
           
   
   
@@ -386,10 +386,8 @@
       
   
   
-    
   
   
-  
     
     
       
@@ -401,22 +399,19 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
             
   
   
@@ -429,7 +424,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             Getting Started
@@ -443,7 +438,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../installation/" class="md-nav__link">
+      <a href="../../getting-started/installation/" class="md-nav__link">
         
   
   
@@ -463,32 +458,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    Quickstart
-    
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
         
   
   
@@ -499,89 +472,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#1-check-your-toolchain" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Check your toolchain
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-bring-the-lab-up" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. Bring the lab up
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-inspect-it" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Inspect it
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-submit-for-grading" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. Submit for grading
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-tear-it-down" class="md-nav__link">
-    <span class="md-ellipsis">
-      5. Tear it down
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-lab-author-loop" class="md-nav__link">
-    <span class="md-ellipsis">
-      The lab-author loop
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next" class="md-nav__link">
-    <span class="md-ellipsis">
-      Next
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -750,8 +640,10 @@
       
   
   
+    
   
   
+  
     
     
       
@@ -767,19 +659,22 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
             
   
   
@@ -792,7 +687,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             Guides
@@ -806,7 +701,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/authoring-a-lab/" class="md-nav__link">
+      <a href="../authoring-a-lab/" class="md-nav__link">
         
   
   
@@ -829,7 +724,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/ci-integration/" class="md-nav__link">
+      <a href="../ci-integration/" class="md-nav__link">
         
   
   
@@ -852,7 +747,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/remote-config/" class="md-nav__link">
+      <a href="../remote-config/" class="md-nav__link">
         
   
   
@@ -872,10 +767,32 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../guides/offline-bundles/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Offline Bundles
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -886,6 +803,53 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#whats-in-a-bundle" class="md-nav__link">
+    <span class="md-ellipsis">
+      What's in a bundle
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      Limits
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2104,63 +2068,27 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-check-your-toolchain" class="md-nav__link">
+  <a href="#whats-in-a-bundle" class="md-nav__link">
     <span class="md-ellipsis">
-      1. Check your toolchain
+      What's in a bundle
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-bring-the-lab-up" class="md-nav__link">
+  <a href="#loading" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Bring the lab up
+      Loading
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-inspect-it" class="md-nav__link">
+  <a href="#limits" class="md-nav__link">
     <span class="md-ellipsis">
-      3. Inspect it
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-submit-for-grading" class="md-nav__link">
-    <span class="md-ellipsis">
-      4. Submit for grading
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-tear-it-down" class="md-nav__link">
-    <span class="md-ellipsis">
-      5. Tear it down
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#the-lab-author-loop" class="md-nav__link">
-    <span class="md-ellipsis">
-      The lab-author loop
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#next" class="md-nav__link">
-    <span class="md-ellipsis">
-      Next
+      Limits
     </span>
   </a>
   
@@ -2182,7 +2110,7 @@
 
 
   
-    <a href="https://github.com/astrona-io/astrona-cli/edit/main/docs/getting-started/quickstart.md" title="Edit this page" class="md-content__button md-icon">
+    <a href="https://github.com/astrona-io/astrona-cli/edit/main/docs/guides/offline-bundles.md" title="Edit this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2190,100 +2118,62 @@
   
 
 
-<h1 id="quickstart">Quickstart<a class="headerlink" href="#quickstart" title="Permanent link">&para;</a></h1>
-<p>This walks through the full loop — bring a lab up, work on it, get graded, tear it down — using the <a href="https://github.com/astrona-io/astrona-cli/tree/main/examples/k8s-basics-01"><code>examples/k8s-basics-01</code></a> lab shipped in the repo. Clone the repo first, or point <code>--git</code> at it directly (see <a href="../../guides/remote-config/">Remote Config Sources</a>).</p>
-<h2 id="1-check-your-toolchain">1. Check your toolchain<a class="headerlink" href="#1-check-your-toolchain" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona<span class="w"> </span>check
+<h1 id="offline-bundles">Offline Bundles<a class="headerlink" href="#offline-bundles" title="Permanent link">&para;</a></h1>
+<p>For classrooms and air-gapped machines: pack a kind lab with everything it would otherwise download, carry one file, run it without internet.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># on a machine with internet</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>astrona<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>-c<span class="w"> </span>./labs/k8s-web-01<span class="w"> </span>-o<span class="w"> </span>k8s-web-01.tar.gz
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># on the offline machine</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>astrona<span class="w"> </span>bundle<span class="w"> </span>inspect<span class="w"> </span>k8s-web-01.tar.gz<span class="w">    </span><span class="c1"># what's inside (verifies, installs nothing)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>astrona<span class="w"> </span>bundle<span class="w"> </span>load<span class="w"> </span>k8s-web-01.tar.gz<span class="w">       </span><span class="c1"># verify, load images, unpack the lab</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>astrona<span class="w"> </span>run<span class="w"> </span>-c<span class="w"> </span>~/.astrona/bundles/k8s-web-01-&lt;hash&gt;
 </code></pre></div>
-<p>Fix anything reported as <code>✗</code> before continuing — <code>kind</code>, Docker/Podman, and <code>kubectl</code> are required for this example.</p>
-<h2 id="2-bring-the-lab-up">2. Bring the lab up<a class="headerlink" href="#2-bring-the-lab-up" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>run<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
-</code></pre></div>
-<p>This:</p>
-<ol>
-<li>Reads <code>examples/k8s-basics-01/config.yaml</code>.</li>
-<li>Creates a <code>kind</code> cluster named <code>astro-k8s-basics-01</code> (astrona prefixes every cluster it creates with <code>astro-</code>).</li>
-<li>Runs the lab's <code>bootstrap.init</code> scripts (here, <code>hello.sh</code>).</li>
-<li>Applies any <code>bootstrap.manifests</code>.</li>
-</ol>
-<p>At this point the cluster is up and the trainee's actual work begins — this particular lab expects a <code>lab-ns</code> namespace with a <code>hello-config</code> ConfigMap holding specific content, which isn't created for you (that's the exercise).</p>
-<p>Progress prints as a compact step view; each step's full output goes to a log file under <code>~/.astrona/logs/</code> (path shown at the end) and is printed inline only if a step fails. Add <code>--verbose</code> to stream everything live instead. Revisit any past run's log with <a href="../../concepts/logs/"><code>astrona logs</code></a> — <code>astrona logs view</code> opens the latest in your pager.</p>
-<p>Read the task:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>docs<span class="w"> </span>question<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
-</code></pre></div>
-<p>(<code>astrona docs -c examples/k8s-basics-01</code> lists the lab's other docs — case study, prerequisites, and the step-by-step guide with the solution.)</p>
-<h2 id="3-inspect-it">3. Inspect it<a class="headerlink" href="#3-inspect-it" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>status<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
-</code></pre></div>
-<p>One screen for where you are with the lab: cluster health, how to connect, port forwards, the exam clock (timed labs), your last submission and score, and a suggested next step:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Lab astro-k8s-basics-01 (kind)
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  Cluster      Ready (1/1) · Kubernetes v1.37.0 · up 28s
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  Connect      astrona shell astro-k8s-basics-01
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>  Last submit  1/2 points (50%) FAIL · 3m0s ago · attempt #1
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>Next: astrona submit to grade your work
-</code></pre></div>
-<p>For every lab on the machine:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>astrona<span class="w"> </span>list
-</code></pre></div>
-<p>Shows every astrona-managed lab (kind clusters and qemu VMs), with runtime, status, and uptime — a <code>kubectl get</code>-style table. For kind labs, STATUS is live cluster health:</p>
+<h2 id="whats-in-a-bundle">What's in a bundle<a class="headerlink" href="#whats-in-a-bundle" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>STATUS</th>
-<th>Meaning</th>
+<th>Content</th>
+<th>Why</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>Ready (n/n)</code></td>
-<td>every node is Ready</td>
+<td>The lab directory (without <code>.git</code>)</td>
+<td>config, docs, scripts, manifests, reference solution</td>
 </tr>
 <tr>
-<td><code>NotReady (r/n)</code></td>
-<td>only <code>r</code> of <code>n</code> nodes Ready — e.g. a CNI that isn't installed yet</td>
+<td>Node image (<code>runtime.kind.version</code> / <code>image</code>, or <code>--node-image</code>)</td>
+<td>what kind boots the cluster from</td>
 </tr>
 <tr>
-<td><code>Unreachable</code></td>
-<td>node containers are up but the API doesn't answer (3s timeout)</td>
+<td><code>runtime.kind.preloadImages</code></td>
+<td>the lab's own workloads</td>
 </tr>
 <tr>
-<td><code>Degraded (r/n containers running)</code></td>
-<td>some node containers stopped</td>
-</tr>
-<tr>
-<td><code>Stopped</code></td>
-<td>all node containers stopped</td>
+<td>Addon manifests + every image they reference</td>
+<td>Calico, cert-manager, metrics-server install offline</td>
 </tr>
 </tbody>
 </table>
-<p><code>astrona list -o wide</code> adds the Kubernetes version and port-forward status (<code>1/1 Ready</code>); <code>-o json</code> prints the same for scripts.</p>
-<p>Work with the cluster from a lab shell — your <code>$SHELL</code> with <code>kubectl</code> pointed at the lab (type <code>exit</code> to leave):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>astrona<span class="w"> </span>shell<span class="w"> </span>k8s-basics-01
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>ns
-</code></pre></div>
-<p>or from any terminal, without switching anything:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span>kind-astro-k8s-basics-01<span class="w"> </span>get<span class="w"> </span>ns
-</code></pre></div>
-<p>astrona never changes your own kubectl current-context — see <a href="../../concepts/runtimes/#kubeconfig-isolation">kubeconfig isolation</a>.</p>
-<h2 id="4-submit-for-grading">4. Submit for grading<a class="headerlink" href="#4-submit-for-grading" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>submit<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
-</code></pre></div>
-<p>Hands the running cluster to the <a href="../../concepts/grading/">Proctor</a>, which runs this lab's <code>validation.checks</code> (does <code>lab-ns</code> exist? does <code>hello-config</code> exist?) and its <code>validation.script</code> (does the ConfigMap actually hold the right content?). Output is pytest-style — a PASS/FAIL line per check, then a summary — and the command's exit code reflects the verdict, so it's safe to gate a script on.</p>
-<h2 id="5-tear-it-down">5. Tear it down<a class="headerlink" href="#5-tear-it-down" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>astrona<span class="w"> </span>destroy<span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01
-</code></pre></div>
-<p>Runs <code>teardown.init</code> scripts, then deletes the cluster (unless the config sets <code>teardown.keepCluster: true</code>).</p>
-<h2 id="the-lab-author-loop">The lab-author loop<a class="headerlink" href="#the-lab-author-loop" title="Permanent link">&para;</a></h2>
-<p>If you're <em>authoring</em> a lab rather than taking one, <code>astrona test</code> runs the whole thing non-interactively against a reference solution, to prove the lab is actually solvable before you publish it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
-</code></pre></div>
-<p>This bootstraps, applies <code>testing.manifests</code> (the reference solution — here, <code>examples/k8s-basics-01/solution/</code>), submits to the Proctor, and always tears down afterwards, even on failure. It runs against a <code>test-</code>-prefixed cluster name so it never collides with a lab you already have up via <code>astrona run</code>. See <a href="../../guides/ci-integration/">CI Integration</a> for wiring this into a pipeline.</p>
-<h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
+<p>Every image is a <code>docker/podman save</code> archive recorded with its SHA-256; <code>astrona-bundle.json</code> describes it all.</p>
+<h2 id="loading">Loading<a class="headerlink" href="#loading" title="Permanent link">&para;</a></h2>
+<p><code>astrona bundle load</code>:</p>
+<ol>
+<li>Extracts safely — refuses absolute paths, <code>..</code>, symlinks and hard links, and anything over 30 GB / 100,000 entries.</li>
+<li>Verifies every image and addon manifest against its recorded SHA-256, and the CPU architecture (an arm64 bundle won't load on amd64).</li>
+<li>Asks before installing anything — a bundle is someone else's code, so you see what the lab will do, pinned to the bundle's SHA-256 (<code>--trust</code> to approve without asking; see <a href="../remote-config/#approving-remote-labs">Approving remote labs</a>).</li>
+<li>Loads the images into Docker/Podman.</li>
+<li>Seeds the addon cache — <strong>only</strong> with manifests matching the exact versions astrona itself pins, so a bundle can't change what an addon installs.</li>
+<li>Unpacks the lab into <code>~/.astrona/bundles/&lt;lab&gt;-&lt;hash&gt;/</code>.</li>
+</ol>
+<p>After that it's an ordinary local lab — <code>run</code>, <code>test</code>, <code>reset</code>, <code>submit</code> work as usual, and addon images are loaded into the cluster nodes from the host (no registry).</p>
+<h2 id="limits">Limits<a class="headerlink" href="#limits" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../guides/authoring-a-lab/">Authoring a Lab</a> — build your own <code>config.yaml</code> from scratch.</li>
-<li><a href="../../concepts/runtimes/">Runtimes</a> — when to reach for <code>qemu</code> instead of the default <code>kind</code> backend.</li>
+<li><strong>kind labs only</strong> — qemu labs already cache their base images.</li>
+<li><strong>The node image must be pinned</strong> — <code>runtime.kind.version</code>/<code>image</code>, or <code>--node-image</code> when creating; kind's built-in default can't be determined reliably.</li>
+<li><strong>No <code>type: url</code> scripts or manifests</strong> — they're fetched at run time; make them local files.</li>
+<li><strong>Not the <code>gatewayAPI</code> addon yet</strong> — Envoy Gateway starts its proxy image at runtime and it isn't listed in its manifest.</li>
+<li>Bundles are per CPU architecture.</li>
 </ul>
 
 
@@ -2322,7 +2212,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../installation/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Installation">
+          <a href="../remote-config/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Remote Config Sources">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2332,20 +2222,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Installation
+                Remote Config Sources
               </div>
             </div>
           </a>
         
         
           
-          <a href="../../concepts/runtimes/" class="md-footer__link md-footer__link--next" aria-label="Next: Runtimes (kind vs qemu)">
+          <a href="../../reference/lab-config/" class="md-footer__link md-footer__link--next" aria-label="Next: Lab Config Schema">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Runtimes (kind vs qemu)
+                Lab Config Schema
               </div>
             </div>
             <div class="md-footer__button md-icon">

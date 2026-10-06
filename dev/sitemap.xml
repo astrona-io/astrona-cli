@@ -41,6 +41,10 @@
          <lastmod>2026-10-06</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/guides/offline-bundles/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/guides/remote-config/</loc>
          <lastmod>2026-10-06</lastmod>
     </url>
@@ -50,6 +54,22 @@
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_bundle/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_bundle_create/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_bundle_inspect/</loc>
+         <lastmod>2026-10-06</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_bundle_load/</loc>
          <lastmod>2026-10-06</lastmod>
     </url>
     <url>
