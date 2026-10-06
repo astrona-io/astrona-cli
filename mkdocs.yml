@@ -76,6 +76,7 @@ nav:
       - Remote Config Sources: guides/remote-config.md
       - Offline Bundles: guides/offline-bundles.md
       - Linked Labs: guides/linked-labs.md
+      - Astrona Versions: guides/astrona-versions.md
   - Reference:
       - Lab Config Schema: reference/lab-config.md
       - CLI Reference:
@@ -125,6 +126,11 @@ nav:
               - reference/cli/astrona_logs_view.md
               - reference/cli/astrona_images.md
               - reference/cli/astrona_images_list.md
-          - Other:
+          - astrona itself:
+              - reference/cli/astrona_versions.md
+              - reference/cli/astrona_versions_list.md
+              - reference/cli/astrona_versions_install.md
+              - reference/cli/astrona_versions_remove.md
+              - reference/cli/astrona_versions_available.md
               - reference/cli/astrona_upgrade.md
   - Contributing: contributing.md

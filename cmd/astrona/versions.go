@@ -1,0 +1,283 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"syscall"
+
+	"astrona/internal/config"
+	"astrona/internal/ui"
+	"astrona/internal/version"
+
+	"github.com/spf13/cobra"
+)
+
+// dispatchedEnv marks a command handed over to another astrona version, so
+// a version that also doesn't fit can't hand it on again.
+const dispatchedEnv = "ASTRONA_DISPATCHED_FROM"
+
+// installedVersion is an astrona-<version> binary next to this one.
+type installedVersion struct {
+	v    version.V
+	path string
+}
+
+// versionsDir is where `astrona versions install` puts older releases.
+func versionsDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".astrona", "bin"), nil
+}
+
+// installedVersions finds astrona-<version> binaries in ~/.astrona/bin,
+// then on PATH, newest first (the ~/.astrona/bin one wins a tie).
+func installedVersions() []installedVersion {
+	var dirs []string
+	if d, err := versionsDir(); err == nil {
+		dirs = append(dirs, d)
+	}
+	dirs = append(dirs, filepath.SplitList(os.Getenv("PATH"))...)
+	seen := map[string]bool{}
+	var out []installedVersion
+	for _, dir := range dirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			name, ok := strings.CutPrefix(e.Name(), "astrona-")
+			if !ok {
+				continue
+			}
+			v, err := version.Parse(name)
+			if err != nil || seen[v.String()] {
+				continue
+			}
+			path := filepath.Join(dir, e.Name())
+			if info, err := os.Stat(path); err != nil || info.IsDir() || info.Mode()&0111 == 0 {
+				continue
+			}
+			seen[v.String()] = true
+			out = append(out, installedVersion{v, path})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].v.Compare(out[j].v) > 0 })
+	return out
+}
+
+// newestAllowed is the newest of vs that c allows.
+func newestAllowed(c version.Constraint, vs []installedVersion) (installedVersion, bool) {
+	for _, iv := range vs {
+		if c.Allows(iv.v) {
+			return iv, true
+		}
+	}
+	return installedVersion{}, false
+}
+
+// ensureLabVersion makes sure this astrona may run a lab whose config says
+// astronaVersion: c. If not, it hands the whole command over to the newest
+// installed astrona-<version> that may — replacing this process, so it
+// doesn't return — or explains which version to install.
+func ensureLabVersion(constraint string, flags *rootFlags) error {
+	if constraint == "" {
+		return nil
+	}
+	c, err := version.ParseConstraint(constraint)
+	if err != nil {
+		return fmt.Errorf("astronaVersion: %w", err)
+	}
+	cur, err := version.Parse(Version)
+	if err != nil {
+		// A developer build has no release number to compare.
+		if flags.verbose {
+			ui.Infof("this lab wants astrona %s; this is a %s build — not checking", c, Version)
+		}
+		return nil
+	}
+	if c.Allows(cur) {
+		return nil
+	}
+	if from := os.Getenv(dispatchedEnv); from != "" {
+		return fmt.Errorf("this lab needs astrona %s; astrona %s handed it to %s, which doesn't fit either", c, from, cur)
+	}
+
+	target, ok := newestAllowed(c, installedVersions())
+	if !ok {
+		hint := "`astrona versions available` lists releases"
+		if tags, err := releaseTags(); err == nil {
+			for _, t := range tags {
+				if v, err := version.Parse(t); err == nil && c.Allows(v) {
+					hint = "install it: astrona versions install " + v.String()
+					break
+				}
+			}
+		}
+		return fmt.Errorf("this lab needs astrona %s, and this is %s\n%s", c, cur, hint)
+	}
+
+	ui.Infof("this lab needs astrona %s — running it with astrona %s (%s)", c, target.v, target.path)
+	argv := append([]string{target.path}, handoverArgs(os.Args[1:], flags)...)
+	env := append(os.Environ(), dispatchedEnv+"="+cur.String())
+	return syscall.Exec(target.path, argv, env)
+}
+
+// handoverArgs is the command line for another astrona version: the same
+// command and flags, with the lab spelled out as -c/-f/--git/--git-ref — an
+// older version may not know `astrona use` or a lab given as an argument.
+func handoverArgs(args []string, flags *rootFlags) []string {
+	out := make([]string, 0, len(args)+8)
+	dropped := false
+	for _, a := range args {
+		if !dropped && flags.labArg != "" && a == flags.labArg {
+			dropped = true
+			continue
+		}
+		out = append(out, a)
+	}
+	out = append(out, "-c", flags.configPath, "-f", flags.fileName)
+	if flags.gitURL != "" {
+		out = append(out, "--git", flags.gitURL)
+		if flags.gitRef != "" {
+			out = append(out, "--git-ref", flags.gitRef)
+		}
+	}
+	return out
+}
+
+// labVersionFromLoadError is the astronaVersion of a config this version
+// couldn't parse, if it declares one.
+func labVersionFromLoadError(err error) string {
+	var pe *config.ParseError
+	if errors.As(err, &pe) {
+		return pe.AstronaVersion
+	}
+	return ""
+}
+
+func newVersionsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "versions",
+		Short: "Install and list older astrona versions, for labs that need one",
+		Long: "A lab can say which astrona releases may run it (astronaVersion in its config, e.g. " +
+			"\"<=0.2.1\"). Older releases install side by side as astrona-<version> in " +
+			"~/.astrona/bin — the newest stays `astrona` — and `astrona` hands a lab's commands to " +
+			"the newest installed version it allows, automatically.\n\n" +
+			"Downloads are verified against the SHA-256 digest GitHub records for each release " +
+			"binary. Add ~/.astrona/bin to your PATH to run e.g. astrona-0.2.1 directly.",
+		RunE: func(cmd *cobra.Command, args []string) error { return listVersions() },
+	}
+	cmd.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List this astrona and the older versions installed next to it",
+		Args:  cobra.NoArgs,
+		RunE:  func(cmd *cobra.Command, args []string) error { return listVersions() },
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "install <version>",
+		Short: "Install an astrona release as astrona-<version> (verified download)",
+		Example: `  astrona versions install 0.2.1
+  astrona versions install v0.2.0`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			v, err := version.Parse(args[0])
+			if err != nil {
+				return err
+			}
+			dir, err := versionsDir()
+			if err != nil {
+				return err
+			}
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				return err
+			}
+			dest := filepath.Join(dir, "astrona-"+v.String())
+			fmt.Printf("Installing astrona %s (%s), verified against GitHub's SHA-256 digest...\n", v, releaseAssetName())
+			if err := downloadVerifiedRelease("v"+v.String(), dest); err != nil {
+				return err
+			}
+			fmt.Printf("Installed %s\nLabs that need astrona %s now run with it automatically.\n", dest, v)
+			if !onPath(dir) {
+				fmt.Printf("To run it directly: export PATH=\"%s:$PATH\"\n", dir)
+			}
+			return nil
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "remove <version>",
+		Short: "Remove an installed astrona-<version>",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			v, err := version.Parse(args[0])
+			if err != nil {
+				return err
+			}
+			dir, err := versionsDir()
+			if err != nil {
+				return err
+			}
+			path := filepath.Join(dir, "astrona-"+v.String())
+			if err := os.Remove(path); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("astrona %s isn't installed in %s", v, dir)
+				}
+				return err
+			}
+			fmt.Printf("Removed %s\n", path)
+			return nil
+		},
+	})
+	cmd.AddCommand(&cobra.Command{
+		Use:   "available",
+		Short: "List published astrona releases",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			tags, err := releaseTags()
+			if err != nil {
+				return err
+			}
+			for _, t := range tags {
+				fmt.Println(strings.TrimPrefix(t, "v"))
+			}
+			return nil
+		},
+	})
+	return cmd
+}
+
+func listVersions() error {
+	fmt.Printf("astrona %s  (%s)\n", Version, executablePath())
+	vs := installedVersions()
+	if len(vs) == 0 {
+		fmt.Println("\nNo older versions installed — `astrona versions install <version>` adds one.")
+		return nil
+	}
+	fmt.Println()
+	for _, iv := range vs {
+		fmt.Printf("astrona-%-10s %s\n", iv.v, iv.path)
+	}
+	return nil
+}
+
+func executablePath() string {
+	p, err := os.Executable()
+	if err != nil {
+		return "?"
+	}
+	return p
+}
+
+func onPath(dir string) bool {
+	for _, d := range filepath.SplitList(os.Getenv("PATH")) {
+		if filepath.Clean(d) == filepath.Clean(dir) {
+			return true
+		}
+	}
+	return false
+}

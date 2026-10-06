@@ -33,6 +33,7 @@ checks the config without creating anything and exits non-zero on any problem �
 
 ```yaml
 apiVersion: astrona.io/v1   # config format (optional; a newer one is refused)
+astronaVersion: ">=0.2.0"   # which astrona releases may run this lab (optional) — see Astrona Versions
 metadata: {}     # MetadataConfig
 runtime: {}      # RuntimeConfig — omit entirely for a kind cluster
 bootstrap: {}    # BootstrapConfig

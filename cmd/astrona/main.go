@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"astrona/internal/ui"
+	"astrona/internal/version"
 )
 
 // helpTemplateBody is Cobra's own default help template (see
@@ -31,6 +32,9 @@ type rootFlags struct {
 	gitRef     string
 	verbose    bool
 	trust      bool
+	// labArg is the lab given as a command's argument (useLabArg), so a
+	// hand-over to another astrona version can spell it as -c instead.
+	labArg string
 	// gitExplicit: --git was given on this command line (so a lab
 	// argument is a subdirectory of that repo, not a local path).
 	gitExplicit bool
@@ -42,6 +46,21 @@ type rootFlags struct {
 // Version is the current version of the astrona-cli binary, burnt in at build
 // time via -ldflags "-X main.Version=vX.Y.Z".
 var Version = "developer"
+
+// newerRelease reports whether latest is a newer release than current — by
+// version, not by tag text (v0.2.1 isn't "new" for v0.2.2). A developer
+// build has no version to compare and isn't nagged.
+func newerRelease(latest, current string) bool {
+	l, err := version.Parse(latest)
+	if err != nil {
+		return false
+	}
+	c, err := version.Parse(current)
+	if err != nil {
+		return false
+	}
+	return l.Compare(c) > 0
+}
 
 func checkLatestVersion(verbose bool) {
 	warn := func() {
@@ -77,7 +96,7 @@ func checkLatestVersion(verbose bool) {
 	}
 	latestTag := parts[len(parts)-1]
 
-	if latestTag != "" && latestTag != Version {
+	if newerRelease(latestTag, Version) {
 		// stderr, not stdout: commands like `astrona kubeconfig` are meant
 		// for $(...) capture, and the notice must not end up in it.
 		ui.Infof("A new version of astrona is available: %s (current: %s) — run `astrona upgrade`.\n", latestTag, Version)
@@ -159,7 +178,6 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 		}
 	}
 	// Ungrouped: listed under "Additional Commands" with completion and help.
-	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(newDocgenCmd(flags))
 	rootCmd.AddCommand(newSchemaCmd())
 
