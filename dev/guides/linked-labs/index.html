@@ -2702,7 +2702,7 @@
 </tr>
 <tr>
 <td><code>astrona list</code> / <code>status</code></td>
-<td>A linked cluster is listed as <code>linked cluster of &lt;lab&gt;</code>; <code>status</code> shows each one's state</td>
+<td>A linked cluster is listed as <code>linked cluster of &lt;lab&gt;</code>; <code>status</code> shows each one's state. Commands that pick "the only running lab" ignore linked clusters</td>
 </tr>
 <tr>
 <td><code>astrona stop</code> / <code>start</code></td>
@@ -2719,6 +2719,10 @@
 <tr>
 <td><code>astrona check</code></td>
 <td>Counts their memory in the lab's estimate</td>
+</tr>
+<tr>
+<td><code>astrona diagnose</code> / <code>test --diagnostics</code></td>
+<td>Collects every linked cluster too, under <code>clusters/&lt;cluster&gt;/</code> in the bundle</td>
 </tr>
 </tbody>
 </table>
