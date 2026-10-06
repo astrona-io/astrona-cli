@@ -3324,6 +3324,7 @@
 <p>With a lab-name (as shown by <code>astrona list</code>, with or without the 'astro-' prefix — e.g. 'astro-my-lab' or just 'my-lab'), destroys that lab directly — no config needed, so -c/--file/--git/--git-ref are ignored and any teardown scripts are skipped.</p>
 <p>With a glob pattern (contains *, ?, or [), matches against all currently-running lab names (same list <code>astrona list</code> shows, with or without the 'astro-' prefix) and destroys every match — e.g. <code>astrona destroy 'qemu-jumphost-*'</code> (quote it so your shell doesn't expand the glob itself). No config needed, same trade-offs as a single name.</p>
 <p>A lab's linked clusters (runtime.kind.clusters) are destroyed with it.</p>
+<p>A remote lab (--git, URL, catalog) that has teardown scripts asks for approval first, like <code>run</code> — --trust approves it up front. If it isn't approved (declined, or no terminal and no --trust), its teardown scripts are skipped and the lab is still destroyed.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona destroy [lab-name|pattern] [flags]
 </code></pre></div>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>

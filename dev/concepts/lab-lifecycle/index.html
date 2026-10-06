@@ -3415,8 +3415,10 @@
 </code></pre></div>
 <ul>
 <li><code>init</code> scripts run first — same <code>file</code>/<code>folder</code>/<code>url</code> shape as <code>bootstrap.init</code>, best-effort (a failing teardown script only warns, it never blocks the cluster from being deleted).</li>
-<li>If the lab's environment is already gone, the scripts still run on the host for host-side cleanup — with <code>KUBECONFIG=/dev/null</code>, so a script's <code>kubectl</code> can never reach your own current context instead of the lab.</li>
+<li>If a kind lab's environment is already gone, the scripts still run on the host for host-side cleanup — with <code>KUBECONFIG=/dev/null</code>, so a script's <code>kubectl</code> can never reach your own current context instead of the lab. A qemu lab's scripts only ever run inside its VMs: if the VMs are gone or unreachable, they're skipped with a warning.</li>
+<li>A remote lab (<code>--git</code>, URL, catalog) must be <a href="../../guides/remote-config/#approving-remote-labs">approved</a> before <code>astrona destroy</code> runs its teardown scripts, just like <code>run</code>. If it isn't (you decline, or there's no terminal and no <code>--trust</code>), the scripts are skipped with a warning and the lab is still destroyed.</li>
 <li>Linked clusters (<code>runtime.kind.clusters</code>) can have their own <code>teardown.init</code>; they run after the lab's, in reverse start order, each with <code>KUBECONFIG</code> pointing at its cluster (skipped if that cluster is gone).</li>
+<li>The lab's linked clusters are destroyed even if destroying the lab itself fails.</li>
 <li><code>keepCluster: true</code> skips deleting the environment afterwards — useful while iterating on a lab locally, since <code>astrona destroy</code> re-run without it will still clean up.</li>
 </ul>
 <h2 id="starting-over-astrona-reset">Starting over: <code>astrona reset</code><a class="headerlink" href="#starting-over-astrona-reset" title="Permanent link">&para;</a></h2>

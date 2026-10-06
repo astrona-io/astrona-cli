@@ -3343,8 +3343,10 @@
 <li><strong>Without a terminal</strong> (CI, scripts) it stops with that command — or pass <strong><code>--install-version</code></strong> to install it without asking.</li>
 </ul>
 </li>
+<li><strong>A remote lab is approved first.</strong> For a lab from <code>--git</code> or a URL, the <a href="../remote-config/#approving-remote-labs">trust prompt</a> happens in <em>this</em> astrona, before anything is installed or handed over — for every command that hands over, not only <code>run</code>/<code>submit</code>/<code>test</code>/<code>reset</code>. The approval is stored in <code>~/.astrona/trust.json</code>, so the version it's handed to doesn't ask again. If this astrona can't even parse the lab's config (it was written for another version), it can't show what the lab does, so there's no prompt: the lab must already be approved at this exact version, or you pass <code>--trust</code> after reviewing it.</li>
+<li><strong>Never older than 0.2.0.</strong> astrona never hands a lab over to — or installs for one — a release older than 0.2.0, the first with trust prompts: a lab asking for one could otherwise get its scripts run without your approval. A lab that only fits an older release stops with an explanation; if you trust it, install that version yourself and run it as <code>astrona-&lt;version&gt;</code>.</li>
+<li>Only <code>astrona-*</code> binaries in <code>~/.astrona/bin</code> (where <code>astrona versions install</code> puts them) are used — ones elsewhere on your <code>PATH</code> are ignored, so a stray binary never runs a lab.</li>
 <li><code>astrona docs</code> and <code>astrona destroy</code> don't check: reading a lab's docs doesn't depend on the version, and cleaning up must always work.</li>
-<li><code>astrona-*</code> binaries in <code>~/.astrona/bin</code> are preferred; ones on your <code>PATH</code> count too.</li>
 <li>A developer build (no release number) runs every lab and doesn't hand over.</li>
 </ul>
 <div class="admonition note">

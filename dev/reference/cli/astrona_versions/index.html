@@ -3319,7 +3319,7 @@
 <h2 id="astrona-versions">astrona versions<a class="headerlink" href="#astrona-versions" title="Permanent link">&para;</a></h2>
 <p>Install and list older astrona versions, for labs that need one</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
-<p>A lab can say which astrona releases may run it (astronaVersion in its config, e.g. "&lt;=0.2.1"). Older releases install side by side as astrona-<version> in ~/.astrona/bin — the newest stays <code>astrona</code> — and <code>astrona</code> hands a lab's commands to the newest installed version it allows, automatically. If none is installed, it offers to install the right one (at a terminal; --install-version installs without asking, e.g. in CI).</p>
+<p>A lab can say which astrona releases may run it (astronaVersion in its config, e.g. "&lt;=0.2.1"). Older releases install side by side as astrona-<version> in ~/.astrona/bin — the newest stays <code>astrona</code> — and <code>astrona</code> hands a lab's commands to the newest installed version it allows, automatically. If none is installed, it offers to install the right one (at a terminal; --install-version installs without asking, e.g. in CI). A remote lab must be trusted (--trust) before it's handed over, and never to a version older than 0.2.0 (the first with trust prompts); only ~/.astrona/bin is searched, not PATH.</p>
 <p>Downloads are verified against the SHA-256 digest GitHub records for each release binary. Add ~/.astrona/bin to your PATH to run e.g. astrona-0.2.1 directly.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona versions [flags]
 </code></pre></div>

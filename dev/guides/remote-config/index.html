@@ -3334,8 +3334,10 @@
 <li>The approval is pinned: to the <strong>git commit</strong> for <code>--git</code>, to the <strong>SHA-256 of the config</strong> for a URL. Running the same version again doesn't ask; a new commit or a changed config asks again ("This lab changed since you approved it").</li>
 <li>Scripts and manifests with <code>type: url</code> are downloaded when they run, so their content isn't covered by the pin — they're flagged in the prompt.</li>
 <li>Local configs (<code>-c ./my-lab</code>) are your own files and never prompt.</li>
+<li><code>astrona destroy</code> asks too, before running a remote lab's teardown scripts (only if it has any). Declining — or no terminal and no <code>--trust</code> — doesn't stop the destroy: the teardown scripts are skipped with a warning and the lab is removed anyway.</li>
 <li><strong>CI / no terminal:</strong> without a terminal, an unapproved remote lab is refused. Pass <code>--trust</code> to approve it — e.g. <code>astrona test --git https://github.com/org/labs --config labs/lab-01 --trust</code>. CI that tests its own checkout (<code>-c .</code>) needs nothing.</li>
 <li>Approvals are stored in <code>~/.astrona/trust.json</code>; delete an entry (or the file) to be asked again.</li>
+<li>A lab whose <code>astronaVersion</code> sends it to another installed astrona is approved here first, before the hand-over — never by the version it asks for (see <a href="../astrona-versions/#what-happens-when-a-lab-needs-another-version">Astrona Versions</a>).</li>
 </ul>
 
 
