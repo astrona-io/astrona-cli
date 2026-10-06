@@ -63,7 +63,7 @@ func TestKindLabMirrorsKindConfig(t *testing.T) {
 	kc := reflect.TypeOf(KindConfig{})
 	for i := 0; i < kc.NumField(); i++ {
 		f := kc.Field(i)
-		if f.Name == "Labs" {
+		if f.Name == "Labs" || f.Name == "SharedCA" || f.Name == "CALab" { // lab-wide, not per cluster
 			continue
 		}
 		lf, ok := lab.FieldByName(f.Name)
@@ -79,7 +79,7 @@ func TestKindLabMirrorsKindConfig(t *testing.T) {
 	got := reflect.ValueOf(*full.Cluster())
 	for i := 0; i < got.NumField(); i++ {
 		name := kc.Field(i).Name
-		if name != "Labs" && got.Field(i).IsZero() {
+		if name != "Labs" && name != "SharedCA" && name != "CALab" && got.Field(i).IsZero() {
 			t.Errorf("Cluster() doesn't copy %s", name)
 		}
 	}

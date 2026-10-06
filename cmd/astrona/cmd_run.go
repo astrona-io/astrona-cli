@@ -186,6 +186,10 @@ func upLab(cfg *config.LabConfig, baseDir, clusterName string, links []cluster.L
 		}
 	}
 
+	if err := installSharedCA(cfg, env, rep); err != nil {
+		return nil, nil, err
+	}
+
 	if err := waitForClusterDNS(cfg, env, rep); err != nil {
 		return nil, nil, fmt.Errorf("cluster DNS not ready: %w", err)
 	}
@@ -240,6 +244,9 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 	if len(cfg.KindLabs()) > 0 && kindClusterExists(clusterName) {
 		return fmt.Errorf("lab %s is already running — `astrona reset` starts it over", clusterName)
 	}
+	if err := prepareSharedCA(cfg, clusterName); err != nil {
+		return err
+	}
 	links, err := startKindLabs(cfg, baseDir, clusterName, false, flags.parallel, rep)
 	if err != nil {
 		return err
@@ -263,6 +270,9 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 	printConnectHints(env, cfg, clusterName)
 	printPortForwardHints(os.Stdout, forwards)
 	printLinkHints(os.Stdout, links)
+	if ca, ok := cluster.ExistingLabCA(clusterName); ok && cfg.Runtime.Kind != nil && cfg.Runtime.Kind.SharedCA {
+		fmt.Printf("\nLab CA (trusted by every cluster via ConfigMap astrona-ca): %s\n    curl --cacert %s https://<name>.%s:<nodePort>/\n", ca.CertPath, ca.CertPath, cluster.LinkDomain)
+	}
 	if cfg.Exam.Enabled() {
 		fmt.Printf("\nExam started — you have %s. `astrona submit` shows the time left.\n", exam.Round(cfg.Exam.Limit()))
 	}

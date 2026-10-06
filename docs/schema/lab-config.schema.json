@@ -135,6 +135,9 @@
           },
           "type": "object"
         },
+        "sharedCA": {
+          "type": "boolean"
+        },
         "version": {
           "type": "string"
         }
