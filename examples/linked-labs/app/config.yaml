@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# Two labs side by side: this "app" lab links to the "idp" lab. `astrona
+# run -c examples/linked-labs/app` starts ../idp first (if it isn't
+# running), then this lab, and tells it where the idp is:
+#   - scripts and command checks: $ASTRONA_LINK_IDP_HOST (and _CONTEXT,
+#     _KUBECONFIG)
+#   - in the cluster: ConfigMap astrona-links (key idp.host)
+# Never hard-code the host: under `astrona test` the linked lab is a test
+# copy with a different name.
+metadata:
+  name: linked-app
+  docs:
+    examQuestion: docs/exam-question.md
+    guide: docs/step-by-step-guide.md
+
+links:
+  - name: idp
+    lab: ../idp
+
+runtime:
+  kind:
+    preloadImages: [curlimages/curl:8.11.1]
+
+# The reference solution, as a script: it needs the idp's host, which
+# only exists at run time.
+testing:
+  init:
+    - name: log in against the idp
+      type: file
+      source: solution/login.sh
+
+validation:
+  checks:
+    - name: Job login completed
+      type: jsonpath
+      resource: job/login
+      jsonpath: "{.status.succeeded}"
+      expect: "1"
+      points: 2
+      hint: "The Job's pod must reach the idp — kubectl get configmap astrona-links -o yaml shows its host."
+    - name: login received a token from the idp
+      type: command
+      command: kubectl logs job/login
+      contains: lab-token-42
+      points: 2
+      hint: "Call http://<idp host>:30080/token and print the response."

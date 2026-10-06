@@ -188,6 +188,12 @@
         "exam": {
           "$ref": "#/$defs/ExamConfig"
         },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/Link"
+          },
+          "type": "array"
+        },
         "metadata": {
           "$ref": "#/$defs/MetadataConfig"
         },
@@ -202,6 +208,18 @@
         },
         "validation": {
           "$ref": "#/$defs/ValidationConfig"
+        }
+      },
+      "type": "object"
+    },
+    "Link": {
+      "additionalProperties": false,
+      "properties": {
+        "lab": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
         }
       },
       "type": "object"

@@ -33,7 +33,7 @@ bootstrap:
       timeout: 5m
 ```
 
-- `init` — scripts run in order, through whichever executor the runtime provides (host bash for `kind`, SSH into the VM for `qemu`). A `folder` source runs every file inside in filename order — number them (`01-x.sh`, `02-y.sh`) to control ordering.
+- `init` — scripts run in order (on kind, after the cluster's DNS is up), through whichever executor the runtime provides (host bash for `kind`, SSH into the VM for `qemu`). A `folder` source runs every file inside in filename order — number them (`01-x.sh`, `02-y.sh`) to control ordering.
 - `manifests` — applied with `kubectl apply` against the cluster's context. Requires a `kind` runtime (or a runtime with a kubectl-reachable cluster) — `astrona run` errors out immediately if `bootstrap.manifests` is set on a runtime with none.
 - `waitFor` — readiness gates, checked in order after `manifests`. `kubectl apply` returns as soon as the API server accepts the objects, while pods may still be pulling images; without a gate, "ready" only means "applied". Each gate waits (default 2 minutes) for a rollout to finish or a condition to be met, and retries while its target doesn't exist yet (an operator creating it, a CRD still registering). If a gate times out, `astrona run` fails and prints the target's current state plus the namespace's recent events. kind only. See [`WaitFor`](../reference/lab-config.md#waitfor).
 

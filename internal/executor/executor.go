@@ -28,11 +28,14 @@ type ScriptExecutor interface {
 // than whatever the user's own current-context points at.
 type LocalExecutor struct {
 	Kubeconfig string
+	// ExtraEnv is added to the script's environment — a linked lab's
+	// ASTRONA_LINK_* variables.
+	ExtraEnv []string
 }
 
 func (e LocalExecutor) RunScript(scriptPath string, out io.Writer) error {
 	cmd := exec.Command("bash", scriptPath)
-	cmd.Env = KubeconfigEnv(e.Kubeconfig)
+	cmd.Env = Env(e.Kubeconfig, e.ExtraEnv)
 	cmd.Stdout = out
 	cmd.Stderr = out
 	return cmd.Run()
@@ -46,6 +49,19 @@ func KubeconfigEnv(kubeconfig string) []string {
 		return nil
 	}
 	return append(os.Environ(), "KUBECONFIG="+kubeconfig)
+}
+
+// Env is KubeconfigEnv plus extra variables; nil (inherit unchanged) when
+// there's nothing to add.
+func Env(kubeconfig string, extra []string) []string {
+	env := KubeconfigEnv(kubeconfig)
+	if len(extra) == 0 {
+		return env
+	}
+	if env == nil {
+		env = os.Environ()
+	}
+	return append(env, extra...)
 }
 
 // SSHExecutor runs a script inside a qemu VM over SSH. The script's

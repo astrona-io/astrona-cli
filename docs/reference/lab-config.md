@@ -38,6 +38,7 @@ bootstrap: {}    # BootstrapConfig
 testing: {}      # BootstrapConfig (same shape, CI-only)
 validation: {}   # ValidationConfig
 teardown: {}     # TeardownConfig
+links: []        # list of Link — labs running side by side (kind only)
 ```
 
 ## `metadata`
@@ -284,6 +285,17 @@ Turns the lab into a timed exam. Omit it for normal practice labs.
 | `strict` | bool | A submission after the time limit can't pass |
 
 See [Grading → Exam mode](../concepts/grading.md#exam-mode).
+
+## `links`
+
+Labs this lab runs side by side with, each in its own kind cluster. See the [Linked Labs guide](../guides/linked-labs.md).
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | Required. How this lab refers to the link: `ASTRONA_LINK_<NAME>_*` env vars and `astrona-links` ConfigMap keys. Lowercase letters, digits, `-`; max 20 characters; unique |
+| `lab` | string | Required. A path to the linked lab's directory or config file (relative to this config; started first if not running), or the name of a running lab |
+
+Up to 5 links; kind labs only.
 
 ## `teardown`
 

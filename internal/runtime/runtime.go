@@ -51,6 +51,7 @@ type LabEnvironment struct {
 	Name        string
 	KubeContext string                             // "kind-"+name for kind; "" for qemu (no kubectl-reachable cluster this pass)
 	Kubeconfig  string                             // kind: the lab's isolated kubeconfig ("" for a lab created before isolation, or qemu)
+	ExtraEnv    []string                           // added to host scripts and command checks — linked labs' ASTRONA_LINK_* variables
 	Executor    executor.ScriptExecutor            // LocalExecutor for kind; SSHExecutor for a single-VM qemu lab; nil for multi-VM qemu
 	Executors   map[string]executor.ScriptExecutor // vm name -> SSHExecutor; only set for a multi-VM qemu lab
 }
@@ -301,4 +302,15 @@ func sshExecutorFor(h *config.QEMUHandle) executor.SSHExecutor {
 		KeyPath:    h.AdminKeyPath,
 		KnownHosts: h.KnownHosts,
 	}
+}
+
+// WithEnv adds extra variables (linked labs' ASTRONA_LINK_*) to the
+// environment host scripts and command checks run with. Only kind labs
+// run scripts on the host, so qemu environments are left alone.
+func (env *LabEnvironment) WithEnv(extra []string) {
+	if env.Type != RuntimeKind || len(extra) == 0 {
+		return
+	}
+	env.ExtraEnv = append(env.ExtraEnv, extra...)
+	env.Executor = executor.LocalExecutor{Kubeconfig: env.Kubeconfig, ExtraEnv: env.ExtraEnv}
 }
