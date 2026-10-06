@@ -3257,6 +3257,11 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <td>list of <a href="#runtimekindlabsn">KindLab</a></td>
 <td>Extra kind clusters running side by side with the lab's own (max 5)</td>
 </tr>
+<tr>
+<td><code>sharedCA</code></td>
+<td>bool</td>
+<td>Give the lab its own certificate authority, installed in its cluster and every linked cluster: ConfigMap <code>astrona-ca</code> (<code>ca.crt</code>) in <code>default</code>; with the <code>certManager</code> addon a ClusterIssuer <code>astrona-ca</code>. Scripts, command checks and <code>astrona shell</code> get <code>$ASTRONA_CA_CERT</code>. See <a href="../../guides/linked-labs/#tls-between-clusters-a-shared-ca">TLS between clusters</a></td>
+</tr>
 </tbody>
 </table>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">runtime</span><span class="p">:</span>

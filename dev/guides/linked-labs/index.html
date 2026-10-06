@@ -1045,6 +1045,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tls-between-clusters-a-shared-ca" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TLS between clusters: a shared CA
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#grading-across-clusters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2638,6 +2649,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tls-between-clusters-a-shared-ca" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        TLS between clusters: a shared CA
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#grading-across-clusters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2826,16 +2848,69 @@
 <a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">      </span><span class="nt">scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http</span>
 </code></pre></div>
 <p>It belongs to the lab like any forward: started after every cluster is up, paused and resumed by <code>stop</code>/<code>start</code>, removed by <code>destroy</code>, listed by <code>astrona port-forward list</code>. Like all forwards it binds <code>127.0.0.1</code> only.</p>
+<h2 id="tls-between-clusters-a-shared-ca">TLS between clusters: a shared CA<a class="headerlink" href="#tls-between-clusters-a-shared-ca" title="Permanent link">&para;</a></h2>
+<p>An identity provider is usually reached over HTTPS, and its clients must trust its certificate. <code>runtime.kind.sharedCA: true</code> gives the lab its <strong>own certificate authority</strong>, trusted by every cluster of the lab:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">runtime</span><span class="p">:</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kind</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">sharedCA</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nt">labs</span><span class="p">:</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">        </span><span class="nt">addons</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">certManager</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">        </span><span class="nt">bootstrap</span><span class="p">:</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">          </span><span class="nt">manifests</span><span class="p">:</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">labs/idp/bootstrap/idp.yaml</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">          </span><span class="nt">waitFor</span><span class="p">:</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="nv">certificate/idp</span><span class="p p-Indicator">,</span><span class="nt"> namespace</span><span class="p">:</span><span class="w"> </span><span class="nv">auth</span><span class="p p-Indicator">,</span><span class="nt"> condition</span><span class="p">:</span><span class="w"> </span><span class="nv">Ready</span><span class="p p-Indicator">,</span><span class="nt"> timeout</span><span class="p">:</span><span class="w"> </span><span class="nv">3m</span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<p>What every cluster (the lab's own and each linked one) gets:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ConfigMap <code>astrona-ca</code> in <code>default</code></td>
+<td><code>ca.crt</code> — mount it in a pod to trust the CA (<code>curl --cacert /ca/ca.crt …</code>, <code>SSL_CERT_FILE</code>, a Java truststore, …)</td>
+</tr>
+<tr>
+<td>Secret <code>astrona-ca</code> (<code>kubernetes.io/tls</code>)</td>
+<td>The CA's certificate and key — in <code>cert-manager</code> when the cluster has the <code>certManager</code> addon, in <code>default</code> otherwise</td>
+</tr>
+<tr>
+<td>ClusterIssuer <code>astrona-ca</code></td>
+<td>Only with the <code>certManager</code> addon — issue certificates from the lab CA with <code>issuerRef: {kind: ClusterIssuer, name: astrona-ca}</code></td>
+</tr>
+</tbody>
+</table>
+<p>A certificate for the stable name then verifies from any cluster of the lab:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cert-manager.io/v1</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Certificate</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nt">metadata</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">,</span><span class="nt"> namespace</span><span class="p">:</span><span class="w"> </span><span class="nv">auth</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="nt">secretName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp-tls</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="nt">dnsNames</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">idp.astrona.internal</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="nt">issuerRef</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="nv">ClusterIssuer</span><span class="p p-Indicator">,</span><span class="nt"> name</span><span class="p">:</span><span class="w"> </span><span class="nv">astrona-ca</span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<ul>
+<li>The CA is created per lab run (ECDSA P-256, can only sign leaf certificates) at <code>~/.astrona/kind/&lt;lab&gt;/ca.crt</code> (key <code>ca.key</code>, mode <code>0600</code>) and deleted with the lab; <code>astrona test</code> copies get their own.</li>
+<li>Scripts, command checks and <code>astrona shell</code> get <code>$ASTRONA_CA_CERT</code> — the path of <code>ca.crt</code> — for <code>curl --cacert "$ASTRONA_CA_CERT" …</code> from your machine (with the <a href="#stable-names-nameastronainternal"><code>/etc/hosts</code> line</a> and a port forward).</li>
+<li>astrona never adds the CA to your system's trust store.</li>
+<li><code>sharedCA</code> is lab-wide: set it on <code>runtime.kind</code>, not on a linked cluster.</li>
+</ul>
 <h2 id="grading-across-clusters">Grading across clusters<a class="headerlink" href="#grading-across-clusters" title="Permanent link">&para;</a></h2>
 <p>A check grades the lab's own cluster unless it names a linked one with <code>cluster:</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">validation</span><span class="p">:</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp runs 2 replicas</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">      </span><span class="nt">cluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jsonpath</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deploy/idp -n auth</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">      </span><span class="nt">jsonpath</span><span class="p">:</span><span class="w"> </span><span class="s">"{.status.readyReplicas}"</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">      </span><span class="nt">expect</span><span class="p">:</span><span class="w"> </span><span class="s">"2"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">validation</span><span class="p">:</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp runs 2 replicas</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">      </span><span class="nt">cluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jsonpath</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deploy/idp -n auth</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">      </span><span class="nt">jsonpath</span><span class="p">:</span><span class="w"> </span><span class="s">"{.status.readyReplicas}"</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">      </span><span class="nt">expect</span><span class="p">:</span><span class="w"> </span><span class="s">"2"</span>
 </code></pre></div>
 <p>Works for every check type except <code>http</code> (which runs from your machine). A <code>command</code> check with <code>cluster:</code> gets that cluster's <code>KUBECONFIG</code>.</p>
 <h2 id="lifecycle">Lifecycle<a class="headerlink" href="#lifecycle" title="Permanent link">&para;</a></h2>
