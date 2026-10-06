@@ -939,10 +939,38 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#declaring-links" class="md-nav__link">
+  <a href="#declaring-linked-clusters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Declaring links
+        Declaring linked clusters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Declaring linked clusters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#folder-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folder layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reaching-a-linked-cluster" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reaching a linked cluster
       
     </span>
   </a>
@@ -950,10 +978,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#reaching-a-linked-lab" class="md-nav__link">
+  <a href="#grading-across-clusters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reaching a linked lab
+        Grading across clusters
       
     </span>
   </a>
@@ -961,21 +989,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#running" class="md-nav__link">
+  <a href="#lifecycle" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Running
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#testing-in-ci" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Testing in CI
+        Lifecycle
       
     </span>
   </a>
@@ -2448,10 +2465,38 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#declaring-links" class="md-nav__link">
+  <a href="#declaring-linked-clusters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Declaring links
+        Declaring linked clusters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Declaring linked clusters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#folder-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Folder layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reaching-a-linked-cluster" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reaching a linked cluster
       
     </span>
   </a>
@@ -2459,10 +2504,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#reaching-a-linked-lab" class="md-nav__link">
+  <a href="#grading-across-clusters" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Reaching a linked lab
+        Grading across clusters
       
     </span>
   </a>
@@ -2470,21 +2515,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#running" class="md-nav__link">
+  <a href="#lifecycle" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Running
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#testing-in-ci" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Testing in CI
+        Lifecycle
       
     </span>
   </a>
@@ -2528,35 +2562,53 @@
 
 
 <h1 id="linked-labs">Linked Labs<a class="headerlink" href="#linked-labs" title="Permanent link">&para;</a></h1>
-<p>Some things can only be practised with two systems: an app logging in against an external identity provider, a client calling a service in another cluster, network policy between "sites". A <strong>linked lab</strong> runs side by side with other labs — each in its own kind cluster — and knows how to reach them.</p>
-<p>The worked reference is <a href="https://github.com/astrona-io/astrona-cli/tree/main/examples/linked-labs"><code>examples/linked-labs</code></a>: an <code>idp</code> lab serving a token endpoint, and an <code>app</code> lab whose task is to log in against it.</p>
-<h2 id="declaring-links">Declaring links<a class="headerlink" href="#declaring-links" title="Permanent link">&para;</a></h2>
+<p>Some things can only be practised with two systems: an app logging in against an external identity provider, a client calling a service in another cluster, network policy between "sites". A lab can run <strong>extra kind clusters side by side</strong> with its own — declared under <code>runtime.kind.labs</code> in the same <code>config.yaml</code> — and knows how to reach them.</p>
+<p>The worked reference is <a href="https://github.com/astrona-io/astrona-cli/tree/main/examples/linked-labs-01"><code>examples/linked-labs-01</code></a>: an <code>idp</code> cluster serving a token endpoint, and a task to log in against it from the lab's own cluster. <code>astrona init lab &lt;dir&gt; --linked</code> scaffolds a lab like it.</p>
+<h2 id="declaring-linked-clusters">Declaring linked clusters<a class="headerlink" href="#declaring-linked-clusters" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">linked-app</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auth-lab</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nt">links</span><span class="p">:</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span><span class="w">          </span><span class="c1"># how this lab refers to it: env vars, ConfigMap keys</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">lab</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">../idp</span><span class="w">        </span><span class="c1"># a path to the other lab's directory (relative to this config)…</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">legacy</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">lab</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">legacy-crm</span><span class="w">    </span><span class="c1"># …or the name of a lab that's already running</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nt">runtime</span><span class="p">:</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kind</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">preloadImages</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">curlimages/curl</span><span class="p p-Indicator">:</span><span class="nv">8.11.1</span><span class="p p-Indicator">]</span><span class="w">     </span><span class="c1"># the lab's own cluster</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">labs</span><span class="p">:</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span><span class="w">                                </span><span class="c1"># kind cluster astro-auth-lab-idp</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">        </span><span class="nt">preloadImages</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">nginx</span><span class="p p-Indicator">:</span><span class="nv">1.27-alpine</span><span class="p p-Indicator">]</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">        </span><span class="nt">nodes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">workers</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="nt">addons</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">certManager</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">        </span><span class="nt">bootstrap</span><span class="p">:</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">          </span><span class="nt">manifests</span><span class="p">:</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">labs/idp/bootstrap/idp.yaml</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">          </span><span class="nt">waitFor</span><span class="p">:</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="nv">deploy/idp</span><span class="p p-Indicator">,</span><span class="nt"> namespace</span><span class="p">:</span><span class="w"> </span><span class="nv">auth</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">        </span><span class="nt">testing</span><span class="p">:</span><span class="w">                                 </span><span class="c1"># its part of the reference solution</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">          </span><span class="nt">init</span><span class="p">:</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">seed users</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">labs/idp/testing/seed.sh</span><span class="p p-Indicator">}</span>
 </code></pre></div>
-<ul>
-<li><strong>Path</strong> (contains <code>/</code>, or is <code>.</code>/<code>..</code>, or ends in <code>.yaml</code>/<code>.yml</code>): <code>astrona run</code> starts that lab first if it isn't running, with the same trust check as any lab. For a <code>--git</code> lab the path must stay inside the cloned repository.</li>
-<li><strong>Name</strong>: the lab must already be running (<code>astrona run</code> it first). A lab loaded from a URL can only link by name — a remote config never starts a lab from elsewhere on your disk.</li>
-</ul>
-<p>Up to 5 links per lab, nested at most 3 levels deep; a cycle is an error. Link names are lowercase letters, digits and <code>-</code> (max 20 characters). Linked labs must be kind labs.</p>
-<h2 id="reaching-a-linked-lab">Reaching a linked lab<a class="headerlink" href="#reaching-a-linked-lab" title="Permanent link">&para;</a></h2>
-<p>All kind clusters share one container network, so pods and host scripts can reach another lab's <strong>node</strong> by its container name — <code>&lt;cluster&gt;-control-plane</code>. Publish what the other lab should reach as a <strong>NodePort</strong> Service with a fixed <code>nodePort</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nt">metadata</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">,</span><span class="nt"> namespace</span><span class="p">:</span><span class="w"> </span><span class="nv">auth</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nt">spec</span><span class="p">:</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NodePort</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">selector</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">}</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="nv">80</span><span class="p p-Indicator">,</span><span class="nt"> targetPort</span><span class="p">:</span><span class="w"> </span><span class="nv">80</span><span class="p p-Indicator">,</span><span class="nt"> nodePort</span><span class="p">:</span><span class="w"> </span><span class="nv">30080</span><span class="p p-Indicator">}]</span>
+<p>Each entry takes the same cluster fields as <code>runtime.kind</code> (version, nodes, networking, addons, preloadImages, …) plus its own <code>bootstrap</code> and <code>testing</code>. Up to 5 per lab; names are lowercase letters, digits and <code>-</code> (max 20 characters). See <a href="../../reference/lab-config/#runtimekindlabsn"><code>runtime.kind.labs</code></a>.</p>
+<h3 id="folder-layout">Folder layout<a class="headerlink" href="#folder-layout" title="Permanent link">&para;</a></h3>
+<p>Paths are relative to <code>config.yaml</code>, like everywhere else. By convention each linked cluster keeps its files in its own folder under <code>labs/</code>, next to <code>docs/</code> and <code>solution/</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>config.yaml
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>docs/                     # student docs
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>solution/                 # the lab's own reference solution
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>labs/
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  idp/
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    bootstrap/            # sets up the idp cluster
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    testing/              # the idp cluster's part of the reference solution
 </code></pre></div>
-<p>From the other cluster: <code>http://&lt;host&gt;:30080/</code>. A <code>ClusterIP</code> Service name or a pod IP from the other cluster is <strong>not</strong> reachable — each cluster has its own service and pod network.</p>
-<p>Astrona tells the lab where each link is:</p>
+<h2 id="reaching-a-linked-cluster">Reaching a linked cluster<a class="headerlink" href="#reaching-a-linked-cluster" title="Permanent link">&para;</a></h2>
+<p>All kind clusters share one container network, so pods and host scripts can reach a linked cluster's <strong>node</strong> by its container name — <code>&lt;cluster&gt;-control-plane</code>. Publish what the lab should reach as a <strong>NodePort</strong> Service with a fixed <code>nodePort</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">metadata</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">,</span><span class="nt"> namespace</span><span class="p">:</span><span class="w"> </span><span class="nv">auth</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NodePort</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">selector</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">ports</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="nv">80</span><span class="p p-Indicator">,</span><span class="nt"> targetPort</span><span class="p">:</span><span class="w"> </span><span class="nv">80</span><span class="p p-Indicator">,</span><span class="nt"> nodePort</span><span class="p">:</span><span class="w"> </span><span class="nv">30080</span><span class="p p-Indicator">}]</span>
+</code></pre></div>
+<p>From the lab's cluster: <code>http://&lt;host&gt;:30080/</code>. A <code>ClusterIP</code> Service name or a pod IP from the other cluster is <strong>not</strong> reachable — each cluster has its own service and pod network.</p>
+<p>Astrona tells the lab where each linked cluster is:</p>
 <table>
 <thead>
 <tr>
@@ -2566,32 +2618,73 @@
 </thead>
 <tbody>
 <tr>
-<td>Bootstrap/testing/teardown scripts and <code>command</code> checks</td>
+<td>The lab's bootstrap/testing/teardown scripts and <code>command</code> checks</td>
 <td><code>ASTRONA_LINK_&lt;NAME&gt;_HOST</code>, <code>ASTRONA_LINK_&lt;NAME&gt;_CONTEXT</code>, <code>ASTRONA_LINK_&lt;NAME&gt;_KUBECONFIG</code> (<code>&lt;NAME&gt;</code> upper-cased, <code>-</code> → <code>_</code>)</td>
 </tr>
 <tr>
-<td>In the cluster</td>
+<td>In the lab's cluster</td>
 <td>ConfigMap <code>astrona-links</code> in namespace <code>default</code>: <code>&lt;name&gt;.host</code>, <code>&lt;name&gt;.context</code></td>
 </tr>
 <tr>
 <td><code>astrona shell</code></td>
-<td>Both labs' kubeconfigs: <code>kubectl --context kind-&lt;other cluster&gt; …</code> works, plus the env vars</td>
+<td>Every cluster's kubeconfig: <code>kubectl --context "$ASTRONA_LINK_IDP_CONTEXT" …</code> works, plus the env vars</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Never hard-code the other lab's host or cluster name.</strong> Under <code>astrona test</code> the linked lab is a test copy with a different name (<code>astro-test-…</code>); read it from the env var or the ConfigMap instead.</p>
-<p>Before bootstrap scripts run, <code>astrona run</code> and <code>astrona test</code> wait for the cluster's DNS (CoreDNS) — a script resolving the linked lab's host in the first seconds after the cluster is created would otherwise fail with <code>bad address</code>.</p>
-<h2 id="running">Running<a class="headerlink" href="#running" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>run<span class="w"> </span>-c<span class="w"> </span>examples/linked-labs/app<span class="w">    </span><span class="c1"># starts idp (if needed), then app</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>astrona<span class="w"> </span>status<span class="w"> </span>linked-app<span class="w">                  </span><span class="c1"># Links  idp → astro-linked-idp (Ready) · host …</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>astrona<span class="w"> </span>shell<span class="w"> </span>linked-app<span class="w">                   </span><span class="c1"># both contexts available</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>astrona<span class="w"> </span>submit<span class="w"> </span>-c<span class="w"> </span>examples/linked-labs/app
+<p>A linked cluster's own <code>bootstrap</code>/<code>testing</code> scripts run with <code>KUBECONFIG</code> pointing at that cluster.</p>
+<p><strong>Never hard-code a linked cluster's host or name.</strong> Under <code>astrona test</code> every cluster has a different name (<code>astro-test-…</code>); read it from the env var or the ConfigMap instead.</p>
+<h2 id="grading-across-clusters">Grading across clusters<a class="headerlink" href="#grading-across-clusters" title="Permanent link">&para;</a></h2>
+<p>A check grades the lab's own cluster unless it names a linked one with <code>cluster:</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">validation</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp runs 2 replicas</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">      </span><span class="nt">cluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jsonpath</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deploy/idp -n auth</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">      </span><span class="nt">jsonpath</span><span class="p">:</span><span class="w"> </span><span class="s">"{.status.readyReplicas}"</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">      </span><span class="nt">expect</span><span class="p">:</span><span class="w"> </span><span class="s">"2"</span>
 </code></pre></div>
-<p>Destroying a lab leaves its linked labs running (another lab may use them) and tells you which are still up — <code>astrona destroy &lt;name&gt;</code> each when you're done.</p>
-<h2 id="testing-in-ci">Testing in CI<a class="headerlink" href="#testing-in-ci" title="Permanent link">&para;</a></h2>
-<p><code>astrona test</code> starts <strong>test copies</strong> of path-linked labs (<code>astro-test-&lt;lab&gt;</code>, no port forwards or gateway host ports, so they never clash with a real <code>run</code>), runs the lab's lifecycle against them, and tears every copy down afterwards — even on failure. A link by name uses that running lab as-is and never tears it down. Test copies don't start nested links yet.</p>
+<p>Works for every check type except <code>http</code> (which runs from your machine). A <code>command</code> check with <code>cluster:</code> gets that cluster's <code>KUBECONFIG</code>.</p>
+<h2 id="lifecycle">Lifecycle<a class="headerlink" href="#lifecycle" title="Permanent link">&para;</a></h2>
+<p>Linked clusters belong to the lab:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>astrona run</code></td>
+<td>Creates the linked clusters (bootstrap included), then the lab. Refused while the lab is running — <code>astrona reset</code> starts it over</td>
+</tr>
+<tr>
+<td><code>astrona list</code> / <code>status</code></td>
+<td>A linked cluster is listed as <code>linked cluster of &lt;lab&gt;</code>; <code>status</code> shows each one's state</td>
+</tr>
+<tr>
+<td><code>astrona stop</code> / <code>start</code></td>
+<td>Stops/starts them with the lab (<code>start</code> brings them up first)</td>
+</tr>
+<tr>
+<td><code>astrona reset</code> / <code>destroy</code></td>
+<td>Removes them with the lab</td>
+</tr>
+<tr>
+<td><code>astrona test</code></td>
+<td>Creates test copies of every cluster, applies each linked cluster's <code>testing</code>, then the lab's, grades, and tears everything down — even on failure</td>
+</tr>
+<tr>
+<td><code>astrona check</code></td>
+<td>Counts their memory in the lab's estimate</td>
+</tr>
+</tbody>
+</table>
+<p>Before bootstrap scripts run, <code>astrona run</code> and <code>astrona test</code> wait for the cluster's DNS (CoreDNS) — a script resolving a linked cluster's host in the first seconds after a cluster is created would otherwise fail with <code>bad address</code>.</p>
+<p><code>astrona bundle</code> doesn't support labs with linked clusters yet.</p>
 <h2 id="planning-resources">Planning resources<a class="headerlink" href="#planning-resources" title="Permanent link">&para;</a></h2>
-<p>Each linked lab is a full kind cluster: budget memory for all of them together (roughly 1–1.5 GiB per single-node cluster before workloads), and give each lab a different <code>nodePort</code> range and different <code>runtime.portForwards</code> host ports if you run them side by side.</p>
+<p>Each linked cluster is a full kind cluster: budget memory for all of them together (roughly 1–1.5 GiB per single-node cluster before workloads) — <code>astrona check -c &lt;lab&gt;</code> estimates it. A linked cluster's gateway addon gets no host ports, so it never clashes with the lab's own.</p>
 
 
 
