@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	goruntime "runtime"
+	"strings"
 
 	"astrona/internal/config"
 
@@ -19,6 +20,60 @@ type depCheck struct {
 	note        string // why it's needed, or when it's optional
 	find        func() (found bool, detail string)
 	installHint string
+	brewFormula string // what `brew install` installs it from; "" when Homebrew has nothing for it
+}
+
+// brewAvailable: Homebrew is installed, so a missing tool's hint can be a
+// `brew install` command instead of a web page. Swapped out in tests.
+var brewAvailable = func() bool {
+	_, err := exec.LookPath("brew")
+	return err == nil
+}
+
+// hint is how to install c: the brew command when Homebrew is there and
+// has it, else installHint.
+func (c depCheck) hint() string {
+	if c.brewFormula == "" || !brewAvailable() {
+		return c.installHint
+	}
+	if c.brewFormula == "podman" {
+		return "brew install podman && podman machine init && podman machine start — or Docker Desktop"
+	}
+	return "brew install " + c.brewFormula
+}
+
+// missingDeps is every required (or every optional) check that fails.
+func missingDeps(required bool) []depCheck {
+	var out []depCheck
+	for _, c := range astronaDepChecks() {
+		if c.required == required {
+			if found, _ := c.find(); !found {
+				out = append(out, c)
+			}
+		}
+	}
+	return out
+}
+
+// brewInstallAll is one `brew install …` for every missing check Homebrew
+// can install, or "" when there's none (or no Homebrew). qemu backs three
+// checks but is listed once.
+func brewInstallAll(missing []depCheck) string {
+	if !brewAvailable() {
+		return ""
+	}
+	var formulas []string
+	seen := map[string]bool{}
+	for _, c := range missing {
+		if c.brewFormula != "" && !seen[c.brewFormula] {
+			seen[c.brewFormula] = true
+			formulas = append(formulas, c.brewFormula)
+		}
+	}
+	if len(formulas) == 0 {
+		return ""
+	}
+	return "brew install " + strings.Join(formulas, " ")
 }
 
 // lookPath is the depCheck.find for the common case: a single binary on
@@ -44,6 +99,7 @@ func astronaDepChecks() []depCheck {
 			note:        "creates and deletes the local Kubernetes cluster",
 			find:        lookPath("kind"),
 			installHint: "https://kind.sigs.k8s.io/docs/user/quick-start/#installation",
+			brewFormula: "kind",
 		},
 		{
 			name:     "docker or podman",
@@ -59,6 +115,7 @@ func astronaDepChecks() []depCheck {
 				return false, ""
 			},
 			installHint: "https://docs.docker.com/get-docker/ or https://podman.io/docs/installation",
+			brewFormula: "podman",
 		},
 		{
 			name:        "kubectl",
@@ -66,6 +123,7 @@ func astronaDepChecks() []depCheck {
 			note:        "applies manifests and runs the Proctor's checks",
 			find:        lookPath("kubectl"),
 			installHint: "https://kubernetes.io/docs/tasks/tools/#kubectl",
+			brewFormula: "kubernetes-cli",
 		},
 		{
 			name:        "git",
@@ -73,6 +131,7 @@ func astronaDepChecks() []depCheck {
 			note:        "only needed for --git (cloning/pulling a lab config from a repo)",
 			find:        lookPath("git"),
 			installHint: "https://git-scm.com/downloads",
+			brewFormula: "git",
 		},
 		{
 			name:        "qemu-system-x86_64",
@@ -80,6 +139,7 @@ func astronaDepChecks() []depCheck {
 			note:        "only needed for runtime.type: qemu with an x86_64 guest",
 			find:        lookPath("qemu-system-x86_64"),
 			installHint: "brew install qemu (macOS) / apt install qemu-system-x86 (Debian/Ubuntu)",
+			brewFormula: "qemu",
 		},
 		{
 			name:        "qemu-system-aarch64",
@@ -87,6 +147,7 @@ func astronaDepChecks() []depCheck {
 			note:        "only needed for runtime.type: qemu with an aarch64 guest",
 			find:        lookPath("qemu-system-aarch64"),
 			installHint: "brew install qemu (macOS) / apt install qemu-system-arm (Debian/Ubuntu)",
+			brewFormula: "qemu",
 		},
 		{
 			name:        "qemu-img",
@@ -94,6 +155,7 @@ func astronaDepChecks() []depCheck {
 			note:        "only needed for runtime.type: qemu (builds the disposable overlay disk)",
 			find:        lookPath("qemu-img"),
 			installHint: "brew install qemu (macOS) / apt install qemu-utils (Debian/Ubuntu)",
+			brewFormula: "qemu",
 		},
 		{
 			name:        "ssh",
@@ -115,6 +177,7 @@ func astronaDepChecks() []depCheck {
 			note:        "only needed for runtime.type: qemu with an image source of type 'oci' (pulls the base image from an OCI registry, e.g. ghcr.io)",
 			find:        lookPath("oras"),
 			installHint: "https://oras.land/docs/installation",
+			brewFormula: "oras",
 		},
 		{
 			name:     "mkisofs / genisoimage / xorriso / hdiutil",
@@ -129,6 +192,7 @@ func astronaDepChecks() []depCheck {
 				return false, ""
 			},
 			installHint: "brew install cdrtools (macOS) / apt install genisoimage (Debian/Ubuntu)",
+			brewFormula: "cdrtools",
 		},
 	}
 }
@@ -160,6 +224,7 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 
 			missingRequired := 0
 			printedOptionalHeader := false
+			var missingReq, missingOpt []depCheck
 
 			fmt.Printf("astrona version: %s\n\n", Version)
 
@@ -178,11 +243,19 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 
 				if c.required {
 					missingRequired++
+					missingReq = append(missingReq, c)
 					fmt.Printf("  %s  %-38s %s\n", colorize(ansiRed, "✗"), c.name, c.note)
 				} else {
+					missingOpt = append(missingOpt, c)
 					fmt.Printf("  %s  %-38s %s\n", colorize(ansiYellow, "⚠"), c.name, c.note)
 				}
-				fmt.Printf("        install: %s\n", c.installHint)
+				fmt.Printf("        install: %s\n", c.hint())
+			}
+			if all := brewInstallAll(missingReq); all != "" {
+				fmt.Printf("\nInstall what's required: %s\n", all)
+			}
+			if all := brewInstallAll(missingOpt); all != "" {
+				fmt.Printf("\nOptional tools, all at once: %s\n", all)
 			}
 
 			envRes, engine := checkEngine()
@@ -227,9 +300,9 @@ func checkAsJSON(cmd *cobra.Command, flags *rootFlags) error {
 		case found:
 			deps = append(deps, checkResult{name: c.name, detail: detail})
 		case c.required:
-			deps = append(deps, checkResult{status: checkFail, name: c.name, detail: c.note, hint: "install: " + c.installHint})
+			deps = append(deps, checkResult{status: checkFail, name: c.name, detail: c.note, hint: "install: " + c.hint()})
 		default:
-			deps = append(deps, checkResult{status: checkWarn, name: c.name, detail: c.note, hint: "install: " + c.installHint})
+			deps = append(deps, checkResult{status: checkWarn, name: c.name, detail: c.note, hint: "install: " + c.hint()})
 		}
 	}
 	rep.section("Dependencies", deps)

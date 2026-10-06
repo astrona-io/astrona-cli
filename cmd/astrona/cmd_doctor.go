@@ -58,6 +58,9 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 
 			machine, engine := doctorMachine()
 			failed += rep.section("This machine", machine)
+			if all := brewInstallAll(missingDeps(true)); all != "" {
+				rep.note("\nInstall what's required: %s\n", all)
+			}
 
 			cfg, baseDir, err := doctorLoadLab(flags, labNamed(cmd, args, flags))
 			if err != nil {
@@ -130,7 +133,7 @@ func doctorMachine() ([]checkResult, *engineInfo) {
 		if found, detail := c.find(); found {
 			res = append(res, checkResult{name: c.name, detail: detail})
 		} else {
-			res = append(res, checkResult{status: checkFail, name: c.name, detail: "not found — " + c.note, hint: "install: " + c.installHint})
+			res = append(res, checkResult{status: checkFail, name: c.name, detail: "not found — " + c.note, hint: "install: " + c.hint()})
 		}
 	}
 	if _, err := cluster.DetectContainerEngine(); err != nil {
