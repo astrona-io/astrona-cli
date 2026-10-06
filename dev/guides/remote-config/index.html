@@ -839,6 +839,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#approving-remote-labs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Approving remote labs
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1930,6 +1939,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#approving-remote-labs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Approving remote labs
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1981,6 +1999,27 @@
 <p><code>--git</code> is checked first: if set, it entirely determines how <code>--config</code> is interpreted (as a subdirectory, not a path/URL). Without <code>--git</code>, <code>--config</code> is checked in this order: a <code>https://</code>/<code>http://</code> prefix (used as a direct URL), otherwise treated as a local filesystem path (file or directory).</p>
 <h2 id="path-safety">Path safety<a class="headerlink" href="#path-safety" title="Permanent link">&para;</a></h2>
 <p>Every local path resolution — the lab's own base directory, script/manifest <code>source: file</code>/<code>folder</code> references — is joined against the lab's base directory and rejected if it would escape it (<code>JoinWithinBaseDir</code>). A lab config can't reference files outside its own directory by accident or by a crafted <code>source</code> value.</p>
+<h2 id="approving-remote-labs">Approving remote labs<a class="headerlink" href="#approving-remote-labs" title="Permanent link">&para;</a></h2>
+<p>A lab from <code>--git</code> or a URL runs its scripts with bash on your machine (for kind labs), plus any <code>command</code> validation checks. So before <code>run</code>, <code>reset</code>, <code>test</code> or <code>submit</code> executes anything from a remote lab for the first time, astrona shows what it will do and asks:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>First time running this lab:
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  https://github.com/org/labs@main (labs/lab-01) (01eed0bb08be)
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>It will:
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  • runs on this machine (bash): setup (setup.sh)
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>  • runs on this machine (command check): kubectl get ns shop -o name
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>  • applies 2 manifest source(s) to the lab cluster
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>  • opens 127.0.0.1:8080 → svc/web
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>  • ⚠ fetched when it runs, NOT covered by this approval: https://example.com/extra.sh
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>Only continue if you trust its author. Run it? [y/N]
+</code></pre></div>
+<ul>
+<li>The approval is pinned: to the <strong>git commit</strong> for <code>--git</code>, to the <strong>SHA-256 of the config</strong> for a URL. Running the same version again doesn't ask; a new commit or a changed config asks again ("This lab changed since you approved it").</li>
+<li>Scripts and manifests with <code>type: url</code> are downloaded when they run, so their content isn't covered by the pin — they're flagged in the prompt.</li>
+<li>Local configs (<code>-c ./my-lab</code>) are your own files and never prompt.</li>
+<li><strong>CI / no terminal:</strong> without a terminal, an unapproved remote lab is refused. Pass <code>--trust</code> to approve it — e.g. <code>astrona test --git https://github.com/org/labs --config labs/lab-01 --trust</code>. CI that tests its own checkout (<code>-c .</code>) needs nothing.</li>
+<li>Approvals are stored in <code>~/.astrona/trust.json</code>; delete an entry (or the file) to be asked again.</li>
+</ul>
 
 
 
