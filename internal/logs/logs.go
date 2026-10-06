@@ -104,7 +104,7 @@ func List(f Filter) ([]Entry, error) {
 		return nil, fmt.Errorf("scan log directory %s: %w", dir, err)
 	}
 
-	var out []Entry
+	out := []Entry{} // never nil: `logs list -o json` prints [] when empty
 	for _, p := range matches {
 		e, err := parseEntry(p)
 		if err != nil {

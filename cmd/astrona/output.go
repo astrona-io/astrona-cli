@@ -141,3 +141,14 @@ func (r *report) done(failErr error) error {
 	}
 	return nil
 }
+
+// loadFailed ends validate and check when the lab config can't be loaded:
+// under -o json it's still the one report, with err as a ✗ row under
+// title, so stdout always carries a JSON document; otherwise just err.
+func (r *report) loadFailed(title string, err error) error {
+	if !r.json {
+		return err
+	}
+	r.section(title, []checkResult{doctorLabError(err)})
+	return r.done(err)
+}

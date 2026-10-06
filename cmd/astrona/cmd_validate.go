@@ -159,23 +159,24 @@ func newValidateCmd(flags *rootFlags) *cobra.Command {
 			}
 			if err := checkOutput(output); err != nil {
 				return err
-			} // a lab given as the argument wins over `astrona use`
+			}
+			rep := &report{json: output == "json"}
 			finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
 			if err != nil {
-				return withNoLabHint(err, flags)
+				return rep.loadFailed(flags.configPath, withNoLabHint(err, flags))
 			}
 			cfg, cleanup, err := config.LoadLabConfig(finalPath)
 			if err != nil {
 				if want := labVersionFromLoadError(err); want != "" {
 					if verr := ensureLabVersion(want, flags); verr != nil {
-						return verr
+						return rep.loadFailed(finalPath, verr)
 					}
 				}
-				return withNoLabHint(err, flags)
+				return rep.loadFailed(finalPath, withNoLabHint(err, flags))
 			}
 			if err := ensureLabVersion(cfg.AstronaVersion, flags); err != nil {
 				cleanup()
-				return err
+				return rep.loadFailed(finalPath, err)
 			}
 			defer cleanup()
 
@@ -184,7 +185,6 @@ func newValidateCmd(flags *rootFlags) *cobra.Command {
 				baseDir = filepath.Dir(finalPath)
 			}
 
-			rep := &report{json: output == "json"}
 			failed := rep.section(finalPath, labConfigResults(cfg, baseDir))
 			if rep.json {
 				return rep.done(fmt.Errorf("%d problem(s) in the lab config", failed))

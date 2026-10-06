@@ -87,9 +87,16 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 
 			if bundle {
 				if env, err := runtime.LoadEnvironment(clusterName, cfg.Runtime); err == nil {
-					rep, _ := ui.NewReporter("doctor", cfg.Metadata.Name, flags.verbose)
-					collectDiagnostics(env, cfg, clusterName, "", rep)
-					rep.Close()
+					opts := ui.Options{Verbose: flags.verbose}
+					if rep.json {
+						opts.Raw = os.Stderr // stdout is the JSON report
+					}
+					if bundleRep, err := ui.New("doctor", cfg.Metadata.Name, opts); err != nil {
+						failed += rep.section("Diagnostics bundle", []checkResult{{status: checkFail, name: "bundle", detail: err.Error()}})
+					} else {
+						collectDiagnostics(env, cfg, clusterName, "", bundleRep)
+						bundleRep.Close()
+					}
 				}
 			}
 			return doctorVerdict(rep, failed)
@@ -101,10 +108,10 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 }
 
 func doctorVerdict(rep *report, failed int) error {
-	err := fmt.Errorf("%d problem(s) found — the ✗ lines above say how to fix each", failed)
 	if rep.json {
-		return rep.done(err)
+		return rep.done(fmt.Errorf("%d problem(s) found — the \"fail\" results in the JSON report say how to fix each", failed))
 	}
+	err := fmt.Errorf("%d problem(s) found — the ✗ lines above say how to fix each", failed)
 	fmt.Println()
 	if failed > 0 {
 		return err
