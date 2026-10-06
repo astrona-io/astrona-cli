@@ -61,3 +61,17 @@ func TestPrintDiagnosticsSummary(t *testing.T) {
 		t.Error("printed more than 10 problem lines")
 	}
 }
+
+func TestPrintLinkedDiagnostics(t *testing.T) {
+	var out strings.Builder
+	printLinkedDiagnostics(&out, []linkedDiagnostics{
+		{cluster: "astro-app-idp", sum: diagnostics.Summary{Dir: "/d/clusters/astro-app-idp", Problems: []string{"auth/idp-1: CrashLoopBackOff"}, Warnings: 3}},
+		{cluster: "astro-app-db", sum: diagnostics.Summary{Dir: "/d/clusters/astro-app-db", Warnings: 1}},
+	})
+	got := out.String()
+	for _, want := range []string{"Linked cluster astro-app-idp: /d/clusters/astro-app-idp", "auth/idp-1: CrashLoopBackOff", "Linked cluster astro-app-db", "No unhealthy pods. 1 warning event(s)."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
@@ -65,7 +66,51 @@ func collectDiagnostics(env *runtime.LabEnvironment, cfg *config.LabConfig, clus
 		rep.Warn("could not collect diagnostics: %s", err)
 		return
 	}
+	linked := collectLinkedDiagnostics(clusterName, cfg.KindLabs(), dir, rep)
 	printDiagnosticsSummary(os.Stderr, sum)
+	printLinkedDiagnostics(os.Stderr, linked)
+}
+
+// linkedDiagnostics is one linked cluster's part of a bundle.
+type linkedDiagnostics struct {
+	cluster string
+	sum     diagnostics.Summary
+}
+
+// collectLinkedDiagnostics collects every linked cluster (runtime.kind.labs)
+// of the lab running as lab into dir/clusters/<cluster> — a failure there
+// (the idp didn't come up) is often why the lab's own checks fail.
+func collectLinkedDiagnostics(lab string, labs []config.KindLab, dir string, rep *ui.Reporter) []linkedDiagnostics {
+	var out []linkedDiagnostics
+	for _, c := range ownedClusters(lab, labs) {
+		sum, err := diagnostics.CollectKind(diagnostics.Kind{
+			Name: c, KubeContext: "kind-" + c, Kubeconfig: cluster.ExistingKubeconfig(c),
+		}, filepath.Join(dir, "clusters", c), rep)
+		if err != nil {
+			rep.Warn("could not collect diagnostics for linked cluster %s: %s", c, err)
+			continue
+		}
+		out = append(out, linkedDiagnostics{cluster: c, sum: sum})
+	}
+	return out
+}
+
+func printLinkedDiagnostics(w io.Writer, linked []linkedDiagnostics) {
+	for _, l := range linked {
+		fmt.Fprintf(w, "\nLinked cluster %s: %s\n", l.cluster, l.sum.Dir)
+		if len(l.sum.Problems) == 0 {
+			fmt.Fprintf(w, "  No unhealthy pods. %d warning event(s).\n", l.sum.Warnings)
+			continue
+		}
+		fmt.Fprintf(w, "  Unhealthy pods (%d):\n", len(l.sum.Problems))
+		for i, p := range l.sum.Problems {
+			if i == maxPrintedProblems {
+				fmt.Fprintf(w, "    … %d more in %s/summary.md\n", len(l.sum.Problems)-maxPrintedProblems, l.sum.Dir)
+				break
+			}
+			fmt.Fprintf(w, "    %s\n", p)
+		}
+	}
 }
 
 // qemuConsoleLogs lists every VM of the lab under the names astrona list
@@ -113,7 +158,8 @@ func newDiagnoseCmd(flags *rootFlags) *cobra.Command {
 		Short:             "Collect a debugging bundle (pods, events, logs) from a running lab",
 		Long: "Collect a debugging bundle from a running lab into a directory: for kind, nodes, pods, " +
 			"workloads, events, describe + logs of every unhealthy pod, `kind export logs`, and a " +
-			"summary.md listing what's wrong; for qemu, the VM's serial console log. Secrets, " +
+			"summary.md listing what's wrong — and the same for each linked cluster " +
+			"(runtime.kind.labs), under clusters/<cluster>/; for qemu, the VM's serial console log. Secrets, " +
 			"ConfigMaps and kubeconfigs are never collected.\n\n" +
 			"`astrona test` does the same automatically when it fails (see --diagnostics).\n\n" +
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab.",
@@ -162,8 +208,10 @@ func newDiagnoseCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 			}
+			linked := collectLinkedDiagnostics(lab, nil, outDir, rep)
 			rep.Close()
 			printDiagnosticsSummary(os.Stdout, sum)
+			printLinkedDiagnostics(os.Stdout, linked)
 			return nil
 		},
 	}

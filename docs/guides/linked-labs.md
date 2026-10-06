@@ -119,11 +119,12 @@ Linked clusters belong to the lab:
 | Command | What happens |
 |---|---|
 | `astrona run` | Creates the linked clusters (bootstrap included), then the lab. Refused while the lab is running — `astrona reset` starts it over |
-| `astrona list` / `status` | A linked cluster is listed as `linked cluster of <lab>`; `status` shows each one's state |
+| `astrona list` / `status` | A linked cluster is listed as `linked cluster of <lab>`; `status` shows each one's state. Commands that pick "the only running lab" ignore linked clusters |
 | `astrona stop` / `start` | Stops/starts them with the lab (`start` brings them up first) |
 | `astrona reset` / `destroy` | Removes them with the lab |
 | `astrona test` | Creates test copies of every cluster, applies each linked cluster's `testing`, then the lab's, grades, and tears everything down — even on failure |
 | `astrona check` | Counts their memory in the lab's estimate |
+| `astrona diagnose` / `test --diagnostics` | Collects every linked cluster too, under `clusters/<cluster>/` in the bundle |
 
 Before bootstrap scripts run, `astrona run` and `astrona test` wait for the cluster's DNS (CoreDNS) — a script resolving a linked cluster's host in the first seconds after a cluster is created would otherwise fail with `bad address`.
 

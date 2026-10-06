@@ -108,3 +108,60 @@ jobs:
         with:
           name: e2e-diagnostics
           path: e2e-diagnostics/
+
+  e2e-linked:
+    name: E2E (linked kind clusters)
+    needs: test
+    runs-on: ubuntu-latest
+    # Two kind clusters side by side (runtime.kind.labs): start order,
+    # cross-cluster networking, cluster: checks and teardown of both.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Build astrona
+        run: go build -o astrona ./cmd/astrona
+
+      - name: Install kubectl
+        run: |
+          version="$(curl -L -s https://dl.k8s.io/release/stable.txt)"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+      - name: Install kind
+        run: go install sigs.k8s.io/kind@v0.32.0
+
+      - name: astrona test (linked-labs-01)
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          ./astrona test -c examples/linked-labs-01 --junit-xml=junit-linked-labs-01.xml --diagnostics-dir=e2e-diagnostics
+
+      - name: No clusters left behind
+        if: always()
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          left="$(kind get clusters 2>/dev/null | grep '^astro-' || true)"
+          if [ -n "$left" ]; then echo "left behind: $left"; exit 1; fi
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-linked-junit-report
+          path: junit-linked-labs-01.xml
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-linked-diagnostics
+          path: e2e-diagnostics/
