@@ -24,7 +24,20 @@ astrona versions list               # this astrona + the installed ones
 astrona versions remove 0.2.1
 ```
 
-The newest astrona stays `astrona`; older ones are `astrona-<version>`. Downloads are verified against the **SHA-256 digest GitHub records for each release binary** — a mismatch is refused, and nothing unverified is ever made executable. Add `~/.astrona/bin` to your `PATH` to run e.g. `astrona-0.2.1` yourself.
+The newest astrona stays `astrona`; older ones are `astrona-<version>`. Downloads are verified against the **SHA-256 digest GitHub records for each release binary** — a mismatch is refused, and nothing unverified is ever made executable.
+
+### Build provenance
+
+Releases after v0.2.2 also carry a signed **build provenance attestation**: proof that the binary was built by astrona-cli's own release workflow from this repository. When the [GitHub CLI](https://cli.github.com) (`gh`, logged in) is installed, `astrona versions install` and `astrona upgrade` check it too:
+
+| Result | What happens |
+|---|---|
+| Verified | installed — "build provenance verified" |
+| Release ≤ v0.2.2 (built before attestations) | installed — "this release predates build provenance attestations" |
+| Newer release **without** its attestation, or one that doesn't verify | **refused** — the binary may have been replaced |
+| No `gh`, or not logged in | installed on the SHA-256 check alone, with a hint |
+
+To check a download yourself: `gh attestation verify astrona-darwin-arm64 --repo astrona-io/astrona-cli`, or `sha256sum -c SHA256SUMS` with the checksum file attached to each release. Add `~/.astrona/bin` to your `PATH` to run e.g. `astrona-0.2.1` yourself.
 
 ## What happens when a lab needs another version
 
