@@ -989,6 +989,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#renamed-in-v03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Renamed in v0.3
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2971,6 +2982,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#renamed-in-v03" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Renamed in v0.3
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3124,7 +3146,7 @@
 
 
 <h1 id="linked-labs">Linked Labs<a class="headerlink" href="#linked-labs" title="Permanent link">&para;</a></h1>
-<p>Some things can only be practised with two systems: an app logging in against an external identity provider, a client calling a service in another cluster, network policy between "sites". A lab can run <strong>extra kind clusters side by side</strong> with its own — declared under <code>runtime.kind.labs</code> in the same <code>config.yaml</code> — and knows how to reach them.</p>
+<p>Some things can only be practised with two systems: an app logging in against an external identity provider, a client calling a service in another cluster, network policy between "sites". A lab can run <strong>extra kind clusters side by side</strong> with its own — declared under <code>runtime.kind.clusters</code> in the same <code>config.yaml</code> — and knows how to reach them.</p>
 <p>The worked reference is <a href="https://github.com/astrona-io/astrona-cli/tree/main/examples/linked-labs-01"><code>examples/linked-labs-01</code></a>: an <code>idp</code> cluster serving a token endpoint, and a task to log in against it from the lab's own cluster. <code>astrona init lab &lt;dir&gt; --linked</code> scaffolds a lab like it.</p>
 <h2 id="declaring-linked-clusters">Declaring linked clusters<a class="headerlink" href="#declaring-linked-clusters" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">metadata</span><span class="p">:</span>
@@ -3134,36 +3156,36 @@
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kind</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">preloadImages</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">curlimages/curl</span><span class="p p-Indicator">:</span><span class="nv">8.11.1</span><span class="p p-Indicator">]</span><span class="w">     </span><span class="c1"># the lab's own cluster</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">labs</span><span class="p">:</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="nt">clusters</span><span class="p">:</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span><span class="w">                                </span><span class="c1"># kind cluster astro-auth-lab-idp</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">        </span><span class="nt">preloadImages</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">nginx</span><span class="p p-Indicator">:</span><span class="nv">1.27-alpine</span><span class="p p-Indicator">]</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">        </span><span class="nt">nodes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">workers</span><span class="p">:</span><span class="w"> </span><span class="nv">0</span><span class="p p-Indicator">}</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">        </span><span class="nt">addons</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">certManager</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="p p-Indicator">}</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">        </span><span class="nt">bootstrap</span><span class="p">:</span>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">          </span><span class="nt">manifests</span><span class="p">:</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">labs/idp/bootstrap/idp.yaml</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">clusters/idp/bootstrap/idp.yaml</span><span class="p p-Indicator">}</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">          </span><span class="nt">waitFor</span><span class="p">:</span>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="nv">deploy/idp</span><span class="p p-Indicator">,</span><span class="nt"> namespace</span><span class="p">:</span><span class="w"> </span><span class="nv">auth</span><span class="p p-Indicator">}</span>
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">        </span><span class="nt">testing</span><span class="p">:</span><span class="w">                                 </span><span class="c1"># its part of the reference solution</span>
 <a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">          </span><span class="nt">init</span><span class="p">:</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">seed users</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">labs/idp/testing/seed.sh</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">seed users</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">clusters/idp/testing/seed.sh</span><span class="p p-Indicator">}</span>
 </code></pre></div>
-<p>Each entry takes the same cluster fields as <code>runtime.kind</code> (version, nodes, networking, addons, preloadImages, …) plus its own <code>bootstrap</code> and <code>testing</code>. Up to 5 per lab; names are lowercase letters, digits and <code>-</code> (max 20 characters). See <a href="../../reference/lab-config/#runtimekindlabsn"><code>runtime.kind.labs</code></a>.</p>
+<p>Each entry takes the same cluster fields as <code>runtime.kind</code> (version, nodes, networking, addons, preloadImages, …) plus its own <code>bootstrap</code> and <code>testing</code>. Up to 5 per lab; names are lowercase letters, digits and <code>-</code> (max 20 characters). See <a href="../../reference/lab-config/#runtimekindclustersn"><code>runtime.kind.clusters</code></a>.</p>
 <h3 id="dependencies-and-start-order">Dependencies and start order<a class="headerlink" href="#dependencies-and-start-order" title="Permanent link">&para;</a></h3>
 <p>By default clusters are created <strong>one at a time</strong>: every linked cluster first, then the lab's own. Each one is only created once the previous is fully ready — its bootstrap done and its <code>waitFor</code> gates passed. Use <code>dependsOn</code> when one linked cluster needs another:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="w">    </span><span class="nt">labs</span><span class="p">:</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="w">    </span><span class="nt">clusters</span><span class="p">:</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">db</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">        </span><span class="nt">bootstrap</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">manifests</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">db</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">labs/db/bootstrap/db.yaml</span><span class="p p-Indicator">}],</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">        </span><span class="nt">bootstrap</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">manifests</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">db</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">clusters/db/bootstrap/db.yaml</span><span class="p p-Indicator">}],</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="nt">                    waitFor</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[{</span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="nv">statefulset/db</span><span class="p p-Indicator">,</span><span class="nt"> namespace</span><span class="p">:</span><span class="w"> </span><span class="nv">data</span><span class="p p-Indicator">}]}</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">        </span><span class="nt">dependsOn</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">db</span><span class="p p-Indicator">]</span><span class="w">          </span><span class="c1"># created only once db is ready</span>
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">        </span><span class="nt">bootstrap</span><span class="p">:</span>
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">          </span><span class="nt">init</span><span class="p">:</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">configure</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">labs/idp/bootstrap/configure.sh</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># gets $ASTRONA_LINK_DB_HOST</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">configure</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">clusters/idp/bootstrap/configure.sh</span><span class="p p-Indicator">}</span><span class="w">   </span><span class="c1"># gets $ASTRONA_CLUSTER_DB_HOST</span>
 </code></pre></div>
 <ul>
 <li>Dependencies are created first; otherwise clusters start in the order listed.</li>
-<li>A cluster's scripts get the <code>ASTRONA_LINK_*</code> addresses of the clusters it depends on (the lab's own scripts get all of them).</li>
+<li>A cluster's scripts get the <code>ASTRONA_CLUSTER_*</code> addresses of the clusters it depends on (the lab's own scripts get all of them).</li>
 <li>If a cluster fails, the run stops there: nothing that depends on it — and not the lab itself — is started, and the error says what was skipped. <code>astrona destroy</code> cleans up what was created.</li>
 <li>Unknown names, a cluster depending on itself, and cycles are rejected by <code>astrona validate</code>.</li>
 <li><code>astrona test</code> applies the clusters' <code>testing</code> blocks in the same order; <code>astrona start</code> restarts them in it.</li>
@@ -3179,16 +3201,44 @@
 <li>The lab's own cluster is still created last, after all of them.</li>
 </ul>
 <h3 id="folder-layout">Folder layout<a class="headerlink" href="#folder-layout" title="Permanent link">&para;</a></h3>
-<p>Paths are relative to <code>config.yaml</code>, like everywhere else. By convention each linked cluster keeps its files in its own folder under <code>labs/</code>, next to <code>docs/</code> and <code>solution/</code>:</p>
+<p>Paths are relative to <code>config.yaml</code>, like everywhere else. By convention each linked cluster keeps its files in its own folder under <code>clusters/</code>, next to <code>docs/</code> and <code>solution/</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>config.yaml
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>docs/                     # student docs
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>solution/                 # the lab's own reference solution
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>labs/
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>clusters/
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  idp/
 <a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    bootstrap/            # sets up the idp cluster
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    testing/              # the idp cluster's part of the reference solution
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    teardown/             # its teardown scripts
 </code></pre></div>
+<h3 id="renamed-in-v03">Renamed in v0.3<a class="headerlink" href="#renamed-in-v03" title="Permanent link">&para;</a></h3>
+<p>astrona v0.2.1 called these names differently. The old ones still work, so existing labs keep running — switch when convenient:</p>
+<table>
+<thead>
+<tr>
+<th>v0.2.1</th>
+<th>Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>runtime.kind.labs</code></td>
+<td><code>runtime.kind.clusters</code> — <code>labs</code> is still read, with a deprecation warning from <code>run</code> and <code>validate</code></td>
+</tr>
+<tr>
+<td><code>ASTRONA_LINK_&lt;NAME&gt;_*</code></td>
+<td><code>ASTRONA_CLUSTER_&lt;NAME&gt;_*</code> — both are set</td>
+</tr>
+<tr>
+<td>ConfigMap <code>astrona-links</code></td>
+<td>ConfigMap <code>astrona-clusters</code> — both are published, with the same data</td>
+</tr>
+<tr>
+<td>folders under <code>labs/</code></td>
+<td><code>clusters/</code> — only a convention; your paths keep working</td>
+</tr>
+</tbody>
+</table>
 <h2 id="reaching-a-linked-cluster">Reaching a linked cluster<a class="headerlink" href="#reaching-a-linked-cluster" title="Permanent link">&para;</a></h2>
 <p>All kind clusters share one container network, so a pod can reach a linked cluster's <strong>node</strong>. Publish what the lab should reach as a <strong>NodePort</strong> Service with a fixed <code>nodePort</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
@@ -3205,7 +3255,7 @@
 <ul>
 <li>Astrona looks up each node's IPv4 and writes it into each cluster's CoreDNS config (a marked block in the <code>coredns</code> ConfigMap), refreshing it after <code>start</code> and <code>reset --cluster</code>, when IPs can change.</li>
 <li><code>.internal</code> is reserved for private use. (<code>*.localhost</code> wouldn't work: curl and other clients resolve it to <code>127.0.0.1</code> without asking DNS.)</li>
-<li>A lab that replaces CoreDNS's config with one lacking a <code>.:53</code> server block keeps the container names (<code>$ASTRONA_LINK_&lt;NAME&gt;_HOST</code>) instead.</li>
+<li>A lab that replaces CoreDNS's config with one lacking a <code>.:53</code> server block keeps the container names (<code>$ASTRONA_CLUSTER_&lt;NAME&gt;_HOST</code>) instead.</li>
 </ul>
 <p><strong>The same URL on your machine:</strong> forward the service with <code>hostPort</code> equal to its <code>nodePort</code> (see <a href="#reaching-a-linked-cluster-from-your-machine">below</a>) and add the name to <code>/etc/hosts</code> once — then <code>http://idp.astrona.internal:30080</code> works in your browser and in the cluster, which is what an identity provider's issuer URL needs:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>127.0.0.1 idp.astrona.internal
@@ -3227,15 +3277,15 @@
 </tr>
 <tr>
 <td>The lab's bootstrap/testing/teardown scripts and <code>command</code> checks</td>
-<td><code>ASTRONA_LINK_&lt;NAME&gt;_HOSTNAME</code> (the stable name), <code>_HOST</code> (the node's container name), <code>_CONTEXT</code>, <code>_KUBECONFIG</code> (<code>&lt;NAME&gt;</code> upper-cased, <code>-</code> → <code>_</code>)</td>
+<td><code>ASTRONA_CLUSTER_&lt;NAME&gt;_HOSTNAME</code> (the stable name), <code>_HOST</code> (the node's container name), <code>_CONTEXT</code>, <code>_KUBECONFIG</code> (<code>&lt;NAME&gt;</code> upper-cased, <code>-</code> → <code>_</code>)</td>
 </tr>
 <tr>
 <td>In the lab's cluster</td>
-<td>ConfigMap <code>astrona-links</code> in namespace <code>default</code>: <code>&lt;name&gt;.hostname</code>, <code>&lt;name&gt;.host</code>, <code>&lt;name&gt;.context</code></td>
+<td>ConfigMap <code>astrona-clusters</code> in namespace <code>default</code>: <code>&lt;name&gt;.hostname</code>, <code>&lt;name&gt;.host</code>, <code>&lt;name&gt;.context</code></td>
 </tr>
 <tr>
 <td><code>astrona shell</code></td>
-<td>Every cluster's kubeconfig: <code>kubectl --context "$ASTRONA_LINK_IDP_CONTEXT" …</code> works, plus the env vars. <code>astrona shell &lt;lab&gt; --cluster idp</code> makes the idp cluster the default context; <code>astrona kubeconfig &lt;lab&gt; --cluster idp</code> prints its kubeconfig</td>
+<td>Every cluster's kubeconfig: <code>kubectl --context "$ASTRONA_CLUSTER_IDP_CONTEXT" …</code> works, plus the env vars. <code>astrona shell &lt;lab&gt; --cluster idp</code> makes the idp cluster the default context; <code>astrona kubeconfig &lt;lab&gt; --cluster idp</code> prints its kubeconfig</td>
 </tr>
 </tbody>
 </table>
@@ -3260,12 +3310,12 @@
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kind</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">sharedCA</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nt">labs</span><span class="p">:</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span><span class="nt">clusters</span><span class="p">:</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
 <a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">        </span><span class="nt">addons</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">certManager</span><span class="p">:</span><span class="w"> </span><span class="nv">true</span><span class="p p-Indicator">}</span>
 <a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">        </span><span class="nt">bootstrap</span><span class="p">:</span>
 <a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">          </span><span class="nt">manifests</span><span class="p">:</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">labs/idp/bootstrap/idp.yaml</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">clusters/idp/bootstrap/idp.yaml</span><span class="p p-Indicator">}</span>
 <a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">          </span><span class="nt">waitFor</span><span class="p">:</span>
 <a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="nv">certificate/idp</span><span class="p p-Indicator">,</span><span class="nt"> namespace</span><span class="p">:</span><span class="w"> </span><span class="nv">auth</span><span class="p p-Indicator">,</span><span class="nt"> condition</span><span class="p">:</span><span class="w"> </span><span class="nv">Ready</span><span class="p p-Indicator">,</span><span class="nt"> timeout</span><span class="p">:</span><span class="w"> </span><span class="nv">3m</span><span class="p p-Indicator">}</span>
 </code></pre></div>
@@ -3309,7 +3359,7 @@
 </ul>
 <h2 id="simulating-a-remote-site">Simulating a remote site<a class="headerlink" href="#simulating-a-remote-site" title="Permanent link">&para;</a></h2>
 <p>A linked cluster can behave like a site across a WAN — slow, lossy, bandwidth-limited:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="w">    </span><span class="nt">labs</span><span class="p">:</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="w">    </span><span class="nt">clusters</span><span class="p">:</span>
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">        </span><span class="nt">wan</span><span class="p">:</span>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">          </span><span class="nt">latency</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80ms</span><span class="w">      </span><span class="c1"># added per round trip</span>
@@ -3362,7 +3412,7 @@
 </tr>
 <tr>
 <td><code>astrona reset --cluster idp</code></td>
-<td>Rebuilds only that linked cluster of the running lab: its teardown, destroy, then create + bootstrap again (with the addresses of what it dependsOn). The lab and its other clusters are left alone; port forwards into it are restarted. Same name, so the lab's <code>ASTRONA_LINK_*</code>/<code>astrona-links</code> stay valid</td>
+<td>Rebuilds only that linked cluster of the running lab: its teardown, destroy, then create + bootstrap again (with the addresses of what it dependsOn). The lab and its other clusters are left alone; port forwards into it are restarted. Same name, so the lab's <code>ASTRONA_CLUSTER_*</code>/<code>astrona-clusters</code> stay valid</td>
 </tr>
 <tr>
 <td><code>astrona reset</code> / <code>destroy</code></td>

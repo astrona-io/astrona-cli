@@ -1139,10 +1139,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#runtimekindlabsn" class="md-nav__link">
+  <a href="#runtimekindclustersn" class="md-nav__link">
     <span class="md-ellipsis">
       
-        runtime.kind.labs[N]
+        runtime.kind.clusters[N]
       
     </span>
   </a>
@@ -3081,10 +3081,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#runtimekindlabsn" class="md-nav__link">
+  <a href="#runtimekindclustersn" class="md-nav__link">
     <span class="md-ellipsis">
       
-        runtime.kind.labs[N]
+        runtime.kind.clusters[N]
       
     </span>
   </a>
@@ -3244,12 +3244,13 @@
 </code></pre></div>
 <p><strong>Unknown fields</strong> (typos like <code>waitfor</code> or <code>manifest</code>) used to be silently ignored, leaving a lab without the gates or manifests its author meant to configure. Now <code>astrona validate</code> and <code>astrona check</code> fail on them, and <code>run</code>/<code>test</code>/<code>submit</code> print a warning with a did-you-mean (they still run, so a lab that has always worked keeps working).</p>
 <h2 id="top-level">Top level<a class="headerlink" href="#top-level" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">metadata</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">     </span><span class="c1"># MetadataConfig</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">runtime</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">      </span><span class="c1"># RuntimeConfig — omit entirely for a kind cluster</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">bootstrap</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">    </span><span class="c1"># BootstrapConfig</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nt">testing</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">      </span><span class="c1"># BootstrapConfig (same shape, CI-only)</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">validation</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">   </span><span class="c1"># ValidationConfig</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nt">teardown</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">     </span><span class="c1"># TeardownConfig</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">astrona.io/v1</span><span class="w">   </span><span class="c1"># config format (optional; a newer one is refused)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nt">metadata</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">     </span><span class="c1"># MetadataConfig</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">runtime</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">      </span><span class="c1"># RuntimeConfig — omit entirely for a kind cluster</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nt">bootstrap</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">    </span><span class="c1"># BootstrapConfig</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">testing</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">      </span><span class="c1"># BootstrapConfig (same shape, CI-only)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nt">validation</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">   </span><span class="c1"># ValidationConfig</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nt">teardown</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span><span class="w">     </span><span class="c1"># TeardownConfig</span>
 </code></pre></div>
 <h2 id="metadata"><code>metadata</code><a class="headerlink" href="#metadata" title="Permanent link">&para;</a></h2>
 <table>
@@ -3375,7 +3376,7 @@
 <tr>
 <td><code>cluster</code></td>
 <td>string</td>
-<td>Forward from a <a href="#runtimekindlabsn">linked cluster</a> (its name) instead of the lab's own — e.g. an identity provider's login page</td>
+<td>Forward from a <a href="#runtimekindclustersn">linked cluster</a> (its name) instead of the lab's own — e.g. an identity provider's login page</td>
 </tr>
 </tbody>
 </table>
@@ -3603,9 +3604,9 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <td>Images loaded into every node before addons/bootstrap, e.g. <code>[nginx:1.27-alpine]</code> — explicit tag or digest required (not <code>:latest</code>), max 30. See <a href="../../concepts/runtimes/#preloaded-images-runtimekindpreloadimages">Preloaded images</a></td>
 </tr>
 <tr>
-<td><code>labs</code></td>
-<td>list of <a href="#runtimekindlabsn">KindLab</a></td>
-<td>Extra kind clusters running side by side with the lab's own (max 5)</td>
+<td><code>clusters</code></td>
+<td>list of <a href="#runtimekindclustersn">KindCluster</a></td>
+<td>Extra kind clusters running side by side with the lab's own (max 5). Called <code>labs</code> before v0.3 — still accepted, with a deprecation warning</td>
 </tr>
 <tr>
 <td><code>sharedCA</code></td>
@@ -3676,7 +3677,7 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">      </span><span class="nt">metricsServer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 <a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">      </span><span class="nt">gatewayAPI</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">envoy</span><span class="w">        </span><span class="c1"># Gateways with gatewayClassName: eg</span>
 </code></pre></div>
-<h4 id="runtimekindlabsn"><code>runtime.kind.labs[N]</code><a class="headerlink" href="#runtimekindlabsn" title="Permanent link">&para;</a></h4>
+<h4 id="runtimekindclustersn"><code>runtime.kind.clusters[N]</code><a class="headerlink" href="#runtimekindclustersn" title="Permanent link">&para;</a></h4>
 <p>Extra kind clusters that run side by side with the lab's own — e.g. an identity provider, a database, a second "site". They belong to the lab: <code>astrona run</code> creates them first, and <code>stop</code>, <code>start</code>, <code>reset</code>, <code>destroy</code> and <code>test</code> handle them together with the lab. See the <a href="../../guides/linked-labs/">Linked Labs guide</a>.</p>
 <table>
 <thead>
@@ -3690,7 +3691,7 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <tr>
 <td><code>name</code></td>
 <td>string</td>
-<td>Required. How the lab refers to the cluster: <code>ASTRONA_LINK_&lt;NAME&gt;_*</code> env vars, <code>astrona-links</code> ConfigMap keys, <code>cluster:</code> on checks. Lowercase letters, digits, <code>-</code>; max 20 characters; unique. The kind cluster is <code>astro-&lt;lab&gt;-&lt;name&gt;</code></td>
+<td>Required. How the lab refers to the cluster: <code>ASTRONA_CLUSTER_&lt;NAME&gt;_*</code> env vars, <code>astrona-clusters</code> ConfigMap keys, <code>cluster:</code> on checks. Lowercase letters, digits, <code>-</code>; max 20 characters; unique. The kind cluster is <code>astro-&lt;lab&gt;-&lt;name&gt;</code></td>
 </tr>
 <tr>
 <td><code>version</code>, <code>image</code>, <code>nodes</code>, <code>networking</code>, <code>featureGates</code>, <code>runtimeConfig</code>, <code>addons</code>, <code>preloadImages</code></td>
@@ -3730,21 +3731,21 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <tr>
 <td><code>dependsOn</code></td>
 <td>list of strings</td>
-<td>Other linked clusters (names) that must be up and ready — bootstrap and <code>waitFor</code> done — before this one is created. Its scripts get their <code>ASTRONA_LINK_*</code> addresses (and its cluster their <code>astrona-links</code> ConfigMap). Unknown names, self-dependencies and cycles are rejected</td>
+<td>Other linked clusters (names) that must be up and ready — bootstrap and <code>waitFor</code> done — before this one is created. Its scripts get their <code>ASTRONA_CLUSTER_*</code> addresses (and its cluster their <code>astrona-clusters</code> ConfigMap). Unknown names, self-dependencies and cycles are rejected</td>
 </tr>
 </tbody>
 </table>
-<p>Paths are relative to the lab's config, like everywhere else; by convention each cluster keeps its files in <code>labs/&lt;name&gt;/</code> (<code>labs/idp/bootstrap/</code>, <code>labs/idp/testing/</code>).</p>
+<p>Paths are relative to the lab's config, like everywhere else; by convention each cluster keeps its files in <code>clusters/&lt;name&gt;/</code> (<code>clusters/idp/bootstrap/</code>, <code>clusters/idp/testing/</code>).</p>
 <p>Clusters are created one at a time: dependencies first, otherwise in the order listed; the lab's own cluster last. The first one that fails stops the run — nothing depending on it is started.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">runtime</span><span class="p">:</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">kind</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">labs</span><span class="p">:</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span><span class="nt">clusters</span><span class="p">:</span>
 <a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">        </span><span class="nt">preloadImages</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">nginx</span><span class="p p-Indicator">:</span><span class="nv">1.27-alpine</span><span class="p p-Indicator">]</span>
 <a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">        </span><span class="nt">bootstrap</span><span class="p">:</span>
 <a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">          </span><span class="nt">manifests</span><span class="p">:</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">labs/idp/bootstrap/idp.yaml</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">idp</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">clusters/idp/bootstrap/idp.yaml</span><span class="p p-Indicator">}</span>
 <a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">          </span><span class="nt">waitFor</span><span class="p">:</span>
 <a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="nv">deploy/idp</span><span class="p p-Indicator">,</span><span class="nt"> namespace</span><span class="p">:</span><span class="w"> </span><span class="nv">auth</span><span class="p p-Indicator">}</span>
 </code></pre></div>
@@ -3977,7 +3978,7 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <tr>
 <td><code>cluster</code></td>
 <td>string</td>
-<td>Grade the check in this linked cluster (a <a href="#runtimekindlabsn"><code>runtime.kind.labs</code></a> name) instead of the lab's own. Not for <code>http</code> checks</td>
+<td>Grade the check in this linked cluster (a <a href="#runtimekindclustersn"><code>runtime.kind.clusters</code></a> name) instead of the lab's own. Not for <code>http</code> checks</td>
 </tr>
 </tbody>
 </table>

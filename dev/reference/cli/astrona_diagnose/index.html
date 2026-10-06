@@ -2951,7 +2951,7 @@
 <h2 id="astrona-diagnose">astrona diagnose<a class="headerlink" href="#astrona-diagnose" title="Permanent link">&para;</a></h2>
 <p>Collect a debugging bundle (pods, events, logs) from a running lab</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
-<p>Collect a debugging bundle from a running lab into a directory: for kind, nodes, pods, workloads, events, describe + logs of every unhealthy pod, <code>kind export logs</code>, and a summary.md listing what's wrong — and the same for each linked cluster (runtime.kind.labs), under clusters/<cluster>/; for qemu, the VM's serial console log. Secrets, ConfigMaps and kubeconfigs are never collected.</p>
+<p>Collect a debugging bundle from a running lab into a directory: for kind, nodes, pods, workloads, events, describe + logs of every unhealthy pod, <code>kind export logs</code>, and a summary.md listing what's wrong — and the same for each linked cluster (runtime.kind.clusters), under clusters/<cluster>/; for qemu, the VM's serial console log. Secrets, ConfigMaps and kubeconfigs are never collected.</p>
 <p><code>astrona test</code> does the same automatically when it fails (see --diagnostics).</p>
 <p>With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona diagnose [lab-name] [flags]

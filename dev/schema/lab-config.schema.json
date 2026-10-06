@@ -96,55 +96,7 @@
       },
       "type": "object"
     },
-    "KindConfig": {
-      "additionalProperties": false,
-      "properties": {
-        "addons": {
-          "$ref": "#/$defs/KindAddons"
-        },
-        "featureGates": {
-          "additionalProperties": {
-            "type": "boolean"
-          },
-          "type": "object"
-        },
-        "image": {
-          "type": "string"
-        },
-        "labs": {
-          "items": {
-            "$ref": "#/$defs/KindLab"
-          },
-          "type": "array"
-        },
-        "networking": {
-          "$ref": "#/$defs/KindNetworking"
-        },
-        "nodes": {
-          "$ref": "#/$defs/KindNodes"
-        },
-        "preloadImages": {
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "runtimeConfig": {
-          "additionalProperties": {
-            "type": "string"
-          },
-          "type": "object"
-        },
-        "sharedCA": {
-          "type": "boolean"
-        },
-        "version": {
-          "type": "string"
-        }
-      },
-      "type": "object"
-    },
-    "KindLab": {
+    "KindCluster": {
       "additionalProperties": false,
       "properties": {
         "addons": {
@@ -190,7 +142,7 @@
           "type": "object"
         },
         "teardown": {
-          "$ref": "#/$defs/KindLabTeardown"
+          "$ref": "#/$defs/KindClusterTeardown"
         },
         "testing": {
           "$ref": "#/$defs/BootstrapConfig"
@@ -204,7 +156,7 @@
       },
       "type": "object"
     },
-    "KindLabTeardown": {
+    "KindClusterTeardown": {
       "additionalProperties": false,
       "properties": {
         "init": {
@@ -212,6 +164,61 @@
             "$ref": "#/$defs/ResourceItem"
           },
           "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "KindConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "addons": {
+          "$ref": "#/$defs/KindAddons"
+        },
+        "clusters": {
+          "items": {
+            "$ref": "#/$defs/KindCluster"
+          },
+          "type": "array"
+        },
+        "featureGates": {
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "type": "object"
+        },
+        "image": {
+          "type": "string"
+        },
+        "labs": {
+          "deprecated": true,
+          "items": {
+            "$ref": "#/$defs/KindCluster"
+          },
+          "type": "array"
+        },
+        "networking": {
+          "$ref": "#/$defs/KindNetworking"
+        },
+        "nodes": {
+          "$ref": "#/$defs/KindNodes"
+        },
+        "preloadImages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "runtimeConfig": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "sharedCA": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string"
         }
       },
       "type": "object"
@@ -263,6 +270,9 @@
     "LabConfig": {
       "additionalProperties": false,
       "properties": {
+        "apiVersion": {
+          "type": "string"
+        },
         "bootstrap": {
           "$ref": "#/$defs/BootstrapConfig"
         },

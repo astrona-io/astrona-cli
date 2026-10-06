@@ -2888,7 +2888,7 @@
 <li><strong>The node image must be pinned</strong> — <code>runtime.kind.version</code>/<code>image</code>, or <code>--node-image</code> when creating; kind's built-in default can't be determined reliably.</li>
 <li><strong>No <code>type: url</code> scripts or manifests</strong> — they're fetched at run time; make them local files.</li>
 <li><strong>Not the <code>gatewayAPI</code> addon yet</strong> — Envoy Gateway starts its proxy image at runtime and it isn't listed in its manifest.</li>
-<li><strong><a href="../linked-labs/">Linked clusters</a> must pin their node image</strong> (<code>version</code> or <code>image</code> on each <code>runtime.kind.labs</code> entry) — offline, an unpinned cluster would boot kind's default image, which may not be the one in the bundle. Their node images, preload images and addon manifests are bundled with the lab's (each once), and addon images are preloaded into every cluster that installs addons.</li>
+<li><strong><a href="../linked-labs/">Linked clusters</a> must pin their node image</strong> (<code>version</code> or <code>image</code> on each <code>runtime.kind.clusters</code> entry) — offline, an unpinned cluster would boot kind's default image, which may not be the one in the bundle. Their node images, preload images and addon manifests are bundled with the lab's (each once), and addon images are preloaded into every cluster that installs addons.</li>
 <li>Bundles are per CPU architecture.</li>
 </ul>
 

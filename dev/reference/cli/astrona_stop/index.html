@@ -2930,7 +2930,7 @@
 <p>Pause a kind lab (frees CPU/RAM, keeps everything) — resume with astrona start</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Stop a kind lab's node containers and pause its port forwards. Nothing is deleted: <code>astrona start</code> brings the cluster, its workloads and its port forwards back.</p>
-<p>The lab's linked clusters (runtime.kind.labs) are stopped with it.</p>
+<p>The lab's linked clusters (runtime.kind.clusters) are stopped with it.</p>
 <p>Not supported for labs with more than one control plane — their node IPs change on restart, which breaks etcd. qemu labs aren't supported yet.</p>
 <p>With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona stop [lab-name] [flags]

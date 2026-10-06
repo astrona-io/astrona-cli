@@ -2952,7 +2952,7 @@
 <p>Create a starter kind lab — config, docs, reference solution, CI workflow</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Create a working kind lab in <dir> to build yours from: config.yaml (with editor schema, preloaded image, readiness gates, jsonpath/count/resourceExists checks with hints and points), the four student docs, a bootstrap manifest, a reference solution for <code>astrona test</code>, and a GitHub Actions workflow running validate + test on every pull request.</p>
-<p>--linked adds a second kind cluster running side by side (runtime.kind.labs): a backend service published as a NodePort, a task that reaches it from the lab's cluster, and a check graded in the backend cluster — see the Linked Labs guide.</p>
+<p>--linked adds a second kind cluster running side by side (runtime.kind.clusters): a backend service published as a NodePort, a task that reaches it from the lab's cluster, and a check graded in the backend cluster — see the Linked Labs guide.</p>
 <p>It passes <code>astrona validate</code> and <code>astrona test</code> as generated — change it from there.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona init lab &lt;dir&gt; [flags]
 </code></pre></div>
