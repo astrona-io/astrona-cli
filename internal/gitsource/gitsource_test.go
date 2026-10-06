@@ -68,4 +68,32 @@ func TestCloneOrUpdateKeepsStdoutClean(t *testing.T) {
 			t.Errorf("%s: stderr = %q", step, stderr)
 		}
 	}
+
+	// A tag ref still checks out with the trailing "--" in place.
+	if out, err := exec.Command("git", "-C", src, "tag", "v1").CombinedOutput(); err != nil {
+		t.Fatalf("git tag: %v\n%s", err, out)
+	}
+	var err error
+	captureStdio(t, func() { err = cloneOrUpdateGitRepo(src, "v1", dest, false) })
+	if err != nil {
+		t.Fatalf("checkout tag v1: %v", err)
+	}
+}
+
+// A URL or ref starting with "-" would reach git as an option
+// (--upload-pack=…), so it's rejected before git ever runs.
+func TestResolveGitConfigSourceRejectsLeadingDash(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	cases := []struct{ url, ref, want string }{
+		{"--upload-pack=touch /tmp/pwned", "", "invalid git URL"},
+		{"-u", "", "invalid git URL"},
+		{"https://example.com/lab.git", "--output=/tmp/x", "invalid git ref"},
+		{"https://example.com/lab.git", "-b", "invalid git ref"},
+	}
+	for _, c := range cases {
+		_, err := ResolveGitConfigSource(c.url, c.ref, false)
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("ResolveGitConfigSource(%q, %q) = %v, want error containing %q", c.url, c.ref, err, c.want)
+		}
+	}
 }

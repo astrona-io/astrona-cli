@@ -167,7 +167,7 @@ func requireTrust(flags *rootFlags, cfg *config.LabConfig, baseDir string) error
 	if !isatty.IsTerminal(os.Stdin.Fd()) {
 		return fmt.Errorf("lab %s (%s) hasn't been approved to run on this machine — review it, then pass --trust", src.Location, shortPin(src.Pin))
 	}
-	if !confirmTrust(os.Stdin, os.Stdout, *src, status, prevPin, labRiskSummary(cfg)) {
+	if !confirmTrust(os.Stdin, promptOut, *src, status, prevPin, labRiskSummary(cfg)) {
 		return errNotTrusted
 	}
 	return trust.Approve(*src, time.Now())

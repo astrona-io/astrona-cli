@@ -85,8 +85,13 @@ func Dir() (string, error) {
 		return "", fmt.Errorf("could not determine home directory: %w", err)
 	}
 	dir := filepath.Join(home, ".astrona", "logs")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	// Owner-only: run logs hold full script output and command lines. The
+	// Chmod also tightens a directory an older release created 0755.
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", fmt.Errorf("could not create %s: %w", dir, err)
+	}
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return "", fmt.Errorf("could not restrict permissions on %s: %w", dir, err)
 	}
 	return dir, nil
 }
@@ -104,7 +109,7 @@ func List(f Filter) ([]Entry, error) {
 		return nil, fmt.Errorf("scan log directory %s: %w", dir, err)
 	}
 
-	var out []Entry
+	out := []Entry{} // never nil: `logs list -o json` prints [] when empty
 	for _, p := range matches {
 		e, err := parseEntry(p)
 		if err != nil {

@@ -248,6 +248,19 @@ func TestResolve(t *testing.T) {
 	}
 }
 
+// TestListEmptyIsNotNil: no logs is an empty list, so `logs list -o json`
+// prints [] rather than null.
+func TestListEmptyIsNotNil(t *testing.T) {
+	withLogHome(t)
+	got, err := List(Filter{})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if got == nil {
+		t.Error("List with no logs = nil, want an empty slice")
+	}
+}
+
 func TestResolveNoLogs(t *testing.T) {
 	withLogHome(t)
 	if _, err := Resolve("", Filter{}); err == nil {

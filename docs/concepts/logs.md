@@ -10,7 +10,7 @@ For a cluster-level picture (pods, events, node and container logs) rather than 
 ~/.astrona/logs/<command>-<lab>-<UTC timestamp>.log
 ```
 
-e.g. `run-astro-disk-lab-20260830T120000Z.log`. The directory is created on first use and never pruned automatically — see [`astrona logs clean`](../reference/cli/astrona_logs_clean.md).
+e.g. `run-astro-disk-lab-20260830T120000Z.log`. The directory is created on first use, owner-only (`0700`, log files `0600`) since logs hold full script output and the command line, and never pruned automatically — see [`astrona logs clean`](../reference/cli/astrona_logs_clean.md).
 
 ## File format
 

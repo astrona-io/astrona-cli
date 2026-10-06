@@ -45,6 +45,12 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
 				return err
 			}
+			if err := checkOutput(output); err != nil {
+				return err
+			}
+			if watch && output == "json" {
+				return fmt.Errorf("--watch redraws a live view; -o json grades once")
+			}
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err
@@ -53,9 +59,6 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
 
-			if err := checkOutput(output); err != nil {
-				return err
-			}
 			if history {
 				attempts, err := proctor.LoadAttempts(clusterName)
 				if err != nil {
@@ -69,6 +72,12 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 				}
 				printAttempts(os.Stdout, clusterName, attempts)
 				return nil
+			}
+
+			// A broken config (bad check type, apiVersion…) is an error
+			// (exit 1), not a failed grade (exit 2) — and isn't recorded.
+			if err := lifecycle.Validate(cfg); err != nil {
+				return err
 			}
 
 			// Grading runs validation scripts and command checks on this
@@ -91,7 +100,11 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			env.WithLinks(links)
 			env.AddEnv(lifecycle.CAEnv(clusterName)...)
 
-			rep, err := ui.NewReporter("submit", cfg.Metadata.Name, flags.verbose)
+			opts := ui.Options{Verbose: flags.verbose}
+			if output == "json" {
+				opts.Raw = os.Stderr // stdout is the JSON result
+			}
+			rep, err := ui.New("submit", cfg.Metadata.Name, opts)
 			if err != nil {
 				return err
 			}
@@ -110,9 +123,6 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 				pr.HideHints()
 			}
 			if watch {
-				if output == "json" {
-					return fmt.Errorf("--watch redraws a live view; -o json grades once")
-				}
 				rep.Close()
 				return watchGrading(pr, cfg, clusterName, watchInterval, examState)
 			}

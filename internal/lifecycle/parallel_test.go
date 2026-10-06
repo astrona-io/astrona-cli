@@ -2,8 +2,12 @@ package lifecycle
 
 import (
 	"astrona/internal/config"
+	"astrona/internal/ui"
 	"errors"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -85,5 +89,35 @@ func TestScheduleKindClustersStopsAfterFailure(t *testing.T) {
 	// (depends on db) and late are skipped, cache finishes.
 	if !slices.Equal(startedNames, []string{"db", "cache"}) || !slices.Contains(skippedNames, "idp") || !slices.Contains(skippedNames, "late") {
 		t.Errorf("started = %v, skipped = %v", startedNames, skippedNames)
+	}
+}
+
+// A --parallel failure names the linked cluster, like the sequential path.
+func TestStartLinkedClustersParallelWrapsError(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	bin := t.TempDir()
+	scripts := map[string]string{
+		"docker":  "#!/bin/sh\nexit 0\n",
+		"kubectl": "#!/bin/sh\necho user-ctx\n",
+		// delete (cleanup of a previous run) succeeds; create fails.
+		"kind": "#!/bin/sh\n[ \"$1\" = delete ] && exit 0\necho 'kind create failed' >&2\nexit 1\n",
+	}
+	for name, body := range scripts {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin)
+
+	cfg := &config.LabConfig{
+		Metadata: config.MetadataConfig{Name: "lab"},
+		Runtime:  config.RuntimeConfig{Kind: &config.KindConfig{Clusters: []config.KindCluster{{Name: "db"}, {Name: "cache"}}}},
+	}
+	_, err := StartLinkedClusters(cfg, t.TempDir(), "astro-lab", false, 2, ui.Discard())
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if !strings.Contains(err.Error(), "linked cluster 'db' (astro-lab-db): ") && !strings.Contains(err.Error(), "linked cluster 'cache' (astro-lab-cache): ") {
+		t.Fatalf("error doesn't name the failed linked cluster: %v", err)
 	}
 }

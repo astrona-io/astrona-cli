@@ -107,16 +107,17 @@ Every command whose output is data takes `-o json` and then prints exactly one J
 | `astrona submit -o json` | `{lab, pass, earned, max, percent, attempt, checks: [{name, pass, points, message, hint, durationMs}]}` (hints left out under exam conditions; still recorded as an attempt; exit codes as above) |
 | `astrona submit --history -o json` | the recorded attempts |
 | `astrona status -o json` | health, context, port forwards, linked clusters, exam clock, last attempt, suggested next step |
-| `astrona validate` / `check` / `doctor -o json` | `{ok, problems, results: [{section, name, status: ok\|warn\|fail, detail, fix}]}` — exit code still non-zero on any `fail` |
+| `astrona validate` / `check` / `doctor -o json` | `{ok, problems, results: [{section, name, status: ok\|warn\|fail, detail, fix}]}` — exit code still non-zero on any `fail` (a lab config that can't be found or loaded is a `fail` result in this report too, not an empty stdout) |
 | `astrona list` / `port-forward list` / `progress` / `logs list` / `images list` / `versions list -o json` | the listed items |
-| `astrona use -o json` | the current lab, or `null` |
+| `astrona labs -o json` | the catalog: `{fetchedAt, trainings: [{id, title, description, repo, labs: [{id, title, path}]}], errors}`; `labs <TRAINING> -o json` that one training; `labs --search <words> -o json` `[{training, lab: {id, title, path}}]` |
+| `astrona use -o json` | the current lab, or `null` — also after picking one (`use <lab> -o json`) or forgetting it (`use --clear -o json`, always `null`) |
 
 ```sh
 astrona submit -o json | jq -r '.checks[] | select(.pass | not) | .name'   # what failed
 astrona doctor -o json | jq '.results[] | select(.status == "fail")'
 ```
 
-`--watch` modes redraw a live view and don't combine with `-o json`.
+`--watch` modes redraw a live view and don't combine with `-o json`. Interactive questions (trust, reset, installing another astrona version) are asked on stderr too — in CI pass `--trust` / `--yes` / `--install-version` instead.
 
 ## Other CI systems
 

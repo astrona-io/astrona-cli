@@ -3,12 +3,16 @@ package manifests
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"astrona/internal/config"
 	"astrona/internal/executor"
 	"astrona/internal/scripts"
 	"astrona/internal/ui"
 )
+
+// MaxManifestDownloadBytes bounds a single downloaded `type: url` manifest.
+const MaxManifestDownloadBytes = 50 * 1024 * 1024
 
 // ApplyManifests runs `kubectl apply -f` for each manifest, always pinned
 // to kubeContext explicitly rather than relying on whatever context is
@@ -35,12 +39,25 @@ func ApplyManifests(manifests []config.ResourceItem, baseDir, kubeContext string
 			return t.Fail(fmt.Errorf("failed to resolve manifest source for '%s': %w", m.Name, err))
 		}
 
+		// A URL manifest is downloaded with the https-only client and applied
+		// from the temp file, rather than handed to `kubectl apply -f <url>`:
+		// kubectl would follow an https→http redirect and has no size cap.
+		cleanup := func() {}
+		if strings.EqualFold(m.Type, "url") {
+			path, cleanup, err = config.DownloadToTemp(path, "astrona-manifest-*.yaml", MaxManifestDownloadBytes)
+			if err != nil {
+				return t.Fail(fmt.Errorf("failed to download manifest from %s: %w", m.Source, err))
+			}
+		}
+
 		cmd := exec.Command(kubectlPath, "--context", kubeContext, "apply", "-f", path)
 		out := t.Output()
 		cmd.Stdout = out
 		cmd.Stderr = out
 
-		if err := cmd.Run(); err != nil {
+		err = cmd.Run()
+		cleanup()
+		if err != nil {
 			return t.Fail(fmt.Errorf("failed to apply manifest '%s': %w", m.Name, err))
 		}
 		t.Done()

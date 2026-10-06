@@ -95,7 +95,7 @@ Every script/manifest reference (`bootstrap.init`, `bootstrap.manifests`, `testi
   source: "path/or/URL"
 ```
 
-`url` sources are downloaded to a size-capped temp file before running — `https://` only for the lab config itself, and every download has an explicit byte cap so a misbehaving remote can't exhaust disk.
+`url` sources — scripts and manifests alike — are downloaded to a size-capped temp file before running or applying (a manifest URL is never handed to `kubectl apply -f <url>` directly). Every remote download (scripts, manifests, the lab config, QEMU base images, astrona release binaries) is `https://` only, and that includes redirects: a redirect to a plain `http://` URL is refused rather than followed. Every download also has an explicit byte cap so a misbehaving remote can't exhaust disk.
 
 ## Command output
 

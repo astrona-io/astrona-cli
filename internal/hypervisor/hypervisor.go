@@ -332,17 +332,45 @@ func rejectEmbeddedBackingFile(path string) error {
 		return fmt.Errorf("failed to inspect qemu base image '%s': %w", path, err)
 	}
 
-	var info struct {
-		BackingFilename string `json:"backing-filename"`
-	}
+	var info qemuImgInfo
 	if err := json.Unmarshal(out, &info); err != nil {
 		return fmt.Errorf("failed to parse qemu-img info for '%s': %w", path, err)
+	}
+
+	if err := rejectExternalDataFile(path, info); err != nil {
+		return err
 	}
 
 	if info.BackingFilename != "" {
 		return fmt.Errorf("qemu base image '%s' is not a flattened image — it has its own backing file (%q) left over from however it was built, which won't exist on this machine. This isn't fixable locally: the image needs to be rebuilt with 'qemu-img convert' (flattening the backing chain into one self-contained file) and republished at its source. If this came from a local cache, delete it so a corrected image can be re-fetched: %s", path, info.BackingFilename, path)
 	}
 
+	return nil
+}
+
+// qemuImgInfo is the subset of `qemu-img info --output=json` (one element
+// of the array with --backing-chain) that the base-image checks read.
+type qemuImgInfo struct {
+	Filename              string `json:"filename"`
+	Format                string `json:"format"`
+	BackingFilename       string `json:"backing-filename"`
+	BackingFilenameFormat string `json:"backing-filename-format"`
+	FormatSpecific        struct {
+		Data struct {
+			DataFile string `json:"data-file"`
+		} `json:"data"`
+	} `json:"format-specific"`
+}
+
+// rejectExternalDataFile refuses a qcow2 image that keeps its guest data in
+// an external data file (the qcow2 "data-file" option) instead of inside
+// itself. Like a backing file, that reference is just a path stored in the
+// image header — an untrusted image could point it at any file on this
+// machine and qemu would serve that file's bytes as the guest disk.
+func rejectExternalDataFile(path string, info qemuImgInfo) error {
+	if info.FormatSpecific.Data.DataFile != "" {
+		return fmt.Errorf("qemu base image '%s' refers to an external data file (%q) — astrona only boots self-contained images, since that path could point anywhere on this machine. The image needs to be rebuilt without 'data_file' and republished at its source", path, info.FormatSpecific.Data.DataFile)
+	}
 	return nil
 }
 
@@ -750,7 +778,7 @@ func checkURLFreshness(source string, prior *ImageCacheMeta) (fresh bool, etag, 
 		return false, "", "", fmt.Errorf("failed to build freshness check request for '%s': %w", source, err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := config.HTTPSOnlyClient(freshnessCheckTimeout).Do(req)
 	if err != nil {
 		return false, "", "", fmt.Errorf("failed to reach '%s' to check for updates: %w", source, err)
 	}
@@ -917,7 +945,7 @@ func pullOCIImage(ref, wantFile, stateDir string, out io.Writer) (string, func()
 		return "", noopCleanup, err
 	}
 
-	flattenedPath, err := flattenIfDelta(qcowPath, stateDir, out)
+	flattenedPath, err := flattenIfDelta(qcowPath, pullDir, stateDir, out)
 	if err != nil {
 		cleanup()
 		return "", noopCleanup, err
@@ -949,21 +977,36 @@ func pullOCIImage(ref, wantFile, stateDir string, out io.Writer) (string, func()
 // latter is a real, unresolvable problem (not this astrona-io image's
 // pattern), left for rejectEmbeddedBackingFile (acquireBaseImage) to reject
 // with an actionable error rather than silently guessing.
-func flattenIfDelta(qcowPath, stateDir string, progressOut io.Writer) (string, error) {
+//
+// The pulled image is unverified input, and `qemu-img convert` copies
+// whatever its backing chain points at into the flattened guest disk — so
+// before converting, every file in that chain must resolve (symlinks
+// included) to somewhere inside pullDir, the directory oras pulled the
+// artifact into, be qcow2 with its backing format declared as qcow2 (no
+// format probing), and carry no external data file. Otherwise an image
+// could declare e.g. ~/.ssh/id_ed25519 as its backing file and have it
+// folded into a disk the guest can read.
+func flattenIfDelta(qcowPath, pullDir, stateDir string, progressOut io.Writer) (string, error) {
 	qemuImgPath, err := exec.LookPath("qemu-img")
 	if err != nil {
 		return "", fmt.Errorf("qemu-img not found in PATH: %w", err)
 	}
 
-	infoJSON, err := exec.Command(qemuImgPath, "info", "--output=json", qcowPath).Output()
+	qcowPath, err = filepath.Abs(qcowPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve pulled qemu image path: %w", err)
+	}
+
+	infoJSON, err := exec.Command(qemuImgPath, "info", "-f", "qcow2", "--output=json", qcowPath).Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to inspect pulled qemu image '%s': %w", qcowPath, err)
 	}
-	var info struct {
-		BackingFilename string `json:"backing-filename"`
-	}
+	var info qemuImgInfo
 	if err := json.Unmarshal(infoJSON, &info); err != nil {
 		return "", fmt.Errorf("failed to parse qemu-img info for '%s': %w", qcowPath, err)
+	}
+	if err := rejectExternalDataFile(qcowPath, info); err != nil {
+		return "", err
 	}
 	if info.BackingFilename == "" {
 		return qcowPath, nil
@@ -975,8 +1018,23 @@ func flattenIfDelta(qcowPath, stateDir string, progressOut io.Writer) (string, e
 	if !filepath.IsAbs(backingPath) {
 		backingPath = filepath.Join(filepath.Dir(qcowPath), backingPath)
 	}
-	if _, err := os.Stat(backingPath); err != nil {
+	if _, err := os.Lstat(backingPath); err != nil {
 		return qcowPath, nil
+	}
+	if _, err := resolveWithinDir(backingPath, pullDir); err != nil {
+		return "", fmt.Errorf("pulled qemu image '%s' declares backing file %q, which is not part of the pulled artifact — refusing to flatten it into the VM disk: %w", qcowPath, info.BackingFilename, err)
+	}
+
+	chainJSON, err := exec.Command(qemuImgPath, "info", "-f", "qcow2", "--backing-chain", "--output=json", qcowPath).Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect backing chain of pulled qemu image '%s': %w", qcowPath, err)
+	}
+	var chain []qemuImgInfo
+	if err := json.Unmarshal(chainJSON, &chain); err != nil {
+		return "", fmt.Errorf("failed to parse qemu-img backing chain for '%s': %w", qcowPath, err)
+	}
+	if err := checkBackingChain(chain, pullDir); err != nil {
+		return "", fmt.Errorf("refusing to flatten pulled qemu image '%s': %w", qcowPath, err)
 	}
 
 	flattenedFile, err := os.CreateTemp(stateDir, "astrona-flattened-*.qcow2")
@@ -987,7 +1045,7 @@ func flattenIfDelta(qcowPath, stateDir string, progressOut io.Writer) (string, e
 	flattenedFile.Close()
 	os.Remove(flattenedPath) // qemu-img convert refuses to overwrite an existing file
 
-	cmd := exec.Command(qemuImgPath, "convert", "-O", "qcow2", qcowPath, flattenedPath)
+	cmd := exec.Command(qemuImgPath, "convert", "-f", "qcow2", "-O", "qcow2", qcowPath, flattenedPath)
 	cmd.Stdout = progressOut
 	cmd.Stderr = progressOut
 	if err := cmd.Run(); err != nil {
@@ -996,6 +1054,54 @@ func flattenIfDelta(qcowPath, stateDir string, progressOut io.Writer) (string, e
 	}
 
 	return flattenedPath, nil
+}
+
+// checkBackingChain validates the `qemu-img info --backing-chain` output of
+// a pulled delta image before flattenIfDelta converts it: every image in
+// the chain must be a qcow2 file inside pullDir (after resolving symlinks),
+// every backing reference must declare its format as qcow2 (so qemu never
+// probes it), and no image may use an external data file.
+func checkBackingChain(chain []qemuImgInfo, pullDir string) error {
+	if len(chain) == 0 {
+		return fmt.Errorf("qemu-img reported an empty backing chain")
+	}
+	for _, entry := range chain {
+		if !filepath.IsAbs(entry.Filename) {
+			return fmt.Errorf("backing chain entry %q is not a plain file path", entry.Filename)
+		}
+		if _, err := resolveWithinDir(entry.Filename, pullDir); err != nil {
+			return fmt.Errorf("backing chain entry is not part of the pulled artifact: %w", err)
+		}
+		if entry.Format != "qcow2" {
+			return fmt.Errorf("backing chain entry '%s' is format %q, expected qcow2", entry.Filename, entry.Format)
+		}
+		if err := rejectExternalDataFile(entry.Filename, entry); err != nil {
+			return err
+		}
+		if entry.BackingFilename != "" && entry.BackingFilenameFormat != "qcow2" {
+			return fmt.Errorf("backing chain entry '%s' does not declare its backing file %q as qcow2 (declared format: %q)", entry.Filename, entry.BackingFilename, entry.BackingFilenameFormat)
+		}
+	}
+	return nil
+}
+
+// resolveWithinDir resolves path's symlinks and returns the real path,
+// failing if it doesn't exist or doesn't land strictly inside dir (also
+// symlink-resolved; dir itself doesn't count).
+func resolveWithinDir(path, dir string) (string, error) {
+	realDir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve directory '%s': %w", dir, err)
+	}
+	realPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve '%s': %w", path, err)
+	}
+	rel, err := filepath.Rel(realDir, realPath)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("'%s' resolves to '%s', outside '%s'", path, realPath, realDir)
+	}
+	return realPath, nil
 }
 
 // defaultOCIImageFile is the base name findQcow2InPull falls back to when
@@ -2147,7 +2253,7 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 	// kubeconfig context. Every astrona-facing name (this function's
 	// clusterName param, `astrona list`/`astrona ssh`/`astrona destroy`,
 	// config.QEMUHandle.ClusterName, the state dir) stays unprefixed.
-	processName := "astrona-" + clusterName
+	processName := qemuProcessName(clusterName)
 
 	args := buildQEMUArgs(processName, machineType, accel, cpus, memoryMB, firmwareArgs, overlayPath, seedPath, extraDisks, sshPort, mgmtMAC, networks, cfg.Display, pidfilePath, consolePath)
 
@@ -2271,9 +2377,20 @@ func DestroyQEMUVM(clusterName string, rep *ui.Reporter) error {
 		return fmt.Errorf("failed to parse qemu VM state: %w", err)
 	}
 
+	// handle.json's PID can outlive the VM (crash, host reboot) and be reused
+	// by an unrelated process — only signal it if it's still this VM's qemu.
+	signalPID := h.PID > 0 && ProcessAlive(h.PID)
+	if signalPID {
+		cmdline, err := processCommandLine(h.PID)
+		if err != nil || !isQEMUProcessFor(cmdline, qemuProcessName(clusterName)) {
+			rep.Warn("pid %d from the saved state of qemu VM %q is no longer that VM's qemu process — not signalling it, just removing the state", h.PID, clusterName)
+			signalPID = false
+		}
+	}
+
 	t := rep.Step("Tear down qemu VM %q", clusterName)
 
-	if h.PID > 0 {
+	if signalPID {
 		if process, err := os.FindProcess(h.PID); err == nil {
 			_ = process.Signal(syscall.SIGTERM)
 
@@ -2296,6 +2413,39 @@ func DestroyQEMUVM(clusterName string, rep *ui.Reporter) error {
 
 	t.Done()
 	return nil
+}
+
+// qemuProcessName is the `-name` CreateQEMUVM gives clusterName's qemu
+// process — also how DestroyQEMUVM recognises that process again.
+func qemuProcessName(clusterName string) string {
+	return "astrona-" + clusterName
+}
+
+// processCommandLine returns pid's full command line via `ps` (same flags
+// on macOS and Linux; -ww stops it truncating to the terminal width). A
+// variable so tests can stub it.
+var processCommandLine = func(pid int) (string, error) {
+	out, err := exec.Command("ps", "-ww", "-o", "command=", "-p", strconv.Itoa(pid)).Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to read command line of pid %d: %w", pid, err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// isQEMUProcessFor reports whether cmdline is a qemu-system process started
+// with "-name processName" — i.e. the VM CreateQEMUVM launched, not some
+// unrelated process that inherited its PID.
+func isQEMUProcessFor(cmdline, processName string) bool {
+	if !strings.Contains(cmdline, "qemu-system") {
+		return false
+	}
+	fields := strings.Fields(cmdline)
+	for i := 0; i+1 < len(fields); i++ {
+		if fields[i] == "-name" && fields[i+1] == processName {
+			return true
+		}
+	}
+	return false
 }
 
 // StateExists reports whether qemu lab name has a state dir with a
