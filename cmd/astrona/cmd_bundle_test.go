@@ -22,6 +22,7 @@ func TestBundleRefusal(t *testing.T) {
 		"url script":  {&config.LabConfig{Bootstrap: config.BootstrapConfig{Init: []config.ResourceItem{{Name: "s", Type: "url", Source: "https://x/s.sh"}}}}, "x"},
 		"gateway":     {&config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Addons: config.KindAddons{GatewayAPI: "envoy"}}}}, "x"},
 		"no node pin": {&config.LabConfig{}, ""},
+		"linked":      {&config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Version: "v1.31.2", Labs: []config.KindLab{{Name: "idp"}}}}}, "x"},
 	}
 	for name, c := range cases {
 		if bundleRefusal(c.cfg, c.node) == "" {

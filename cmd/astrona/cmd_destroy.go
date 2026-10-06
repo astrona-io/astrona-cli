@@ -83,8 +83,13 @@ func destroyByDiscovery(rep *ui.Reporter) error {
 	}
 	rows := append(qemuRows, collectKindRows()...)
 
+	// A linked cluster goes with its lab (destroyByName), not on its own.
+	owners := linkedClusterOwners()
 	var realLabs, test []labRow
 	for _, r := range rows {
+		if _, linked := owners[r.name]; linked {
+			continue
+		}
 		if strings.HasPrefix(r.name, "astro-test-") {
 			test = append(test, r)
 		} else {
@@ -107,15 +112,19 @@ func destroyByDiscovery(rep *ui.Reporter) error {
 
 	for _, r := range realLabs {
 		rep.Info("No lab config found — auto-detected the only running astrona lab: '%s' (%s runtime). Destroying it (teardown scripts skipped, config unknown).", r.name, r.runtime)
+		owned := ownedClusters(r.name, nil)
 		if err := runtime.DestroyEnvironment(r.name, config.RuntimeConfig{Type: r.runtime}, rep); err != nil {
 			return fmt.Errorf("failed to destroy '%s': %w", r.name, err)
 		}
+		destroyOwnedClusters(owned, rep)
 	}
 	for _, r := range test {
 		rep.Info("Cleaning up leftover test lab '%s' (%s runtime).", r.name, r.runtime)
+		owned := ownedClusters(r.name, nil)
 		if err := runtime.DestroyEnvironment(r.name, config.RuntimeConfig{Type: r.runtime}, rep); err != nil {
 			rep.Warn("failed to destroy leftover test lab '%s': %s", r.name, err)
 		}
+		destroyOwnedClusters(owned, rep)
 	}
 
 	fmt.Printf("Lab cluster cleaned up successfully.\n")
@@ -139,12 +148,12 @@ func destroyByName(name string, rep *ui.Reporter) error {
 
 	foundQemu := qemuStateExists(name)
 	foundKind := kindClusterExists(name)
-	links, _ := labLinks(name) // read before destroy removes them
+	owned := ownedClusters(name, nil) // read before destroy removes the saved state
 	if err := exam.Clear(name); err != nil {
 		rep.Warn("%s", err)
 	}
 
-	if !foundQemu && !foundKind {
+	if !foundQemu && !foundKind && len(owned) == 0 {
 		return fmt.Errorf("no astrona lab named '%s' found (checked qemu state and kind clusters) — run `astrona list` to see what's actually running", name)
 	}
 
@@ -160,12 +169,12 @@ func destroyByName(name string, rep *ui.Reporter) error {
 			errs = append(errs, fmt.Sprintf("kind: %s", err))
 		}
 	}
+	destroyOwnedClusters(owned, rep)
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to destroy '%s': %s", name, strings.Join(errs, "; "))
 	}
 
 	fmt.Printf("Lab '%s' cleaned up successfully.\n", name)
-	noteLinkedStillRunning(links)
 	return nil
 }
 
@@ -219,6 +228,10 @@ func destroyByPattern(pattern string, rep *ui.Reporter) error {
 
 	var errs []string
 	for _, name := range matched {
+		// Already gone as a linked cluster of an earlier match.
+		if !qemuStateExists(name) && !kindClusterExists(name) {
+			continue
+		}
 		if err := destroyByName(name, rep); err != nil {
 			errs = append(errs, err.Error())
 		}
@@ -301,14 +314,18 @@ func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir strin
 		return nil
 	}
 
-	links, _ := labLinks(clusterName) // read before destroy removes them
+	var labs []config.KindLab
+	if info.runtime.Kind != nil {
+		labs = info.runtime.Kind.Labs
+	}
+	owned := ownedClusters(clusterName, labs) // read before destroy removes the saved state
 	if err := runtime.DestroyEnvironment(clusterName, info.runtime, rep); err != nil {
 		if hardFail {
 			return fmt.Errorf("lab teardown failed: %w", err)
 		}
 		rep.Warn("teardown failed for '%s': %s", clusterName, err)
 	}
-	noteLinkedStillRunning(links)
+	destroyOwnedClusters(owned, rep)
 
 	return nil
 }
@@ -335,7 +352,8 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			"With a glob pattern (contains *, ?, or [), matches against all currently-running lab names " +
 			"(same list `astrona list` shows, with or without the 'astro-' prefix) and destroys every match — " +
 			"e.g. `astrona destroy 'qemu-jumphost-*'` (quote it so your shell doesn't expand the glob itself). " +
-			"No config needed, same trade-offs as a single name.",
+			"No config needed, same trade-offs as a single name.\n\n" +
+			"A lab's linked clusters (runtime.kind.labs) are destroyed with it.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			labName := "-"
@@ -392,18 +410,4 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	return cmd
-}
-
-// noteLinkedStillRunning reminds that destroying a lab leaves the labs it
-// linked to running — they're independent labs, possibly shared.
-func noteLinkedStillRunning(links []cluster.LinkState) {
-	var running []string
-	for _, l := range links {
-		if kindClusterExists(l.Cluster) {
-			running = append(running, l.Cluster)
-		}
-	}
-	if len(running) > 0 {
-		fmt.Printf("Linked lab(s) still running: %s — `astrona destroy <name>` when you're done with them.\n", strings.Join(running, ", "))
-	}
 }

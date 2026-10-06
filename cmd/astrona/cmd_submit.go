@@ -66,8 +66,8 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not find a running lab environment: %w", err)
 			}
-			_, linkEnv := labLinks(clusterName)
-			env.WithEnv(linkEnv)
+			links, _ := labLinks(clusterName)
+			env.WithLinks(links)
 
 			rep, err := ui.NewReporter("submit", cfg.Metadata.Name, flags.verbose)
 			if err != nil {

@@ -218,14 +218,22 @@ func estimateLabMemory(k *config.KindConfig) int64 {
 	return mem
 }
 
-// evaluateLabMemory compares this lab (plus labs already running, at a
-// default-lab estimate each) with the engine's memory.
-func evaluateLabMemory(k *config.KindConfig, othersRunning int, engineMem int64) checkResult {
+// evaluateLabMemory compares this lab (plus the linked clusters it would
+// create, and labs already running at a default-lab estimate each) with the
+// engine's memory.
+func evaluateLabMemory(k *config.KindConfig, linked []*config.KindConfig, othersRunning int, engineMem int64) checkResult {
 	lab := estimateLabMemory(k)
+	var links int64
+	for _, lk := range linked {
+		links += estimateLabMemory(lk)
+	}
 	others := int64(othersRunning) * estimateLabMemory(nil)
-	total := lab + others
+	total := lab + links + others
 
 	detail := fmt.Sprintf("~%.1f GiB for this lab", inGiB(lab))
+	if len(linked) > 0 {
+		detail += fmt.Sprintf(" + ~%.1f GiB for %d linked cluster(s)", inGiB(links), len(linked))
+	}
 	if othersRunning > 0 {
 		detail += fmt.Sprintf(" + ~%.1f GiB for %d running lab(s)", inGiB(others), othersRunning)
 	}
@@ -292,17 +300,30 @@ func checkLab(cfg *config.LabConfig, baseDir string, engine *engineInfo) []check
 	name := config.NormalizeClusterName(cfg.Metadata.Name)
 	running := kindClusterExists(name)
 
+	// Linked clusters `astrona run` would create count too. They never
+	// bind host ports.
+	var linked []*config.KindConfig
+	if !running {
+		for _, l := range cfg.KindLabs() {
+			linked = append(linked, l.Cluster())
+		}
+	}
+	ports := labHostPorts(cfg.Runtime)
+
 	if engine != nil {
 		others := 0
+		owners := linkedClusterOwners()
 		for _, r := range collectKindRows() {
-			if r.name != name {
+			// The lab's own linked clusters are counted in linked (or, when
+			// it's running, simply not — like the lab itself).
+			if r.name != name && owners[r.name] != name {
 				others++
 			}
 		}
-		res = append(res, evaluateLabMemory(cfg.Runtime.Kind, others, engine.MemBytes))
+		res = append(res, evaluateLabMemory(cfg.Runtime.Kind, linked, others, engine.MemBytes))
 	}
 
-	if ports := labHostPorts(cfg.Runtime); len(ports) > 0 {
+	if len(ports) > 0 {
 		if running {
 			res = append(res, checkResult{name: "host ports", detail: "lab is running — its own forwards/gateway hold them"})
 		} else {

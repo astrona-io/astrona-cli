@@ -1,0 +1,20 @@
+# Step-by-step solution
+
+```sh
+astrona shell [[.Name]]
+
+# 1. The backend lives in another cluster — use its context
+kubectl config get-contexts
+kubectl --context "$ASTRONA_LINK_BACKEND_CONTEXT" -n backend scale deploy/backend --replicas=2
+
+# 2. Where is the backend, seen from this cluster?
+BACKEND=$(kubectl get configmap astrona-links -o jsonpath='{.data.backend\.host}')
+kubectl create job call-backend --image=curlimages/curl:8.11.1 -- curl -fsS "http://$BACKEND:30080/"
+kubectl wait job/call-backend --for=condition=Complete --timeout=120s
+kubectl logs job/call-backend
+
+exit
+astrona submit
+```
+
+Why it works: all kind clusters share one container network, so a pod here reaches the backend's node by its container name. The backend publishes a **NodePort** (30080) — a ClusterIP Service or a pod IP from the other cluster wouldn't be reachable.

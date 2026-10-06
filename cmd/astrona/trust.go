@@ -97,6 +97,16 @@ func labRiskSummary(cfg *config.LabConfig) []string {
 			lines = append(lines, "pulls images: "+strings.Join(k.PreloadImages, ", "))
 		}
 	}
+	for _, l := range cfg.KindLabs() {
+		line := "creates linked kind cluster '" + l.Name + "'"
+		if len(l.PreloadImages) > 0 {
+			line += ", pulls images: " + strings.Join(l.PreloadImages, ", ")
+		}
+		if !l.Addons.IsZero() {
+			line += ", installs addons (pinned, checksum-verified)"
+		}
+		lines = append(lines, line)
+	}
 	for _, pf := range cfg.Runtime.PortForwards {
 		lines = append(lines, fmt.Sprintf("opens 127.0.0.1:%d → %s", pf.HostPort, pf.Resource))
 	}

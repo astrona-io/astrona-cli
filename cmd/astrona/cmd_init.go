@@ -13,23 +13,48 @@ import (
 	"strings"
 	"text/template"
 
+	"astrona/internal/config"
+
 	"github.com/spf13/cobra"
 )
 
-// labTemplates is the starter kind lab `astrona init lab` writes. all: is
-// needed so .github/ is embedded too.
+// labTemplates are the starters `astrona init lab` writes: a kind lab,
+// and (--linked) a kind lab with a linked cluster. all: is needed so
+// .github/ is embedded too.
 //
-//go:embed all:templates/lab
+//go:embed all:templates/lab all:templates/linked
 var labTemplates embed.FS
 
-const labTemplateRoot = "templates/lab"
+const (
+	labTemplateRoot    = "templates/lab"
+	linkedTemplateRoot = "templates/linked"
+)
 
 var labNameRule = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]{0,40}[a-z0-9])?$`)
 
-// scaffoldLab renders every template into dir (which must not exist or be
+// scaffoldLab renders the starter lab into dir (which must not exist or be
 // empty), with name as the lab name. Returns the files written, relative
 // to dir.
 func scaffoldLab(dir, name string) ([]string, error) {
+	return scaffold(dir, name, labTemplateRoot)
+}
+
+// scaffoldLinkedLab renders the starter lab with a linked "backend"
+// cluster (runtime.kind.labs) into dir.
+func scaffoldLinkedLab(dir, name string) ([]string, error) {
+	// Checked before writing anything: the backend's node name must fit
+	// what `astrona run` accepts (see config.ValidateKindLabs).
+	probe := &config.LabConfig{
+		Metadata: config.MetadataConfig{Name: name},
+		Runtime:  config.RuntimeConfig{Kind: &config.KindConfig{Labs: []config.KindLab{{Name: "backend"}}}},
+	}
+	if err := config.ValidateKindLabs(probe); err != nil {
+		return nil, fmt.Errorf("lab name '%s' is too long for a lab with a linked cluster: %w", name, err)
+	}
+	return scaffold(dir, name, linkedTemplateRoot)
+}
+
+func scaffold(dir, name, root string) ([]string, error) {
 	if !labNameRule.MatchString(name) {
 		return nil, fmt.Errorf("lab name '%s' must be lowercase letters, digits and '-' (max 42), e.g. 'k8s-web-01'", name)
 	}
@@ -43,11 +68,11 @@ func scaffoldLab(dir, name string) ([]string, error) {
 
 	data := struct{ Name string }{Name: name}
 	var written []string
-	err = fs.WalkDir(labTemplates, labTemplateRoot, func(p string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(labTemplates, root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		rel := strings.TrimSuffix(strings.TrimPrefix(p, labTemplateRoot+"/"), ".tmpl")
+		rel := strings.TrimSuffix(strings.TrimPrefix(p, root+"/"), ".tmpl")
 		src, err := labTemplates.ReadFile(p)
 		if err != nil {
 			return err
@@ -66,7 +91,11 @@ func scaffoldLab(dir, name string) ([]string, error) {
 		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 			return err
 		}
-		if err := os.WriteFile(dest, out.Bytes(), 0644); err != nil {
+		mode := os.FileMode(0644)
+		if strings.HasSuffix(rel, ".sh") {
+			mode = 0755
+		}
+		if err := os.WriteFile(dest, out.Bytes(), mode); err != nil {
 			return err
 		}
 		written = append(written, path.Clean(rel))
@@ -82,6 +111,7 @@ func newInitCmd() *cobra.Command {
 	}
 
 	var name string
+	var linked bool
 	lab := &cobra.Command{
 		Use:   "lab <dir>",
 		Short: "Create a starter kind lab — config, docs, reference solution, CI workflow",
@@ -90,16 +120,24 @@ func newInitCmd() *cobra.Command {
 			"hints and points), the four student docs, a bootstrap manifest, a reference solution " +
 			"for `astrona test`, and a GitHub Actions workflow running validate + test on every " +
 			"pull request.\n\n" +
+			"--linked adds a second kind cluster running side by side (runtime.kind.labs): a " +
+			"backend service published as a NodePort, a task that reaches it from the lab's " +
+			"cluster, and a check graded in the backend cluster — see the Linked Labs guide.\n\n" +
 			"It passes `astrona validate` and `astrona test` as generated — change it from there.",
 		Example: `  astrona init lab ./k8s-web-01
-  astrona init lab ./labs/networking-01 --name net-01`,
+  astrona init lab ./labs/networking-01 --name net-01
+  astrona init lab ./auth-01 --linked`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir := args[0]
 			if name == "" {
 				name = filepath.Base(filepath.Clean(dir))
 			}
-			files, err := scaffoldLab(dir, name)
+			scaffoldFn := scaffoldLab
+			if linked {
+				scaffoldFn = scaffoldLinkedLab
+			}
+			files, err := scaffoldFn(dir, name)
 			if err != nil {
 				return err
 			}
@@ -112,6 +150,7 @@ func newInitCmd() *cobra.Command {
 		},
 	}
 	lab.Flags().StringVar(&name, "name", "", "Lab name (metadata.name); default: the directory name")
+	lab.Flags().BoolVar(&linked, "linked", false, "Add a second kind cluster (\"backend\") running side by side, with a task and checks across both")
 	cmd.AddCommand(lab)
 	return cmd
 }

@@ -44,7 +44,7 @@ spec:
           configMap: {name: idp-config}
 ---
 # NodePort with a fixed port: what other kind clusters reach, at
-# <this lab's control-plane container name>:30080. ClusterIP services and
+# <the idp cluster's control-plane container name>:30080. ClusterIP services and
 # pod IPs aren't routable between clusters.
 apiVersion: v1
 kind: Service

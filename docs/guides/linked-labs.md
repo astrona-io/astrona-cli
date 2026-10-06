@@ -1,30 +1,53 @@
 # Linked Labs
 
-Some things can only be practised with two systems: an app logging in against an external identity provider, a client calling a service in another cluster, network policy between "sites". A **linked lab** runs side by side with other labs — each in its own kind cluster — and knows how to reach them.
+Some things can only be practised with two systems: an app logging in against an external identity provider, a client calling a service in another cluster, network policy between "sites". A lab can run **extra kind clusters side by side** with its own — declared under `runtime.kind.labs` in the same `config.yaml` — and knows how to reach them.
 
-The worked reference is [`examples/linked-labs`](https://github.com/astrona-io/astrona-cli/tree/main/examples/linked-labs): an `idp` lab serving a token endpoint, and an `app` lab whose task is to log in against it.
+The worked reference is [`examples/linked-labs-01`](https://github.com/astrona-io/astrona-cli/tree/main/examples/linked-labs-01): an `idp` cluster serving a token endpoint, and a task to log in against it from the lab's own cluster. `astrona init lab <dir> --linked` scaffolds a lab like it.
 
-## Declaring links
+## Declaring linked clusters
 
 ```yaml
 metadata:
-  name: linked-app
+  name: auth-lab
 
-links:
-  - name: idp          # how this lab refers to it: env vars, ConfigMap keys
-    lab: ../idp        # a path to the other lab's directory (relative to this config)…
-  - name: legacy
-    lab: legacy-crm    # …or the name of a lab that's already running
+runtime:
+  type: kind
+  kind:
+    preloadImages: [curlimages/curl:8.11.1]     # the lab's own cluster
+    labs:
+      - name: idp                                # kind cluster astro-auth-lab-idp
+        preloadImages: [nginx:1.27-alpine]
+        nodes: {workers: 0}
+        addons: {certManager: true}
+        bootstrap:
+          manifests:
+            - {name: idp, type: file, source: labs/idp/bootstrap/idp.yaml}
+          waitFor:
+            - {resource: deploy/idp, namespace: auth}
+        testing:                                 # its part of the reference solution
+          init:
+            - {name: seed users, type: file, source: labs/idp/testing/seed.sh}
 ```
 
-- **Path** (contains `/`, or is `.`/`..`, or ends in `.yaml`/`.yml`): `astrona run` starts that lab first if it isn't running, with the same trust check as any lab. For a `--git` lab the path must stay inside the cloned repository.
-- **Name**: the lab must already be running (`astrona run` it first). A lab loaded from a URL can only link by name — a remote config never starts a lab from elsewhere on your disk.
+Each entry takes the same cluster fields as `runtime.kind` (version, nodes, networking, addons, preloadImages, …) plus its own `bootstrap` and `testing`. Up to 5 per lab; names are lowercase letters, digits and `-` (max 20 characters). See [`runtime.kind.labs`](../reference/lab-config.md#runtimekindlabsn).
 
-Up to 5 links per lab, nested at most 3 levels deep; a cycle is an error. Link names are lowercase letters, digits and `-` (max 20 characters). Linked labs must be kind labs.
+### Folder layout
 
-## Reaching a linked lab
+Paths are relative to `config.yaml`, like everywhere else. By convention each linked cluster keeps its files in its own folder under `labs/`, next to `docs/` and `solution/`:
 
-All kind clusters share one container network, so pods and host scripts can reach another lab's **node** by its container name — `<cluster>-control-plane`. Publish what the other lab should reach as a **NodePort** Service with a fixed `nodePort`:
+```
+config.yaml
+docs/                     # student docs
+solution/                 # the lab's own reference solution
+labs/
+  idp/
+    bootstrap/            # sets up the idp cluster
+    testing/              # the idp cluster's part of the reference solution
+```
+
+## Reaching a linked cluster
+
+All kind clusters share one container network, so pods and host scripts can reach a linked cluster's **node** by its container name — `<cluster>-control-plane`. Publish what the lab should reach as a **NodePort** Service with a fixed `nodePort`:
 
 ```yaml
 apiVersion: v1
@@ -36,35 +59,54 @@ spec:
   ports: [{port: 80, targetPort: 80, nodePort: 30080}]
 ```
 
-From the other cluster: `http://<host>:30080/`. A `ClusterIP` Service name or a pod IP from the other cluster is **not** reachable — each cluster has its own service and pod network.
+From the lab's cluster: `http://<host>:30080/`. A `ClusterIP` Service name or a pod IP from the other cluster is **not** reachable — each cluster has its own service and pod network.
 
-Astrona tells the lab where each link is:
+Astrona tells the lab where each linked cluster is:
 
 | Where | What |
 |---|---|
-| Bootstrap/testing/teardown scripts and `command` checks | `ASTRONA_LINK_<NAME>_HOST`, `ASTRONA_LINK_<NAME>_CONTEXT`, `ASTRONA_LINK_<NAME>_KUBECONFIG` (`<NAME>` upper-cased, `-` → `_`) |
-| In the cluster | ConfigMap `astrona-links` in namespace `default`: `<name>.host`, `<name>.context` |
-| `astrona shell` | Both labs' kubeconfigs: `kubectl --context kind-<other cluster> …` works, plus the env vars |
+| The lab's bootstrap/testing/teardown scripts and `command` checks | `ASTRONA_LINK_<NAME>_HOST`, `ASTRONA_LINK_<NAME>_CONTEXT`, `ASTRONA_LINK_<NAME>_KUBECONFIG` (`<NAME>` upper-cased, `-` → `_`) |
+| In the lab's cluster | ConfigMap `astrona-links` in namespace `default`: `<name>.host`, `<name>.context` |
+| `astrona shell` | Every cluster's kubeconfig: `kubectl --context "$ASTRONA_LINK_IDP_CONTEXT" …` works, plus the env vars |
 
-**Never hard-code the other lab's host or cluster name.** Under `astrona test` the linked lab is a test copy with a different name (`astro-test-…`); read it from the env var or the ConfigMap instead.
+A linked cluster's own `bootstrap`/`testing` scripts run with `KUBECONFIG` pointing at that cluster.
 
-Before bootstrap scripts run, `astrona run` and `astrona test` wait for the cluster's DNS (CoreDNS) — a script resolving the linked lab's host in the first seconds after the cluster is created would otherwise fail with `bad address`.
+**Never hard-code a linked cluster's host or name.** Under `astrona test` every cluster has a different name (`astro-test-…`); read it from the env var or the ConfigMap instead.
 
-## Running
+## Grading across clusters
 
-```sh
-astrona run -c examples/linked-labs/app    # starts idp (if needed), then app
-astrona status linked-app                  # Links  idp → astro-linked-idp (Ready) · host …
-astrona shell linked-app                   # both contexts available
-astrona submit -c examples/linked-labs/app
+A check grades the lab's own cluster unless it names a linked one with `cluster:`:
+
+```yaml
+validation:
+  checks:
+    - name: idp runs 2 replicas
+      cluster: idp
+      type: jsonpath
+      resource: deploy/idp -n auth
+      jsonpath: "{.status.readyReplicas}"
+      expect: "2"
 ```
 
-Destroying a lab leaves its linked labs running (another lab may use them) and tells you which are still up — `astrona destroy <name>` each when you're done.
+Works for every check type except `http` (which runs from your machine). A `command` check with `cluster:` gets that cluster's `KUBECONFIG`.
 
-## Testing in CI
+## Lifecycle
 
-`astrona test` starts **test copies** of path-linked labs (`astro-test-<lab>`, no port forwards or gateway host ports, so they never clash with a real `run`), runs the lab's lifecycle against them, and tears every copy down afterwards — even on failure. A link by name uses that running lab as-is and never tears it down. Test copies don't start nested links yet.
+Linked clusters belong to the lab:
+
+| Command | What happens |
+|---|---|
+| `astrona run` | Creates the linked clusters (bootstrap included), then the lab. Refused while the lab is running — `astrona reset` starts it over |
+| `astrona list` / `status` | A linked cluster is listed as `linked cluster of <lab>`; `status` shows each one's state |
+| `astrona stop` / `start` | Stops/starts them with the lab (`start` brings them up first) |
+| `astrona reset` / `destroy` | Removes them with the lab |
+| `astrona test` | Creates test copies of every cluster, applies each linked cluster's `testing`, then the lab's, grades, and tears everything down — even on failure |
+| `astrona check` | Counts their memory in the lab's estimate |
+
+Before bootstrap scripts run, `astrona run` and `astrona test` wait for the cluster's DNS (CoreDNS) — a script resolving a linked cluster's host in the first seconds after a cluster is created would otherwise fail with `bad address`.
+
+`astrona bundle` doesn't support labs with linked clusters yet.
 
 ## Planning resources
 
-Each linked lab is a full kind cluster: budget memory for all of them together (roughly 1–1.5 GiB per single-node cluster before workloads), and give each lab a different `nodePort` range and different `runtime.portForwards` host ports if you run them side by side.
+Each linked cluster is a full kind cluster: budget memory for all of them together (roughly 1–1.5 GiB per single-node cluster before workloads) — `astrona check -c <lab>` estimates it. A linked cluster's gateway addon gets no host ports, so it never clashes with the lab's own.

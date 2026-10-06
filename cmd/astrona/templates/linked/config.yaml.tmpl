@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# [[.Name]] — scaffolded by `astrona init lab --linked`: a lab with a second
+# kind cluster, "backend", running side by side (runtime.kind.labs).
+# `astrona run` creates the backend first, then tells the lab where it is:
+# $ASTRONA_LINK_BACKEND_HOST (and _CONTEXT, _KUBECONFIG) for scripts and
+# command checks, ConfigMap astrona-links in the cluster. Never hard-code
+# the host: `astrona test` uses clusters with other names.
+# Reference: https://cli.astrona.io/guides/linked-labs/
+metadata:
+  name: [[.Name]]
+  docs:
+    examQuestion: docs/exam-question.md
+    guide: docs/step-by-step-guide.md
+
+runtime:
+  type: kind
+  kind:
+    preloadImages:
+      - curlimages/curl:8.11.1   # what the solution's Job runs
+    # Linked clusters, side by side. Each keeps its files in labs/<name>/.
+    labs:
+      - name: backend            # kind cluster astro-[[.Name]]-backend
+        preloadImages:
+          - nginx:1.27-alpine
+        bootstrap:
+          manifests:
+            - name: backend service
+              type: file
+              source: labs/backend/bootstrap/backend.yaml
+          waitFor:
+            - resource: deploy/backend
+              namespace: backend
+        # This cluster's part of the reference solution (`astrona test`).
+        testing:
+          init:
+            - name: scale the backend
+              type: file
+              source: labs/backend/testing/scale.sh
+
+# The lab's own part of the reference solution — only `astrona test` runs
+# it, after the backend's. A script, because it needs the backend's
+# address, which only exists at run time.
+testing:
+  init:
+    - name: reference solution
+      type: file
+      source: solution/solve.sh
+
+validation:
+  checks:
+    # cluster: backend grades the check in the backend cluster.
+    - name: backend runs 2 replicas
+      cluster: backend
+      type: jsonpath
+      resource: deploy/backend -n backend
+      jsonpath: "{.status.readyReplicas}"
+      expect: "2"
+      points: 2
+      hint: "The backend runs in its own cluster — kubectl --context $ASTRONA_LINK_BACKEND_CONTEXT, or kubectl config get-contexts inside astrona shell."
+    - name: Job call-backend completed
+      type: jsonpath
+      resource: job/call-backend
+      jsonpath: "{.status.succeeded}"
+      expect: "1"
+      points: 2
+      hint: "The Job's pod must reach the backend — kubectl get configmap astrona-links -o yaml shows its host."
+    - name: call-backend got the backend's answer
+      type: command
+      command: kubectl logs job/call-backend
+      contains: "hello from [[.Name]]-backend"
+      hint: "Request http://<backend host>:30080/ and print the response."

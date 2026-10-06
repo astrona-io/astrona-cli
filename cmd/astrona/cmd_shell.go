@@ -135,9 +135,9 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			// Linked labs' kubeconfigs join the lab's own (kubectl merges a
+			// Linked clusters' kubeconfigs join the lab's own (kubectl merges a
 			// KUBECONFIG list; the first file's current-context wins), so
-			// `kubectl --context kind-<linked lab>` works in the shell too.
+			// `kubectl --context kind-<linked cluster>` works in the shell too.
 			links, linkEnv := labLinks(lab)
 			kubeconfigs := []string{kubeconfig}
 			for _, l := range links {

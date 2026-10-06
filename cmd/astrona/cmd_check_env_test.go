@@ -102,10 +102,13 @@ func TestLabMemory(t *testing.T) {
 		t.Errorf("big lab = %.1f GiB, expected ~7", inGiB(big))
 	}
 
-	if r := evaluateLabMemory(nil, 0, 8*gib); r.status != checkOK {
+	if r := evaluateLabMemory(nil, nil, 0, 8*gib); r.status != checkOK {
 		t.Errorf("small lab on 8 GiB = %d (%s)", r.status, r.detail)
 	}
-	r := evaluateLabMemory(nil, 4, 6*gib) // 5 × 1.2 GiB on 6 GiB
+	if r := evaluateLabMemory(nil, []*config.KindConfig{nil, nil}, 0, 8*gib); !strings.Contains(r.detail, "2 linked cluster(s)") {
+		t.Errorf("linked labs not counted: %s", r.detail)
+	}
+	r := evaluateLabMemory(nil, nil, 4, 6*gib) // 5 × 1.2 GiB on 6 GiB
 	if r.status != checkWarn || !strings.Contains(r.detail, "4 running lab(s)") {
 		t.Errorf("crowded engine = %d (%s)", r.status, r.detail)
 	}

@@ -103,6 +103,10 @@ func resourceRefs(cfg *config.LabConfig) []resourceRef {
 	addBlock("testing", cfg.Testing)
 	add("teardown.init", cfg.Teardown.Init)
 	addValidation("validation", cfg.Validation)
+	for _, l := range cfg.KindLabs() {
+		addBlock("runtime.kind.labs["+l.Name+"].bootstrap", l.Bootstrap)
+		addBlock("runtime.kind.labs["+l.Name+"].testing", l.Testing)
+	}
 	for _, vm := range cfg.Runtime.QEMU {
 		if vm.Bootstrap != nil {
 			addBlock("runtime.qemu["+vm.Name+"].bootstrap", *vm.Bootstrap)

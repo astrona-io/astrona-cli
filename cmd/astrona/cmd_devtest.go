@@ -151,10 +151,10 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 		cfg.Runtime.Kind = &k
 	}
 
-	// Linked labs come up first as test copies; their teardown is deferred
-	// before this lab's, so it runs after it (LIFO) — even on failure.
-	links, teardownLinks, err := startTestLinks(cfg, baseDir, flags, rep)
-	defer teardownLinks()
+	// Linked clusters come up first; their teardown is deferred before this
+	// lab's, so it runs after it (LIFO) — even on failure.
+	defer func() { destroyOwnedClusters(ownedClusters(clusterName, cfg.KindLabs()), rep) }()
+	links, err := startKindLabs(cfg, baseDir, clusterName, true, rep)
 	if err != nil {
 		return nil, false, err
 	}
@@ -237,30 +237,23 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 		}
 	}
 
-	if len(cfg.Testing.Init) > 0 {
-		rep.Section("Testing")
-		if err := scripts.RunOnEveryVM(cfg.Testing.Init, baseDir, env, cfg.Runtime.QEMU, rep); err != nil {
-			return nil, false, fmt.Errorf("testing init scripts failed: %w", err)
+	// Each linked cluster's part of the reference solution first, then the
+	// lab's own — which may rely on it.
+	for _, l := range cfg.KindLabs() {
+		if isEmptyBlock(l.Testing) {
+			continue
+		}
+		name := config.KindLabClusterName(clusterName, l.Name)
+		linkEnv, err := runtime.LoadEnvironment(name, kindLabConfig(cfg, l).Runtime)
+		if err != nil {
+			return nil, false, fmt.Errorf("linked cluster '%s': %w", l.Name, err)
+		}
+		if err := applyTesting(l.Testing, baseDir, linkEnv, nil, "Testing: cluster "+l.Name, rep); err != nil {
+			return nil, false, fmt.Errorf("linked cluster '%s': %w", l.Name, err)
 		}
 	}
-
-	if len(cfg.Testing.Manifests) > 0 {
-		if env.KubeContext == "" {
-			return nil, false, fmt.Errorf("testing.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
-		}
-		rep.Section("Testing manifests")
-		if err := manifests.ApplyManifests(cfg.Testing.Manifests, baseDir, env.KubeContext, rep); err != nil {
-			return nil, false, fmt.Errorf("testing manifests failed: %w", err)
-		}
-	}
-
-	// Gate grading on the reference solution actually being up, so
-	// the Proctor doesn't race pods that are still starting.
-	if len(cfg.Testing.WaitFor) > 0 {
-		rep.Section("Testing readiness")
-		if err := manifests.WaitFor(cfg.Testing.WaitFor, env.KubeContext, rep); err != nil {
-			return nil, false, fmt.Errorf("reference solution did not become ready: %w", err)
-		}
+	if err := applyTesting(cfg.Testing, baseDir, env, cfg.Runtime.QEMU, "Testing", rep); err != nil {
+		return nil, false, err
 	}
 
 	// Grading prints its own pytest-style report to stdout — pause
@@ -277,4 +270,36 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 	}
 	fmt.Printf("\nPROCTOR: PASS\n")
 	return results, true, nil
+}
+
+func isEmptyBlock(b config.BootstrapConfig) bool {
+	return len(b.Init) == 0 && len(b.Manifests) == 0 && len(b.WaitFor) == 0
+}
+
+// applyTesting applies a testing block (the reference solution) to env:
+// init scripts, manifests, then readiness gates — so the Proctor doesn't
+// race pods that are still starting. title heads its output sections.
+func applyTesting(b config.BootstrapConfig, baseDir string, env *runtime.LabEnvironment, vms []config.QEMUVM, title string, rep *ui.Reporter) error {
+	if len(b.Init) > 0 {
+		rep.Section("%s", title)
+		if err := scripts.RunOnEveryVM(b.Init, baseDir, env, vms, rep); err != nil {
+			return fmt.Errorf("testing init scripts failed: %w", err)
+		}
+	}
+	if len(b.Manifests) > 0 {
+		if env.KubeContext == "" {
+			return fmt.Errorf("testing.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
+		}
+		rep.Section("%s manifests", title)
+		if err := manifests.ApplyManifests(b.Manifests, baseDir, env.KubeContext, rep); err != nil {
+			return fmt.Errorf("testing manifests failed: %w", err)
+		}
+	}
+	if len(b.WaitFor) > 0 {
+		rep.Section("%s readiness", title)
+		if err := manifests.WaitFor(b.WaitFor, env.KubeContext, rep); err != nil {
+			return fmt.Errorf("reference solution did not become ready: %w", err)
+		}
+	}
+	return nil
 }
