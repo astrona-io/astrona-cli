@@ -85,7 +85,7 @@ See `examples/k8s-basics-01/` for a complete working example.
 brew install astrona-io/tap/astrona
 ```
 
-Upgrade with `brew upgrade astrona`.
+Upgrade with `brew upgrade astrona` — or `astrona upgrade`, which runs it for you.
 
 Or download a pre-compiled binary of `astrona-cli` directly from GitHub Releases:
 

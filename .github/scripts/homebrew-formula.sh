@@ -71,7 +71,7 @@ class Astrona < Formula
     <<~EOS
       astrona runs labs on kind with Docker or Podman, and uses kubectl;
       \`astrona check\` lists what's missing and how to install it.
-      Upgrade with \`brew upgrade astrona\` (not \`astrona upgrade\`).
+      Upgrade with \`brew upgrade astrona\` (\`astrona upgrade\` runs it for you).
     EOS
   end
 

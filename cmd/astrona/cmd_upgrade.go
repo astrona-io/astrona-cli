@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -23,14 +24,12 @@ func newUpgradeCmd() *cobra.Command {
 		Short: "Upgrade astrona-cli to the latest version",
 		Long: "Download the latest release for this OS and architecture, verified against GitHub's SHA-256 " +
 			"digest, and replace the running astrona with it — only when it's newer (--force reinstalls).\n\n" +
-			"Installed with Homebrew? Use `brew upgrade astrona` instead; this command refuses to replace " +
-			"a binary Homebrew manages.",
+			"Installed with Homebrew? Then this runs `brew upgrade astrona` (`brew reinstall astrona` with " +
+			"--force) instead of downloading the binary itself, so Homebrew keeps track of the install.",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Homebrew owns its install: replacing the binary under its
-			// Cellar would leave brew believing the old version is there.
 			if exe, err := currentExecutable(); err == nil && isHomebrewInstall(exe) {
-				return fmt.Errorf("astrona was installed with Homebrew (%s) — upgrade it with: brew upgrade astrona", exe)
+				return brewUpgrade(exe, force)
 			}
 
 			fmt.Println("Checking for latest version...")
@@ -110,10 +109,41 @@ func isHomebrewInstall(exe string) bool {
 	return strings.Contains(filepath.ToSlash(exe), "/Cellar/astrona/")
 }
 
-// upgradeCommand is how this install upgrades itself.
-func upgradeCommand() string {
-	if exe, err := currentExecutable(); err == nil && isHomebrewInstall(exe) {
-		return "brew upgrade astrona"
+// runBrew runs a brew command; swapped out in tests.
+var runBrew = (*exec.Cmd).Run
+
+// brewUpgrade hands the upgrade to Homebrew, which owns the install:
+// replacing the binary under its Cellar would leave brew believing the old
+// version is still there. force reinstalls, like `astrona upgrade --force`.
+func brewUpgrade(exe string, force bool) error {
+	brew, err := brewBinary(exe)
+	if err != nil {
+		return err
 	}
-	return "astrona upgrade"
+	verb := "upgrade"
+	if force {
+		verb = "reinstall"
+	}
+	fmt.Printf("astrona was installed with Homebrew — running: brew %s astrona\n", verb)
+	cmd := exec.Command(brew, verb, "astrona")
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	if err := runBrew(cmd); err != nil {
+		return fmt.Errorf("brew %s astrona failed: %w", verb, err)
+	}
+	return nil
+}
+
+// brewBinary is the brew that owns exe — <prefix>/bin/brew for an exe under
+// <prefix>/Cellar/ — falling back to the brew on PATH.
+func brewBinary(exe string) (string, error) {
+	if prefix, _, ok := strings.Cut(filepath.ToSlash(exe), "/Cellar/"); ok {
+		b := filepath.Join(filepath.FromSlash(prefix), "bin", "brew")
+		if fi, err := os.Stat(b); err == nil && !fi.IsDir() && fi.Mode()&0o111 != 0 {
+			return b, nil
+		}
+	}
+	if b, err := exec.LookPath("brew"); err == nil {
+		return b, nil
+	}
+	return "", fmt.Errorf("astrona was installed with Homebrew (%s), but brew wasn't found — upgrade it with: brew upgrade astrona", exe)
 }
