@@ -37,6 +37,7 @@ func TestValidateKindLabs(t *testing.T) {
 		"unknown cluster":               labsCfg(idp, ValidationCheck{Name: "x", Type: "count", Cluster: "cache"}),
 		"no labs":                       labsCfg(nil, ValidationCheck{Name: "x", Type: "count", Cluster: "idp"}),
 		"http":                          labsCfg(idp, ValidationCheck{Name: "x", Type: "http", URL: "http://a", Cluster: "idp"}),
+		"unknown forward cluster":       {Runtime: RuntimeConfig{Kind: &KindConfig{Labs: idp}, PortForwards: []PortForward{{Name: "x", Cluster: "cache"}}}},
 	}
 	for name, c := range cases {
 		if ValidateKindLabs(c) == nil {

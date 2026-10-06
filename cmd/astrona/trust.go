@@ -108,7 +108,11 @@ func labRiskSummary(cfg *config.LabConfig) []string {
 		lines = append(lines, line)
 	}
 	for _, pf := range cfg.Runtime.PortForwards {
-		lines = append(lines, fmt.Sprintf("opens 127.0.0.1:%d → %s", pf.HostPort, pf.Resource))
+		target := pf.Resource
+		if pf.Cluster != "" {
+			target += " in linked cluster '" + pf.Cluster + "'"
+		}
+		lines = append(lines, fmt.Sprintf("opens 127.0.0.1:%d → %s", pf.HostPort, target))
 	}
 	for _, u := range fetched {
 		lines = append(lines, "⚠ fetched when it runs, NOT covered by this approval: "+u)

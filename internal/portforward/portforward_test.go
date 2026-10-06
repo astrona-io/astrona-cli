@@ -421,3 +421,42 @@ func TestPauseKeepsSpecs(t *testing.T) {
 		t.Error("Pause on a lab without forwards should be a no-op")
 	}
 }
+
+func TestLinkedClusterSpec(t *testing.T) {
+	isolateHome(t)
+
+	idp := testSpec()
+	idp.Forward.Name = "login"
+	idp.Forward.HostPort = 18443
+	idp.Forward.Cluster = "idp"
+	idp.Cluster = testLab + "-idp"
+	idp.KubeContext = "kind-" + testLab + "-idp"
+	writeForwardState(t, idp, 0, nil)
+
+	// Points at another lab's cluster, or at a cluster that isn't the
+	// named linked cluster: both must be refused.
+	foreign := idp
+	foreign.Forward.Name = "foreign"
+	foreign.Forward.HostPort = 18444
+	foreign.Cluster = "astro-other"
+	foreign.KubeContext = "kind-astro-other"
+	writeForwardState(t, foreign, 0, nil)
+
+	mismatch := idp
+	mismatch.Forward.Name = "mismatch"
+	mismatch.Forward.HostPort = 18445
+	mismatch.Cluster = testLab + "-db"
+	mismatch.KubeContext = "kind-" + testLab + "-db"
+	writeForwardState(t, mismatch, 0, nil)
+
+	fs, err := List(testLab)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fs) != 1 || fs[0].Spec.Forward.Name != "login" {
+		t.Fatalf("List = %+v — only the valid linked-cluster forward must load", fs)
+	}
+	if got := KubectlArgs(fs[0].Spec); got[1] != "kind-"+testLab+"-idp" {
+		t.Errorf("kubectl context = %s", got[1])
+	}
+}

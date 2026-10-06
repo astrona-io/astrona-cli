@@ -75,6 +75,7 @@ kind only (rejected for `type: qemu`). Each entry becomes a background, auto-res
 | `targetPort` | int | Required. Port on the service/pod, `1`–`65535` |
 | `scheme` | string | `http` \| `https` \| `tcp` (default) — only changes the URL printed after `run` |
 | `description` | string | Optional, printed next to the URL after `run` |
+| `cluster` | string | Forward from a [linked cluster](#runtimekindlabsn) (its name) instead of the lab's own — e.g. an identity provider's login page |
 
 ```yaml
 runtime:

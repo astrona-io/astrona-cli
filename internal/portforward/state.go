@@ -47,7 +47,10 @@ const (
 
 // Spec is everything the supervisor needs to run one forward.
 type Spec struct {
-	Lab         string             `json:"lab"`
+	Lab string `json:"lab"`
+	// Cluster is the kind cluster forwarded from: the lab's own, or one of
+	// its linked clusters (<lab>-<name>, Forward.Cluster).
+	Cluster     string             `json:"cluster,omitempty"`
 	KubeContext string             `json:"kubeContext"`
 	Forward     config.PortForward `json:"forward"`
 	StartedAt   time.Time          `json:"startedAt"`
@@ -177,8 +180,13 @@ func loadSpec(dir string) (Spec, error) {
 	if err := s.Forward.Validate(); err != nil {
 		return s, err
 	}
-	if s.KubeContext != "kind-"+s.Lab {
-		return s, fmt.Errorf("spec kube context '%s' does not match lab '%s'", s.KubeContext, s.Lab)
+	// Only ever the lab's own cluster or one of its linked clusters — a
+	// tampered spec can't point the supervisor at some other context.
+	if want := "kind-" + s.Target(); s.KubeContext != want {
+		return s, fmt.Errorf("spec kube context '%s' does not match '%s'", s.KubeContext, want)
+	}
+	if s.Cluster != "" && s.Cluster != config.KindLabClusterName(s.Lab, s.Forward.Cluster) {
+		return s, fmt.Errorf("spec cluster '%s' isn't linked cluster '%s' of lab '%s'", s.Cluster, s.Forward.Cluster, s.Lab)
 	}
 	return s, nil
 }
@@ -277,4 +285,12 @@ func Count(lab string) int {
 		return 0
 	}
 	return len(fs)
+}
+
+// Target is the kind cluster the forward runs against.
+func (s Spec) Target() string {
+	if s.Cluster != "" {
+		return s.Cluster
+	}
+	return s.Lab
 }

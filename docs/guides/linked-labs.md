@@ -95,6 +95,24 @@ A linked cluster's own `bootstrap`/`testing` scripts run with `KUBECONFIG` point
 
 **Never hard-code a linked cluster's host or name.** Under `astrona test` every cluster has a different name (`astro-test-…`); read it from the env var or the ConfigMap instead.
 
+## Reaching a linked cluster from your machine
+
+A port forward reaches a linked cluster with `cluster:` — the student's browser can open the identity provider's login page, a database client can connect to the db cluster:
+
+```yaml
+runtime:
+  portForwards:
+    - name: idp
+      cluster: idp              # forwarded from the idp cluster
+      resource: svc/idp
+      namespace: auth
+      targetPort: 80
+      hostPort: 18080
+      scheme: http
+```
+
+It belongs to the lab like any forward: started after every cluster is up, paused and resumed by `stop`/`start`, removed by `destroy`, listed by `astrona port-forward list`. Like all forwards it binds `127.0.0.1` only.
+
 ## Grading across clusters
 
 A check grades the lab's own cluster unless it names a linked one with `cluster:`:
