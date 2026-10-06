@@ -988,6 +988,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Older versions side by side">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#build-provenance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build provenance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3016,6 +3033,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Older versions side by side">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#build-provenance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build provenance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3081,7 +3115,36 @@
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>astrona<span class="w"> </span>versions<span class="w"> </span>list<span class="w">               </span><span class="c1"># this astrona + the installed ones</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>astrona<span class="w"> </span>versions<span class="w"> </span>remove<span class="w"> </span><span class="m">0</span>.2.1
 </code></pre></div>
-<p>The newest astrona stays <code>astrona</code>; older ones are <code>astrona-&lt;version&gt;</code>. Downloads are verified against the <strong>SHA-256 digest GitHub records for each release binary</strong> — a mismatch is refused, and nothing unverified is ever made executable. Add <code>~/.astrona/bin</code> to your <code>PATH</code> to run e.g. <code>astrona-0.2.1</code> yourself.</p>
+<p>The newest astrona stays <code>astrona</code>; older ones are <code>astrona-&lt;version&gt;</code>. Downloads are verified against the <strong>SHA-256 digest GitHub records for each release binary</strong> — a mismatch is refused, and nothing unverified is ever made executable.</p>
+<h3 id="build-provenance">Build provenance<a class="headerlink" href="#build-provenance" title="Permanent link">&para;</a></h3>
+<p>Releases after v0.2.2 also carry a signed <strong>build provenance attestation</strong>: proof that the binary was built by astrona-cli's own release workflow from this repository. When the <a href="https://cli.github.com">GitHub CLI</a> (<code>gh</code>, logged in) is installed, <code>astrona versions install</code> and <code>astrona upgrade</code> check it too:</p>
+<table>
+<thead>
+<tr>
+<th>Result</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Verified</td>
+<td>installed — "build provenance verified"</td>
+</tr>
+<tr>
+<td>Release ≤ v0.2.2 (built before attestations)</td>
+<td>installed — "this release predates build provenance attestations"</td>
+</tr>
+<tr>
+<td>Newer release <strong>without</strong> its attestation, or one that doesn't verify</td>
+<td><strong>refused</strong> — the binary may have been replaced</td>
+</tr>
+<tr>
+<td>No <code>gh</code>, or not logged in</td>
+<td>installed on the SHA-256 check alone, with a hint</td>
+</tr>
+</tbody>
+</table>
+<p>To check a download yourself: <code>gh attestation verify astrona-darwin-arm64 --repo astrona-io/astrona-cli</code>, or <code>sha256sum -c SHA256SUMS</code> with the checksum file attached to each release. Add <code>~/.astrona/bin</code> to your <code>PATH</code> to run e.g. <code>astrona-0.2.1</code> yourself.</p>
 <h2 id="what-happens-when-a-lab-needs-another-version">What happens when a lab needs another version<a class="headerlink" href="#what-happens-when-a-lab-needs-another-version" title="Permanent link">&para;</a></h2>
 <p>Commands that run, test, grade or validate a lab (<code>run</code>, <code>test</code>, <code>submit</code>, <code>reset</code>, <code>validate</code>, <code>status</code>, …) check its <code>astronaVersion</code>. If this astrona isn't allowed, it hands the whole command over to the <strong>newest installed <code>astrona-&lt;version&gt;</code> that is</strong> — you just keep typing <code>astrona</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$ astrona test ./labs/old-lab
