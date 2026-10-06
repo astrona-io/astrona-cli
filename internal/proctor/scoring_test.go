@@ -134,3 +134,26 @@ func TestValidateScoring(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestQuietShortensPodReadyAndSilencesScripts(t *testing.T) {
+	bin := t.TempDir()
+	log := filepath.Join(bin, "calls")
+	os.WriteFile(filepath.Join(bin, "kubectl"), []byte("#!/bin/sh\necho \"$*\" >> "+log+"\n"), 0700)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	env := &runtime.LabEnvironment{KubeContext: "kind-x", Executor: executor.LocalExecutor{}}
+	checks := []config.ValidationCheck{{Name: "pods", Type: "podReady", Resource: "pod/x"}}
+
+	p := NewProctor(t.TempDir(), env)
+	p.runChecks(checks)
+	p.Quiet()
+	p.runChecks(checks)
+
+	calls, _ := os.ReadFile(log)
+	if !strings.Contains(string(calls), "--timeout=60s") || !strings.Contains(string(calls), "--timeout=2s") {
+		t.Fatalf("podReady timeouts = %s", calls)
+	}
+	if p.scriptOut != io.Discard {
+		t.Error("Quiet should discard script output")
+	}
+}

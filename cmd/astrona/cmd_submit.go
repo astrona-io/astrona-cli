@@ -25,14 +25,16 @@ import (
 // command's persistent flags.
 func newSubmitCmd(flags *rootFlags) *cobra.Command {
 	var junitPath string
-	var noHints, history bool
+	var noHints, history, watch bool
+	var watchInterval time.Duration
 
 	cmd := &cobra.Command{
 		Use:   "submit",
 		Short: "Submit the lab to the Proctor for grading",
 		Long: "Submit the running lab to the Proctor for grading: every validation check and script " +
 			"runs, a failed one shows its hint (if the lab author wrote one), and you get a score. " +
-			"Every attempt is recorded — `astrona submit --history` lists them.\n\n" +
+			"Every attempt is recorded — `astrona submit --history` lists them. `--watch` re-grades " +
+			"continuously while you work, without recording attempts.\n\n" +
 			"Passing means every check passes, or — when the lab sets validation.passPercent — " +
 			"reaching that score.",
 		SilenceUsage: true,
@@ -83,6 +85,10 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			if noHints || cfg.Exam.HideHints {
 				pr.HideHints()
 			}
+			if watch {
+				rep.Close()
+				return watchGrading(pr, cfg, clusterName, watchInterval, examState)
+			}
 			previous, _ := proctor.LoadAttempts(clusterName)
 			results, pass, err := pr.Grade(cfg)
 			if err != nil {
@@ -128,6 +134,8 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&junitPath, "junit-xml", "", "Write a JUnit XML test report to this path, for CI systems to parse")
 	cmd.Flags().BoolVar(&noHints, "no-hints", false, "Don't show hints for failed checks (exam conditions)")
 	cmd.Flags().BoolVar(&history, "history", false, "List previous attempts for this lab instead of grading")
+	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Re-grade continuously while you work (Ctrl-C to stop; not recorded as attempts)")
+	cmd.Flags().DurationVar(&watchInterval, "interval", 5*time.Second, "How often --watch re-grades (minimum 2s)")
 
 	return cmd
 }
