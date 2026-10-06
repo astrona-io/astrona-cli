@@ -93,6 +93,9 @@ type Options struct {
 	// Screen is where the spinner and status lines are written. Defaults
 	// to os.Stderr when nil.
 	Screen io.Writer
+	// Raw is where verbose mode streams subprocess output. Defaults to
+	// os.Stdout when nil; os.Stderr keeps stdout free for -o json.
+	Raw io.Writer
 	// LogPath overrides the run log file location. Defaults to
 	// ~/.astrona/logs/<cmdName>-<labName>-<UTC timestamp>.log when empty.
 	LogPath string
@@ -113,6 +116,10 @@ func New(cmdName, labName string, opts Options) (*Reporter, error) {
 	if screen == nil {
 		screen = os.Stderr
 	}
+	raw := opts.Raw
+	if raw == nil {
+		raw = os.Stdout
+	}
 
 	logPath := opts.LogPath
 	if logPath == "" {
@@ -122,11 +129,12 @@ func New(cmdName, labName string, opts Options) (*Reporter, error) {
 		}
 		stamp := time.Now().UTC().Format("20060102T150405Z")
 		logPath = filepath.Join(dir, fmt.Sprintf("%s-%s-%s.log", sanitize(cmdName), sanitize(labName), stamp))
-	} else if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+	} else if err := os.MkdirAll(filepath.Dir(logPath), 0o700); err != nil {
 		return nil, fmt.Errorf("create log directory: %w", err)
 	}
 
-	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	// Owner-only: the log holds full script output and the command line.
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return nil, fmt.Errorf("open log file %s: %w", logPath, err)
 	}
@@ -137,7 +145,7 @@ func New(cmdName, labName string, opts Options) (*Reporter, error) {
 		verbose: opts.Verbose,
 		color:   screenIsColorTTY(screen),
 		screen:  screen,
-		raw:     os.Stdout,
+		raw:     raw,
 		logW:    f,
 		logC:    f,
 		logPath: logPath,

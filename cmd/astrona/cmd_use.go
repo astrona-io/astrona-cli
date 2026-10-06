@@ -149,9 +149,15 @@ func newUseCmd(flags *rootFlags) *cobra.Command {
   astrona use --clear`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkOutput(output); err != nil {
+				return err
+			}
 			if forget {
 				if err := saveCurrentLab(nil); err != nil {
 					return err
+				}
+				if output == "json" {
+					return printJSON(nil) // the current lab now: none
 				}
 				fmt.Println("No current lab — commands use -c/--git or the lab in the current directory.")
 				return nil
@@ -159,9 +165,6 @@ func newUseCmd(flags *rootFlags) *cobra.Command {
 			if len(args) == 0 && !cmd.Flags().Changed("git") && !cmd.Flags().Changed("config") {
 				c, err := loadCurrentLab()
 				if err != nil {
-					return err
-				}
-				if err := checkOutput(output); err != nil {
 					return err
 				}
 				if output == "json" {
@@ -204,6 +207,9 @@ func newUseCmd(flags *rootFlags) *cobra.Command {
 			}
 			if err := saveCurrentLab(c); err != nil {
 				return err
+			}
+			if output == "json" {
+				return printJSON(c)
 			}
 			fmt.Printf("Now using lab %s (%s).\nNext: astrona run\n", c.Name, describeCurrentLab(c))
 			return nil

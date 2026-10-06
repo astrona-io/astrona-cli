@@ -137,3 +137,31 @@ func TestCloseResolvesADanglingStep(t *testing.T) {
 		t.Errorf("Close must resolve a dangling step as failed:\n%s", readLog(t, r))
 	}
 }
+
+// Run logs hold full script output and os.Args: the default log directory
+// and the file itself must be owner-only, and a 0755 directory left by an
+// older release gets tightened.
+func TestRunLogIsOwnerOnly(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	dir := filepath.Join(home, ".astrona", "logs")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := New("run", "demo", Options{Screen: &bytes.Buffer{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+
+	for path, want := range map[string]os.FileMode{dir: 0o700, r.LogPath(): 0o600} {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != want {
+			t.Errorf("%s: mode %o, want %o", path, got, want)
+		}
+	}
+}

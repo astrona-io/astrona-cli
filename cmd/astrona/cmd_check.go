@@ -242,7 +242,7 @@ func checkAsJSON(cmd *cobra.Command, flags *rootFlags) error {
 	cfg, baseDir, cleanup, err := loadLabForCheck(flags, explicit)
 	defer cleanup()
 	if err != nil {
-		return err
+		return rep.loadFailed("Lab", err)
 	}
 	if cfg != nil {
 		rep.section("Lab "+config.NormalizeClusterName(cfg.Metadata.Name), checkLab(cfg, baseDir, engine))

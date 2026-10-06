@@ -205,7 +205,7 @@ func offerInstall(c version.Constraint, cur, want version.V, flags *rootFlags) (
 			return installedVersion{}, fmt.Errorf("%s\ninstall it: astrona versions install %s (or pass --install-version to install it without asking)", needs, want)
 		}
 		q := fmt.Sprintf("This lab needs astrona %s (this is %s). Download and install astrona %s, verified against GitHub's SHA-256 digest?", c, cur, want)
-		if !confirmYes(promptIn, os.Stderr, q) {
+		if !confirmYes(promptIn, promptOut, q) {
 			return installedVersion{}, fmt.Errorf("%s\nnot installed — run `astrona versions install %s` when you want it", needs, want)
 		}
 	}

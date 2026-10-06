@@ -221,13 +221,13 @@ func newContentBuildCmd() *cobra.Command {
 
 					srcPath := repoDir
 					if item.Path != "" && item.Path != "." {
-						srcPath, err = config.JoinWithinBaseDir(repoDir, item.Path)
+						srcPath, err = config.JoinStrictlyWithinBaseDir(repoDir, item.Path)
 						if err != nil {
 							return fmt.Errorf("stage %s: content ref %s: %w", stage.ID, item.Ref, err)
 						}
 					}
 
-					destPath, err := config.JoinWithinBaseDir(absOutput, filepath.Join(stage.ID, item.Ref))
+					destPath, err := config.JoinStrictlyWithinBaseDir(absOutput, filepath.Join(stage.ID, item.Ref))
 					if err != nil {
 						return fmt.Errorf("stage %s: content ref %s: %w", stage.ID, item.Ref, err)
 					}

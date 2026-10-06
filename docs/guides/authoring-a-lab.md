@@ -105,6 +105,13 @@ spec:
 
 Each `stages[].content[]` entry references an external content repository (typically an ATS lab): `repository` is the git URL, `version` the branch/tag to check out, and `path` the subdirectory within it.
 
+Because a built bundle lays content out as `<output>/<stage-id>/<ref>`, and `path.yaml` often comes from a cloned repo, `validate` and `build` reject, before fetching anything:
+
+- a stage `id` or content `ref` that isn't a single name of letters, digits, `.`, `_` and `-` (no `/`, no `..`, not empty);
+- an absolute `path`, or one that escapes the content repository (`../…`).
+
+A `repository` or `version` starting with `-` is also rejected before git runs.
+
 ## Building Content (For Teachers & Authors)
 
 Once a Training Path validates cleanly, materialize it into a self-contained bundle — every referenced ATS repo resolved and copied locally, ready to ship or serve:
