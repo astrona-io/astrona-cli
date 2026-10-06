@@ -22,6 +22,18 @@ brew install astrona-io/tap/astrona
 
 The [tap](https://github.com/astrona-io/homebrew-tap) is updated by every release, pinned to the same binaries and SHA-256 values as the GitHub release. Upgrade with `brew upgrade astrona`, or `astrona upgrade` — on a Homebrew install it runs `brew upgrade astrona` for you instead of downloading the binary itself.
 
+What the Homebrew install gives you on top of the binary:
+
+- **`kind` and `kubectl`** (`kubernetes-cli`) are installed as dependencies. Docker or Podman you install yourself — e.g. `brew install podman && podman machine init && podman machine start`, or Docker Desktop.
+- **Shell completion** for bash, zsh and fish is set up — no `astrona completion` step (see [Shell completion](#shell-completion)).
+- **Man pages**: `man astrona`, `man astrona-run`, … one per command.
+- **No Gatekeeper prompt** on macOS: a binary downloaded in a browser gets the quarantine flag and macOS may refuse to run it; one installed by Homebrew doesn't.
+
+Two things to know:
+
+- An older `astrona` earlier on your `PATH` (e.g. `~/.local/bin/astrona` from the quick install) hides the Homebrew one — `which -a astrona` shows the order; remove the old one.
+- `brew uninstall astrona` removes the program, not `~/.astrona` (lab state, results, approvals, installed versions). Destroy running labs first (`astrona destroy <lab>`); delete `~/.astrona` yourself if you want it gone.
+
 ## Quick install (macOS & Linux)
 
 ```sh
@@ -106,6 +118,8 @@ Error: 1 problem(s) found — the ✗ lines above say how to fix each
 It checks this machine (tools, container engine, inotify), the lab (its config, whether this astrona may run it, memory and free ports when it isn't running) and the running lab (nodes, linked clusters, port forwards, unhealthy pods, exam clock). It only reads — nothing is started or changed — and exits non-zero on any ✗ — including a lab you named (argument, `-c`, `--file`, `--git`, `astrona use` — `astrona doctor .` counts) that isn't there or whose config doesn't parse; only when no lab is named and the current directory has none does it check the machine alone. `--bundle` also writes the full [diagnostics bundle](../guides/ci-integration.md#diagnostics-on-failure). Unhealthy pods are ⚠, not ✗: in a lab they may be the exercise.
 
 ## Shell completion
+
+Installed with Homebrew? Completion for bash, zsh and fish is already set up — skip the steps below (Homebrew's shell setup must be loaded, see `brew info astrona`).
 
 `astrona completion <shell>` prints a completion script for bash, zsh, fish or PowerShell. Besides commands and flags, it completes **lab names** from what's actually on your machine — `astrona destroy <TAB>`, `stop`, `start`, `shell`, `kubeconfig`, `diagnose`, `ssh`, `port-forward list|stop` — filtered to what makes sense (`start` offers stopped labs, `ssh` qemu VMs), each with its runtime and status. Type part of the name without `astro-` and the short form is completed.
 

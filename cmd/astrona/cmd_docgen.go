@@ -10,13 +10,15 @@ import (
 	"github.com/spf13/cobra/doc"
 )
 
-// newDocgenCmd generates a markdown page per command into --output, using
+// newDocgenCmd generates a markdown page per command into --output (or,
+// with --man, a man page per command — the Homebrew formula installs those), using
 // Cobra's own doc generator against the exact command tree newRootCmd builds
 // — so docs/reference/cli/ can never drift from the real Use/Short/Long text
 // and flags. Hidden: it's a docs-build-time tool for `just build-docs`, not
 // something a lab operator ever needs to run.
 func newDocgenCmd(flags *rootFlags) *cobra.Command {
 	var outputDir string
+	var man bool
 
 	cmd := &cobra.Command{
 		Use:    "docgen",
@@ -29,6 +31,14 @@ func newDocgenCmd(flags *rootFlags) *cobra.Command {
 			root := newRootCmd(flags)
 			if err := os.MkdirAll(outputDir, 0o755); err != nil {
 				return fmt.Errorf("create CLI reference output dir %s: %w", outputDir, err)
+			}
+			if man {
+				header := &doc.GenManHeader{Title: "ASTRONA", Section: "1", Source: "astrona " + Version, Manual: "Astrona CLI"}
+				if err := doc.GenManTree(root, header, outputDir); err != nil {
+					return fmt.Errorf("generate man pages: %w", err)
+				}
+				fmt.Printf("Man pages written to %s\n", outputDir)
+				return nil
 			}
 			if err := doc.GenMarkdownTree(root, outputDir); err != nil {
 				return fmt.Errorf("generate CLI reference markdown: %w", err)
@@ -45,6 +55,7 @@ func newDocgenCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&outputDir, "output", "docs/reference/cli", "Output directory for generated CLI reference markdown")
+	cmd.Flags().BoolVar(&man, "man", false, "Write man pages (section 1) instead of markdown")
 
 	return cmd
 }

@@ -41,6 +41,16 @@ class Astrona < Formula
   homepage "https://github.com/astrona-io/astrona-cli"
   license "Apache-2.0"
 
+  livecheck do
+    url :stable
+    strategy :github_latest
+  end
+
+  # Required for every kind lab; Docker or Podman (also required) is left to
+  # the user — see caveats. qemu, oras and git are only needed by some labs.
+  depends_on "kind"
+  depends_on "kubernetes-cli"
+
   on_macos do
     on_arm do
       url "${base}/astrona-darwin-arm64"
@@ -64,19 +74,32 @@ class Astrona < Formula
   end
 
   def install
-    bin.install Dir["astrona-*"].first => "astrona"
+    # A bare download isn't executable yet, and astrona runs below to
+    # generate its completions and man pages.
+    binary = Dir["astrona-*"].first
+    chmod 0755, binary
+    bin.install binary => "astrona"
+    generate_completions_from_executable(bin/"astrona", "completion")
+    system bin/"astrona", "docgen", "--man", "--output", buildpath/"man"
+    man1.install Dir[buildpath/"man/*.1"]
   end
 
   def caveats
     <<~EOS
-      astrona runs labs on kind with Docker or Podman, and uses kubectl;
-      \`astrona check\` lists what's missing and how to install it.
+      kind needs a container engine — Docker or Podman:
+        brew install podman && podman machine init && podman machine start
+      or Docker Desktop. \`astrona check\` lists anything else that's missing.
+
       Upgrade with \`brew upgrade astrona\` (\`astrona upgrade\` runs it for you).
+      \`brew uninstall astrona\` leaves ~/.astrona (labs, results, approvals);
+      destroy running labs first: astrona destroy <lab>
     EOS
   end
 
   test do
     assert_match version.to_s, shell_output("#{bin}/astrona --version")
+    assert_match "astrona-run", shell_output("man -P cat #{man1}/astrona-run.1")
+    assert_match "__start_astrona", (bash_completion/"astrona").read
   end
 end
 RUBY
