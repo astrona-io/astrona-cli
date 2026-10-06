@@ -76,6 +76,7 @@ astrona reset -c ./labs/my-lab --yes    # no prompt (required in scripts/CI)
 
 - The config is validated **before** anything is destroyed — a broken config aborts with "nothing was reset" and leaves the existing lab as it was.
 - `teardown.keepCluster` is ignored: reset always recreates.
+- `--soft` keeps the cluster(s) and only puts the lab back: it deletes every namespace created after the platform (kube-system, addons, …) was set up, clears what isn't astrona's from `default`, re-runs the bootstrap and restarts port forwards — about 5 seconds instead of 40. Cluster-wide objects a student created (CRDs, ClusterRoles, …) aren't reverted; use a full reset for those. A lab started by astrona before v0.3 has no baseline yet and needs one full reset first.
 - `--cluster <name>` rebuilds just one [linked cluster](../guides/linked-labs.md) of a running lab, leaving the lab and its other clusters as they are.
 - In a terminal it asks for confirmation; without a terminal it refuses unless `--yes` is passed.
 

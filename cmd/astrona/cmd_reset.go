@@ -53,7 +53,7 @@ func confirmYes(in io.Reader, out io.Writer, question string) bool {
 }
 
 func newResetCmd(flags *rootFlags) *cobra.Command {
-	var yes bool
+	var yes, soft bool
 	var clusterFlag string
 
 	cmd := &cobra.Command{
@@ -69,10 +69,16 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			"--cluster <name> rebuilds only that linked cluster (runtime.kind.clusters) of a running lab: " +
 			"its teardown scripts, destroy, then create and bootstrap it again (with the addresses of " +
 			"the clusters it dependsOn). The lab and its other clusters are left alone; port forwards " +
-			"into the rebuilt cluster are restarted.",
+			"into the rebuilt cluster are restarted.\n\n" +
+			"--soft keeps the clusters: it deletes every namespace created after the platform " +
+			"(kube-system, addons, …) was set up, clears what isn't astrona's from the default " +
+			"namespace, and runs the bootstrap again — seconds instead of minutes. Cluster-wide " +
+			"objects (CRDs, ClusterRoles, …) aren't reverted; use a full reset for those. With " +
+			"--cluster, only that linked cluster.",
 		Example: `  astrona reset -c ./labs/my-lab
   astrona reset -c ./labs/my-lab --yes
-  astrona reset -c ./labs/my-lab --cluster idp`,
+  astrona reset -c ./labs/my-lab --cluster idp
+  astrona reset -c ./labs/my-lab --soft`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			useLabArg(args, flags) // a lab given as the argument wins over `astrona use`
@@ -94,6 +100,37 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
+			if soft {
+				what := clusterName
+				if clusterFlag != "" {
+					what = "linked cluster " + clusterFlag + " of " + clusterName
+				}
+				if !yes {
+					if !isatty.IsTerminal(os.Stdin.Fd()) {
+						return fmt.Errorf("refusing to reset '%s' without confirmation — pass --yes when not running in a terminal", clusterName)
+					}
+					if !confirmYes(os.Stdin, os.Stdout, fmt.Sprintf("Soft-reset %s? Its lab namespaces and what's in default are deleted, then its bootstrap runs again.", what)) {
+						fmt.Println("Reset cancelled — nothing was changed.")
+						return nil
+					}
+				}
+				rep, err := ui.NewReporter("reset", cfg.Metadata.Name, flags.verbose)
+				if err != nil {
+					return err
+				}
+				defer rep.Close()
+				if err := prepareSharedCA(cfg, clusterName); err != nil { // the lab's existing CA
+					return err
+				}
+				forwards, err := softResetLab(cfg, baseDir, clusterName, clusterFlag, rep)
+				if err != nil {
+					return err
+				}
+				rep.Close()
+				fmt.Printf("\n%s is back to its just-started state (clusters kept, bootstrap re-run).\n", what)
+				printPortForwardHints(os.Stdout, forwards)
+				return nil
+			}
 			if clusterFlag != "" {
 				return resetLinkedCluster(cfg, baseDir, clusterName, clusterFlag, yes, flags)
 			}
@@ -133,6 +170,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Don't ask for confirmation")
 	addParallelFlag(cmd, flags)
 	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "Rebuild only this linked cluster (its runtime.kind.clusters name)")
+	cmd.Flags().BoolVar(&soft, "soft", false, "Keep the cluster(s): delete the lab's namespaces and re-run its bootstrap (seconds instead of minutes)")
 	return cmd
 }
 
