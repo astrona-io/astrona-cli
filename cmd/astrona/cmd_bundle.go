@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	goruntime "runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -29,10 +30,12 @@ import (
 const bundleImagesSidecar = ".astrona-bundle-images.json"
 
 // applyBundleImages adds a loaded bundle's addon images to the lab's
-// preloadImages, so `run`/`test`/`reset` load them into the nodes and
-// addons install without a registry. No-op for every other lab.
+// preloadImages — and to those of each linked cluster that installs
+// addons — so `run`/`test`/`reset` load them into the nodes and addons
+// install without a registry. No-op for every other lab.
 func applyBundleImages(cfg *config.LabConfig, baseDir string) {
-	images := labPreloadImages(cfg, baseDir)
+	extra := bundleAddonImages(baseDir)
+	images := mergeImages(labOwnPreloadImages(cfg), extra)
 	if cfg.Runtime.Kind == nil {
 		if len(images) == 0 {
 			return
@@ -40,32 +43,49 @@ func applyBundleImages(cfg *config.LabConfig, baseDir string) {
 		cfg.Runtime.Kind = &config.KindConfig{}
 	}
 	cfg.Runtime.Kind.PreloadImages = images
+	for i, l := range cfg.Runtime.Kind.Labs {
+		if !l.Addons.IsZero() {
+			cfg.Runtime.Kind.Labs[i].PreloadImages = mergeImages(l.PreloadImages, extra)
+		}
+	}
 }
 
-// labPreloadImages is what to load into the nodes for a lab: its
+// labPreloadImages is what to load into the lab's own nodes: its
 // preloadImages plus, for a lab loaded from a bundle, the addon images.
 func labPreloadImages(cfg *config.LabConfig, baseDir string) []string {
-	var images []string
-	if cfg.Runtime.Kind != nil {
-		images = append(images, cfg.Runtime.Kind.PreloadImages...)
+	return mergeImages(labOwnPreloadImages(cfg), bundleAddonImages(baseDir))
+}
+
+func labOwnPreloadImages(cfg *config.LabConfig) []string {
+	if cfg.Runtime.Kind == nil {
+		return nil
 	}
+	return cfg.Runtime.Kind.PreloadImages
+}
+
+// bundleAddonImages reads a loaded bundle's addon image list (none for any
+// other lab).
+func bundleAddonImages(baseDir string) []string {
 	data, err := os.ReadFile(filepath.Join(baseDir, bundleImagesSidecar))
 	if err != nil {
-		return images
+		return nil
 	}
 	var extra []string
-	if json.Unmarshal(data, &extra) == nil {
-		seen := map[string]bool{}
-		for _, im := range images {
-			seen[im] = true
-		}
-		for _, im := range extra {
-			if !seen[im] {
-				images = append(images, im)
-			}
+	if json.Unmarshal(data, &extra) != nil {
+		return nil
+	}
+	return extra
+}
+
+// mergeImages is images followed by every extra one not already in it.
+func mergeImages(images, extra []string) []string {
+	out := append([]string(nil), images...)
+	for _, im := range extra {
+		if !slices.Contains(out, im) {
+			out = append(out, im)
 		}
 	}
-	return images
+	return out
 }
 
 // bundleRefusal explains why a lab can't be bundled, or "" if it can.
@@ -81,8 +101,15 @@ func bundleRefusal(cfg *config.LabConfig, nodeImage string) string {
 	if k := cfg.Runtime.Kind; k != nil && k.Addons.GatewayAPI != "" {
 		return addons.ErrNotBundleable.Error()
 	}
-	if len(cfg.KindLabs()) > 0 {
-		return "labs with linked clusters (runtime.kind.labs) can't be bundled yet"
+	for _, l := range cfg.KindLabs() {
+		if l.Addons.GatewayAPI != "" {
+			return fmt.Sprintf("linked cluster '%s': %s", l.Name, addons.ErrNotBundleable)
+		}
+		// Offline, an unpinned cluster would boot kind's default image —
+		// which may not be the one in the bundle.
+		if l.Cluster().NodeImage() == "" {
+			return fmt.Sprintf("linked cluster '%s' doesn't pin its node image — set its version (or image)", l.Name)
+		}
 	}
 	if nodeImage == "" {
 		return "the node image isn't pinned — set runtime.kind.version (or image) in the lab, or pass --node-image (kind's built-in default can't be determined reliably)"
@@ -150,34 +177,60 @@ func newBundleCreateCmd(flags *rootFlags) *cobra.Command {
 			}
 			var entries []bundle.Entry
 
-			var addonManifests []addons.BundledManifest
+			// The lab's own cluster and every linked cluster: node images,
+			// preload images, addon manifests — each once.
+			type want struct{ ref, purpose string }
+			wanted := []want{}
+			seen := map[string]bool{}
+			add := func(ref, purpose string) {
+				if !seen[ref] {
+					seen[ref] = true
+					wanted = append(wanted, want{ref, purpose})
+				}
+			}
+			add(nodeImage, "node")
+			for _, im := range labPreloadImages(cfg, baseDir) {
+				add(im, "preload")
+			}
+			addonSets := []config.KindAddons{}
 			if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {
+				addonSets = append(addonSets, k.Addons)
+			}
+			for _, l := range cfg.KindLabs() {
+				add(l.Cluster().NodeImage(), "node")
+				for _, im := range l.PreloadImages {
+					add(im, "preload")
+				}
+				if !l.Addons.IsZero() {
+					addonSets = append(addonSets, l.Addons)
+				}
+			}
+
+			var addonManifests []addons.BundledManifest
+			if len(addonSets) > 0 {
 				t := rep.Step("Collect addon manifests")
-				addonManifests, err = addons.ForBundle(k.Addons, t.Output())
-				if err != nil {
-					return t.Fail(err)
+				have := map[string]bool{}
+				for _, set := range addonSets {
+					ms, err := addons.ForBundle(set, t.Output())
+					if err != nil {
+						return t.Fail(err)
+					}
+					for _, am := range ms {
+						if !have[am.SHA256] {
+							have[am.SHA256] = true
+							addonManifests = append(addonManifests, am)
+						}
+					}
 				}
 				t.Done()
 			}
 
-			type want struct{ ref, purpose string }
-			wanted := []want{{nodeImage, "node"}}
-			seen := map[string]bool{nodeImage: true}
-			for _, im := range labPreloadImages(cfg, baseDir) {
-				if !seen[im] {
-					seen[im] = true
-					wanted = append(wanted, want{im, "preload"})
-				}
-			}
 			for _, am := range addonManifests {
 				name := path.Join("addons", am.SHA256+".yaml")
 				m.AddonManifests = append(m.AddonManifests, bundle.AddonManifest{Addon: am.Addon, File: name, SHA256: am.SHA256})
 				entries = append(entries, bundle.Entry{Name: name, Path: am.Path})
 				for _, im := range am.Images {
-					if !seen[im] {
-						seen[im] = true
-						wanted = append(wanted, want{im, "addon"})
-					}
+					add(im, "addon")
 				}
 			}
 
