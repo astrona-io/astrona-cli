@@ -35,6 +35,8 @@ type rootFlags struct {
 	// labArg is the lab given as a command's argument (useLabArg), so a
 	// hand-over to another astrona version can spell it as -c instead.
 	labArg string
+	// fromCurrent: the lab came from `astrona use` (applyCurrentLab).
+	fromCurrent bool
 	// installVersion: --install-version, install the astrona release a lab
 	// requires without asking.
 	installVersion bool
@@ -129,6 +131,8 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 		Version: Version,
 		// main prints errors itself, in color (ui.PrintError).
 		SilenceErrors: true,
+		// Plain `astrona`: which lab, its state, what to do next.
+		Run: homeRun(flags),
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// The lab picked with `astrona use`, unless this command
 			// names one or runs inside a lab directory.

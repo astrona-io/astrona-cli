@@ -27,7 +27,7 @@ func TestPrintLabStatus(t *testing.T) {
 		"astrona shell astro-x",
 		"30m0s of 2h0m0s used (1h30m0s left)",
 		"3/4 points (75%) FAIL · 5m0s ago · attempt #1",
-		"Next: astrona submit to grade your work",
+		"Next: astrona submit --watch for live feedback while you fix it — or astrona reset --soft to start over",
 	} {
 		if !strings.Contains(buf.String(), want) {
 			t.Errorf("missing %q:\n%s", want, buf.String())
