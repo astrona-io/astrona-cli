@@ -55,7 +55,14 @@ astrona check
 
 This prints a ✓/⚠/✗ per item and exits non-zero only on a ✗. It checks three things:
 
-**Dependencies.** A missing *required* tool is a ✗; optional ones (qemu toolchain, `git`) only warn, since they're only needed for specific runtimes or flags.
+**Dependencies.** A missing *required* tool is a ✗; optional ones (qemu toolchain, `git`) only warn, since they're only needed for specific runtimes or flags. Each missing tool says how to install it — with Homebrew installed that's the `brew install` command, and the end of the list gives one line for everything missing:
+
+```text
+Install what's required: brew install kind podman kubernetes-cli
+Optional tools, all at once: brew install git qemu oras cdrtools
+```
+
+`astrona doctor` prints the same line for missing required tools.
 
 **Container engine.** Whether Docker/Podman is actually running (a stopped `podman machine` or Docker daemon is the most common cause of confusing kind errors), and whether it has enough resources — for Docker Desktop and `podman machine` that's the VM's memory/CPUs, not your Mac's:
 
