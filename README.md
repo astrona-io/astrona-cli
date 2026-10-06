@@ -79,7 +79,15 @@ See `examples/k8s-basics-01/` for a complete working example.
 
 ## Installation
 
-You can download and install pre-compiled binaries of `astrona-cli` directly from GitHub Releases.
+### Homebrew (macOS & Linux)
+
+```sh
+brew install astrona-io/tap/astrona
+```
+
+Upgrade with `brew upgrade astrona`.
+
+Or download a pre-compiled binary of `astrona-cli` directly from GitHub Releases:
 
 ### Quick Install (macOS & Linux)
 

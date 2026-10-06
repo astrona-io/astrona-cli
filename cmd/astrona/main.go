@@ -91,8 +91,8 @@ func checkLatestVersion(verbose bool) {
 	if st.dueForNotice(Version, now) {
 		// stderr, not stdout: commands like `astrona kubeconfig` are meant
 		// for $(...) capture, and the notice must not end up in it.
-		ui.Infof("astrona %s is available (you have %s) — `astrona upgrade` · what's new: https://github.com/%s/releases/tag/%s\n",
-			st.Latest, Version, releaseRepo, st.Latest)
+		ui.Infof("astrona %s is available (you have %s) — `%s` · what's new: https://github.com/%s/releases/tag/%s\n",
+			st.Latest, Version, upgradeCommand(), releaseRepo, st.Latest)
 		st.NotifiedAt = now
 		saveUpdateState(path, st)
 	}
