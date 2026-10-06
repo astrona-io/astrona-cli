@@ -28,7 +28,7 @@ The newest astrona stays `astrona`; older ones are `astrona-<version>`. Download
 
 ## What happens when a lab needs another version
 
-Every command that loads a lab checks its `astronaVersion`. If this astrona isn't allowed, it hands the whole command over to the **newest installed `astrona-<version>` that is** — you just keep typing `astrona`:
+Commands that run, test, grade or validate a lab (`run`, `test`, `submit`, `reset`, `validate`, `status`, …) check its `astronaVersion`. If this astrona isn't allowed, it hands the whole command over to the **newest installed `astrona-<version>` that is** — you just keep typing `astrona`:
 
 ```
 $ astrona test ./labs/old-lab
@@ -38,7 +38,15 @@ PROCTOR: PASS
 ```
 
 - The lab is passed on as `-c`/`-f`/`--git`/`--git-ref`, since an older version may not know [`astrona use`](../reference/cli/astrona_use.md) or a lab given as an argument. Flags the older version doesn't have make it fail with its own error.
-- None installed? The error names the newest release that fits: `install it: astrona versions install 0.2.1`.
+- **None installed?** astrona never downloads anything just because a lab config says so — a config may come from someone else's repository. Instead:
+    - **At a terminal it asks first:**
+      ```
+      This lab needs astrona <=0.2.1 (this is 0.2.2). Download and install astrona 0.2.1,
+      verified against GitHub's SHA-256 digest? [y/N]
+      ```
+      Yes installs the newest release that fits and continues the same command with it; no (the default) stops, and tells you the `astrona versions install …` command for later.
+    - **Without a terminal** (CI, scripts) it stops with that command — or pass **`--install-version`** to install it without asking.
+- `astrona docs` and `astrona destroy` don't check: reading a lab's docs doesn't depend on the version, and cleaning up must always work.
 - `astrona-*` binaries in `~/.astrona/bin` are preferred; ones on your `PATH` count too.
 - A developer build (no release number) runs every lab and doesn't hand over.
 

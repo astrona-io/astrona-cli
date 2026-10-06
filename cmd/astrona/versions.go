@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,6 +14,7 @@ import (
 	"astrona/internal/ui"
 	"astrona/internal/version"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
 
@@ -110,22 +112,89 @@ func ensureLabVersion(constraint string, flags *rootFlags) error {
 
 	target, ok := newestAllowed(c, installedVersions())
 	if !ok {
-		hint := "`astrona versions available` lists releases"
-		if tags, err := releaseTags(); err == nil {
-			for _, t := range tags {
-				if v, err := version.Parse(t); err == nil && c.Allows(v) {
-					hint = "install it: astrona versions install " + v.String()
-					break
-				}
-			}
+		target, err = offerInstall(c, cur, flags)
+		if err != nil {
+			return err
 		}
-		return fmt.Errorf("this lab needs astrona %s, and this is %s\n%s", c, cur, hint)
 	}
 
 	ui.Infof("this lab needs astrona %s — running it with astrona %s (%s)", c, target.v, target.path)
 	argv := append([]string{target.path}, handoverArgs(os.Args[1:], flags)...)
 	env := append(os.Environ(), dispatchedEnv+"="+cur.String())
-	return syscall.Exec(target.path, argv, env)
+	return execHandover(target.path, argv, env)
+}
+
+// execHandover replaces this process with another astrona (a variable so
+// tests don't).
+var execHandover = syscall.Exec
+
+// promptIn is where the install question's answer is read from.
+var promptIn io.Reader = os.Stdin
+
+// offerInstall installs the newest release c allows, when none is
+// installed: without asking with --install-version, after a yes at the
+// terminal, and otherwise not at all — a lab config, which may come from
+// someone else's repository, never makes astrona download and run a
+// program on its own.
+func offerInstall(c version.Constraint, cur version.V, flags *rootFlags) (installedVersion, error) {
+	want, found := newestRelease(c)
+	if !found {
+		return installedVersion{}, fmt.Errorf("this lab needs astrona %s, and this is %s — no published release fits (`astrona versions available`)", c, cur)
+	}
+	needs := fmt.Sprintf("this lab needs astrona %s, and this is %s", c, cur)
+	if !flags.installVersion {
+		if !stdinIsTerminal() {
+			return installedVersion{}, fmt.Errorf("%s\ninstall it: astrona versions install %s (or pass --install-version to install it without asking)", needs, want)
+		}
+		q := fmt.Sprintf("This lab needs astrona %s (this is %s). Download and install astrona %s, verified against GitHub's SHA-256 digest?", c, cur, want)
+		if !confirmYes(promptIn, os.Stderr, q) {
+			return installedVersion{}, fmt.Errorf("%s\nnot installed — run `astrona versions install %s` when you want it", needs, want)
+		}
+	}
+	path, err := installVersion(want)
+	if err != nil {
+		return installedVersion{}, err
+	}
+	return installedVersion{v: want, path: path}, nil
+}
+
+// newestRelease is the newest published release c allows.
+func newestRelease(c version.Constraint) (version.V, bool) {
+	tags, err := releaseTags()
+	if err != nil {
+		return version.V{}, false
+	}
+	var best version.V
+	found := false
+	for _, t := range tags {
+		if v, err := version.Parse(t); err == nil && c.Allows(v) && (!found || v.Compare(best) > 0) {
+			best, found = v, true
+		}
+	}
+	return best, found
+}
+
+// stdinIsTerminal is a variable so tests can answer for a terminal.
+var stdinIsTerminal = func() bool { return isatty.IsTerminal(os.Stdin.Fd()) }
+
+// installVersion installs release v as ~/.astrona/bin/astrona-<v>
+// (verified download) and returns its path. A variable so tests stay
+// offline.
+var installVersion = func(v version.V) (string, error) {
+	dir, err := versionsDir()
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", err
+	}
+	dest := filepath.Join(dir, "astrona-"+v.String())
+	fmt.Fprintf(os.Stderr, "Installing astrona %s (%s), verified against GitHub's SHA-256 digest...\n", v, releaseAssetName())
+	if err := downloadVerifiedRelease("v"+v.String(), dest); err != nil {
+		return "", err
+	}
+	fmt.Fprintf(os.Stderr, "Installed %s\n", dest)
+	return dest, nil
 }
 
 // handoverArgs is the command line for another astrona version: the same
@@ -137,6 +206,10 @@ func handoverArgs(args []string, flags *rootFlags) []string {
 	for _, a := range args {
 		if !dropped && flags.labArg != "" && a == flags.labArg {
 			dropped = true
+			continue
+		}
+		// Ours, not the other version's — it would reject an unknown flag.
+		if a == "--install-version" || strings.HasPrefix(a, "--install-version=") {
 			continue
 		}
 		out = append(out, a)
@@ -168,7 +241,9 @@ func newVersionsCmd() *cobra.Command {
 		Long: "A lab can say which astrona releases may run it (astronaVersion in its config, e.g. " +
 			"\"<=0.2.1\"). Older releases install side by side as astrona-<version> in " +
 			"~/.astrona/bin — the newest stays `astrona` — and `astrona` hands a lab's commands to " +
-			"the newest installed version it allows, automatically.\n\n" +
+			"the newest installed version it allows, automatically. If none is installed, it offers " +
+			"to install the right one (at a terminal; --install-version installs without asking, " +
+			"e.g. in CI).\n\n" +
 			"Downloads are verified against the SHA-256 digest GitHub records for each release " +
 			"binary. Add ~/.astrona/bin to your PATH to run e.g. astrona-0.2.1 directly.",
 		RunE: func(cmd *cobra.Command, args []string) error { return listVersions() },
@@ -190,19 +265,11 @@ func newVersionsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			dir, err := versionsDir()
-			if err != nil {
+			if _, err := installVersion(v); err != nil {
 				return err
 			}
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				return err
-			}
-			dest := filepath.Join(dir, "astrona-"+v.String())
-			fmt.Printf("Installing astrona %s (%s), verified against GitHub's SHA-256 digest...\n", v, releaseAssetName())
-			if err := downloadVerifiedRelease("v"+v.String(), dest); err != nil {
-				return err
-			}
-			fmt.Printf("Installed %s\nLabs that need astrona %s now run with it automatically.\n", dest, v)
+			dir, _ := versionsDir()
+			fmt.Printf("Labs that need astrona %s now run with it automatically.\n", v)
 			if !onPath(dir) {
 				fmt.Printf("To run it directly: export PATH=\"%s:$PATH\"\n", dir)
 			}
