@@ -3277,7 +3277,9 @@
 <h2 id="staying-up-to-date">Staying up to date<a class="headerlink" href="#staying-up-to-date" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>upgrade
 </code></pre></div>
-<p>Checks GitHub for the latest release, downloads the binary for your OS/architecture, and atomically replaces the currently running executable. Astrona also nudges you on startup (<code>[INFO] A new version of astrona is available...</code>) whenever a newer release exists.</p>
+<p>Checks GitHub for the latest release, downloads the binary for your OS/architecture, verifies it against the SHA-256 digest GitHub records for it, and atomically replaces the currently running executable — only when the release is newer than yours.</p>
+<p>astrona tells you when a newer release exists — <code>[INFO] astrona v0.2.3 is available (you have v0.2.2) — astrona upgrade · what's new: &lt;release notes&gt;</code> — at most <strong>once a day</strong>. It asks GitHub at most once a day too (cached in <code>~/.astrona/update-check.json</code>), so commands don't wait on the network. It never checks in CI (<code>CI</code>/<code>GITHUB_ACTIONS</code>/… set) or when stderr isn't a terminal; <code>ASTRONA_NO_UPDATE_CHECK=1</code> turns it off everywhere.</p>
+<p>Older releases can be installed next to the latest — see <a href="../../guides/astrona-versions/">Astrona Versions</a>.</p>
 <h2 id="next">Next<a class="headerlink" href="#next" title="Permanent link">&para;</a></h2>
 <p>Continue to the <a href="../quickstart/">Quickstart</a> to run your first lab.</p>
 
