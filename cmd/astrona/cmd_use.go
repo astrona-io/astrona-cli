@@ -97,6 +97,7 @@ func useLabArg(args []string, flags *rootFlags) {
 		return
 	}
 	arg := args[0]
+	flags.labArg = arg
 	if flags.gitExplicit && !isGitURL(arg) {
 		flags.configPath = arg // a subdirectory of the --git repo
 		return

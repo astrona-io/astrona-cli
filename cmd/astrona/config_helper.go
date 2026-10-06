@@ -36,7 +36,17 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 
 	cfg, cleanup, err = config.LoadLabConfig(finalPath)
 	if err != nil {
+		// A config for another astrona may not parse here: hand over first.
+		if want := labVersionFromLoadError(err); want != "" {
+			if verr := ensureLabVersion(want, flags); verr != nil {
+				return nil, "", func() {}, verr
+			}
+		}
 		return nil, "", func() {}, withNoLabHint(fmt.Errorf("failed to load lab config: %w", err), flags)
+	}
+	if err := ensureLabVersion(cfg.AstronaVersion, flags); err != nil {
+		cleanup()
+		return nil, "", func() {}, err
 	}
 
 	// Typos are only warned about here, so a lab that has always worked

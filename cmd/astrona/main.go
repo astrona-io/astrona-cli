@@ -29,6 +29,9 @@ type rootFlags struct {
 	gitRef     string
 	verbose    bool
 	trust      bool
+	// labArg is the lab given as a command's argument (useLabArg), so a
+	// hand-over to another astrona version can spell it as -c instead.
+	labArg string
 	// gitExplicit: --git was given on this command line (so a lab
 	// argument is a subdirectory of that repo, not a local path).
 	gitExplicit bool
@@ -155,7 +158,6 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 		}
 	}
 	// Ungrouped: listed under "Additional Commands" with completion and help.
-	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(newDocgenCmd(flags))
 	rootCmd.AddCommand(newSchemaCmd())
 

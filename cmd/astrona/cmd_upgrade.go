@@ -2,11 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -62,54 +60,16 @@ func newUpgradeCmd() *cobra.Command {
 
 			fmt.Printf("Upgrading from %s to %s...\n", Version, latestTag)
 
-			osName := runtime.GOOS
-			archName := runtime.GOARCH
-
-			assetName := fmt.Sprintf("astrona-%s-%s", osName, archName)
-			downloadURL := fmt.Sprintf("https://github.com/astrona-io/astrona-cli/releases/download/%s/%s", latestTag, assetName)
-
-			fmt.Printf("Downloading %s...\n", downloadURL)
-
 			execPath, err := os.Executable()
 			if err != nil {
 				return fmt.Errorf("failed to resolve current executable path: %w", err)
 			}
-
-			execDir := filepath.Dir(execPath)
-			tempFile, err := os.CreateTemp(execDir, "astrona-upgrade-")
-			if err != nil {
-				return fmt.Errorf("failed to create temporary file: %w", err)
+			if resolved, err := filepath.EvalSymlinks(execPath); err == nil {
+				execPath = resolved
 			}
-			defer func() {
-				tempFile.Close()
-				os.Remove(tempFile.Name())
-			}()
-
-			assetResp, err := http.Get(downloadURL)
-			if err != nil {
-				return fmt.Errorf("failed to download release asset: %w", err)
-			}
-			defer assetResp.Body.Close()
-
-			if assetResp.StatusCode != http.StatusOK {
-				return fmt.Errorf("download failed with HTTP status: %s", assetResp.Status)
-			}
-
-			_, err = io.Copy(tempFile, assetResp.Body)
-			if err != nil {
-				return fmt.Errorf("failed to write download to temp file: %w", err)
-			}
-
-			err = os.Chmod(tempFile.Name(), 0755)
-			if err != nil {
-				return fmt.Errorf("failed to make binary executable: %w", err)
-			}
-
-			tempFile.Close()
-
-			err = os.Rename(tempFile.Name(), execPath)
-			if err != nil {
-				return fmt.Errorf("failed to replace old binary: %w. Try running with sudo if you have permission issues", err)
+			fmt.Printf("Downloading %s (%s), verified against GitHub's SHA-256 digest...\n", latestTag, releaseAssetName())
+			if err := downloadVerifiedRelease(latestTag, execPath); err != nil {
+				return fmt.Errorf("%w — if it's a permission problem, run with sudo", err)
 			}
 
 			fmt.Printf("Successfully upgraded astrona to %s!\n", latestTag)

@@ -237,13 +237,18 @@ type ValidationConfig struct {
 type LabConfig struct {
 	// APIVersion is the config format, "astrona.io/v1" (also when
 	// omitted). A newer format is refused rather than half-understood.
-	APIVersion string           `yaml:"apiVersion"`
-	Metadata   MetadataConfig   `yaml:"metadata"`
-	Runtime    RuntimeConfig    `yaml:"runtime"`
-	Bootstrap  BootstrapConfig  `yaml:"bootstrap"`
-	Testing    BootstrapConfig  `yaml:"testing"`
-	Validation ValidationConfig `yaml:"validation"`
-	Teardown   TeardownConfig   `yaml:"teardown"`
+	APIVersion string `yaml:"apiVersion"`
+	// AstronaVersion is which astrona releases can run this lab, e.g.
+	// "<=0.2.1" or ">=0.2.0, <0.3.0" (see internal/version). When this
+	// binary isn't one of them, astrona hands the command to an installed
+	// astrona-<version> that is (`astrona versions`).
+	AstronaVersion string           `yaml:"astronaVersion"`
+	Metadata       MetadataConfig   `yaml:"metadata"`
+	Runtime        RuntimeConfig    `yaml:"runtime"`
+	Bootstrap      BootstrapConfig  `yaml:"bootstrap"`
+	Testing        BootstrapConfig  `yaml:"testing"`
+	Validation     ValidationConfig `yaml:"validation"`
+	Teardown       TeardownConfig   `yaml:"teardown"`
 	// Exam turns the lab into a timed exam — see ExamConfig (exam.go).
 	Exam ExamConfig `yaml:"exam"`
 
@@ -354,7 +359,13 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 	var config LabConfig
 	err := yaml.Unmarshal(body, &config)
 	if err != nil {
-		return nil, cleanup, fmt.Errorf("failed to parse lab YAML config: %w", err)
+		// A config for another astrona may not even parse here — still
+		// say which astrona it wants, so the caller can hand over.
+		var peek struct {
+			AstronaVersion string `yaml:"astronaVersion"`
+		}
+		_ = yaml.Unmarshal(body, &peek)
+		return nil, cleanup, &ParseError{AstronaVersion: peek.AstronaVersion, Err: err}
 	}
 
 	unknown, err := FindUnknownFields(body)
@@ -403,3 +414,13 @@ func ValidateAPIVersion(cfg *LabConfig) error {
 	}
 	return nil
 }
+
+// ParseError is a lab config that failed to parse, with the astrona
+// version it declares (if that much could be read).
+type ParseError struct {
+	AstronaVersion string
+	Err            error
+}
+
+func (e *ParseError) Error() string { return "failed to parse lab YAML config: " + e.Err.Error() }
+func (e *ParseError) Unwrap() error { return e.Err }
