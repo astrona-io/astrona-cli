@@ -372,7 +372,7 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:               "destroy [lab-name|pattern]",
 		ValidArgsFunction: labCompletion(nil),
-		Short:             "Tear down a lab environment (both the normal run and any leftover 'astrona test' run)",
+		Short:             "Remove a lab and everything in it (and any leftover `astrona test` copy)",
 		Long: "Tear down a lab environment (both the normal run and any leftover 'astrona test' run).\n\n" +
 			"With no lab-name, resolves the lab config the same way `run`/`submit` do (-c/--file/--git/--git-ref) " +
 			"and falls back to auto-discovering running labs if that fails.\n\n" +

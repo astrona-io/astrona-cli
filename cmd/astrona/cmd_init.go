@@ -107,7 +107,7 @@ func scaffold(dir, name, root string) ([]string, error) {
 func newInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Scaffold new astrona content",
+		Short: "Create a new lab to start writing from",
 	}
 
 	var name string

@@ -25,7 +25,7 @@ import (
 func newRunCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
-		Short: "Spin up a lab environment",
+		Short: "Start a lab: create its cluster(s) or VM(s) and set it up",
 		Long: "Spin up a lab environment: create the kind cluster or qemu VM(s), run bootstrap init scripts, " +
 			"and apply bootstrap manifests.\n\n" +
 			"For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) " +

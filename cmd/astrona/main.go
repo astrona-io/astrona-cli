@@ -136,31 +136,17 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.PersistentFlags().BoolVar(&flags.trust, "trust", false, "Approve running a remote (--git / URL) lab without asking — for CI; review the lab first")
 	rootCmd.PersistentFlags().BoolVar(&flags.verbose, "verbose", false, "Stream the full output of every underlying command instead of the compact step view")
 
-	rootCmd.AddCommand(newRunCmd(flags))
-	rootCmd.AddCommand(newDestroyCmd(flags))
-	rootCmd.AddCommand(newStopCmd(flags))
-	rootCmd.AddCommand(newStartCmd(flags))
-	rootCmd.AddCommand(newResetCmd(flags))
-	rootCmd.AddCommand(newSubmitCmd(flags))
-	rootCmd.AddCommand(newTestCmd(flags))
-	rootCmd.AddCommand(newCheckCmd(flags))
-	rootCmd.AddCommand(newValidateCmd(flags))
-	rootCmd.AddCommand(newDocsCmd(flags))
-	rootCmd.AddCommand(newListCmd())
-	rootCmd.AddCommand(newStatusCmd(flags))
-	rootCmd.AddCommand(newProgressCmd())
-	rootCmd.AddCommand(newImagesCmd())
-	rootCmd.AddCommand(newSSHCmd())
-	rootCmd.AddCommand(newShellCmd(flags))
-	rootCmd.AddCommand(newKubeconfigCmd(flags))
-	rootCmd.AddCommand(newDiagnoseCmd(flags))
-	rootCmd.AddCommand(newBundleCmd(flags))
-	rootCmd.AddCommand(newPortForwardCmd(flags))
-	rootCmd.AddCommand(newNetCmd(flags))
+	// Commands are grouped by who uses them and listed in the order you'd
+	// use them (see commandGroups), not alphabetically.
+	for _, g := range commandGroups(flags) {
+		rootCmd.AddGroup(&cobra.Group{ID: g.id, Title: g.title})
+		for _, c := range g.cmds {
+			c.GroupID = g.id
+			rootCmd.AddCommand(c)
+		}
+	}
+	// Ungrouped: listed under "Additional Commands" with completion and help.
 	rootCmd.AddCommand(newUpgradeCmd())
-	rootCmd.AddCommand(newLogsCmd())
-	rootCmd.AddCommand(newInitCmd())
-	rootCmd.AddCommand(newContentCmd())
 	rootCmd.AddCommand(newDocgenCmd(flags))
 	rootCmd.AddCommand(newSchemaCmd())
 

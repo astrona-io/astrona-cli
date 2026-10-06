@@ -141,7 +141,7 @@ func astronaDepChecks() []depCheck {
 func newCheckCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:   "check",
-		Short: "Check astrona's dependencies, the container engine, and (with a lab config) the lab's needs",
+		Short: "Check this machine can run labs (tools, container engine, a lab's memory and ports)",
 		Long: "Check that astrona's dependencies are installed, that the container engine is running " +
 			"with enough memory/CPUs (and, on Linux, sufficient inotify limits for multi-node kind), " +
 			"and — when a lab config is found via -c (default: ./config.yaml) — that the lab's " +
