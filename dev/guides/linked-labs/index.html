@@ -3441,6 +3441,10 @@
 <td>Stops/starts them with the lab (<code>start</code> brings them up first)</td>
 </tr>
 <tr>
+<td><code>astrona reset --soft</code></td>
+<td>Keeps every cluster; puts each back to its just-bootstrapped state (lab namespaces deleted, bootstrap re-run, linked clusters first) — seconds instead of minutes. <code>--soft --cluster idp</code> does only that one</td>
+</tr>
+<tr>
 <td><code>astrona reset --cluster idp</code></td>
 <td>Rebuilds only that linked cluster of the running lab: its teardown, destroy, then create + bootstrap again (with the addresses of what it dependsOn). The lab and its other clusters are left alone; port forwards into it are restarted. Same name, so the lab's <code>ASTRONA_CLUSTER_*</code>/<code>astrona-clusters</code> stay valid</td>
 </tr>

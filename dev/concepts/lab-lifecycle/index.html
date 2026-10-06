@@ -3033,6 +3033,7 @@
 <ul>
 <li>The config is validated <strong>before</strong> anything is destroyed — a broken config aborts with "nothing was reset" and leaves the existing lab as it was.</li>
 <li><code>teardown.keepCluster</code> is ignored: reset always recreates.</li>
+<li><code>--soft</code> keeps the cluster(s) and only puts the lab back: it deletes every namespace created after the platform (kube-system, addons, …) was set up, clears what isn't astrona's from <code>default</code>, re-runs the bootstrap and restarts port forwards — about 5 seconds instead of 40. Cluster-wide objects a student created (CRDs, ClusterRoles, …) aren't reverted; use a full reset for those. A lab started by astrona before v0.3 has no baseline yet and needs one full reset first.</li>
 <li><code>--cluster &lt;name&gt;</code> rebuilds just one <a href="../../guides/linked-labs/">linked cluster</a> of a running lab, leaving the lab and its other clusters as they are.</li>
 <li>In a terminal it asks for confirmation; without a terminal it refuses unless <code>--yes</code> is passed.</li>
 </ul>
