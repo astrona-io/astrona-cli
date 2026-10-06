@@ -326,7 +326,7 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 			return nil, cleanup, fmt.Errorf("refusing to fetch lab config from non-https URL '%s': only https:// sources are allowed", configPath)
 		}
 
-		fmt.Printf("Fetching lab configuration from %s...\n", configPath)
+		fmt.Fprintf(os.Stderr, "Fetching lab configuration from %s...\n", configPath)
 
 		client := &http.Client{Timeout: 30 * time.Second}
 

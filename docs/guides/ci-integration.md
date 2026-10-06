@@ -100,7 +100,7 @@ The same bundle can be collected from a running lab with [`astrona diagnose`](..
 
 ## Machine-readable output: `-o json`
 
-Every command whose output is data takes `-o json` and then prints exactly one JSON document on stdout — progress, warnings and script output go to stderr — so it can be piped straight into `jq`, a script or a UI:
+Every command whose output is data takes `-o json` and then prints exactly one JSON document on stdout — progress (including cloning/updating a `--git` lab or a catalog source, and fetching a config URL), warnings and script output go to stderr — so it can be piped straight into `jq`, a script or a UI:
 
 | Command | JSON |
 |---|---|
