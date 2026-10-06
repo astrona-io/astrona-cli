@@ -12,6 +12,9 @@ Fix anything reported as `✗` before continuing (and if something breaks later,
 
 ## 2. Pick the lab and bring it up
 
+(Looking for the published trainings instead? `astrona labs` lists them and every lab is runnable by name — see the [Lab Catalog](../guides/lab-catalog.md).)
+
+
 ```sh
 astrona use examples/k8s-basics-01   # every command below now works on this lab
 astrona run

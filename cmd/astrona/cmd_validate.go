@@ -154,7 +154,9 @@ func newValidateCmd(flags *rootFlags) *cobra.Command {
   astrona validate --git https://github.com/org/labs --config labs/lab-01`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			useLabArg(args, flags)
+			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
+				return err
+			}
 			if err := checkOutput(output); err != nil {
 				return err
 			} // a lab given as the argument wins over `astrona use`

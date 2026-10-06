@@ -182,7 +182,9 @@ func newUseCmd(flags *rootFlags) *cobra.Command {
 			if !cmd.Flags().Changed("git") {
 				flags.gitURL = ""
 			}
-			useLabArg(args, flags)
+			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
+				return err
+			}
 			cfg, _, cleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err
