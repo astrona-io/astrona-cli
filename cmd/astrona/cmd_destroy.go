@@ -281,18 +281,42 @@ func kindClusterExists(name string) bool {
 }
 
 // teardownEnvironment picks what runs the teardown scripts: the lab's real
-// environment if it's still reachable, otherwise the host shell — teardown
-// scripts should still get a best-effort run even if the cluster/VM is
-// already gone. Wrapped in a LabEnvironment (rather than returning a bare
-// ScriptExecutor) so RunInitScripts can still resolve per-VM targeting
-// (ResourceItem.VM) for a multi-VM qemu lab's teardown scripts.
+// environment if it still exists, otherwise the host shell — teardown
+// scripts should still get a best-effort run (host-side cleanup) even if
+// the cluster/VM is already gone. That fallback gets KUBECONFIG=/dev/null:
+// a script's `kubectl delete …` must never land on the user's own current
+// context instead of the lab. Wrapped in a LabEnvironment (rather than
+// returning a bare ScriptExecutor) so RunInitScripts can still resolve
+// per-VM targeting (ResourceItem.VM) for a multi-VM qemu lab's teardown
+// scripts.
 func teardownEnvironment(clusterName string, runtimeCfg config.RuntimeConfig, rep *ui.Reporter) *runtime.LabEnvironment {
+	hostOnly := &runtime.LabEnvironment{Executor: executor.LocalExecutor{Kubeconfig: os.DevNull}}
+	if !environmentExists(clusterName, runtimeCfg) {
+		rep.Warn("lab environment '%s' doesn't exist — running teardown scripts on the host, without cluster access", clusterName)
+		return hostOnly
+	}
 	env, err := runtime.LoadEnvironment(clusterName, runtimeCfg)
 	if err != nil {
-		rep.Warn("could not reach lab environment for teardown scripts, running on host instead: %s", err)
-		return &runtime.LabEnvironment{Executor: executor.LocalExecutor{}}
+		rep.Warn("could not reach lab environment for teardown scripts, running on the host without cluster access instead: %s", err)
+		return hostOnly
 	}
 	return env
+}
+
+// environmentExists reports whether clusterName's kind cluster or qemu VM
+// state exists.
+func environmentExists(clusterName string, runtimeCfg config.RuntimeConfig) bool {
+	if runtimeCfg.Type == string(runtime.RuntimeQEMU) {
+		return qemuStateExists(clusterName) || qemuStateExists(clusterName+"-"+firstVMName(runtimeCfg))
+	}
+	return kindClusterExists(clusterName)
+}
+
+func firstVMName(rt config.RuntimeConfig) string {
+	if len(rt.QEMU) == 0 {
+		return ""
+	}
+	return rt.QEMU[0].Name
 }
 
 // tearDownLabEnvironment runs teardown scripts (if any) then destroys
@@ -301,6 +325,11 @@ func teardownEnvironment(clusterName string, runtimeCfg config.RuntimeConfig, re
 // side-destroy (see newDestroyCmd) best-effort so a missing/already-gone
 // test environment never fails `astrona destroy` for the real one.
 func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir string, hardFail bool, rep *ui.Reporter) error {
+	// The side-destroy of a test copy that isn't there has nothing to tear
+	// down — don't run the lab's teardown scripts for it.
+	if !hardFail && !environmentExists(clusterName, info.runtime) {
+		return nil
+	}
 	if len(info.teardown.Init) > 0 {
 		rep.Section("Teardown: %s", clusterName)
 		env := teardownEnvironment(clusterName, info.runtime, rep)
@@ -308,16 +337,17 @@ func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir strin
 			rep.Warn("teardown scripts failed for '%s': %s", clusterName, err)
 		}
 	}
+	var labs []config.KindLab
+	if info.runtime.Kind != nil {
+		labs = info.runtime.Kind.Labs
+	}
+	runLinkedTeardown(labs, clusterName, baseDir, rep)
 
 	if info.teardown.KeepCluster {
 		rep.Info("keepCluster is set, leaving cluster '%s' running.", clusterName)
 		return nil
 	}
 
-	var labs []config.KindLab
-	if info.runtime.Kind != nil {
-		labs = info.runtime.Kind.Labs
-	}
 	owned := ownedClusters(clusterName, labs) // read before destroy removes the saved state
 	if err := runtime.DestroyEnvironment(clusterName, info.runtime, rep); err != nil {
 		if hardFail {

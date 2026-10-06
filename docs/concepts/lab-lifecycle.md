@@ -61,6 +61,8 @@ teardown:
 ```
 
 - `init` scripts run first — same `file`/`folder`/`url` shape as `bootstrap.init`, best-effort (a failing teardown script only warns, it never blocks the cluster from being deleted).
+- If the lab's environment is already gone, the scripts still run on the host for host-side cleanup — with `KUBECONFIG=/dev/null`, so a script's `kubectl` can never reach your own current context instead of the lab.
+- Linked clusters (`runtime.kind.labs`) can have their own `teardown.init`; they run after the lab's, in reverse start order, each with `KUBECONFIG` pointing at its cluster (skipped if that cluster is gone).
 - `keepCluster: true` skips deleting the environment afterwards — useful while iterating on a lab locally, since `astrona destroy` re-run without it will still clean up.
 
 ## Starting over: `astrona reset`
