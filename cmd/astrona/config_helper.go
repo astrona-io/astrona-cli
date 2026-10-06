@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"astrona/internal/config"
+	"astrona/internal/ui"
 )
 
 // withNoLabHint adds what to do when no lab was named and the current
@@ -42,10 +43,10 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 	// Typos are only warned about here, so a lab that has always worked
 	// keeps working; `astrona validate` / `astrona check` fail on them.
 	for _, u := range cfg.UnknownFields {
-		fmt.Fprintf(os.Stderr, "[WARN] %s %s (ignored — run `astrona validate`)\n", finalPath, u)
+		ui.Warnf("%s %s (ignored — run `astrona validate`)", finalPath, u)
 	}
 	for _, d := range cfg.Deprecations {
-		fmt.Fprintf(os.Stderr, "[WARN] %s: %s\n", finalPath, d)
+		ui.Warnf("%s: %s", finalPath, d)
 	}
 
 	applyBundleImages(cfg, filepath.Dir(finalPath))

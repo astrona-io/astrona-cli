@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"astrona/internal/ui"
 )
 
 // helpTemplateBody is Cobra's own default help template (see
@@ -44,7 +46,7 @@ var Version = "developer"
 func checkLatestVersion(verbose bool) {
 	warn := func() {
 		if verbose {
-			fmt.Fprintln(os.Stderr, "[WARN] check version not possible")
+			ui.Warnf("check version not possible")
 		}
 	}
 
@@ -78,7 +80,7 @@ func checkLatestVersion(verbose bool) {
 	if latestTag != "" && latestTag != Version {
 		// stderr, not stdout: commands like `astrona kubeconfig` are meant
 		// for $(...) capture, and the notice must not end up in it.
-		fmt.Fprintf(os.Stderr, "[INFO] A new version of astrona is available: %s (current: %s). Please upgrade!\n\n", latestTag, Version)
+		ui.Infof("A new version of astrona is available: %s (current: %s) — run `astrona upgrade`.\n", latestTag, Version)
 	}
 }
 
@@ -91,6 +93,8 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 		Short:   "Astrona is the Astrona lab community CLI",
 		Long:    "Astrona is the single CLI for the Astrona lab community: spin up local Kubernetes labs, grade them, and (as more groups land) publish and authenticate against the Astrona platform.\n\n" + supportLine(),
 		Version: Version,
+		// main prints errors itself, in color (ui.PrintError).
+		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// The lab picked with `astrona use`, unless this command
 			// names one or runs inside a lab directory.
@@ -171,6 +175,7 @@ func main() {
 	rootCmd := newRootCmd(&rootFlags{})
 
 	if err := rootCmd.Execute(); err != nil {
+		ui.PrintError(err)
 		os.Exit(1)
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/content"
 	"astrona/internal/gitsource"
+	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -629,7 +630,7 @@ func newContentInitCmd() *cobra.Command {
 				repoExists := cmdCheck.Run() == nil
 
 				if repoExists {
-					fmt.Printf("[INFO] GitHub repository %s already exists. Skipping remote creation.\n", repoFullName)
+					ui.Infof("GitHub repository %s already exists. Skipping remote creation.", repoFullName)
 				} else {
 					// Create repo
 					fmt.Printf("Creating GitHub repository %s...\n", repoFullName)
@@ -682,7 +683,7 @@ func newContentInitCmd() *cobra.Command {
 				// Attempt push to remote
 				fmt.Println("Pushing initial commit to origin main...")
 				if err := runGitCmd(absPath, "push", "-u", "origin", "main"); err != nil {
-					fmt.Printf("[WARN] Failed to push to remote: %v. Please push manually.\n", err)
+					ui.Warnf("Failed to push to remote: %v. Please push manually.", err)
 				} else {
 					fmt.Println("Successfully pushed scaffold to GitHub origin main!")
 				}
