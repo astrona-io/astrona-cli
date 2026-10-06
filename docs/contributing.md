@@ -48,3 +48,7 @@ just check                                          # fmt + vet + unit tests
 go build -o astrona ./cmd/astrona
 ./astrona test -c examples/k8s-basics-01 --junit-xml=report.xml   # e2e against a real kind cluster
 ```
+
+## Dependency updates
+
+[Renovate](https://docs.renovatebot.com/) (`.github/workflows/renovate.yml`, config in `.github/renovate.json5`) opens a PR for dependency updates every day, running as a GitHub App so its PRs get the full CI run. Go module **minor and patch** updates are set to auto-merge: GitHub merges them as soon as the required checks on `main` (Lint, Unit tests, E2E) pass, and never when they fail. Major updates, the `go`/`toolchain` directive and GitHub Actions updates wait for a human review. New releases are only proposed after they're 3 days old. The Dependency Dashboard issue lists everything pending.

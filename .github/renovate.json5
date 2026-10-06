@@ -1,0 +1,52 @@
+// Renovate for astrona-cli — run by .github/workflows/renovate.yml as a
+// GitHub App (so its PRs trigger CI). One-time setup, by an org owner:
+//
+//   1. Org settings → Developer settings → GitHub Apps → New GitHub App
+//      (webhook off). Repository permissions: Contents, Pull requests,
+//      Issues, Workflows: read & write; Checks, Commit statuses,
+//      Dependabot alerts: read-only. Install it on astrona-cli only.
+//   2. Repo → Settings → Secrets and variables → Actions:
+//      variable RENOVATE_APP_CLIENT_ID = the app's Client ID,
+//      secret   RENOVATE_APP_PRIVATE_KEY = a generated private key (.pem).
+//
+// Auto-merge: Go module minor/patch updates are handed to GitHub's native
+// auto-merge, which merges only once the required checks on main (Lint,
+// Unit tests, E2E) pass. Major updates and the Go toolchain stay manual.
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: ['config:recommended'],
+  labels: ['dependencies'],
+  // Supply-chain safety: wait a few days after a release (yanked or
+  // malicious versions are usually caught by then), and don't open PRs
+  // for releases still inside that window.
+  minimumReleaseAge: '3 days',
+  internalChecksFilter: 'strict',
+  platformAutomerge: true,
+  postUpdateOptions: ['gomodTidy', 'gomodUpdateImportPaths'],
+  packageRules: [
+    {
+      description: 'Ensure Go updates are compatible with the Go version defined in go.mod',
+      matchManagers: ['gomod'],
+      constraintsFiltering: 'strict',
+    },
+    {
+      description: 'Group golang.org/x packages to reduce PR noise',
+      matchManagers: ['gomod'],
+      matchPackageNames: ['/^golang\\.org\\/x\\//'],
+      groupName: 'golang.org/x packages',
+    },
+    {
+      description: 'Auto-merge Go module minor/patch/digest updates once CI passes',
+      matchManagers: ['gomod'],
+      matchUpdateTypes: ['minor', 'patch', 'digest'],
+      automerge: true,
+      automergeType: 'pr',
+    },
+    {
+      description: 'Never auto-merge the go / toolchain directive — needs a human to check CI images and docs',
+      matchManagers: ['gomod'],
+      matchDepTypes: ['golang', 'toolchain'],
+      automerge: false,
+    },
+  ],
+}
