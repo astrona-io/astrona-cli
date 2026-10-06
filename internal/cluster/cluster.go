@@ -1,9 +1,14 @@
 package cluster
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
+	goruntime "runtime"
+	"strings"
+	"sync"
+	"time"
 
 	"astrona/internal/config"
 	"astrona/internal/ui"
@@ -18,16 +23,69 @@ type ContainerEngine struct {
 	Path string
 }
 
+// DetectContainerEngine picks Docker or Podman — the first one installed
+// that actually answers, so an installed-but-stopped Docker Desktop doesn't
+// hide a running Podman. Checked once per run (per PATH). When none
+// answers, the error says how to start one.
 func DetectContainerEngine() (ContainerEngine, error) {
-	if path, err := exec.LookPath("docker"); err == nil {
-		return ContainerEngine{Name: "docker", Path: path}, nil
+	engineCache.Lock()
+	defer engineCache.Unlock()
+	path := os.Getenv("PATH")
+	if engineCache.done && engineCache.path == path {
+		return engineCache.engine, engineCache.err
 	}
+	engineCache.engine, engineCache.err = detectContainerEngine()
+	engineCache.path, engineCache.done = path, true
+	return engineCache.engine, engineCache.err
+}
 
-	if path, err := exec.LookPath("podman"); err == nil {
-		return ContainerEngine{Name: "podman", Path: path}, nil
+var engineCache struct {
+	sync.Mutex
+	done   bool
+	path   string
+	engine ContainerEngine
+	err    error
+}
+
+// engineInfoFormats is a cheap `info` per engine: it fails when the
+// daemon (Docker) or machine (Podman on macOS/Windows) isn't running.
+var engineInfoFormats = map[string]string{"docker": "{{.ServerVersion}}", "podman": "{{.Version.Version}}"}
+
+func detectContainerEngine() (ContainerEngine, error) {
+	var installed []ContainerEngine
+	for _, name := range []string{"docker", "podman"} {
+		if p, err := exec.LookPath(name); err == nil {
+			installed = append(installed, ContainerEngine{Name: name, Path: p})
+		}
 	}
+	if len(installed) == 0 {
+		return ContainerEngine{}, fmt.Errorf("neither Docker nor Podman is installed — install one (https://docs.docker.com/get-docker/ or https://podman.io/docs/installation), then run `astrona check`")
+	}
+	for _, e := range installed {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		err := exec.CommandContext(ctx, e.Path, "info", "--format", engineInfoFormats[e.Name]).Run()
+		cancel()
+		if err == nil {
+			return e, nil
+		}
+	}
+	return installed[0], fmt.Errorf("%s", engineNotRunning(installed))
+}
 
-	return ContainerEngine{}, fmt.Errorf("no container engine found PATH")
+// engineNotRunning says how to start the installed engine(s).
+func engineNotRunning(installed []ContainerEngine) string {
+	how := map[string]string{
+		"docker": "start Docker Desktop (or the docker service)",
+		"podman": "start it: podman machine start",
+	}
+	if goruntime.GOOS == "linux" {
+		how["podman"] = "check `podman info`"
+	}
+	if len(installed) == 1 {
+		name := map[string]string{"docker": "Docker", "podman": "Podman"}[installed[0].Name]
+		return fmt.Sprintf("%s isn't running — %s", name, how[installed[0].Name])
+	}
+	return fmt.Sprintf("neither Docker nor Podman is running — %s, or %s", how["docker"], strings.TrimPrefix(how["podman"], "start it: "))
 }
 
 // kindClusterConfig is the subset of kind's own Cluster config

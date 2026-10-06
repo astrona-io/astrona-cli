@@ -97,17 +97,19 @@ func cloneOrUpdateGitRepo(url, ref, destDir string, verbose bool) error {
 	if verbose {
 		out = os.Stdout
 	}
-	fail := func(err error) error {
-		if verbose || buf.Len() == 0 {
-			return err
+	// git's own reason ("repository … not found", "could not read
+	// Username") says more than "exit status 128".
+	fail := func(what string, err error) error {
+		if reason := gitReason(buf.String()); reason != "" {
+			return fmt.Errorf("%s: %s", what, reason)
 		}
-		return fmt.Errorf("%w\ngit output:\n%s", err, strings.TrimSpace(buf.String()))
+		return fmt.Errorf("%s: %w", what, err)
 	}
 
 	if _, err := os.Stat(filepath.Join(destDir, ".git")); os.IsNotExist(err) {
 		fmt.Printf("Cloning %s ...\n", url)
 		if err := runGit(gitPath, "", out, "clone", url, destDir); err != nil {
-			return fail(fmt.Errorf("failed to clone %s: %w", url, err))
+			return fail("can't clone "+url, err)
 		}
 	} else {
 		fmt.Printf("Updating %s ...\n", url)
@@ -133,11 +135,11 @@ func cloneOrUpdateGitRepo(url, ref, destDir string, verbose bool) error {
 	}
 
 	if err := runGit(gitPath, destDir, out, "checkout", "--force", "-B", "astrona-lab", target); err != nil {
-		return fail(fmt.Errorf("failed to checkout '%s' from %s: %w", target, url, err))
+		return fail(fmt.Sprintf("can't check out '%s' from %s", target, url), err)
 	}
 
 	if err := runGit(gitPath, destDir, out, "clean", "-fdx"); err != nil {
-		return fail(fmt.Errorf("failed to clean git checkout for %s: %w", url, err))
+		return fail("can't clean the checkout of "+url, err)
 	}
 
 	return nil
@@ -157,4 +159,19 @@ func ResolveGitConfigSource(url, ref string, verbose bool) (string, error) {
 	}
 
 	return destDir, nil
+}
+
+// gitReason is the last "fatal:"/"error:" line of git's output, without
+// the prefix — "" when there's none.
+func gitReason(out string) string {
+	reason := ""
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		for _, p := range []string{"fatal: ", "error: "} {
+			if r, ok := strings.CutPrefix(line, p); ok {
+				reason = r
+			}
+		}
+	}
+	return reason
 }

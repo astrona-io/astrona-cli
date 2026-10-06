@@ -99,7 +99,7 @@ func newDocsCmd(flags *rootFlags) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
 			if err != nil {
-				return fmt.Errorf("path resolution failed: %w", err)
+				return withNoLabHint(err, flags)
 			}
 			cfg, cleanup, err := config.LoadLabConfig(finalPath)
 			if err != nil {

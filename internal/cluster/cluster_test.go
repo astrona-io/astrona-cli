@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -155,5 +156,33 @@ func TestBuildKindConfigGatewayAndCalico(t *testing.T) {
 	data, _ = BuildKindConfig(k)
 	if strings.Contains(string(data), "extraPortMappings") {
 		t.Errorf("SkipHostPorts must drop the mappings:\n%s", data)
+	}
+}
+
+// An installed engine that doesn't answer (Docker Desktop stopped) must
+// not hide one that does; none answering says how to start one.
+func TestDetectContainerEngine(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) {
+		os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\n"+body+"\n"), 0700)
+	}
+	t.Setenv("PATH", dir)
+
+	write("docker", "exit 1") // installed, daemon down
+	write("podman", "exit 0")
+	e, err := DetectContainerEngine()
+	if err != nil || e.Name != "podman" {
+		t.Fatalf("stopped docker + running podman = %+v, %v", e, err)
+	}
+
+	os.Remove(filepath.Join(dir, "podman"))
+	t.Setenv("PATH", dir+string(os.PathListSeparator)) // new PATH: detect again
+	if _, err := DetectContainerEngine(); err == nil || !strings.Contains(err.Error(), "Docker isn't running") {
+		t.Errorf("only stopped docker = %v", err)
+	}
+
+	t.Setenv("PATH", t.TempDir())
+	if _, err := DetectContainerEngine(); err == nil || !strings.Contains(err.Error(), "neither Docker nor Podman is installed") {
+		t.Errorf("none installed = %v", err)
 	}
 }

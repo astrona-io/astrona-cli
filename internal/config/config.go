@@ -3,6 +3,7 @@ package config
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -280,7 +281,7 @@ func ResolveConfigPath(configDirOrURL, fileName, gitURL, gitRef string, verbose 
 	if gitURL != "" {
 		repoDir, err := gitsource.ResolveGitConfigSource(gitURL, gitRef, verbose)
 		if err != nil {
-			return "", fmt.Errorf("git source failed: %w", err)
+			return "", err
 		}
 
 		subDir, err := JoinWithinBaseDir(repoDir, configDirOrURL)
@@ -303,7 +304,7 @@ func ResolveConfigPath(configDirOrURL, fileName, gitURL, gitRef string, verbose 
 	fileInfo, err := os.Stat(cleanPath)
 
 	if err != nil {
-		return "", fmt.Errorf("config path does not exist: %s", cleanPath)
+		return "", &NotFoundError{What: "lab", Path: cleanPath}
 	}
 
 	if fileInfo.IsDir() {
@@ -350,8 +351,11 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 		body = b
 	} else {
 		b, err := os.ReadFile(configPath)
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, cleanup, &NotFoundError{What: "lab config", Path: configPath}
+		}
 		if err != nil {
-			return nil, cleanup, fmt.Errorf("failed to read local config file: %w", err)
+			return nil, cleanup, fmt.Errorf("can't read %s: %w", configPath, err)
 		}
 		body = b
 	}
@@ -365,7 +369,7 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 			AstronaVersion string `yaml:"astronaVersion"`
 		}
 		_ = yaml.Unmarshal(body, &peek)
-		return nil, cleanup, &ParseError{AstronaVersion: peek.AstronaVersion, Err: err}
+		return nil, cleanup, &ParseError{Path: configPath, AstronaVersion: peek.AstronaVersion, Err: err}
 	}
 
 	unknown, err := FindUnknownFields(body)
@@ -418,9 +422,21 @@ func ValidateAPIVersion(cfg *LabConfig) error {
 // ParseError is a lab config that failed to parse, with the astrona
 // version it declares (if that much could be read).
 type ParseError struct {
+	Path           string
 	AstronaVersion string
 	Err            error
 }
 
-func (e *ParseError) Error() string { return "failed to parse lab YAML config: " + e.Err.Error() }
-func (e *ParseError) Unwrap() error { return e.Err }
+func (e *ParseError) Error() string {
+	return fmt.Sprintf("%s isn't valid YAML — %s", e.Path, strings.TrimPrefix(e.Err.Error(), "yaml: "))
+}
+
+// NotFoundError is a lab (directory) or lab config (file) that isn't
+// there. It is an os.ErrNotExist.
+type NotFoundError struct {
+	What, Path string
+}
+
+func (e *NotFoundError) Error() string        { return fmt.Sprintf("no %s at %s", e.What, e.Path) }
+func (e *NotFoundError) Is(target error) bool { return target == os.ErrNotExist }
+func (e *ParseError) Unwrap() error           { return e.Err }

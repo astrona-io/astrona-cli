@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"astrona/internal/config"
+	"astrona/internal/executor"
 	"astrona/internal/ui"
 )
 
@@ -45,9 +46,9 @@ func WaitFor(items []config.WaitFor, kubeContext string, rep *ui.Reporter) error
 		return nil
 	}
 
-	kubectlPath, err := exec.LookPath("kubectl")
+	kubectlPath, err := executor.LookKubectl()
 	if err != nil {
-		return fmt.Errorf("kubectl not found in PATH: %w", err)
+		return err
 	}
 
 	for _, w := range items {

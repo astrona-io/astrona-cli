@@ -23,6 +23,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/executor"
 	"astrona/internal/manifests"
 	"astrona/internal/ui"
 )
@@ -250,9 +251,9 @@ func Install(a config.KindAddons, kubeContext string, rep *ui.Reporter) error {
 	if len(list) == 0 {
 		return nil
 	}
-	kubectlPath, err := exec.LookPath("kubectl")
+	kubectlPath, err := executor.LookKubectl()
 	if err != nil {
-		return fmt.Errorf("kubectl not found in PATH: %w", err)
+		return err
 	}
 
 	for _, ad := range list {

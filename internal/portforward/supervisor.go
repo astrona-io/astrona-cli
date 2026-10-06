@@ -1,6 +1,8 @@
 package portforward
 
 import (
+	"astrona/internal/executor"
+
 	"bufio"
 	"context"
 	"errors"
@@ -78,9 +80,9 @@ func Supervise(ctx context.Context, lab, name string, log io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("failed to load port forward spec: %w", err)
 	}
-	kubectl, err := exec.LookPath("kubectl")
+	kubectl, err := executor.LookKubectl()
 	if err != nil {
-		return fmt.Errorf("kubectl not found in PATH: %w", err)
+		return err
 	}
 
 	s := &supervisor{dir: dir, spec: spec, log: log, status: Status{State: StateNotReady, Since: time.Now()}}

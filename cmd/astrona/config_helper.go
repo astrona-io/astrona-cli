@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/ui"
 )
@@ -28,7 +29,7 @@ func withNoLabHint(err error, flags *rootFlags) error {
 func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string, cleanup func(), err error) {
 	finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
 	if err != nil {
-		return nil, "", func() {}, fmt.Errorf("path resolution failed: %w", err)
+		return nil, "", func() {}, withNoLabHint(err, flags)
 	}
 
 	if flags.verbose {
@@ -43,7 +44,7 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 				return nil, "", func() {}, verr
 			}
 		}
-		return nil, "", func() {}, withNoLabHint(fmt.Errorf("failed to load lab config: %w", err), flags)
+		return nil, "", func() {}, withNoLabHint(err, flags)
 	}
 	if err := ensureLabVersion(cfg.AstronaVersion, flags); err != nil {
 		cleanup()
@@ -61,4 +62,19 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 
 	applyBundleImages(cfg, filepath.Dir(finalPath))
 	return cfg, filepath.Dir(finalPath), cleanup, nil
+}
+
+// requireRunningKindLab fails clearly when a kind lab isn't running — or
+// when the container engine itself isn't (which hides every lab).
+func requireRunningKindLab(cfg *config.LabConfig, clusterName string) error {
+	if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" {
+		return nil
+	}
+	if _, err := cluster.DetectContainerEngine(); err != nil {
+		return err
+	}
+	if !kindClusterExists(clusterName) {
+		return fmt.Errorf("lab %s isn't running — start it: astrona run", clusterName)
+	}
+	return nil
 }

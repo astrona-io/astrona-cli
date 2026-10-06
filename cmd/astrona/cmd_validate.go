@@ -155,7 +155,7 @@ func newValidateCmd(flags *rootFlags) *cobra.Command {
 			useLabArg(args, flags) // a lab given as the argument wins over `astrona use`
 			finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
 			if err != nil {
-				return fmt.Errorf("path resolution failed: %w", err)
+				return withNoLabHint(err, flags)
 			}
 			cfg, cleanup, err := config.LoadLabConfig(finalPath)
 			if err != nil {
