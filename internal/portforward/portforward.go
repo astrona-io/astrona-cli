@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"astrona/internal/config"
+	"astrona/internal/executor"
 	"astrona/internal/hypervisor"
 	"astrona/internal/ui"
 )
@@ -96,8 +97,8 @@ func Start(lab string, forwards []config.PortForward, rep *ui.Reporter) error {
 	if err := config.ValidatePortForwards(config.RuntimeConfig{Type: "kind", PortForwards: forwards}); err != nil {
 		return err
 	}
-	if _, err := exec.LookPath("kubectl"); err != nil {
-		return fmt.Errorf("kubectl not found in PATH (needed for runtime.portForwards): %w", err)
+	if _, err := executor.LookKubectl(); err != nil {
+		return err
 	}
 	exe, err := os.Executable()
 	if err != nil {

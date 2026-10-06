@@ -64,6 +64,12 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
+			// Grading a lab that isn't there would fail every check (and
+			// record that as an attempt) — say what's actually wrong.
+			if err := requireRunningKindLab(cfg, clusterName); err != nil {
+				return err
+			}
+
 			env, err := runtime.LoadEnvironment(clusterName, cfg.Runtime)
 			if err != nil {
 				return fmt.Errorf("could not find a running lab environment: %w", err)

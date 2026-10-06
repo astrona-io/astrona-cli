@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/executor"
 	"astrona/internal/ui"
 )
 
@@ -183,7 +184,7 @@ func currentContext(kubectlPath string) (string, error) {
 // kubeconfig), the returned func only warns, it never touches the
 // kubeconfig blindly.
 func PreserveCurrentContext(rep *ui.Reporter) func() {
-	kubectlPath, err := exec.LookPath("kubectl")
+	kubectlPath, err := executor.LookKubectl()
 	if err != nil {
 		return func() {
 			rep.Warn("kubectl not found — kind may have switched your kubectl current-context to the new lab")
@@ -232,9 +233,9 @@ var defaultSAPollInterval = time.Second
 // a race that makes a lab's very first `kubectl apply` fail intermittently.
 func WaitForDefaultServiceAccount(kubeContext, kubeconfig string, timeout time.Duration, rep *ui.Reporter) error {
 	t := rep.Step("Wait for cluster API to be ready")
-	kubectlPath, err := exec.LookPath("kubectl")
+	kubectlPath, err := executor.LookKubectl()
 	if err != nil {
-		return t.Fail(fmt.Errorf("kubectl not found in PATH: %w", err))
+		return t.Fail(err)
 	}
 
 	deadline := time.Now().Add(timeout)

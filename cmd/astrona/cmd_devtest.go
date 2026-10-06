@@ -166,6 +166,10 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 	// no port forwards).
 	env, _, upErr := upLab(cfg, baseDir, clusterName, links, true, rep)
 	if env == nil {
+		// Creation failed partway — kind may already have made the cluster.
+		if err := runtime.DestroyEnvironment(clusterName, cfg.Runtime, rep); err != nil {
+			rep.Warn("could not clean up '%s': %s", clusterName, err)
+		}
 		return nil, false, upErr
 	}
 	// Registered as soon as the environment exists, so every later failure

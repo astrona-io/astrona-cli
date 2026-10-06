@@ -5,6 +5,7 @@ import (
 	"os/exec"
 
 	"astrona/internal/config"
+	"astrona/internal/executor"
 	"astrona/internal/scripts"
 	"astrona/internal/ui"
 )
@@ -17,9 +18,9 @@ func ApplyManifests(manifests []config.ResourceItem, baseDir, kubeContext string
 		return nil
 	}
 
-	kubectlPath, err := exec.LookPath("kubectl")
+	kubectlPath, err := executor.LookKubectl()
 	if err != nil {
-		return fmt.Errorf("kubectl not found in PATH: %w", err)
+		return err
 	}
 
 	for _, m := range manifests {

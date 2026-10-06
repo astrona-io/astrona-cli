@@ -9,6 +9,7 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
+	"astrona/internal/executor"
 	"astrona/internal/manifests"
 	"astrona/internal/portforward"
 	"astrona/internal/runtime"
@@ -170,6 +171,17 @@ func upLab(cfg *config.LabConfig, baseDir, clusterName string, links []cluster.L
 		cfg.Runtime.Kind = &k
 	}
 	rep.Section("Lab: %s", cfg.Metadata.Name)
+
+	// Tools first: failing halfway through creating a cluster is slower
+	// to find out and leaves something to clean up.
+	if cfg.Runtime.Type == "" || cfg.Runtime.Type == string(runtime.RuntimeKind) {
+		if _, err := cluster.DetectContainerEngine(); err != nil {
+			return nil, nil, err
+		}
+		if _, err := executor.LookKubectl(); err != nil {
+			return nil, nil, err
+		}
+	}
 
 	env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime, rep)
 	if err != nil {

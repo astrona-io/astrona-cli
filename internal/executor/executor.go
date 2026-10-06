@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -99,4 +100,16 @@ func (s SSHExecutor) RunScript(scriptPath string, out io.Writer) error {
 	cmd.Stdout = out
 	cmd.Stderr = out
 	return cmd.Run()
+}
+
+// ErrNoKubectl is what every command says when kubectl is missing.
+var ErrNoKubectl = errors.New("kubectl isn't installed (or isn't on your PATH) — install it: https://kubernetes.io/docs/tasks/tools/ — then run `astrona check`")
+
+// LookKubectl finds kubectl, or returns ErrNoKubectl.
+func LookKubectl() (string, error) {
+	path, err := exec.LookPath("kubectl")
+	if err != nil {
+		return "", ErrNoKubectl
+	}
+	return path, nil
 }
