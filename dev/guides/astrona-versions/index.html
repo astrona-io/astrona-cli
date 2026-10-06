@@ -3354,7 +3354,7 @@
 <p>They warn about an unknown field and otherwise run the lab normally — but their <code>astrona validate</code> reports it as an error. Validate such a lab with a current astrona.</p>
 </div>
 <h2 id="upgrading">Upgrading<a class="headerlink" href="#upgrading" title="Permanent link">&para;</a></h2>
-<p><code>astrona upgrade</code> installs the latest release over <code>astrona</code>, verified against the same GitHub digest, and only when it's actually newer than the one you have.</p>
+<p><code>astrona upgrade</code> installs the latest release over <code>astrona</code>, verified against the same GitHub digest, and only when it's actually newer than the one you have. Installed with Homebrew? Use <code>brew upgrade astrona</code> — <code>astrona upgrade</code> refuses to replace a binary Homebrew manages. <code>astrona versions install</code> works the same either way (it installs into <code>~/.astrona/bin</code>, not Homebrew's directory).</p>
 
 
 
