@@ -57,7 +57,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 	var clusterFlag string
 
 	cmd := &cobra.Command{
-		Use:   "reset",
+		Use:   "reset [lab]",
 		Short: "Start a lab over: destroy it and recreate it from its config",
 		Long: "Start a lab over from scratch: run its teardown scripts, destroy it, then do everything " +
 			"`astrona run` does — the lab ends up exactly as a fresh `astrona run` leaves it. " +
@@ -73,8 +73,9 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 		Example: `  astrona reset -c ./labs/my-lab
   astrona reset -c ./labs/my-lab --yes
   astrona reset -c ./labs/my-lab --cluster idp`,
-		Args: cobra.NoArgs,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			useLabArg(args, flags) // a lab given as the argument wins over `astrona use`
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err

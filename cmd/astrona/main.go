@@ -29,6 +29,9 @@ type rootFlags struct {
 	gitRef     string
 	verbose    bool
 	trust      bool
+	// gitExplicit: --git was given on this command line (so a lab
+	// argument is a subdirectory of that repo, not a local path).
+	gitExplicit bool
 	// parallel is --parallel on commands that create a lab (run, reset,
 	// test): linked clusters created at once.
 	parallel int
@@ -89,6 +92,12 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 		Long:    "Astrona is the single CLI for the Astrona lab community: spin up local Kubernetes labs, grade them, and (as more groups land) publish and authenticate against the Astrona platform.\n\n" + supportLine(),
 		Version: Version,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// The lab picked with `astrona use`, unless this command
+			// names one or runs inside a lab directory.
+			flags.gitExplicit = cmd.Flags().Changed("git")
+			if cmd.Name() != "use" {
+				applyCurrentLab(cmd, flags)
+			}
 			// Hidden commands (docgen, the port-forward supervisor) are
 			// tooling/background processes — no version nag, no network.
 			if cmd.Name() == "__complete" || cmd.Name() == "help" || cmd.Hidden {

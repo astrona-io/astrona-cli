@@ -18,6 +18,7 @@ type commandGroup struct {
 func commandGroups(flags *rootFlags) []commandGroup {
 	return []commandGroup{
 		{"lab", "Take a lab:", []*cobra.Command{
+			newUseCmd(flags),
 			newRunCmd(flags),
 			newDocsCmd(flags),
 			newShellCmd(flags),

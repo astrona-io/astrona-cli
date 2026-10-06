@@ -1,12 +1,22 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"astrona/internal/config"
 )
+
+// withNoLabHint adds what to do when no lab was named and the current
+// directory has none — the usual first stumble.
+func withNoLabHint(err error, flags *rootFlags) error {
+	if errors.Is(err, os.ErrNotExist) && flags.configPath == "." && flags.gitURL == "" {
+		return fmt.Errorf("%w\nNo lab here — name one (`astrona run ./path/to/lab`, -c, --git) or pick one for every command: astrona use <lab>", err)
+	}
+	return err
+}
 
 // LoadLabForCommand resolves --config/--file (and --git/--git-ref, if set),
 // loads the YAML, and returns the lab's base directory for resolving
@@ -26,7 +36,7 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 
 	cfg, cleanup, err = config.LoadLabConfig(finalPath)
 	if err != nil {
-		return nil, "", func() {}, fmt.Errorf("failed to load lab config: %w", err)
+		return nil, "", func() {}, withNoLabHint(fmt.Errorf("failed to load lab config: %w", err), flags)
 	}
 
 	// Typos are only warned about here, so a lab that has always worked
