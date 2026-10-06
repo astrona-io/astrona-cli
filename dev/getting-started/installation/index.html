@@ -3258,6 +3258,12 @@
 </ul>
 <h2 id="shell-completion">Shell completion<a class="headerlink" href="#shell-completion" title="Permanent link">&para;</a></h2>
 <p><code>astrona completion &lt;shell&gt;</code> prints a completion script for bash, zsh, fish or PowerShell. Besides commands and flags, it completes <strong>lab names</strong> from what's actually on your machine — <code>astrona destroy &lt;TAB&gt;</code>, <code>stop</code>, <code>start</code>, <code>shell</code>, <code>kubeconfig</code>, <code>diagnose</code>, <code>ssh</code>, <code>port-forward list|stop</code> — filtered to what makes sense (<code>start</code> offers stopped labs, <code>ssh</code> qemu VMs), each with its runtime and status. Type part of the name without <code>astro-</code> and the short form is completed.</p>
+<p>It also completes:</p>
+<ul>
+<li><code>--cluster &lt;TAB&gt;</code> (<code>shell</code>, <code>kubeconfig</code>, <code>net</code>, <code>reset</code>) — the lab's <a href="../../guides/linked-labs/">linked clusters</a></li>
+<li><code>astrona versions install &lt;TAB&gt;</code> — published releases you don't have yet; <code>versions remove &lt;TAB&gt;</code> — the installed ones</li>
+<li>a lab directory or config file wherever a command takes one (<code>astrona use ./&lt;TAB&gt;</code>, <code>astrona run ./&lt;TAB&gt;</code>)</li>
+</ul>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">zsh</label><label for="__tabbed_1_2">bash</label><label for="__tabbed_1_3">fish</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
