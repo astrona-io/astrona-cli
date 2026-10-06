@@ -36,7 +36,8 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			"Every attempt is recorded — `astrona submit --history` lists them. `--watch` re-grades " +
 			"continuously while you work, without recording attempts.\n\n" +
 			"Passing means every check passes, or — when the lab sets validation.passPercent — " +
-			"reaching that score.",
+			"reaching that score.\n\n" +
+			"Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong.",
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -128,7 +129,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 
 			if !pass {
 				fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, false, 0))
-				return fmt.Errorf("submission did not pass grading")
+				return notPassed("submission did not pass grading")
 			}
 
 			fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, true, 0))
