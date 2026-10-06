@@ -240,6 +240,8 @@ type LabConfig struct {
 	Teardown   TeardownConfig   `yaml:"teardown"`
 	// Exam turns the lab into a timed exam — see ExamConfig (exam.go).
 	Exam ExamConfig `yaml:"exam"`
+	// Links are other kind labs this one works with — see Link (links.go).
+	Links []Link `yaml:"links"`
 
 	// UnknownFields are keys no field reads (typos) — found by
 	// LoadLabConfig, not part of the YAML. Lifecycle commands warn about

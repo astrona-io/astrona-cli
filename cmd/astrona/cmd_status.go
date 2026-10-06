@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
 	"astrona/internal/portforward"
@@ -22,6 +23,8 @@ type labStatus struct {
 	row      labRow
 	cfg      *config.LabConfig // nil when no lab config was found
 	forwards []portforward.Forward
+	links    []cluster.LinkState
+	linkRows map[string]labRow // linked cluster → its row (status), when running
 	exam     *exam.State
 	attempts []proctor.Attempt
 	now      time.Time
@@ -109,6 +112,13 @@ func newStatusCmd(flags *rootFlags) *cobra.Command {
 			}
 			st.exam, _ = exam.Load(name)
 			st.attempts, _ = proctor.LoadAttempts(name)
+			st.links, _ = labLinks(name)
+			st.linkRows = map[string]labRow{}
+			for _, l := range st.links {
+				if r, ok := findLabRow(l.Cluster); ok {
+					st.linkRows[l.Cluster] = r
+				}
+			}
 			printLabStatus(os.Stdout, st)
 			return nil
 		},
@@ -143,6 +153,18 @@ func printLabStatus(w io.Writer, st labStatus) {
 		}
 		pf := f.Spec.Forward.Normalized()
 		field(label, fmt.Sprintf("%s %s %s", pf.Name, f.Effective(), portforward.LocalURL(pf)))
+	}
+
+	for i, l := range st.links {
+		label := ""
+		if i == 0 {
+			label = "Links"
+		}
+		state := "not running"
+		if r, ok := st.linkRows[l.Cluster]; ok {
+			state = r.status
+		}
+		field(label, fmt.Sprintf("%s → %s (%s) · host %s", l.Name, l.Cluster, state, l.Host()))
 	}
 
 	if st.exam != nil {

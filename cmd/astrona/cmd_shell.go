@@ -135,7 +135,18 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			env := append(os.Environ(), "KUBECONFIG="+kubeconfig, labShellEnvVar+"="+lab)
+			// Linked labs' kubeconfigs join the lab's own (kubectl merges a
+			// KUBECONFIG list; the first file's current-context wins), so
+			// `kubectl --context kind-<linked lab>` works in the shell too.
+			links, linkEnv := labLinks(lab)
+			kubeconfigs := []string{kubeconfig}
+			for _, l := range links {
+				if kc := cluster.ExistingKubeconfig(l.Cluster); kc != "" {
+					kubeconfigs = append(kubeconfigs, kc)
+				}
+			}
+			env := append(os.Environ(), "KUBECONFIG="+strings.Join(kubeconfigs, string(os.PathListSeparator)), labShellEnvVar+"="+lab)
+			env = append(env, linkEnv...)
 
 			if len(command) > 0 {
 				c := exec.Command(command[0], command[1:]...)

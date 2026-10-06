@@ -54,7 +54,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err := validateLabForRun(cfg); err != nil {
 				return err
 			}
-			return bringUpLab(cfg, baseDir, rep)
+			return bringUpLab(cfg, baseDir, flags, rep)
 		},
 	}
 
@@ -110,6 +110,9 @@ func validateLabForRun(cfg *config.LabConfig) error {
 			return err
 		}
 	}
+	if err := config.ValidateLinks(cfg); err != nil {
+		return err
+	}
 	if err := config.ValidateExam(cfg); err != nil {
 		return err
 	}
@@ -128,17 +131,25 @@ func validateLabForRun(cfg *config.LabConfig) error {
 	return nil
 }
 
-// bringUpLab creates cfg's environment and runs everything `astrona run`
-// does on top — preload, addons, bootstrap, manifests, readiness gates,
-// port forwards — then prints how to connect. Shared by run and reset.
-func bringUpLab(cfg *config.LabConfig, baseDir string, rep *ui.Reporter) error {
+// upLab creates cfg's environment under clusterName and runs everything
+// `astrona run` does on top — preload, addons, bootstrap, manifests,
+// readiness gates, port forwards — with links' addresses made available
+// to it. No summary output: used for the lab itself and for linked labs.
+func upLab(cfg *config.LabConfig, baseDir, clusterName string, links []cluster.LinkState, forTest bool, rep *ui.Reporter) (*runtime.LabEnvironment, []portforward.Forward, error) {
+	// A test copy of a lab mustn't fight its real `run` for host ports.
+	if forTest && cfg.Runtime.Kind != nil {
+		k := *cfg.Runtime.Kind
+		k.Addons.SkipHostPorts = true
+		cfg.Runtime.Kind = &k
+	}
 	rep.Section("Lab: %s", cfg.Metadata.Name)
-
-	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
 
 	env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime, rep)
 	if err != nil {
-		return fmt.Errorf("lab setup failed: %w", err)
+		return nil, nil, fmt.Errorf("lab setup failed: %w", err)
+	}
+	if err := attachLinks(env, clusterName, links, rep); err != nil {
+		return nil, nil, err
 	}
 
 	// Before addons and bootstrap, so anything they start can use
@@ -146,38 +157,42 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, rep *ui.Reporter) error {
 	if k := cfg.Runtime.Kind; k != nil && len(k.PreloadImages) > 0 {
 		rep.Section("Images")
 		if err := cluster.PreloadImages(clusterName, k.PreloadImages, rep); err != nil {
-			return fmt.Errorf("image preload failed: %w", err)
+			return nil, nil, fmt.Errorf("image preload failed: %w", err)
 		}
 	}
 
 	if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {
 		rep.Section("Addons")
 		if err := addons.Install(k.Addons, env.KubeContext, rep); err != nil {
-			return fmt.Errorf("addons failed: %w", err)
+			return nil, nil, fmt.Errorf("addons failed: %w", err)
 		}
+	}
+
+	if err := waitForClusterDNS(cfg, env, rep); err != nil {
+		return nil, nil, fmt.Errorf("cluster DNS not ready: %w", err)
 	}
 
 	if scripts.HasBootstrapInit(cfg) {
 		rep.Section("Bootstrap")
 		if err := scripts.RunBootstrap(cfg, baseDir, env, rep); err != nil {
-			return fmt.Errorf("init scripts failed: %w", err)
+			return nil, nil, fmt.Errorf("init scripts failed: %w", err)
 		}
 	}
 
 	if len(cfg.Bootstrap.Manifests) > 0 {
 		if env.KubeContext == "" {
-			return fmt.Errorf("bootstrap.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
+			return nil, nil, fmt.Errorf("bootstrap.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
 		}
 		rep.Section("Manifests")
 		if err := manifests.ApplyManifests(cfg.Bootstrap.Manifests, baseDir, env.KubeContext, rep); err != nil {
-			return fmt.Errorf("bootstrap manifests failed: %w", err)
+			return nil, nil, fmt.Errorf("bootstrap manifests failed: %w", err)
 		}
 	}
 
 	if len(cfg.Bootstrap.WaitFor) > 0 {
 		rep.Section("Readiness")
 		if err := manifests.WaitFor(cfg.Bootstrap.WaitFor, env.KubeContext, rep); err != nil {
-			return fmt.Errorf("lab did not become ready: %w", err)
+			return nil, nil, fmt.Errorf("lab did not become ready: %w", err)
 		}
 	}
 
@@ -186,12 +201,29 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, rep *ui.Reporter) error {
 	// fails or isn't ready yet never fails the run — the lab itself
 	// is up, and the supervisor keeps retrying.
 	var forwards []portforward.Forward
-	if len(cfg.Runtime.PortForwards) > 0 {
+	if len(cfg.Runtime.PortForwards) > 0 && !forTest {
 		rep.Section("Port forwards")
 		forwards, err = startLabPortForwards(clusterName, cfg.Runtime.PortForwards, rep)
 		if err != nil {
 			rep.Warn("some port forwards could not be started — fix and retry with `astrona port-forward start -c <config>`")
 		}
+	}
+	return env, forwards, nil
+}
+
+// bringUpLab starts cfg's linked labs (if any aren't running), then the lab
+// itself with everything `astrona run` does — preload, addons, bootstrap,
+// manifests, readiness gates, port forwards — and prints how to connect.
+// Shared by run and reset.
+func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui.Reporter) error {
+	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
+	links, err := startLinkedLabs(cfg, baseDir, flags, rep, map[string]bool{clusterName: true}, 0)
+	if err != nil {
+		return err
+	}
+	env, forwards, err := upLab(cfg, baseDir, clusterName, links, false, rep)
+	if err != nil {
+		return err
 	}
 
 	// The clock starts once the lab is ready — setup time doesn't count.
@@ -205,6 +237,7 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, rep *ui.Reporter) error {
 	fmt.Printf("\nLab environment is fully loaded and ready!\n")
 	printConnectHints(env, cfg, clusterName)
 	printPortForwardHints(os.Stdout, forwards)
+	printLinkHints(os.Stdout, links)
 	if cfg.Exam.Enabled() {
 		fmt.Printf("\nExam started — you have %s. `astrona submit` shows the time left.\n", exam.Round(cfg.Exam.Limit()))
 	}

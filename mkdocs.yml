@@ -75,6 +75,7 @@ nav:
       - CI Integration: guides/ci-integration.md
       - Remote Config Sources: guides/remote-config.md
       - Offline Bundles: guides/offline-bundles.md
+      - Linked Labs: guides/linked-labs.md
   - Reference:
       - Lab Config Schema: reference/lab-config.md
       - CLI Reference:

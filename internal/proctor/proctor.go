@@ -216,7 +216,7 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 			cmd := exec.Command(parts[0], parts[1:]...)
 			// Same KUBECONFIG lab scripts get, so a `kubectl ...` command
 			// check grades the lab's cluster, not the user's own context.
-			cmd.Env = executor.KubeconfigEnv(p.env.Kubeconfig)
+			cmd.Env = executor.Env(p.env.Kubeconfig, p.env.ExtraEnv)
 			out, err := cmd.CombinedOutput()
 			trimmed := strings.TrimSpace(string(out))
 

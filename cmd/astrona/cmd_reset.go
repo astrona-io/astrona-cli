@@ -107,7 +107,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				rep.Info("Lab '%s' isn't running — creating it fresh.", clusterName)
 			}
 
-			return bringUpLab(cfg, baseDir, rep)
+			return bringUpLab(cfg, baseDir, flags, rep)
 		},
 	}
 

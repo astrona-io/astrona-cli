@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+#
+# The "identity provider" side of the linked-labs example: a tiny token
+# service, published on NodePort 30080 so other labs' clusters can reach
+# it. Started automatically by ../app (see its links:), or on its own with
+# `astrona run -c examples/linked-labs/idp`.
+metadata:
+  name: linked-idp
+
+runtime:
+  kind:
+    preloadImages: [nginx:1.27-alpine]
+
+bootstrap:
+  manifests:
+    - name: token service
+      type: file
+      source: idp.yaml
+  waitFor:
+    - resource: deploy/idp
+      namespace: auth

@@ -139,6 +139,7 @@ func destroyByName(name string, rep *ui.Reporter) error {
 
 	foundQemu := qemuStateExists(name)
 	foundKind := kindClusterExists(name)
+	links, _ := labLinks(name) // read before destroy removes them
 	if err := exam.Clear(name); err != nil {
 		rep.Warn("%s", err)
 	}
@@ -164,6 +165,7 @@ func destroyByName(name string, rep *ui.Reporter) error {
 	}
 
 	fmt.Printf("Lab '%s' cleaned up successfully.\n", name)
+	noteLinkedStillRunning(links)
 	return nil
 }
 
@@ -299,12 +301,14 @@ func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir strin
 		return nil
 	}
 
+	links, _ := labLinks(clusterName) // read before destroy removes them
 	if err := runtime.DestroyEnvironment(clusterName, info.runtime, rep); err != nil {
 		if hardFail {
 			return fmt.Errorf("lab teardown failed: %w", err)
 		}
 		rep.Warn("teardown failed for '%s': %s", clusterName, err)
 	}
+	noteLinkedStillRunning(links)
 
 	return nil
 }
@@ -388,4 +392,18 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	return cmd
+}
+
+// noteLinkedStillRunning reminds that destroying a lab leaves the labs it
+// linked to running — they're independent labs, possibly shared.
+func noteLinkedStillRunning(links []cluster.LinkState) {
+	var running []string
+	for _, l := range links {
+		if kindClusterExists(l.Cluster) {
+			running = append(running, l.Cluster)
+		}
+	}
+	if len(running) > 0 {
+		fmt.Printf("Linked lab(s) still running: %s — `astrona destroy <name>` when you're done with them.\n", strings.Join(running, ", "))
+	}
 }

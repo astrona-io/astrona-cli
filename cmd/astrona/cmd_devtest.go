@@ -96,7 +96,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				if dir != "" && repeat > 1 {
 					dir = filepath.Join(diagDir, fmt.Sprintf("run-%d", i))
 				}
-				results, pass, err := runTestOnce(cfg, baseDir, clusterName, diagMode, dir, rep)
+				results, pass, err := runTestOnce(cfg, baseDir, clusterName, diagMode, dir, flags, rep)
 				runs = append(runs, testRun{results: results, pass: pass, err: err})
 			}
 
@@ -129,7 +129,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 // runTestOnce is one full `astrona test` lifecycle on a fresh environment:
 // clean slate, create, preload, addons, bootstrap, testing, grade, and —
 // always, via defer — diagnostics (per diagMode) and teardown.
-func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir string, rep *ui.Reporter) (results []proctor.CheckResult, pass bool, retErr error) {
+func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir string, flags *rootFlags, rep *ui.Reporter) (results []proctor.CheckResult, pass bool, retErr error) {
 	// Best-effort clean slate: a cancelled `astrona test` (Ctrl-C)
 	// skips the defer teardown below entirely — Go doesn't run
 	// deferred functions on a signal that kills the process — so a
@@ -149,6 +149,14 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 		k := *cfg.Runtime.Kind
 		k.Addons.SkipHostPorts = true
 		cfg.Runtime.Kind = &k
+	}
+
+	// Linked labs come up first as test copies; their teardown is deferred
+	// before this lab's, so it runs after it (LIFO) — even on failure.
+	links, teardownLinks, err := startTestLinks(cfg, baseDir, flags, rep)
+	defer teardownLinks()
+	if err != nil {
+		return nil, false, err
 	}
 
 	env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime, rep)
@@ -181,6 +189,10 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 		}
 	}()
 
+	if err := attachLinks(env, clusterName, links, rep); err != nil {
+		return nil, false, err
+	}
+
 	// Before addons and bootstrap, so anything they start can use
 	// the preloaded images.
 	if k := cfg.Runtime.Kind; k != nil && len(k.PreloadImages) > 0 {
@@ -195,6 +207,10 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 		if err := addons.Install(k.Addons, env.KubeContext, rep); err != nil {
 			return nil, false, fmt.Errorf("addons failed: %w", err)
 		}
+	}
+
+	if err := waitForClusterDNS(cfg, env, rep); err != nil {
+		return nil, false, fmt.Errorf("cluster DNS not ready: %w", err)
 	}
 
 	if scripts.HasBootstrapInit(cfg) {
