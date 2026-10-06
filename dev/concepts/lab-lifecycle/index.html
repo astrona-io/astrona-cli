@@ -3065,6 +3065,11 @@ bootstrap script) is <strong>not</strong> shown by default. Instead:</p>
 </ul>
 <p>Non-interactive output (piped, redirected, or CI) automatically drops the
 spinner and ANSI styling and prints one plain line per step.</p>
+<p>On a terminal, problems stand out in color: <code>Error:</code> and what went wrong in
+red (hints on what to do next follow in the normal color), <code>[WARN]</code> in yellow,
+<code>[INFO]</code> in cyan, and grading results as green <code>PASS</code> / red <code>FAIL</code> with a
+yellow <code>hint:</code>. Set <code>NO_COLOR=1</code> to turn colors off everywhere; piped and
+redirected output never has them.</p>
 <p>For a <code>qemu</code> lab, a successful <code>astrona run</code> also prints a <strong>Connect:</strong> block
 with the ready-to-paste <code>astrona ssh &lt;name&gt;</code> command for each VM.</p>
 <p>For a <code>kind</code> lab with <a href="../runtimes/#port-forwards"><code>runtime.portForwards</code></a>, <code>astrona run</code> starts those forwards after
