@@ -209,5 +209,8 @@ func nextStep(st labStatus) string {
 	if strings.HasPrefix(st.row.status, "Stopped") {
 		return "astrona start " + st.row.name
 	}
+	if n := len(st.attempts); n > 0 {
+		return "astrona submit --watch for live feedback while you fix it — or astrona reset --soft to start over"
+	}
 	return "astrona submit to grade your work"
 }

@@ -84,6 +84,7 @@ func applyCurrentLab(cmd *cobra.Command, flags *rootFlags) {
 		return
 	}
 	flags.configPath, flags.gitURL, flags.gitRef = c.Config, c.Git, c.GitRef
+	flags.fromCurrent = true
 	if c.File != "" && !cmd.Flags().Changed("file") {
 		flags.fileName = c.File
 	}
@@ -98,6 +99,7 @@ func useLabArg(args []string, flags *rootFlags) {
 	}
 	arg := args[0]
 	flags.labArg = arg
+	flags.fromCurrent = false
 	if flags.gitExplicit && !isGitURL(arg) {
 		flags.configPath = arg // a subdirectory of the --git repo
 		return

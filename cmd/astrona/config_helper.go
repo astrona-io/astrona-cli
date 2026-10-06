@@ -9,6 +9,8 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/ui"
+
+	"github.com/mattn/go-isatty"
 )
 
 // withNoLabHint adds what to do when no lab was named and the current
@@ -49,6 +51,11 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 	if err := ensureLabVersion(cfg.AstronaVersion, flags); err != nil {
 		cleanup()
 		return nil, "", func() {}, err
+	}
+	// Say which lab when it came from `astrona use` — it isn't on the
+	// command line. Terminal only, so $(…) captures stay clean.
+	if flags.fromCurrent && isatty.IsTerminal(os.Stderr.Fd()) {
+		fmt.Fprintln(os.Stderr, ui.Paint(os.Stderr, "→ lab "+cfg.Metadata.Name+" (from `astrona use`)", ui.Dim))
 	}
 
 	// Typos are only warned about here, so a lab that has always worked

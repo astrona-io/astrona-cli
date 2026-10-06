@@ -38,6 +38,7 @@ type labRow struct {
 	// callers just need names); "-" when unknown/not applicable.
 	version  string // Kubernetes version (kubelet) of the nodes
 	forwards string // e.g. "2/2 Ready"
+	current  bool   // the lab picked with `astrona use`
 }
 
 // newListCmd builds `astrona list`. It lists every running qemu VM and kind
@@ -66,6 +67,7 @@ func newListCmd() *cobra.Command {
 			}
 			rows = append(rows, enrichKindHealth(collectKindRows())...)
 			markLinkedClusters(rows, linkedClusterOwners())
+			markCurrentLab(rows)
 
 			if output == "json" {
 				return printLabJSON(os.Stdout, rows)
@@ -129,12 +131,13 @@ type labJSON struct {
 	Kubernetes   string `json:"kubernetes,omitempty"`
 	PortForwards string `json:"portForwards,omitempty"`
 	Details      string `json:"details"`
+	Current      bool   `json:"current,omitempty"`
 }
 
 func printLabJSON(w io.Writer, rows []labRow) error {
 	out := make([]labJSON, 0, len(rows))
 	for _, r := range rows {
-		j := labJSON{Name: r.name, Runtime: r.runtime, Status: r.status, Uptime: r.uptime, Kubernetes: r.version, PortForwards: r.forwards, Details: r.details}
+		j := labJSON{Name: r.name, Runtime: r.runtime, Status: r.status, Uptime: r.uptime, Kubernetes: r.version, PortForwards: r.forwards, Details: r.details, Current: r.current}
 		if r.nics != "-" {
 			j.NICs = r.nics
 		}
@@ -471,6 +474,21 @@ func markLinkedClusters(rows []labRow, owners map[string]string) {
 	for i := range rows {
 		if owner, ok := owners[rows[i].name]; ok {
 			rows[i].details = "linked cluster of " + owner + " · " + rows[i].details
+		}
+	}
+}
+
+// markCurrentLab marks the lab picked with `astrona use`.
+func markCurrentLab(rows []labRow) {
+	c, err := loadCurrentLab()
+	if err != nil || c == nil || c.Name == "" {
+		return
+	}
+	name := config.NormalizeClusterName(c.Name)
+	for i := range rows {
+		if rows[i].name == name {
+			rows[i].current = true
+			rows[i].details += " · current lab (astrona use)"
 		}
 	}
 }
