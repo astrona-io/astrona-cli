@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"astrona/internal/config"
 )
 
 // LinkState is one of a lab's linked clusters (runtime.kind.labs): its
@@ -17,6 +19,9 @@ import (
 type LinkState struct {
 	Name    string `json:"name"`
 	Cluster string `json:"cluster"`
+	// WAN is the cluster's configured network conditions — kept so
+	// `astrona start` can re-apply them (a restart drops them).
+	WAN config.WANConditions `json:"wan,omitzero"`
 }
 
 // Host is the linked cluster's control-plane container name — resolvable

@@ -39,7 +39,7 @@ func kindLabStates(cfg *config.LabConfig, labCluster string) ([]config.KindLab, 
 	}
 	var states []cluster.LinkState
 	for _, l := range order {
-		states = append(states, cluster.LinkState{Name: l.Name, Cluster: config.KindLabClusterName(labCluster, l.Name)})
+		states = append(states, cluster.LinkState{Name: l.Name, Cluster: config.KindLabClusterName(labCluster, l.Name), WAN: l.WAN})
 	}
 	return order, states, nil
 }
@@ -79,7 +79,11 @@ func startKindLabs(cfg *config.LabConfig, baseDir, labCluster string, forTest bo
 			rep.Warn("could not clean up a previous '%s', proceeding anyway: %s", name, err)
 		}
 		rep.Section("Linked cluster '%s'", l.Name)
-		if _, _, err := upLab(sub, baseDir, name, deps, forTest, rep); err != nil {
+		_, _, err := upLab(sub, baseDir, name, deps, forTest, rep)
+		if err == nil {
+			err = applyWANStep(name, l.WAN, rep)
+		}
+		if err != nil {
 			err = fmt.Errorf("linked cluster '%s' (%s): %w", l.Name, name, err)
 			if rest := notStarted(order[i+1:]); rest != "" {
 				err = fmt.Errorf("%w — not started: %s", err, rest)
@@ -89,6 +93,41 @@ func startKindLabs(cfg *config.LabConfig, baseDir, labCluster string, forTest bo
 		byName[l.Name] = states[i]
 	}
 	return states, nil
+}
+
+// applyWANStep applies a linked cluster's wan conditions (none: no-op).
+func applyWANStep(clusterName string, w config.WANConditions, rep *ui.Reporter) error {
+	if w.IsZero() {
+		return nil
+	}
+	t := rep.Step("Simulate WAN on %s (%s)", clusterName, describeWAN(w))
+	if err := cluster.ApplyWAN(clusterName, w); err != nil {
+		return t.Fail(err)
+	}
+	t.Done()
+	return nil
+}
+
+// describeWAN is a short human summary, e.g. "150ms ±20ms, 2% loss".
+func describeWAN(w config.WANConditions) string {
+	var parts []string
+	if w.Latency != "" {
+		p := w.Latency
+		if w.Jitter != "" {
+			p += " ±" + w.Jitter
+		}
+		parts = append(parts, p)
+	}
+	if w.Loss != "" {
+		parts = append(parts, w.Loss+" loss")
+	}
+	if w.Rate != "" {
+		parts = append(parts, w.Rate)
+	}
+	if len(parts) == 0 {
+		return "no conditions"
+	}
+	return strings.Join(parts, ", ")
 }
 
 // notStarted names the clusters a failed start skipped, plus the lab.

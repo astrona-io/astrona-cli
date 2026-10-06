@@ -103,6 +103,7 @@ nav:
           - reference/cli/astrona_bundle_load.md
           - reference/cli/astrona_bundle_inspect.md
           - reference/cli/astrona_port-forward.md
+          - reference/cli/astrona_net.md
           - reference/cli/astrona_port-forward_list.md
           - reference/cli/astrona_port-forward_start.md
           - reference/cli/astrona_port-forward_stop.md

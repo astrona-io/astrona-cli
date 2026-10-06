@@ -205,6 +205,9 @@ Extra kind clusters that run side by side with the lab's own — e.g. an identit
 | `bootstrap` | [BootstrapConfig](#bootstrap-testing) | Sets this cluster up — runs before the lab's own bootstrap |
 | `testing` | [BootstrapConfig](#bootstrap-testing) | This cluster's part of the reference solution — `astrona test` applies it before the lab's own `testing` |
 | `teardown.init` | list of [ResourceItem](#resourceitem) | Best-effort scripts run before the lab is destroyed: after the lab's own teardown, in reverse start order, with `KUBECONFIG` pointing at this cluster. (Whether clusters are kept is the lab's `teardown.keepCluster`) |
+| `wan.latency` / `wan.jitter` | string | Simulate a remote site: latency added per round trip (e.g. `80ms`) and its variation (`10ms`, needs `latency`) — see [Simulating a remote site](../guides/linked-labs.md#simulating-a-remote-site) |
+| `wan.loss` | string | Share of packets dropped, `0%`–`100%` |
+| `wan.rate` | string | Bandwidth cap, e.g. `10mbit` (`kbit`, `mbit`, `gbit`) |
 | `dependsOn` | list of strings | Other linked clusters (names) that must be up and ready — bootstrap and `waitFor` done — before this one is created. Its scripts get their `ASTRONA_LINK_*` addresses (and its cluster their `astrona-links` ConfigMap). Unknown names, self-dependencies and cycles are rejected |
 
 Paths are relative to the lab's config, like everywhere else; by convention each cluster keeps its files in `labs/<name>/` (`labs/idp/bootstrap/`, `labs/idp/testing/`).

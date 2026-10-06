@@ -194,6 +194,9 @@
         },
         "version": {
           "type": "string"
+        },
+        "wan": {
+          "$ref": "#/$defs/WANConditions"
         }
       },
       "type": "object"
@@ -610,6 +613,24 @@
             "$ref": "#/$defs/ResourceItem"
           },
           "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "WANConditions": {
+      "additionalProperties": false,
+      "properties": {
+        "jitter": {
+          "type": "string"
+        },
+        "latency": {
+          "type": "string"
+        },
+        "loss": {
+          "type": "string"
+        },
+        "rate": {
+          "type": "string"
         }
       },
       "type": "object"

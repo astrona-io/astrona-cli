@@ -137,8 +137,10 @@ func startKindLabsParallel(cfg *config.LabConfig, order []config.KindLab, states
 		if err := runtime.DestroyEnvironment(name, sub.Runtime, subRep); err != nil {
 			subRep.Warn("could not clean up a previous '%s', proceeding anyway: %s", name, err)
 		}
-		_, _, err := upLab(sub, baseDir, name, deps, forTest, subRep)
-		return err
+		if _, _, err := upLab(sub, baseDir, name, deps, forTest, subRep); err != nil {
+			return err
+		}
+		return applyWANStep(name, l.WAN, subRep)
 	}
 
 	rep.Section("Linked clusters (up to %d at once)", parallel)

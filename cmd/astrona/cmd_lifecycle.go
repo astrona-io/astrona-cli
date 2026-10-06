@@ -151,10 +151,19 @@ func newStartCmd(flags *rootFlags) *cobra.Command {
 
 			// Linked clusters first — the lab's workloads may call them.
 			linked := ownedClusters(lab, nil)
+			saved, _ := cluster.ReadLinks(lab)
 			for _, c := range linked {
 				rep.Section("Linked cluster %s", c)
 				if _, err := startLab(c, rep); err != nil {
 					return fmt.Errorf("linked cluster %s: %w", c, err)
+				}
+				// A restart drops netem — re-apply the configured conditions.
+				for _, l := range saved {
+					if l.Cluster == c {
+						if err := applyWANStep(c, l.WAN, rep); err != nil {
+							rep.Warn("could not re-apply wan conditions on %s: %s", c, err)
+						}
+					}
 				}
 			}
 			if len(linked) > 0 {

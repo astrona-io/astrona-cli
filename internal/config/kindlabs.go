@@ -45,6 +45,9 @@ type KindLab struct {
 	// teardown, in reverse start order — with KUBECONFIG pointing at this
 	// cluster. Best effort, like the lab's.
 	Teardown KindLabTeardown `yaml:"teardown"`
+	// WAN simulates a remote site: latency, jitter, loss and a bandwidth
+	// cap on everything this cluster sends — see WANConditions (wan.go).
+	WAN WANConditions `yaml:"wan"`
 	// DependsOn names linked clusters that must be up and ready (bootstrap
 	// and waitFor done) before this one is created. Its scripts get their
 	// ASTRONA_LINK_* addresses. If one fails, this one isn't started.
@@ -126,6 +129,9 @@ func ValidateKindLabs(cfg *LabConfig) error {
 			if err := w.Validate(where + ".bootstrap"); err != nil {
 				return err
 			}
+		}
+		if err := l.WAN.Validate(); err != nil {
+			return fmt.Errorf("%s: %w", where, err)
 		}
 		for _, w := range l.Testing.WaitFor {
 			if err := w.Validate(where + ".testing"); err != nil {
