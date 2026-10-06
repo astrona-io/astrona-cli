@@ -560,6 +560,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Verify">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-something-isnt-working-astrona-doctor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When something isn't working: astrona doctor
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2386,6 +2403,8 @@
       
         
       
+        
+      
     
     
     
@@ -2430,6 +2449,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_doctor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona doctor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3071,6 +3118,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Verify">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-something-isnt-working-astrona-doctor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When something isn't working: astrona doctor
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3256,6 +3320,19 @@
 <li><strong>Host ports</strong> — every <code>portForwards</code> host port and the gateway addon's ports must be free (skipped while the lab itself is running).</li>
 <li>The lab config is validated too (<code>runtime.kind</code>, <code>runtime.portForwards</code>).</li>
 </ul>
+<h3 id="when-something-isnt-working-astrona-doctor">When something isn't working: <code>astrona doctor</code><a class="headerlink" href="#when-something-isnt-working-astrona-doctor" title="Permanent link">&para;</a></h3>
+<p><code>astrona doctor</code> runs all of the above <strong>and</strong> looks at the running lab, then says what's wrong and how to fix it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Running lab astro-linked-labs-01:
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  ✓  nodes                                  Ready (1/1)
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>  ✓  linked cluster idp                     Ready (1/1) · idp.astrona.internal
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>  ✗  port forward idp                       Stopped · http://127.0.0.1:30080
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        fix: astrona port-forward start
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>  ⚠  pods in astro-linked-labs-01-idp       1 unhealthy: auth/broken: ErrImagePull (…)
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>        fix: astrona diagnose collects their logs and events
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>Error: 1 problem(s) found — the ✗ lines above say how to fix each
+</code></pre></div>
+<p>It checks this machine (tools, container engine, inotify), the lab (its config, whether this astrona may run it, memory and free ports when it isn't running) and the running lab (nodes, linked clusters, port forwards, unhealthy pods, exam clock). It only reads — nothing is started or changed — and exits non-zero on any ✗. <code>--bundle</code> also writes the full <a href="../../guides/ci-integration/#diagnostics-on-failure">diagnostics bundle</a>. Unhealthy pods are ⚠, not ✗: in a lab they may be the exercise.</p>
 <h2 id="shell-completion">Shell completion<a class="headerlink" href="#shell-completion" title="Permanent link">&para;</a></h2>
 <p><code>astrona completion &lt;shell&gt;</code> prints a completion script for bash, zsh, fish or PowerShell. Besides commands and flags, it completes <strong>lab names</strong> from what's actually on your machine — <code>astrona destroy &lt;TAB&gt;</code>, <code>stop</code>, <code>start</code>, <code>shell</code>, <code>kubeconfig</code>, <code>diagnose</code>, <code>ssh</code>, <code>port-forward list|stop</code> — filtered to what makes sense (<code>start</code> offers stopped labs, <code>ssh</code> qemu VMs), each with its runtime and status. Type part of the name without <code>astro-</code> and the short form is completed.</p>
 <p>It also completes:</p>
@@ -3267,21 +3344,21 @@
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">zsh</label><label for="__tabbed_1_2">bash</label><label for="__tabbed_1_3">fish</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
 </code></pre></div>
 </div>
 </div>
 </div>
 <h2 id="staying-up-to-date">Staying up to date<a class="headerlink" href="#staying-up-to-date" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>upgrade
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>astrona<span class="w"> </span>upgrade
 </code></pre></div>
 <p>Checks GitHub for the latest release, downloads the binary for your OS/architecture, verifies it against the SHA-256 digest GitHub records for it (and its <a href="../../guides/astrona-versions/#build-provenance">build provenance</a> when the GitHub CLI is installed), and atomically replaces the currently running executable — only when the release is newer than yours.</p>
 <p>astrona tells you when a newer release exists — <code>[INFO] astrona v0.2.3 is available (you have v0.2.2) — astrona upgrade · what's new: &lt;release notes&gt;</code> — at most <strong>once a day</strong>. It asks GitHub at most once a day too (cached in <code>~/.astrona/update-check.json</code>), so commands don't wait on the network. It never checks in CI (<code>CI</code>/<code>GITHUB_ACTIONS</code>/… set) or when stderr isn't a terminal; <code>ASTRONA_NO_UPDATE_CHECK=1</code> turns it off everywhere.</p>
