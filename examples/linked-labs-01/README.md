@@ -1,6 +1,6 @@
 # Linked labs — two clusters side by side
 
-One lab, two kind clusters: the lab's own (where the student works) and `idp`, a linked cluster defined under `runtime.kind.labs` in `config.yaml`. The task is to log in against the idp from the lab's cluster. Everything for the idp cluster lives in `labs/idp/` (its `bootstrap/` here; a `testing/` folder would hold its part of a reference solution).
+One lab, two kind clusters: the lab's own (where the student works) and `idp`, a linked cluster defined under `runtime.kind.clusters` in `config.yaml`. The task is to log in against the idp from the lab's cluster. Everything for the idp cluster lives in `clusters/idp/` (its `bootstrap/` here; a `testing/` folder would hold its part of a reference solution).
 
 ```sh
 astrona run -c examples/linked-labs-01      # creates idp, then the lab

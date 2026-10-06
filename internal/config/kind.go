@@ -41,9 +41,13 @@ type KindConfig struct {
 	// start without a registry round-trip — faster, no Docker Hub rate
 	// limits, offline once the host has them. See preload.go.
 	PreloadImages []string `yaml:"preloadImages"`
-	// Labs are extra kind clusters that run side by side with this one —
-	// see KindLab (kindlabs.go).
-	Labs []KindLab `yaml:"labs"`
+	// Clusters are extra kind clusters that run side by side with this one
+	// — see KindCluster (kindclusters.go).
+	Clusters []KindCluster `yaml:"clusters"`
+	// Labs is the old name of Clusters (astrona ≤ v0.2.1). Still read —
+	// moved into Clusters when the config is loaded, with a deprecation
+	// warning.
+	Labs []KindCluster `yaml:"labs"`
 	// SharedCA gives the lab its own certificate authority, installed in
 	// its cluster and every linked cluster (ConfigMap astrona-ca with
 	// ca.crt; with cert-manager, a ClusterIssuer astrona-ca), so TLS
@@ -101,7 +105,7 @@ func (k *KindConfig) IsZero() bool {
 	return k == nil ||
 		(k.Version == "" && k.Image == "" && k.Nodes == KindNodes{} && k.Networking == KindNetworking{} &&
 			len(k.FeatureGates) == 0 && len(k.RuntimeConfig) == 0 && k.Addons.IsZero() && len(k.PreloadImages) == 0 &&
-			len(k.Labs) == 0 && !k.SharedCA)
+			len(k.Clusters) == 0 && len(k.Labs) == 0 && !k.SharedCA)
 }
 
 // NodeImage is the image to boot every node from, or "" for kind's default.

@@ -304,7 +304,7 @@ func checkLab(cfg *config.LabConfig, baseDir string, engine *engineInfo) []check
 	// bind host ports.
 	var linked []*config.KindConfig
 	if !running {
-		for _, l := range cfg.KindLabs() {
+		for _, l := range cfg.KindClusters() {
 			linked = append(linked, l.Cluster())
 		}
 	}

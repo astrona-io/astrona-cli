@@ -13,34 +13,34 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestKindLabConfig(t *testing.T) {
+func TestKindClusterConfig(t *testing.T) {
 	cfg := &config.LabConfig{
 		Metadata: config.MetadataConfig{Name: "auth-lab"},
-		Runtime: config.RuntimeConfig{Type: "kind", Kind: &config.KindConfig{Labs: []config.KindLab{
+		Runtime: config.RuntimeConfig{Type: "kind", Kind: &config.KindConfig{Clusters: []config.KindCluster{
 			{Name: "idp", PreloadImages: []string{"nginx:1.27-alpine"}, Addons: config.KindAddons{GatewayAPI: "envoy"},
 				Bootstrap: config.BootstrapConfig{Manifests: []config.ResourceItem{{Name: "idp", Type: "file", Source: "idp/idp.yaml"}}}},
 			{Name: "db"},
 		}}},
 	}
-	sub := kindLabConfig(cfg, cfg.KindLabs()[0])
+	sub := kindClusterConfig(cfg, cfg.KindClusters()[0])
 	if sub.Metadata.Name != "auth-lab-idp" || sub.Runtime.Type != "kind" || len(sub.Runtime.Kind.PreloadImages) != 1 || len(sub.Bootstrap.Manifests) != 1 {
 		t.Fatalf("linked cluster config = %+v", sub)
 	}
 	if !sub.Runtime.Kind.Addons.SkipHostPorts {
 		t.Error("a linked cluster's gateway must not take the lab's host ports")
 	}
-	if len(sub.KindLabs()) != 0 {
+	if len(sub.KindClusters()) != 0 {
 		t.Error("a linked cluster must not have linked clusters of its own")
 	}
 
-	_, states, err := kindLabStates(cfg, "astro-test-auth-lab")
+	_, states, err := kindClusterStates(cfg, "astro-test-auth-lab")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(states) != 2 || states[0] != (cluster.LinkState{Name: "idp", Cluster: "astro-test-auth-lab-idp"}) || states[1].Cluster != "astro-test-auth-lab-db" {
 		t.Fatalf("states = %+v — test copies must get their own cluster names", states)
 	}
-	if _, none, _ := kindLabStates(&config.LabConfig{}, "astro-x"); none != nil {
+	if _, none, _ := kindClusterStates(&config.LabConfig{}, "astro-x"); none != nil {
 		t.Error("lab without linked clusters has states")
 	}
 }
@@ -50,16 +50,25 @@ func TestLinksConfigMap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var cm struct {
-		Kind     string
-		Metadata struct{ Name, Namespace string }
-		Data     map[string]string
+	// astrona-clusters, and the same data under the pre-v0.3 name.
+	dec := yaml.NewDecoder(strings.NewReader(string(data)))
+	var names []string
+	for {
+		var cm struct {
+			Kind     string
+			Metadata struct{ Name, Namespace string }
+			Data     map[string]string
+		}
+		if err := dec.Decode(&cm); err != nil {
+			break
+		}
+		names = append(names, cm.Metadata.Name)
+		if cm.Kind != "ConfigMap" || cm.Data["idp.host"] != "astro-app-idp-control-plane" || cm.Data["idp.hostname"] != "idp.astrona.internal" || cm.Data["idp.context"] != "kind-astro-app-idp" {
+			t.Fatalf("configmap = %+v", cm)
+		}
 	}
-	if err := yaml.Unmarshal(data, &cm); err != nil {
-		t.Fatal(err)
-	}
-	if cm.Kind != "ConfigMap" || cm.Metadata.Name != "astrona-links" || cm.Data["idp.host"] != "astro-app-idp-control-plane" || cm.Data["idp.context"] != "kind-astro-app-idp" {
-		t.Fatalf("configmap = %+v", cm)
+	if strings.Join(names, ",") != "astrona-clusters,astrona-links" {
+		t.Fatalf("configmaps = %v", names)
 	}
 }
 
@@ -71,12 +80,12 @@ func TestMarkLinkedClusters(t *testing.T) {
 	}
 }
 
-func TestKindLabStatesFollowDependencies(t *testing.T) {
-	cfg := &config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Labs: []config.KindLab{
+func TestKindClusterStatesFollowDependencies(t *testing.T) {
+	cfg := &config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Clusters: []config.KindCluster{
 		{Name: "app", DependsOn: []string{"db"}},
 		{Name: "db"},
 	}}}}
-	order, states, err := kindLabStates(cfg, "astro-x")
+	order, states, err := kindClusterStates(cfg, "astro-x")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,11 +154,11 @@ func TestSharedCAManifestsAndPropagation(t *testing.T) {
 		t.Errorf("without cert-manager:\n%s", without)
 	}
 
-	cfg := &config.LabConfig{Metadata: config.MetadataConfig{Name: "ca-lab"}, Runtime: config.RuntimeConfig{Kind: &config.KindConfig{SharedCA: true, Labs: []config.KindLab{{Name: "idp"}}}}}
+	cfg := &config.LabConfig{Metadata: config.MetadataConfig{Name: "ca-lab"}, Runtime: config.RuntimeConfig{Kind: &config.KindConfig{SharedCA: true, Clusters: []config.KindCluster{{Name: "idp"}}}}}
 	if err := prepareSharedCA(cfg, "astro-ca-lab"); err != nil {
 		t.Fatal(err)
 	}
-	sub := kindLabConfig(cfg, cfg.KindLabs()[0])
+	sub := kindClusterConfig(cfg, cfg.KindClusters()[0])
 	if !sub.Runtime.Kind.SharedCA || sub.Runtime.Kind.CALab != "astro-ca-lab" {
 		t.Errorf("linked cluster doesn't install the lab's CA: %+v", sub.Runtime.Kind)
 	}

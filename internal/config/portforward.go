@@ -23,7 +23,7 @@ type PortForward struct {
 	TargetPort  int    `yaml:"targetPort"`
 	Scheme      string `yaml:"scheme"` // "http" | "https" | "tcp" (default) — only shapes the printed URL
 	Description string `yaml:"description"`
-	// Cluster forwards from a linked cluster (a runtime.kind.labs name)
+	// Cluster forwards from a linked cluster (a runtime.kind.clusters name)
 	// instead of the lab's own — e.g. an identity provider's login page.
 	Cluster string `yaml:"cluster"`
 }

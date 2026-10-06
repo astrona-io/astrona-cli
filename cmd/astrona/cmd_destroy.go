@@ -337,9 +337,9 @@ func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir strin
 			rep.Warn("teardown scripts failed for '%s': %s", clusterName, err)
 		}
 	}
-	var labs []config.KindLab
+	var labs []config.KindCluster
 	if info.runtime.Kind != nil {
-		labs = info.runtime.Kind.Labs
+		labs = info.runtime.Kind.Clusters
 	}
 	runLinkedTeardown(labs, clusterName, baseDir, rep)
 
@@ -383,7 +383,7 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			"(same list `astrona list` shows, with or without the 'astro-' prefix) and destroys every match — " +
 			"e.g. `astrona destroy 'qemu-jumphost-*'` (quote it so your shell doesn't expand the glob itself). " +
 			"No config needed, same trade-offs as a single name.\n\n" +
-			"A lab's linked clusters (runtime.kind.labs) are destroyed with it.",
+			"A lab's linked clusters (runtime.kind.clusters) are destroyed with it.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			labName := "-"

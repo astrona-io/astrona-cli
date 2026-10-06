@@ -159,13 +159,13 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 	// lab's, so it runs after it (LIFO) — even on failure.
 	defer func() {
 		if !cfg.Teardown.KeepCluster { // kept with the lab, like its own cluster
-			destroyOwnedClusters(ownedClusters(clusterName, cfg.KindLabs()), rep)
+			destroyOwnedClusters(ownedClusters(clusterName, cfg.KindClusters()), rep)
 		}
 	}()
 	if err := prepareSharedCA(cfg, clusterName); err != nil {
 		return nil, false, err
 	}
-	links, err := startKindLabs(cfg, baseDir, clusterName, true, flags.parallel, rep)
+	links, err := startKindClusters(cfg, baseDir, clusterName, true, flags.parallel, rep)
 	if err != nil {
 		return nil, false, err
 	}
@@ -189,7 +189,7 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 				rep.Warn("teardown scripts failed: %s", err)
 			}
 		}
-		runLinkedTeardown(cfg.KindLabs(), clusterName, baseDir, rep)
+		runLinkedTeardown(cfg.KindClusters(), clusterName, baseDir, rep)
 
 		if cfg.Teardown.KeepCluster {
 			rep.Info("keepCluster is set, leaving cluster '%s' running.", clusterName)
@@ -256,7 +256,7 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 
 	// Each linked cluster's part of the reference solution first, in
 	// dependency order, then the lab's own — which may rely on them.
-	order, err := config.KindLabOrder(cfg.KindLabs())
+	order, err := config.KindClusterOrder(cfg.KindClusters())
 	if err != nil {
 		return nil, false, err
 	}
@@ -264,8 +264,8 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 		if isEmptyBlock(l.Testing) {
 			continue
 		}
-		name := config.KindLabClusterName(clusterName, l.Name)
-		linkEnv, err := runtime.LoadEnvironment(name, kindLabConfig(cfg, l).Runtime)
+		name := config.LinkedClusterName(clusterName, l.Name)
+		linkEnv, err := runtime.LoadEnvironment(name, kindClusterConfig(cfg, l).Runtime)
 		if err != nil {
 			return nil, false, fmt.Errorf("linked cluster '%s': %w", l.Name, err)
 		}

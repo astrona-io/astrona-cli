@@ -31,6 +31,9 @@ func labConfigResults(cfg *config.LabConfig, baseDir string) []checkResult {
 		res = append(res, r)
 	}
 
+	for _, d := range cfg.Deprecations {
+		res = append(res, checkResult{status: checkWarn, name: "deprecated", detail: d})
+	}
 	if cfg.Metadata.Name == "" {
 		fail("metadata.name", "missing — the lab would be named 'astrona-lab'")
 	}
@@ -103,10 +106,10 @@ func resourceRefs(cfg *config.LabConfig) []resourceRef {
 	addBlock("testing", cfg.Testing)
 	add("teardown.init", cfg.Teardown.Init)
 	addValidation("validation", cfg.Validation)
-	for _, l := range cfg.KindLabs() {
-		addBlock("runtime.kind.labs["+l.Name+"].bootstrap", l.Bootstrap)
-		addBlock("runtime.kind.labs["+l.Name+"].testing", l.Testing)
-		add("runtime.kind.labs["+l.Name+"].teardown.init", l.Teardown.Init)
+	for _, l := range cfg.KindClusters() {
+		addBlock("runtime.kind.clusters["+l.Name+"].bootstrap", l.Bootstrap)
+		addBlock("runtime.kind.clusters["+l.Name+"].testing", l.Testing)
+		add("runtime.kind.clusters["+l.Name+"].teardown.init", l.Teardown.Init)
 	}
 	for _, vm := range cfg.Runtime.QEMU {
 		if vm.Bootstrap != nil {

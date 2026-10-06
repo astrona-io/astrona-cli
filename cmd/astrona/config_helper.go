@@ -34,6 +34,9 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 	for _, u := range cfg.UnknownFields {
 		fmt.Fprintf(os.Stderr, "[WARN] %s %s (ignored — run `astrona validate`)\n", finalPath, u)
 	}
+	for _, d := range cfg.Deprecations {
+		fmt.Fprintf(os.Stderr, "[WARN] %s: %s\n", finalPath, d)
+	}
 
 	applyBundleImages(cfg, filepath.Dir(finalPath))
 	return cfg, filepath.Dir(finalPath), cleanup, nil

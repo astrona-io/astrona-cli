@@ -185,7 +185,7 @@ func loadSpec(dir string) (Spec, error) {
 	if want := "kind-" + s.Target(); s.KubeContext != want {
 		return s, fmt.Errorf("spec kube context '%s' does not match '%s'", s.KubeContext, want)
 	}
-	if s.Cluster != "" && s.Cluster != config.KindLabClusterName(s.Lab, s.Forward.Cluster) {
+	if s.Cluster != "" && s.Cluster != config.LinkedClusterName(s.Lab, s.Forward.Cluster) {
 		return s, fmt.Errorf("spec cluster '%s' isn't linked cluster '%s' of lab '%s'", s.Cluster, s.Forward.Cluster, s.Lab)
 	}
 	return s, nil

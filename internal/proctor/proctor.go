@@ -275,14 +275,14 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 }
 
 // checkTarget is the cluster a check grades: the lab's own, or a linked
-// cluster's (runtime.kind.labs).
+// cluster's (runtime.kind.clusters).
 type checkTarget struct {
 	context, kubeconfig string
 }
 
 // targetFor picks c's cluster. A check with cluster grades that linked
 // cluster; one that isn't attached (lab started before it was added to
-// runtime.kind.labs) fails rather than silently grading the lab's own.
+// runtime.kind.clusters) fails rather than silently grading the lab's own.
 func (p *Proctor) targetFor(c config.ValidationCheck) (checkTarget, error) {
 	if c.Cluster == "" {
 		return checkTarget{context: p.env.KubeContext, kubeconfig: p.env.Kubeconfig}, nil

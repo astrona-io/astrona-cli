@@ -236,7 +236,7 @@ func newPortForwardStartCmd(flags *rootFlags) *cobra.Command {
 			defer configCleanup()
 
 			// Also checks every forward's cluster: is a linked cluster.
-			if err := config.ValidateKindLabs(cfg); err != nil {
+			if err := config.ValidateKindClusters(cfg); err != nil {
 				return err
 			}
 			if err := config.ValidatePortForwards(cfg.Runtime); err != nil {

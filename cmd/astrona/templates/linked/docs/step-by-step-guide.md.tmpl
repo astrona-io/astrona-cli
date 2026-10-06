@@ -5,7 +5,7 @@ astrona shell [[.Name]]
 
 # 1. The backend lives in another cluster — use its context
 kubectl config get-contexts
-kubectl --context "$ASTRONA_LINK_BACKEND_CONTEXT" -n backend scale deploy/backend --replicas=2
+kubectl --context "$ASTRONA_CLUSTER_BACKEND_CONTEXT" -n backend scale deploy/backend --replicas=2
 
 # 2. Call it from this cluster, by its stable name
 kubectl create job call-backend --image=curlimages/curl:8.11.1 -- curl -fsS http://backend.astrona.internal:30080/

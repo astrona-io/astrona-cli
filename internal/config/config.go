@@ -214,7 +214,7 @@ type ValidationCheck struct {
 	// Points weights the check in the score (default 1).
 	Points int `yaml:"points"`
 	// Cluster grades this check in a linked cluster instead of the lab's
-	// own (the name of an entry in runtime.kind.labs). Not for http checks.
+	// own (the name of an entry in runtime.kind.clusters). Not for http checks.
 	Cluster string `yaml:"cluster"`
 }
 
@@ -235,6 +235,9 @@ type ValidationConfig struct {
 
 // LabConfig is the full shape of a lab's config.yaml.
 type LabConfig struct {
+	// APIVersion is the config format, "astrona.io/v1" (also when
+	// omitted). A newer format is refused rather than half-understood.
+	APIVersion string           `yaml:"apiVersion"`
 	Metadata   MetadataConfig   `yaml:"metadata"`
 	Runtime    RuntimeConfig    `yaml:"runtime"`
 	Bootstrap  BootstrapConfig  `yaml:"bootstrap"`
@@ -247,6 +250,9 @@ type LabConfig struct {
 	// UnknownFields are keys no field reads (typos) — found by
 	// LoadLabConfig, not part of the YAML. Lifecycle commands warn about
 	// them; `astrona validate` / `astrona check` treat them as errors.
+	// Deprecations are old spellings the config still uses (e.g.
+	// runtime.kind.labs) — found by LoadLabConfig; warned about, still run.
+	Deprecations  []string       `yaml:"-"`
 	UnknownFields []UnknownField `yaml:"-"`
 
 	// SourcePath / SourceSHA256 record where the config was loaded from
@@ -356,6 +362,7 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 		return nil, cleanup, fmt.Errorf("failed to parse lab YAML config: %w", err)
 	}
 	config.UnknownFields = unknown
+	config.moveDeprecatedLabs()
 	sum := sha256.Sum256(body)
 	config.SourcePath = configPath
 	config.SourceSHA256 = hex.EncodeToString(sum[:])
@@ -384,4 +391,15 @@ func NormalizeTestClusterName(clusterName string) string {
 	clusterName = strings.TrimPrefix(clusterName, "astro-")
 	clusterName = strings.TrimPrefix(clusterName, "test-")
 	return "astro-test-" + clusterName
+}
+
+// APIVersionV1 is the only config format this astrona understands.
+const APIVersionV1 = "astrona.io/v1"
+
+// ValidateAPIVersion refuses a config written for a newer format.
+func ValidateAPIVersion(cfg *LabConfig) error {
+	if cfg.APIVersion != "" && cfg.APIVersion != APIVersionV1 {
+		return fmt.Errorf("apiVersion '%s' isn't supported by this astrona (it reads %s) — run `astrona upgrade`", cfg.APIVersion, APIVersionV1)
+	}
+	return nil
 }

@@ -66,7 +66,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			"you without a lab. teardown.keepCluster is ignored — reset always recreates.\n\n" +
 			"Asks for confirmation (everything done in the lab is lost); --yes skips it and is " +
 			"required when not running in a terminal.\n\n" +
-			"--cluster <name> rebuilds only that linked cluster (runtime.kind.labs) of a running lab: " +
+			"--cluster <name> rebuilds only that linked cluster (runtime.kind.clusters) of a running lab: " +
 			"its teardown scripts, destroy, then create and bootstrap it again (with the addresses of " +
 			"the clusters it dependsOn). The lab and its other clusters are left alone; port forwards " +
 			"into the rebuilt cluster are restarted.",
@@ -131,7 +131,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Don't ask for confirmation")
 	addParallelFlag(cmd, flags)
-	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "Rebuild only this linked cluster (its runtime.kind.labs name)")
+	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "Rebuild only this linked cluster (its runtime.kind.clusters name)")
 	return cmd
 }
 
@@ -140,7 +140,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 // from the config, with its dependencies' addresses. Port forwards into it
 // are restarted (their supervisors give up when the cluster goes away).
 func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string, yes bool, flags *rootFlags) error {
-	order, states, err := kindLabStates(cfg, clusterName)
+	order, states, err := kindClusterStates(cfg, clusterName)
 	if err != nil {
 		return err
 	}
@@ -175,9 +175,9 @@ func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string
 	}
 	defer rep.Close()
 
-	runLinkedTeardown([]config.KindLab{l}, clusterName, baseDir, rep)
+	runLinkedTeardown([]config.KindCluster{l}, clusterName, baseDir, rep)
 	if kindClusterExists(target) {
-		if err := destroyKindLab(target, rep); err != nil {
+		if err := destroyKindCluster(target, rep); err != nil {
 			return fmt.Errorf("could not remove linked cluster %s, nothing was recreated: %w", target, err)
 		}
 	}
@@ -194,7 +194,7 @@ func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string
 		deps = append(deps, byName[d])
 	}
 	rep.Section("Linked cluster '%s'", l.Name)
-	if _, _, err := upLab(kindLabConfig(cfg, l), baseDir, target, deps, false, rep); err != nil {
+	if _, _, err := upLab(kindClusterConfig(cfg, l), baseDir, target, deps, false, rep); err != nil {
 		return fmt.Errorf("linked cluster '%s' (%s): %w", l.Name, target, err)
 	}
 	if err := applyWANStep(target, l.WAN, rep); err != nil {

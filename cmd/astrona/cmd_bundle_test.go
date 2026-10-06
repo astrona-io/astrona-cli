@@ -22,15 +22,15 @@ func TestBundleRefusal(t *testing.T) {
 		"url script":      {&config.LabConfig{Bootstrap: config.BootstrapConfig{Init: []config.ResourceItem{{Name: "s", Type: "url", Source: "https://x/s.sh"}}}}, "x"},
 		"gateway":         {&config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Addons: config.KindAddons{GatewayAPI: "envoy"}}}}, "x"},
 		"no node pin":     {&config.LabConfig{}, ""},
-		"linked unpinned": {&config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Version: "v1.31.2", Labs: []config.KindLab{{Name: "idp"}}}}}, "x"},
-		"linked gateway":  {&config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Version: "v1.31.2", Labs: []config.KindLab{{Name: "idp", Version: "v1.31.2", Addons: config.KindAddons{GatewayAPI: "envoy"}}}}}}, "x"},
+		"linked unpinned": {&config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Version: "v1.31.2", Clusters: []config.KindCluster{{Name: "idp"}}}}}, "x"},
+		"linked gateway":  {&config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Version: "v1.31.2", Clusters: []config.KindCluster{{Name: "idp", Version: "v1.31.2", Addons: config.KindAddons{GatewayAPI: "envoy"}}}}}}, "x"},
 	}
 	for name, c := range cases {
 		if bundleRefusal(c.cfg, c.node) == "" {
 			t.Errorf("%s: not refused", name)
 		}
 	}
-	pinned := &config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Version: "v1.31.2", Labs: []config.KindLab{{Name: "idp", Version: "v1.30.6"}}}}}
+	pinned := &config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Version: "v1.31.2", Clusters: []config.KindCluster{{Name: "idp", Version: "v1.30.6"}}}}}
 	if r := bundleRefusal(pinned, "kindest/node:v1.31.2"); r != "" {
 		t.Errorf("lab with a pinned linked cluster refused: %s", r)
 	}
@@ -78,12 +78,12 @@ func TestLoadLabForCommandAppliesBundleImages(t *testing.T) {
 func TestApplyBundleImagesToLinkedClusters(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, bundleImagesSidecar), []byte(`["quay.io/jetstack/cert-manager-controller:v1.21.2"]`), 0600)
-	cfg := &config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Labs: []config.KindLab{
+	cfg := &config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Clusters: []config.KindCluster{
 		{Name: "idp", PreloadImages: []string{"nginx:1.27"}, Addons: config.KindAddons{CertManager: true}},
 		{Name: "db", PreloadImages: []string{"postgres:17"}},
 	}}}}
 	applyBundleImages(cfg, dir)
-	labs := cfg.Runtime.Kind.Labs
+	labs := cfg.Runtime.Kind.Clusters
 	if strings.Join(labs[0].PreloadImages, ",") != "nginx:1.27,quay.io/jetstack/cert-manager-controller:v1.21.2" {
 		t.Errorf("linked cluster with addons = %v", labs[0].PreloadImages)
 	}

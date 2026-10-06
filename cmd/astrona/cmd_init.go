@@ -40,15 +40,15 @@ func scaffoldLab(dir, name string) ([]string, error) {
 }
 
 // scaffoldLinkedLab renders the starter lab with a linked "backend"
-// cluster (runtime.kind.labs) into dir.
+// cluster (runtime.kind.clusters) into dir.
 func scaffoldLinkedLab(dir, name string) ([]string, error) {
 	// Checked before writing anything: the backend's node name must fit
-	// what `astrona run` accepts (see config.ValidateKindLabs).
+	// what `astrona run` accepts (see config.ValidateKindClusters).
 	probe := &config.LabConfig{
 		Metadata: config.MetadataConfig{Name: name},
-		Runtime:  config.RuntimeConfig{Kind: &config.KindConfig{Labs: []config.KindLab{{Name: "backend"}}}},
+		Runtime:  config.RuntimeConfig{Kind: &config.KindConfig{Clusters: []config.KindCluster{{Name: "backend"}}}},
 	}
-	if err := config.ValidateKindLabs(probe); err != nil {
+	if err := config.ValidateKindClusters(probe); err != nil {
 		return nil, fmt.Errorf("lab name '%s' is too long for a lab with a linked cluster: %w", name, err)
 	}
 	return scaffold(dir, name, linkedTemplateRoot)
@@ -120,7 +120,7 @@ func newInitCmd() *cobra.Command {
 			"hints and points), the four student docs, a bootstrap manifest, a reference solution " +
 			"for `astrona test`, and a GitHub Actions workflow running validate + test on every " +
 			"pull request.\n\n" +
-			"--linked adds a second kind cluster running side by side (runtime.kind.labs): a " +
+			"--linked adds a second kind cluster running side by side (runtime.kind.clusters): a " +
 			"backend service published as a NodePort, a task that reaches it from the lab's " +
 			"cluster, and a check graded in the backend cluster — see the Linked Labs guide.\n\n" +
 			"It passes `astrona validate` and `astrona test` as generated — change it from there.",
