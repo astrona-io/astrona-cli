@@ -1359,6 +1359,8 @@
       
         
       
+        
+      
     
     
     
@@ -2066,6 +2068,34 @@
     
   
     Astrona port forward
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_net/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona net
   
 
     
@@ -3361,6 +3391,21 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <td><code>teardown.init</code></td>
 <td>list of <a href="#resourceitem">ResourceItem</a></td>
 <td>Best-effort scripts run before the lab is destroyed: after the lab's own teardown, in reverse start order, with <code>KUBECONFIG</code> pointing at this cluster. (Whether clusters are kept is the lab's <code>teardown.keepCluster</code>)</td>
+</tr>
+<tr>
+<td><code>wan.latency</code> / <code>wan.jitter</code></td>
+<td>string</td>
+<td>Simulate a remote site: latency added per round trip (e.g. <code>80ms</code>) and its variation (<code>10ms</code>, needs <code>latency</code>) — see <a href="../../guides/linked-labs/#simulating-a-remote-site">Simulating a remote site</a></td>
+</tr>
+<tr>
+<td><code>wan.loss</code></td>
+<td>string</td>
+<td>Share of packets dropped, <code>0%</code>–<code>100%</code></td>
+</tr>
+<tr>
+<td><code>wan.rate</code></td>
+<td>string</td>
+<td>Bandwidth cap, e.g. <code>10mbit</code> (<code>kbit</code>, <code>mbit</code>, <code>gbit</code>)</td>
 </tr>
 <tr>
 <td><code>dependsOn</code></td>

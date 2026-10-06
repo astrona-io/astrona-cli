@@ -1056,6 +1056,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#simulating-a-remote-site" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simulating a remote site
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Simulating a remote site">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changing-conditions-live-astrona-net" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing conditions live: astrona net
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#grading-across-clusters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1198,6 +1226,8 @@
   
     
     
+      
+        
       
         
       
@@ -2005,6 +2035,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_net/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona net
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/cli/astrona_port-forward_list/" class="md-nav__link">
         
   
@@ -2660,6 +2718,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#simulating-a-remote-site" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simulating a remote site
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Simulating a remote site">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#changing-conditions-live-astrona-net" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changing conditions live: astrona net
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#grading-across-clusters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2901,16 +2987,35 @@
 <li>astrona never adds the CA to your system's trust store.</li>
 <li><code>sharedCA</code> is lab-wide: set it on <code>runtime.kind</code>, not on a linked cluster.</li>
 </ul>
+<h2 id="simulating-a-remote-site">Simulating a remote site<a class="headerlink" href="#simulating-a-remote-site" title="Permanent link">&para;</a></h2>
+<p>A linked cluster can behave like a site across a WAN — slow, lossy, bandwidth-limited:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="w">    </span><span class="nt">labs</span><span class="p">:</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">        </span><span class="nt">wan</span><span class="p">:</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">          </span><span class="nt">latency</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80ms</span><span class="w">      </span><span class="c1"># added per round trip</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">          </span><span class="nt">jitter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10ms</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">          </span><span class="nt">loss</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1%</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">          </span><span class="nt">rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10mbit</span>
+</code></pre></div>
+<p>astrona applies it with <code>tc netem</code> on every node of that cluster, <strong>after</strong> the cluster is set up (its bootstrap and readiness gates run at full speed), and re-applies it after <code>astrona start</code> — a restart drops it. It delays what the cluster sends, so the latency is added once per round trip; it affects all its traffic, including <code>kubectl</code> from your machine.</p>
+<h3 id="changing-conditions-live-astrona-net">Changing conditions live: <code>astrona net</code><a class="headerlink" href="#changing-conditions-live-astrona-net" title="Permanent link">&para;</a></h3>
+<p>For exercises like "the identity provider got slow" or "the site is down — what breaks?":</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>astrona<span class="w"> </span>net<span class="w"> </span>my-lab<span class="w"> </span>--cluster<span class="w"> </span>idp<span class="w"> </span>--latency<span class="w"> </span>400ms<span class="w"> </span>--jitter<span class="w"> </span>50ms<span class="w"> </span>--loss<span class="w"> </span><span class="m">10</span>%
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>astrona<span class="w"> </span>net<span class="w"> </span>my-lab<span class="w"> </span>--cluster<span class="w"> </span>idp<span class="w"> </span>--partition<span class="w">     </span><span class="c1"># nothing it sends gets through</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>astrona<span class="w"> </span>net<span class="w"> </span>my-lab<span class="w"> </span>--cluster<span class="w"> </span>idp<span class="w"> </span>--heal<span class="w">          </span><span class="c1"># back to the config's wan (or none)</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>astrona<span class="w"> </span>net<span class="w"> </span>my-lab<span class="w"> </span>--cluster<span class="w"> </span>idp<span class="w"> </span>--show<span class="w">          </span><span class="c1"># what each node has now</span>
+</code></pre></div>
+<p>Without <code>--cluster</code> it acts on the lab's own cluster. Changes last until <code>--heal</code>, <code>astrona start</code> (which re-applies the config) or <code>destroy</code>. While a cluster is partitioned astrona can't reach its API either — <code>--heal</code> still works, it runs inside the node containers. <code>astrona status</code> shows each linked cluster's configured conditions.</p>
 <h2 id="grading-across-clusters">Grading across clusters<a class="headerlink" href="#grading-across-clusters" title="Permanent link">&para;</a></h2>
 <p>A check grades the lab's own cluster unless it names a linked one with <code>cluster:</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">validation</span><span class="p">:</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp runs 2 replicas</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">      </span><span class="nt">cluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jsonpath</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deploy/idp -n auth</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">      </span><span class="nt">jsonpath</span><span class="p">:</span><span class="w"> </span><span class="s">"{.status.readyReplicas}"</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">      </span><span class="nt">expect</span><span class="p">:</span><span class="w"> </span><span class="s">"2"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">validation</span><span class="p">:</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp runs 2 replicas</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">      </span><span class="nt">cluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">idp</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">jsonpath</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deploy/idp -n auth</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">      </span><span class="nt">jsonpath</span><span class="p">:</span><span class="w"> </span><span class="s">"{.status.readyReplicas}"</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="w">      </span><span class="nt">expect</span><span class="p">:</span><span class="w"> </span><span class="s">"2"</span>
 </code></pre></div>
 <p>Works for every check type except <code>http</code> (which runs from your machine). A <code>command</code> check with <code>cluster:</code> gets that cluster's <code>KUBECONFIG</code>.</p>
 <h2 id="lifecycle">Lifecycle<a class="headerlink" href="#lifecycle" title="Permanent link">&para;</a></h2>
