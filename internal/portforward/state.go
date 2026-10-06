@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -81,14 +80,11 @@ const (
 	logFile    = "supervisor.log"
 )
 
-// labNamePattern bounds what may be used as the <lab> path component. Lab
-// names come from config metadata.name (prefixed "astro-"), which isn't
-// otherwise validated — this keeps it from ever escaping BaseDir.
-var labNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
-
+// validateLabName bounds what may be used as the <lab> path component, so
+// it never escapes BaseDir (see config.ValidateName).
 func validateLabName(lab string) error {
-	if !labNamePattern.MatchString(lab) || strings.Contains(lab, "..") {
-		return fmt.Errorf("invalid lab name '%s' for port forward state", lab)
+	if err := config.ValidateName(lab); err != nil {
+		return fmt.Errorf("port forward state: %w", err)
 	}
 	return nil
 }

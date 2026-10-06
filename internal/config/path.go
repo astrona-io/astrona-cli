@@ -3,8 +3,28 @@ package config
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
+
+// namePattern is what a lab name (metadata.name), qemu VM name
+// (runtime.qemu[].name) or linked cluster name may look like. They end up
+// as path components under ~/.astrona (state dirs destroy later removes)
+// and inside qemu command-line options, so: no separators, no commas, no
+// "..".
+var namePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
+// NameRule describes namePattern, for error messages.
+const NameRule = "must start with a letter or digit and contain only letters, digits, '.', '_' or '-' (and no '..')"
+
+// ValidateName rejects a name that isn't safe as a single path component
+// under astrona's state dirs (see namePattern).
+func ValidateName(name string) error {
+	if !namePattern.MatchString(name) || strings.Contains(name, "..") {
+		return fmt.Errorf("invalid name '%s': %s", name, NameRule)
+	}
+	return nil
+}
 
 // JoinWithinBaseDir resolves a possibly-relative source path against
 // baseDir and rejects any result that escapes baseDir (e.g. via "../..").

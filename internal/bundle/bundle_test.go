@@ -133,6 +133,27 @@ func TestExtractVerifiesChecksumsAndFormat(t *testing.T) {
 	}
 }
 
+func TestExtractRejectsUnsafeLabName(t *testing.T) {
+	dir := t.TempDir()
+	for i, lab := range []string{"../../escape", "a/b", "..", "a,b"} {
+		out := filepath.Join(dir, "b.tar.gz")
+		if err := Write(out, Manifest{FormatVersion: FormatVersion, Lab: lab}, nil); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Extract(out, filepath.Join(dir, "out", string(rune('a'+i)))); err == nil || !strings.Contains(err.Error(), "lab") {
+			t.Errorf("lab %q: Extract = %v, want lab name error", lab, err)
+		}
+	}
+	// A lab without metadata.name still loads.
+	out := filepath.Join(dir, "empty.tar.gz")
+	if err := Write(out, Manifest{FormatVersion: FormatVersion}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Extract(out, filepath.Join(dir, "out", "empty")); err != nil {
+		t.Errorf("empty lab: %v", err)
+	}
+}
+
 func TestLabEntriesRefusesSymlinks(t *testing.T) {
 	lab := t.TempDir()
 	writeFile(t, filepath.Join(lab, "config.yaml"), "x")

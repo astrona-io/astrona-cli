@@ -143,6 +143,9 @@ func destroyByName(name string, rep *ui.Reporter) error {
 	// should still hit the right lab. Idempotent, so an already-prefixed
 	// name (including names passed from destroyByPattern) is unchanged.
 	name = config.NormalizeClusterName(name)
+	if err := config.ValidateName(name); err != nil {
+		return fmt.Errorf("lab: %w", err)
+	}
 
 	foundQemu := qemuStateExists(name)
 	foundKind := kindClusterExists(name)
