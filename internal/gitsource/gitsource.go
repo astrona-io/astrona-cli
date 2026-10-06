@@ -91,11 +91,12 @@ func cloneOrUpdateGitRepo(url, ref, destDir string, verbose bool) error {
 	// verbose: git's own progress goes straight to the terminal. Otherwise
 	// it's captured and only surfaced if a step actually fails — the routine
 	// "branch set up to track…", "Reset branch…", "up to date with…" chatter
-	// isn't useful once things are working.
+	// isn't useful once things are working. Progress of any kind goes to
+	// stderr: stdout is the command's output (`-o json`, $(…) captures).
 	var buf bytes.Buffer
 	out := io.Writer(&buf)
 	if verbose {
-		out = os.Stdout
+		out = os.Stderr
 	}
 	// git's own reason ("repository … not found", "could not read
 	// Username") says more than "exit status 128".
@@ -107,12 +108,12 @@ func cloneOrUpdateGitRepo(url, ref, destDir string, verbose bool) error {
 	}
 
 	if _, err := os.Stat(filepath.Join(destDir, ".git")); os.IsNotExist(err) {
-		fmt.Printf("Cloning %s ...\n", url)
+		fmt.Fprintf(os.Stderr, "Cloning %s ...\n", url)
 		if err := runGit(gitPath, "", out, "clone", url, destDir); err != nil {
 			return fail("can't clone "+url, err)
 		}
 	} else {
-		fmt.Printf("Updating %s ...\n", url)
+		fmt.Fprintf(os.Stderr, "Updating %s ...\n", url)
 		if err := runGit(gitPath, destDir, out, "fetch", "--all", "--prune"); err != nil {
 			// Not fatal: destDir already has a cached checkout from a
 			// previous successful fetch/clone, and the checkout below reads

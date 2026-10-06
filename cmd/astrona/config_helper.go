@@ -35,7 +35,7 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 	}
 
 	if flags.verbose {
-		fmt.Printf("Loading configuration from: %s\n", finalPath)
+		fmt.Fprintf(os.Stderr, "Loading configuration from: %s\n", finalPath)
 	}
 
 	cfg, cleanup, err = config.LoadLabConfig(finalPath)
