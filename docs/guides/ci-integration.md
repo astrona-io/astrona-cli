@@ -86,6 +86,7 @@ The bundle (typically ~1 MB):
 | `pods/` | `describe` and logs (plus `--previous` logs after a restart) for every unhealthy pod |
 | `kind-logs/` | `kind export logs`: node journal, kubelet, containerd, every pod's log files |
 | `vms/` | qemu labs: each VM's serial console log |
+| `clusters/<cluster>/` | Labs with [linked clusters](linked-labs.md): the same bundle (`summary.md`, `cluster/`, `pods/`, `kind-logs/`) for each linked cluster — often where a failing lab's real problem is |
 | `versions.txt`, `errors.txt` | Tool versions; anything that couldn't be collected |
 
 Secrets, ConfigMaps and kubeconfigs are never collected. Pod `describe` output does include environment variables set inline in a pod spec — keep lab credentials in Secrets, and keep CI artifacts private.

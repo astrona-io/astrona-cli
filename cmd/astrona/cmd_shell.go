@@ -45,9 +45,11 @@ func resolveKindLab(labArg string, flags *rootFlags) (string, error) {
 		return "", fmt.Errorf("lab '%s' uses the %s runtime — use `astrona ssh` instead", cfg.Metadata.Name, cfg.Runtime.Type)
 	}
 
+	// A linked cluster is part of its lab, not a lab to pick.
+	owners := linkedClusterOwners()
 	var kindLabs []string
 	for _, r := range collectKindRows() {
-		if !strings.HasPrefix(r.name, "astro-test-") {
+		if _, linked := owners[r.name]; !linked && !strings.HasPrefix(r.name, "astro-test-") {
 			kindLabs = append(kindLabs, r.name)
 		}
 	}
