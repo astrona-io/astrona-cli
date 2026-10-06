@@ -13,6 +13,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/ui"
 )
 
 // checkStatus is one environment check's verdict: ok, a warning (works,
@@ -348,7 +349,7 @@ func printCheckResults(title string, res []checkResult) int {
 		}
 		fmt.Printf("  %s  %-38s %s\n", mark, r.name, r.detail)
 		if r.status != checkOK && r.hint != "" {
-			fmt.Printf("        fix: %s\n", r.hint)
+			fmt.Printf("        %s %s\n", ui.Paint(os.Stdout, "fix:", ui.Yellow, ui.Bold), r.hint)
 		}
 	}
 	return failed

@@ -229,10 +229,10 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 		return nil, false, err
 	}
 	if !pass {
-		fmt.Printf("\nPROCTOR: FAIL\n")
+		fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, false, 0))
 		return results, false, fmt.Errorf("reference solution did not pass grading")
 	}
-	fmt.Printf("\nPROCTOR: PASS\n")
+	fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, true, 0))
 	return results, true, nil
 }
 

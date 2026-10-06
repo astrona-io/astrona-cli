@@ -116,6 +116,12 @@ bootstrap script) is **not** shown by default. Instead:
 Non-interactive output (piped, redirected, or CI) automatically drops the
 spinner and ANSI styling and prints one plain line per step.
 
+On a terminal, problems stand out in color: `Error:` and what went wrong in
+red (hints on what to do next follow in the normal color), `[WARN]` in yellow,
+`[INFO]` in cyan, and grading results as green `PASS` / red `FAIL` with a
+yellow `hint:`. Set `NO_COLOR=1` to turn colors off everywhere; piped and
+redirected output never has them.
+
 For a `qemu` lab, a successful `astrona run` also prints a **Connect:** block
 with the ready-to-paste `astrona ssh <name>` command for each VM.
 

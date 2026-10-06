@@ -14,6 +14,7 @@ import (
 	"astrona/internal/executor"
 	"astrona/internal/runtime"
 	"astrona/internal/scripts"
+	"astrona/internal/ui"
 )
 
 // CheckResult is the outcome of a single check: did it pass, what did the
@@ -122,24 +123,26 @@ func (p *Proctor) Grade(cfg *config.LabConfig) ([]CheckResult, bool, error) {
 
 	passed := 0
 	for _, r := range results {
-		status := "PASS"
 		if r.Pass {
 			passed++
-		} else {
-			status = "FAIL"
 		}
-
-		fmt.Printf("  %-4s  %s (%s)\n", status, r.Name, formatDuration(r.Duration))
+		fmt.Printf("  %s  %s %s\n", ui.PassFail(os.Stdout, r.Pass, 4), r.Name, ui.Paint(os.Stdout, "("+formatDuration(r.Duration)+")", ui.Dim))
 		if r.Message != "" {
 			fmt.Printf("        %s\n", r.Message)
 		}
 		if !r.Pass && r.Hint != "" && !p.hideHints {
-			fmt.Printf("        hint: %s\n", r.Hint)
+			fmt.Printf("        %s %s\n", ui.Paint(os.Stdout, "hint:", ui.Yellow, ui.Bold), r.Hint)
 		}
 	}
 
 	failed := len(results) - passed
-	fmt.Printf("\n%d passed, %d failed in %s\n", passed, failed, formatDuration(time.Since(start)))
+	summary := fmt.Sprintf("%d passed, %d failed", passed, failed)
+	if failed > 0 {
+		summary = ui.Paint(os.Stdout, summary, ui.Red)
+	} else {
+		summary = ui.Paint(os.Stdout, summary, ui.Green)
+	}
+	fmt.Printf("\n%s in %s\n", summary, formatDuration(time.Since(start)))
 
 	score := ScoreOf(results)
 	line := fmt.Sprintf("Score: %d/%d points (%.0f%%)", score.Earned, score.Max, score.Percent())
