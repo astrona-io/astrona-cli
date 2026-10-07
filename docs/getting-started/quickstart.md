@@ -12,7 +12,7 @@ Fix anything reported as `✗` before continuing (and if something breaks later,
 
 ## 2. Pick the lab and bring it up
 
-(Looking for the published trainings instead? `astrona labs` lists them and every lab is runnable by name — sign in first with `astrona login`, since catalog labs are tied to your Astrona account; see the [Lab Catalog](../guides/lab-catalog.md).)
+(Looking for the published trainings instead? `astrona labs` lists them and every lab is runnable by name — sign in first with `astrona login` (it opens astrona.io in your browser, where you click Authorize), since catalog labs are tied to your Astrona account; see the [Lab Catalog](../guides/lab-catalog.md).)
 
 
 ```sh
