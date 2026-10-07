@@ -89,7 +89,7 @@ func resolveStatusLab(labArg string, flags *rootFlags) (string, *config.LabConfi
 func newStatusCmd(flags *rootFlags) *cobra.Command {
 	var output string
 	cmd := &cobra.Command{
-		Use:               "status [lab-name]",
+		Use:               "status [lab-name|catalog-lab]",
 		Short:             "One-screen overview of a lab: health, access, exam clock, last result",
 		ValidArgsFunction: labCompletion(nil),
 		Long: "Show where you are with a lab: cluster health, how to connect, port forwards, the " +
@@ -100,7 +100,11 @@ func newStatusCmd(flags *rootFlags) *cobra.Command {
 			if err := checkOutput(output); err != nil {
 				return err
 			}
-			name, cfg, cleanup, err := resolveStatusLab(firstArg(args), flags)
+			labName, err := catalogLabArg(firstArg(args), flags)
+			if err != nil {
+				return err
+			}
+			name, cfg, cleanup, err := resolveStatusLab(labName, flags)
 			if err != nil {
 				return err
 			}

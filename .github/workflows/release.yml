@@ -23,6 +23,17 @@ jobs:
       matrix:
         goos: [linux, darwin]
         goarch: [amd64, arm64]
+        # astrona.exe is the Windows launcher (cmd/astrona-windows): it sets
+        # up WSL 2 and forwards every command to the Linux astrona inside it.
+        include:
+          - goos: windows
+            goarch: amd64
+            pkg: ./cmd/astrona-windows
+            ext: .exe
+          - goos: windows
+            goarch: arm64
+            pkg: ./cmd/astrona-windows
+            ext: .exe
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -37,19 +48,19 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
-          BINARY_NAME="astrona-${{ matrix.goos }}-${{ matrix.goarch }}"
-          go build -v -ldflags "-X main.Version=${{ github.ref_name }}" -o "$BINARY_NAME" ./cmd/astrona
+          BINARY_NAME="astrona-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
+          go build -v -ldflags "-X main.Version=${{ github.ref_name }}" -o "$BINARY_NAME" ${{ matrix.pkg || './cmd/astrona' }}
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: astrona-${{ matrix.goos }}-${{ matrix.goarch }}
+          subject-path: astrona-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
         with:
           name: astrona-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: astrona-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: astrona-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
 
   create-release:
     name: Create GitHub Release

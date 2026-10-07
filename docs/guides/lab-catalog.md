@@ -9,7 +9,32 @@ astrona labs --search "fault injection"        # search lab titles
 astrona run ATS014/section-050/module-01/lab-01
 ```
 
-A catalog name works wherever a command takes a lab: `astrona use ATS014/…` picks it for every command, `astrona test ATS014/…`, `astrona validate ATS014/…`, `astrona doctor ATS014/…`.
+A catalog name works wherever a command takes a lab: `astrona use ATS014/…` picks it for every command, `astrona run`, `submit`, `reset`, `test`, `validate` and `doctor ATS014/…`, and also the commands that otherwise take a running lab's name — `astrona status`, `shell`, `kubeconfig`, `destroy ATS014/…` and `astrona docs question ATS014/…`. That way the one name a student copies from astrona.io works for every step. Running-lab names (`my-lab`, `astro-my-lab`) and globs work as before: catalog names always contain a `/`, lab names never do.
+
+## Your Astrona account
+
+Catalog labs are tied to your Astrona account, so the lab page on astrona.io can track your time. Sign in once per computer:
+
+```sh
+astrona login      # opens your browser; confirm the code shown in the terminal
+astrona whoami     # who is signed in, and on which site
+astrona logout     # revoke the sign-in and forget it
+```
+
+`astrona login` uses the OAuth device flow: the terminal shows a short code and opens the sign-in page, you confirm the code in the browser, and the terminal finishes by itself — no password is ever typed into the terminal, and it works from a machine without a browser (open the link on any device). The sign-in is kept in `~/.astrona/credentials.json` (mode 0600; astrona refuses to use it if other users can read it) and renewed automatically.
+
+Then `astrona run ATS014/…`:
+
+1. checks the sign-in **before** anything is fetched or built — signed out (or the sign-in expired), it stops and tells you to run `astrona login`;
+2. asks Astrona for a lab session (too many open sessions or an unknown lab stop it here, with nothing built);
+3. builds the lab;
+4. prints the lab page URL and opens it in your browser — the clock starts there, so setup time never counts. Without a browser (a headless box), open the printed URL yourself. If the build fails, nothing is opened.
+
+A full `astrona reset ATS014/…` does the same: a fresh session and a new lab page once the lab is rebuilt. `reset --soft` and `reset --cluster` keep the current session and need no sign-in.
+
+Labs from your own files or repositories (`-c ./my-lab`, `--git <url>`) are not tied to an account: they run without signing in, and no page is opened.
+
+The site is `https://astrona.io`; `ASTRONA_URL` points astrona at another one (for example `ASTRONA_URL=http://localhost:3000` for local development — plain http only to `localhost`). The sign-in is stored with the site it came from and is only ever sent back there: with `ASTRONA_URL` pointing elsewhere, you're signed out until you `astrona login` on that site.
 
 ## Where the catalog comes from
 

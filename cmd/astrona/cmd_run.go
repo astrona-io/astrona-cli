@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"time"
 
@@ -27,7 +29,15 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 		Long: "Spin up a lab environment: create the kind cluster or qemu VM(s), run bootstrap init scripts, " +
 			"and apply bootstrap manifests.\n\n" +
 			"For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) " +
-			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.",
+			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.\n\n" +
+			"A lab from the catalog (`astrona run ATS014/section-010/module-01/lab-02`, see `astrona labs`) " +
+			"is tied to your Astrona account: sign in first with `astrona login`. Before anything is built, " +
+			"astrona starts a lab session on Astrona; once the lab is ready it prints the lab page URL and " +
+			"opens it in your browser, which starts the clock there — setup time never counts. Labs from " +
+			"your own files or repositories (-c / --git) run without signing in.",
+		Example: `  astrona run ATS014/section-010/module-01/lab-02   # catalog lab: needs astrona login
+  astrona run ./labs/my-lab
+  astrona run --git https://github.com/org/labs -c labs/net-01`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
@@ -35,6 +45,12 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			if flags.configPath == "" {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
+			}
+			ctx := context.Background()
+			// A catalog lab needs a sign-in: checked before the lab is even fetched.
+			acct, err := requireSignIn(ctx, flags, "run")
+			if err != nil {
+				return err
 			}
 
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
@@ -46,6 +62,21 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err := requireTrust(flags, cfg, baseDir); err != nil {
 				return err
 			}
+			if err := lifecycle.Validate(cfg); err != nil {
+				return err
+			}
+			if err := validateParallel(flags.parallel); err != nil {
+				return err
+			}
+
+			// The session is started before the build, so a refusal costs
+			// nothing; the page is only opened once the lab is ready.
+			var page *url.URL
+			if acct != nil {
+				if page, err = acct.startSession(ctx, "run", flags.catalogLab); err != nil {
+					return err
+				}
+			}
 
 			rep, err := ui.NewReporter("run", cfg.Metadata.Name, flags.verbose)
 			if err != nil {
@@ -53,13 +84,13 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
-			if err := lifecycle.Validate(cfg); err != nil {
+			if err := bringUpLab(cfg, baseDir, flags, rep); err != nil {
 				return err
 			}
-			if err := validateParallel(flags.parallel); err != nil {
-				return err
+			if page != nil {
+				printAndOpen(page)
 			}
-			return bringUpLab(cfg, baseDir, flags, rep)
+			return nil
 		},
 	}
 

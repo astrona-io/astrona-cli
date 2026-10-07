@@ -81,6 +81,7 @@ astrona reset -c ./labs/my-lab --yes    # no prompt (required in scripts/CI)
 - `--soft` keeps the cluster(s) and only puts the lab back: it deletes every namespace created after the platform (kube-system, addons, …) was set up, clears what isn't astrona's from `default`, re-runs the bootstrap and restarts port forwards — about 5 seconds instead of 40. Cluster-wide objects a student created (CRDs, ClusterRoles, …) aren't reverted; use a full reset for those. A lab started by astrona before v0.3 has no baseline yet and needs one full reset first.
 - `--cluster <name>` rebuilds just one [linked cluster](../guides/linked-labs.md) of a running lab, leaving the lab and its other clusters as they are.
 - In a terminal it asks for confirmation; without a terminal it refuses unless `--yes` is passed.
+- A full reset of a [catalog lab](../guides/lab-catalog.md#your-astrona-account) needs `astrona login`, like `run`: it starts a fresh lab session and opens the new lab page once the lab is rebuilt. `--soft` and `--cluster` keep the current session and need no sign-in.
 
 To pause a lab instead of losing it, see [`astrona stop` / `astrona start`](runtimes.md#pausing-a-lab-astrona-stop-astrona-start).
 

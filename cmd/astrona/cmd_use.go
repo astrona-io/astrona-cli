@@ -19,6 +19,8 @@ type currentLab struct {
 	Git    string `json:"git,omitempty"`
 	GitRef string `json:"gitRef,omitempty"`
 	Name   string `json:"name,omitempty"` // metadata.name, for display
+	// Catalog is the lab's catalog name when it was picked by one.
+	Catalog string `json:"catalog,omitempty"`
 }
 
 func currentLabPath() (string, error) {
@@ -85,6 +87,7 @@ func applyCurrentLab(cmd *cobra.Command, flags *rootFlags) {
 	}
 	flags.configPath, flags.gitURL, flags.gitRef = c.Config, c.Git, c.GitRef
 	flags.fromCurrent = true
+	flags.catalogLab = c.Catalog
 	if c.File != "" && !cmd.Flags().Changed("file") {
 		flags.fileName = c.File
 	}
@@ -100,6 +103,7 @@ func useLabArg(args []string, flags *rootFlags) {
 	arg := args[0]
 	flags.labArg = arg
 	flags.fromCurrent = false
+	flags.catalogLab = ""
 	if flags.gitExplicit && !isGitURL(arg) {
 		flags.configPath = arg // a subdirectory of the --git repo
 		return
@@ -194,7 +198,7 @@ func newUseCmd(flags *rootFlags) *cobra.Command {
 			}
 			cleanup()
 
-			c := &currentLab{Config: flags.configPath, File: flags.fileName, Git: flags.gitURL, GitRef: flags.gitRef, Name: cfg.Metadata.Name}
+			c := &currentLab{Config: flags.configPath, File: flags.fileName, Git: flags.gitURL, GitRef: flags.gitRef, Name: cfg.Metadata.Name, Catalog: flags.catalogLab}
 			if c.Git == "" && !strings.HasPrefix(c.Config, "http") {
 				abs, err := filepath.Abs(c.Config)
 				if err != nil {
