@@ -38,6 +38,7 @@ The codebase is organized in a standard, logical Go folder structure:
   - `proctor` — The central grading authority that runs validation checks (`proctor.go`).
   - `junit` — Formats and writes test report XML files (`junit.go`).
   - `gitsource` — Clones and caches external lab config repositories (`gitsource.go`).
+  - `labstate` — What astrona remembers per running lab in `~/.astrona/labs/<lab>.json` (0600): its config source (so `submit` can find the only running lab), the kubectl context `run` switched away from (restored by `destroy`), and its Astrona lab session (never a token).
 
 ## Suggested reading order (new to Go / new to this repo)
 

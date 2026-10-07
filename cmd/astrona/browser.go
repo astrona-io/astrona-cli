@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	"astrona/internal/account"
+	"astrona/internal/labstate"
 )
 
 // validateOpenURL checks a URL before it is handed to the browser: only an
@@ -84,4 +85,12 @@ func printAndOpen(u *url.URL) {
 		return
 	}
 	fmt.Println("Open it in your browser to start the clock.")
+}
+
+// printTimeLimit says how long the attempt runs once the lab page opens,
+// when the site gave a limit.
+func printTimeLimit(sess *labstate.Session) {
+	if sess != nil && sess.MaxMinutes > 0 {
+		fmt.Printf("You have %d minutes once the lab page opens.\n", sess.MaxMinutes)
+	}
 }

@@ -65,6 +65,7 @@ teardown:
 - A remote lab (`--git`, URL, catalog) must be [approved](../guides/remote-config.md#approving-remote-labs) before `astrona destroy` runs its teardown scripts, just like `run`. If it isn't (you decline, or there's no terminal and no `--trust`), the scripts are skipped with a warning and the lab is still destroyed.
 - Linked clusters (`runtime.kind.clusters`) can have their own `teardown.init`; they run after the lab's, in reverse start order, each with `KUBECONFIG` pointing at its cluster (skipped if that cluster is gone).
 - The lab's linked clusters are destroyed even if destroying the lab itself fails.
+- If `astrona run` pointed your kubectl at the lab, destroy switches it back to the context you had before (only while the lab's context is still current — see [kubeconfig isolation](runtimes.md#kubeconfig-isolation)), then forgets what was remembered about the lab (`~/.astrona/labs/<lab>.json`: its config source and lab session).
 - `keepCluster: true` skips deleting the environment afterwards — useful while iterating on a lab locally, since `astrona destroy` re-run without it will still clean up.
 
 ## Starting over: `astrona reset`

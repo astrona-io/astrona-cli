@@ -30,6 +30,7 @@ case "$*" in
     if [ -s "` + stateFile + `" ]; then cat "` + stateFile + `"; echo; else echo "error: current-context is not set" >&2; exit 1; fi ;;
   "config use-context "*) printf '%s' "$3" > "` + stateFile + `" ;;
   "config unset current-context") : > "` + stateFile + `" ;;
+  "config get-contexts -o name") printf 'my-prod\nkind-astro-x\n' ;;
   *) echo "unexpected: $*" >&2; exit 2 ;;
 esac
 `
@@ -193,5 +194,33 @@ echo serviceaccount/default
 	err := WaitForDefaultServiceAccount("kind-x", "", 50*time.Millisecond, ui.Discard())
 	if err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("timeout error = %v", err)
+	}
+}
+
+func TestKubectlContexts(t *testing.T) {
+	state, calls := fakeKubectl(t, "my-prod", true)
+	kc, err := NewKubectlContexts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cur, set, err := kc.Current(); err != nil || !set || cur != "my-prod" {
+		t.Fatalf("Current = %q, %v, %v", cur, set, err)
+	}
+	if err := kc.Use("kind-astro-x"); err != nil || readFile(t, state) != "kind-astro-x" {
+		t.Fatalf("Use: %v, state %q", err, readFile(t, state))
+	}
+	for name, want := range map[string]bool{"my-prod": true, "kind-astro-x": true, "gone": false, "my": false} {
+		if ok, err := kc.Exists(name); err != nil || ok != want {
+			t.Errorf("Exists(%q) = %v, %v", name, ok, err)
+		}
+	}
+	if err := kc.Unset(); err != nil {
+		t.Fatal(err)
+	}
+	if cur, set, err := kc.Current(); err != nil || set || cur != "" {
+		t.Errorf("after Unset: %q, %v, %v", cur, set, err)
+	}
+	if !strings.Contains(readFile(t, calls), "config use-context kind-astro-x") {
+		t.Errorf("calls: %s", readFile(t, calls))
 	}
 }

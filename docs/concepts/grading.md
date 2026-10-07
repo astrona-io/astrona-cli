@@ -123,6 +123,8 @@ PROCTOR: PASS
 - **Pass rule:** without `passPercent`, every check and script must pass (as before). With it, the submission passes once the weighted score reaches it — like a certification exam's pass mark.
 - `astrona submit --no-hints` grades without showing hints (exam conditions).
 - Every `astrona submit` is recorded in `~/.astrona/results/<lab>.jsonl`; each submission shows the change since the previous one, and `astrona submit --history` lists all attempts with the best score. `astrona test` (CI) doesn't record attempts.
+- `astrona submit` with no lab named — no argument, nothing picked with `astrona use`, no lab config in the current directory — grades the only running lab (`Submitting astro-my-lab (the only running lab).`), found again through what `astrona run` remembered. With several running it lists them, each with the command that names it.
+- A [catalog lab](../guides/lab-catalog.md#your-astrona-account) started while signed in also sends each result to its lab page; after a pass that was sent, submit offers to delete the lab (`--keep` to skip). Sending never changes the exit code.
 
 ## Live grading while you work
 

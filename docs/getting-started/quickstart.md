@@ -77,20 +77,20 @@ Shows every astrona-managed lab (kind clusters and qemu VMs), with runtime, stat
 
 `astrona list -o wide` adds the Kubernetes version and port-forward status (`1/1 Ready`); `-o json` prints the same for scripts.
 
-Work with the cluster from a lab shell — your `$SHELL` with `kubectl` pointed at the lab (type `exit` to leave):
+Once the lab is ready, your `kubectl` points at it:
 
 ```sh
-astrona shell k8s-basics-01
 kubectl get ns
 ```
 
-or from any terminal, without switching anything:
+`astrona destroy` switches kubectl back to the context you had before (run prints which one). Prefer to leave your current-context alone? `astrona run --keep-context`, then work from a lab shell — your `$SHELL` with `kubectl` pointed at the lab (type `exit` to leave) — or name the context:
 
 ```sh
+astrona shell k8s-basics-01
 kubectl --context kind-astro-k8s-basics-01 get ns
 ```
 
-astrona never changes your own kubectl current-context — see [kubeconfig isolation](../concepts/runtimes.md#kubeconfig-isolation).
+See [kubeconfig isolation](../concepts/runtimes.md#kubeconfig-isolation).
 
 ## 4. Submit for grading
 

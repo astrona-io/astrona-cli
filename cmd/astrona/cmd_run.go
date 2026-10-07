@@ -12,6 +12,7 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
+	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
@@ -31,6 +32,11 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 		Short: "Start a lab: create its cluster(s) or VM(s) and set it up",
 		Long: "Spin up a lab environment: create the kind cluster or qemu VM(s), run bootstrap init scripts, " +
 			"and apply bootstrap manifests.\n\n" +
+			"Once a kind lab is ready, kubectl points at it: its context (kind-<lab>) becomes the " +
+			"current-context of your kubeconfig ($KUBECONFIG is respected), and `astrona destroy` " +
+			"switches back to the context you had before — unless you've switched elsewhere " +
+			"meanwhile. --keep-context leaves your current-context alone. qemu labs are reached " +
+			"with `astrona ssh`.\n\n" +
 			"For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) " +
 			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.\n\n" +
 			"A lab from the catalog (`astrona run ATS014/section-010/module-01/lab-02`, see `astrona labs`) " +
@@ -95,8 +101,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			// The session is started before the build, so a refusal costs
 			// nothing; the page is only opened once the lab is ready.
 			var page *url.URL
+			var sess *labstate.Session
 			if acct != nil {
-				if page, err = acct.startSession(ctx, "run", flags.catalogLab); err != nil {
+				if page, sess, err = acct.startSession(ctx, "run", flags.catalogLab); err != nil {
 					return err
 				}
 			}
@@ -114,6 +121,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			if choice.startOver {
+				if flags.keepContext { // not switching again: put back what the old lab switched away from
+					releaseLab(os.Stdout, clusterName)
+				}
 				teardown := cfg.Teardown
 				teardown.KeepCluster = false
 				info := teardownInfo{clusterName: clusterName, teardown: teardown, runtime: cfg.Runtime}
@@ -121,19 +131,26 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("could not remove the running lab, nothing was started: %w", err)
 				}
 			}
-			if err := bringUpLab(cfg, baseDir, flags, rep); err != nil {
+			if err := bringUpLab(cfg, baseDir, flags, rep, sess); err != nil {
 				return err
 			}
 			if page != nil {
 				printAndOpen(page)
+				printTimeLimit(sess)
 			}
 			return nil
 		},
 	}
 
 	addParallelFlag(cmd, flags)
+	addKeepContextFlag(cmd, flags)
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "If the lab is already running, destroy it and start over without asking")
 	return cmd
+}
+
+// addKeepContextFlag adds --keep-context to a command that creates a lab.
+func addKeepContextFlag(cmd *cobra.Command, flags *rootFlags) {
+	cmd.Flags().BoolVar(&flags.keepContext, "keep-context", false, "Leave your kubectl current-context alone (kind labs) — reach the lab with astrona shell or kubectl --context instead")
 }
 
 // addParallelFlag adds --parallel to a command that creates a lab.
@@ -149,17 +166,30 @@ func validateParallel(n int) error {
 	return nil
 }
 
-// printConnectHints prints how to reach the lab: for a kind lab, the
-// isolated-kubeconfig shell plus the context name (astrona never switches
-// the user's own current-context); for a qemu lab, the paste-ready
-// `astrona ssh` command for each VM.
-func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clusterName string) {
+// printConnectHints prints how to reach the lab: for a kind lab, either
+// that kubectl now points at it (sw: run switched the user's
+// current-context, and destroy switches it back) or — with --keep-context,
+// or when the switch failed — the isolated-kubeconfig shell plus the
+// context name; for a qemu lab, the paste-ready `astrona ssh` command for
+// each VM.
+func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clusterName string, sw *labstate.Switched) {
 	if env.Type == runtime.RuntimeKind {
-		fmt.Printf("\nConnect (your own kubectl current-context is unchanged):\n")
-		fmt.Printf("    astrona shell %s                  # shell with kubectl pointed at the lab\n", clusterName)
-		fmt.Printf("    kubectl --context %s ...     # or from any terminal\n", env.KubeContext)
-		if env.Kubeconfig != "" {
-			fmt.Printf("    export KUBECONFIG=%s\n", env.Kubeconfig)
+		if sw != nil {
+			fmt.Printf("\nkubectl now points at this lab (%s).", env.KubeContext)
+			if sw.AlreadyCurrent {
+				fmt.Printf("\n")
+			} else {
+				fmt.Printf(" Your previous context %s comes back with: astrona destroy %s\n", previousContextLabel(sw), clusterName)
+			}
+			fmt.Printf("    kubectl get nodes\n")
+			fmt.Printf("    astrona shell %s                  # or a shell with only this lab's kubeconfig\n", clusterName)
+		} else {
+			fmt.Printf("\nConnect (your own kubectl current-context is unchanged):\n")
+			fmt.Printf("    astrona shell %s                  # shell with kubectl pointed at the lab\n", clusterName)
+			fmt.Printf("    kubectl --context %s ...     # or from any terminal\n", env.KubeContext)
+			if env.Kubeconfig != "" {
+				fmt.Printf("    export KUBECONFIG=%s\n", env.Kubeconfig)
+			}
 		}
 		if k := cfg.Runtime.Kind; k != nil && k.Addons.GatewayAPI != "" {
 			p := k.Addons.EffectiveGatewayPorts()
@@ -188,8 +218,11 @@ func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clust
 // bringUpLab creates cfg's linked clusters (runtime.kind.clusters), then the lab
 // itself with everything `astrona run` does — preload, addons, bootstrap,
 // manifests, readiness gates, port forwards — and prints how to connect.
-// Shared by run and reset.
-func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui.Reporter) error {
+// Once it is ready, a kind lab's context becomes the user's kubectl
+// current-context (unless --keep-context), and where the lab came from and
+// its lab session (sess, nil for none) are remembered for submit and
+// destroy. Shared by run and reset.
+func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui.Reporter, sess *labstate.Session) error {
 	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
 	// Checked before linked clusters are (re)created — they'd otherwise be
 	// replaced under a lab that's still using them.
@@ -215,9 +248,14 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 		}
 	}
 
+	rememberLab(clusterName, flags, sess)
 	rep.Close()
+	var sw *labstate.Switched
+	if env.Type == runtime.RuntimeKind && !flags.keepContext {
+		sw = switchToLab(clusterName, env.KubeContext)
+	}
 	fmt.Printf("\nLab environment is fully loaded and ready!\n")
-	printConnectHints(env, cfg, clusterName)
+	printConnectHints(env, cfg, clusterName, sw)
 	printPortForwardHints(os.Stdout, forwards)
 	printLinkHints(os.Stdout, links)
 	if ca, ok := cluster.ExistingLabCA(clusterName); ok && cfg.Runtime.Kind != nil && cfg.Runtime.Kind.SharedCA {

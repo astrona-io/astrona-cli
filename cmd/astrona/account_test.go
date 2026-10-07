@@ -208,7 +208,7 @@ func TestStartSession(t *testing.T) {
 	acct := signIn(t, srv)
 	var page fmt.Stringer
 	captureStdout(t, func() {
-		p, err := acct.startSession(context.Background(), "run", "L")
+		p, _, err := acct.startSession(context.Background(), "run", "L")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -220,11 +220,11 @@ func TestStartSession(t *testing.T) {
 
 	// A page on another site is never opened.
 	other := fakeAstrona(t, http.StatusCreated, func(string) string { return "https://evil.example.com/labs/L" })
-	if _, err := signIn(t, other).startSession(context.Background(), "run", "L"); err == nil || !strings.Contains(err.Error(), "another site") {
+	if _, _, err := signIn(t, other).startSession(context.Background(), "run", "L"); err == nil || !strings.Contains(err.Error(), "another site") {
 		t.Errorf("foreign page: %v", err)
 	}
 	bad := fakeAstrona(t, http.StatusCreated, func(string) string { return "javascript:alert(1)" })
-	if _, err := signIn(t, bad).startSession(context.Background(), "run", "L"); err == nil || !strings.Contains(err.Error(), "nothing was built") {
+	if _, _, err := signIn(t, bad).startSession(context.Background(), "run", "L"); err == nil || !strings.Contains(err.Error(), "nothing was built") {
 		t.Errorf("bad page URL: %v", err)
 	}
 
@@ -235,7 +235,7 @@ func TestStartSession(t *testing.T) {
 		http.StatusServiceUnavailable:  "nothing was built",
 	} {
 		s := fakeAstrona(t, status, nil)
-		_, err := signIn(t, s).startSession(context.Background(), "run", "L")
+		_, _, err := signIn(t, s).startSession(context.Background(), "run", "L")
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("HTTP %d: %v, want %q", status, err, want)
 		}
