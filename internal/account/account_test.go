@@ -157,14 +157,34 @@ func TestResolveSite(t *testing.T) {
 		"http://127.0.0.1:3000/":     "http://127.0.0.1:3000",
 		"https://Staging.Astrona.io": "https://staging.astrona.io",
 	} {
-		if got, err := ResolveSite(env(raw)); err != nil || got != want {
+		if got, err := ResolveSite(env(raw), ""); err != nil || got != want {
 			t.Errorf("ResolveSite(%q) = %q, %v; want %q", raw, got, err, want)
 		}
 	}
 	for _, raw := range []string{"http://astrona.io", "ftp://astrona.io", "https://u:p@astrona.io", "https://astrona.io/app", "astrona.io", "https://astrona.io?x=1"} {
-		if got, err := ResolveSite(env(raw)); err == nil {
+		if got, err := ResolveSite(env(raw), ""); err == nil {
 			t.Errorf("ResolveSite(%q) = %q, want an error", raw, got)
 		}
+	}
+}
+
+// Without ASTRONA_URL the site of the saved sign-in is used; ASTRONA_URL
+// still wins; an invalid saved site falls back to the default.
+func TestResolveSiteSaved(t *testing.T) {
+	none := func(string) string { return "" }
+	local := "http://localhost:3000"
+	if got, _ := ResolveSite(none, local); got != local {
+		t.Errorf("saved site = %q, want %q", got, local)
+	}
+	staging := func(string) string { return "https://staging.astrona.io" }
+	if got, _ := ResolveSite(staging, local); got != "https://staging.astrona.io" {
+		t.Errorf("ASTRONA_URL over saved = %q", got)
+	}
+	if got, _ := ResolveSite(none, "http://evil.example"); got != DefaultSite {
+		t.Errorf("invalid saved site = %q, want the default", got)
+	}
+	if _, err := ResolveSite(func(string) string { return "ftp://x" }, ""); err == nil || !strings.Contains(err.Error(), SiteEnv) {
+		t.Errorf("bad ASTRONA_URL error = %v, want it to name %s", err, SiteEnv)
 	}
 }
 

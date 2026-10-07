@@ -34,7 +34,13 @@ A full `astrona reset ATS014/…` does the same: a fresh session and a new lab p
 
 Labs from your own files or repositories (`-c ./my-lab`, `--git <url>`) are not tied to an account: they run without signing in, and no page is opened.
 
-The site is `https://astrona.io`; `ASTRONA_URL` points astrona at another one (for example `ASTRONA_URL=http://localhost:3000` for local development — plain http only to `localhost`). The sign-in is stored with the site it came from and is only ever sent back there: with `ASTRONA_URL` pointing elsewhere, you're signed out until you `astrona login` on that site.
+The site is `https://astrona.io` unless you sign in to another one:
+
+```sh
+astrona login --site http://localhost:3000    # e.g. local development (plain http only to localhost)
+```
+
+The site is remembered with the sign-in: `whoami`, `logout` and catalog labs use it without repeating it. `ASTRONA_URL` overrides it for a single command (`ASTRONA_URL=https://staging.astrona.io astrona whoami`). The sign-in is only ever sent back to the site it came from: with `ASTRONA_URL` pointing elsewhere, you're signed out until you `astrona login` on that site. A site without astrona sign-in (`/api/cli/config` not found) makes `login` say so and suggest `--site`.
 
 ## Where the catalog comes from
 

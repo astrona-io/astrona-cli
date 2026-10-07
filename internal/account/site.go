@@ -13,8 +13,8 @@ import (
 	"strings"
 )
 
-// DefaultSite is the Astrona site the CLI signs in to unless ASTRONA_URL
-// says otherwise.
+// DefaultSite is the Astrona site the CLI signs in to unless ASTRONA_URL,
+// `astrona login --site` or an earlier sign-in says otherwise.
 const DefaultSite = "https://astrona.io"
 
 // SiteEnv names the environment variable that overrides DefaultSite (for
@@ -62,13 +62,22 @@ func isLoopback(host string) bool {
 }
 
 // ResolveSite returns the site the CLI talks to: ASTRONA_URL when set
-// (validated), else DefaultSite. getenv is os.Getenv outside tests.
-func ResolveSite(getenv func(string) string) (string, error) {
-	raw := strings.TrimSpace(getenv(SiteEnv))
-	if raw == "" {
-		return DefaultSite, nil
+// (validated), else saved — the site of the saved sign-in, "" when there
+// is none — else DefaultSite. getenv is os.Getenv outside tests.
+func ResolveSite(getenv func(string) string, saved string) (string, error) {
+	if raw := strings.TrimSpace(getenv(SiteEnv)); raw != "" {
+		site, err := NormalizeSite(raw)
+		if err != nil {
+			return "", fmt.Errorf("%s=%q: %w", SiteEnv, raw, err)
+		}
+		return site, nil
 	}
-	return NormalizeSite(raw)
+	if saved != "" {
+		if site, err := NormalizeSite(saved); err == nil {
+			return site, nil
+		}
+	}
+	return DefaultSite, nil
 }
 
 // NormalizeSite validates a site URL and reduces it to scheme://host[:port]
@@ -76,10 +85,10 @@ func ResolveSite(getenv func(string) string) (string, error) {
 func NormalizeSite(raw string) (string, error) {
 	u, err := checkTokenURL(raw)
 	if err != nil {
-		return "", fmt.Errorf("%s=%q: %w", SiteEnv, raw, err)
+		return "", err
 	}
 	if (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
-		return "", fmt.Errorf("%s=%q: give only the site's address, like https://astrona.io", SiteEnv, raw)
+		return "", fmt.Errorf("give only the site's address, like https://astrona.io")
 	}
 	return u.Scheme + "://" + strings.ToLower(u.Host), nil
 }
