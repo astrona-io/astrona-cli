@@ -16,12 +16,22 @@ A catalog name works wherever a command takes a lab: `astrona use ATS014/…` pi
 Catalog labs are tied to your Astrona account, so the lab page on astrona.io can track your time. Sign in once per computer:
 
 ```sh
-astrona login      # opens your browser; confirm the code shown in the terminal
+astrona login      # opens astrona.io in your browser; click Authorize there
 astrona whoami     # who is signed in, and on which site
 astrona logout     # revoke the sign-in and forget it
 ```
 
-`astrona login` uses the OAuth device flow: the terminal shows a short code and opens the sign-in page, you confirm the code in the browser, and the terminal finishes by itself — no password is ever typed into the terminal, and it works from a machine without a browser (open the link on any device). The sign-in is kept in `~/.astrona/credentials.json` (mode 0600; astrona refuses to use it if other users can read it) and renewed automatically.
+`astrona login` signs in through the Astrona website, the same way you sign in on astrona.io — you never see any other sign-in page. It opens a page on astrona.io in your browser and shows a short code in the terminal:
+
+```text
+Opening your browser to sign in… If it doesn't open, go to https://astrona.io/cli/authorize?code=…
+Confirm the code ABCD-EFGH matches the one in your browser.
+Waiting for you to authorize this computer… (Ctrl+C cancels)
+```
+
+If you're already signed in on astrona.io, check that the code matches and click **Authorize**; if not, sign in on astrona.io first and you're brought straight back to that page. The terminal waits and finishes by itself. No password is ever typed into the terminal, and it works from a machine without a browser (open the printed link on any device). The computer shows up on your account under its hostname. Declining in the browser, or letting the code expire, leaves you signed out — run `astrona login` again.
+
+The sign-in is kept in `~/.astrona/credentials.json` (mode 0600; astrona refuses to use it if other users can read it) and renewed automatically; `astrona logout` revokes it on astrona.io and deletes the file. A credentials file from an older astrona (before website sign-in) no longer works: astrona treats you as signed out and asks you to run `astrona login` again.
 
 Then `astrona run ATS014/…`:
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,27 +16,23 @@ import (
 	"astrona/internal/catalog"
 )
 
-// fakeAstrona is a site + issuer: config, discovery, device flow (signed
-// in on the first poll), refresh, revoke and lab sessions.
+// fakeAstrona is an Astrona site: CLI config, device sign-in (authorized on
+// the first poll), token, revocation and lab sessions.
 func fakeAstrona(t *testing.T, sessionStatus int, pageURL func(base string) string) *httptest.Server {
 	t.Helper()
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		base := srv.URL + "/realms/a/protocol/openid-connect"
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/api/cli/config":
-			fmt.Fprintf(w, `{"issuer":%q,"client_id":"astrona-cli"}`, srv.URL+"/realms/a")
-		case "/realms/a/.well-known/openid-configuration":
-			fmt.Fprintf(w, `{"issuer":%q,"device_authorization_endpoint":%q,"token_endpoint":%q,"revocation_endpoint":%q}`,
-				srv.URL+"/realms/a", base+"/auth/device", base+"/token", base+"/revoke")
-		case "/realms/a/protocol/openid-connect/auth/device":
+			fmt.Fprint(w, `{"device_endpoint":"/api/cli/device","token_endpoint":"/api/cli/token","revocation_endpoint":"/api/cli/revoke"}`)
+		case "/api/cli/device":
 			fmt.Fprintf(w, `{"device_code":"d","user_code":"WXYZ-1234","verification_uri":%q,"verification_uri_complete":%q,"expires_in":60,"interval":1}`,
-				srv.URL+"/device", srv.URL+"/device?code=WXYZ-1234")
-		case "/realms/a/protocol/openid-connect/token":
-			claims := base64.RawURLEncoding.EncodeToString([]byte(`{"preferred_username":"student1"}`))
-			fmt.Fprintf(w, `{"access_token":"secret-access","refresh_token":"secret-refresh","token_type":"Bearer","expires_in":300,"id_token":"e30.%s.x"}`, claims)
-		case "/realms/a/protocol/openid-connect/revoke":
+				srv.URL+"/cli/authorize", srv.URL+"/cli/authorize?code=WXYZ-1234")
+		case "/api/cli/token":
+			fmt.Fprint(w, `{"access_token":"secret-access","token_type":"Bearer","expires_in":300,"refresh_token":"secret-refresh","username":"student1","device_id":"dev-1"}`)
+		case "/api/cli/revoke":
+			w.WriteHeader(http.StatusNoContent)
 		case "/api/cli/lab-sessions":
 			if sessionStatus != http.StatusCreated {
 				w.WriteHeader(sessionStatus)
@@ -53,6 +48,8 @@ func fakeAstrona(t *testing.T, sessionStatus int, pageURL func(base string) stri
 	t.Cleanup(srv.Close)
 	return srv
 }
+
+var testDevice = account.Device{Name: "ana-laptop", OS: "darwin"}
 
 // withAccount points the sign-in gate at srv and a credentials file in a
 // temp dir, and keeps the browser closed.
@@ -142,11 +139,15 @@ func TestLoginWhoamiLogout(t *testing.T) {
 		t.Errorf("whoami signed out: %v", err)
 	}
 	out := captureStdout(t, func() {
-		if err := login(ctx, client, store, srv.URL); err != nil {
+		if err := login(ctx, client, store, srv.URL, testDevice); err != nil {
 			t.Fatal(err)
 		}
 	})
-	for _, want := range []string{"enter code WXYZ-1234", "Signed in as student1 on " + srv.URL} {
+	for _, want := range []string{
+		"Opening your browser to sign in… If it doesn't open, go to " + srv.URL + "/cli/authorize?code=WXYZ-1234",
+		"Confirm the code WXYZ-1234 matches the one in your browser.",
+		"Signed in as student1 on " + srv.URL,
+	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("login output lacks %q:\n%s", want, out)
 		}
@@ -192,7 +193,7 @@ func TestStartSession(t *testing.T) {
 	signIn := func(t *testing.T, srv *httptest.Server) *labAccount {
 		client, store := withAccount(t, srv.URL)
 		captureStdout(t, func() {
-			if err := login(context.Background(), client, store, srv.URL); err != nil {
+			if err := login(context.Background(), client, store, srv.URL, testDevice); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -241,6 +242,64 @@ func TestStartSession(t *testing.T) {
 	}
 }
 
+func TestDeviceOS(t *testing.T) {
+	env := func(vars map[string]string) func(string) string { return func(k string) string { return vars[k] } }
+	for _, c := range []struct {
+		goos string
+		env  map[string]string
+		want string
+	}{
+		{"darwin", nil, "darwin"},
+		{"windows", nil, "windows"},
+		{"linux", nil, "linux"},
+		{"linux", map[string]string{"WSL_DISTRO_NAME": "Ubuntu"}, "linux-wsl"},
+	} {
+		if got := deviceOS(c.goos, env(c.env)); got != c.want {
+			t.Errorf("deviceOS(%s, %v) = %q, want %q", c.goos, c.env, got, c.want)
+		}
+	}
+}
+
+func TestLoginDeclinedAndOldCredentials(t *testing.T) {
+	// Declined in the browser: the student's own words, nothing saved.
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/cli/config":
+			fmt.Fprint(w, `{"device_endpoint":"/d","token_endpoint":"/t"}`)
+		case "/d":
+			fmt.Fprintf(w, `{"device_code":"d","user_code":"C","verification_uri_complete":%q,"expires_in":60,"interval":1}`, srv.URL+"/a")
+		case "/t":
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, `{"error":"access_denied"}`)
+		}
+	}))
+	defer srv.Close()
+	client, store := withAccount(t, srv.URL)
+	captureStdout(t, func() {
+		if err := login(context.Background(), client, store, srv.URL, testDevice); err == nil || err.Error() != "Sign-in was declined in the browser." {
+			t.Errorf("declined: %v", err)
+		}
+	})
+	if _, err := os.Stat(store.Path); !os.IsNotExist(err) {
+		t.Error("credentials saved after a declined sign-in")
+	}
+
+	// A credentials file from the Keycloak-era astrona: signed out, told to log in.
+	os.MkdirAll(filepath.Dir(store.Path), 0o700)
+	os.WriteFile(store.Path, []byte(`{"site":"`+srv.URL+`","issuer":"x","client_id":"astrona-cli","access_token":"a"}`), 0o600)
+	_, err := requireSignIn(context.Background(), &rootFlags{catalogLab: "L"}, "run")
+	if err == nil || !strings.Contains(err.Error(), "older version of astrona") || !strings.Contains(err.Error(), `run "astrona login" first`) {
+		t.Errorf("old credentials: %v", err)
+	}
+	os.WriteFile(store.Path, []byte(`{"site":"`+srv.URL+`","issuer":"x","client_id":"astrona-cli","access_token":"a"}`), 0o600)
+	out := captureStdout(t, func() { _ = logout(client, store) })
+	if !strings.Contains(out, "older astrona") {
+		t.Errorf("logout of old credentials = %q", out)
+	}
+}
+
 func TestNotSignedInReasons(t *testing.T) {
 	expired := fmt.Errorf("your sign-in has expired or was revoked: %w", account.ErrSignedOut)
 	if got := notSignedInError(expired, "reset", "L").Error(); !strings.HasPrefix(got, "Your sign-in has expired or was revoked. Catalog labs") ||
@@ -255,7 +314,7 @@ func TestLoginSiteWithoutSignIn(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	defer srv.Close()
 	store := account.Store{Path: filepath.Join(t.TempDir(), "credentials.json")}
-	err := login(context.Background(), account.NewClient(), store, srv.URL)
+	err := login(context.Background(), account.NewClient(), store, srv.URL, testDevice)
 	if err == nil || !strings.Contains(err.Error(), "HTTP 404") || !strings.Contains(err.Error(), "astrona login --site http://localhost:3000") {
 		t.Errorf("err = %v", err)
 	}

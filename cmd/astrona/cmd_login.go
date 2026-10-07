@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"time"
+	"runtime"
 
 	"astrona/internal/account"
 
@@ -21,9 +21,11 @@ func newLoginCmd() *cobra.Command {
 		Long: "Sign this computer in to your Astrona account. Catalog labs (`astrona run ATS014/…`) are tied " +
 			"to your account: `astrona run` starts a lab session for you and opens the lab page, which " +
 			"tracks your time. Labs from your own files or repositories (-c / --git) don't need it.\n\n" +
-			"Sign-in happens in your browser (OAuth device flow): astrona shows a short code and opens " +
-			"the sign-in page; confirm the code there and the terminal finishes by itself. No password is " +
-			"ever typed into the terminal. On a machine without a browser, open the link on any device.\n\n" +
+			"Sign-in happens on the Astrona website: astrona opens a page on astrona.io in your browser. " +
+			"If you're already signed in there, check that the code matches the one in the terminal and " +
+			"click Authorize; otherwise sign in on astrona.io first and you're brought back to that page. " +
+			"The terminal waits and finishes by itself. No password is ever typed into the terminal. On a " +
+			"machine without a browser, open the printed link on any device.\n\n" +
 			"The sign-in is saved in ~/.astrona/credentials.json (readable only by you) and renewed " +
 			"automatically. `astrona whoami` shows who is signed in, `astrona logout` signs out.\n\n" +
 			"The site is " + account.DefaultSite + " unless --site (or " + account.SiteEnv + ") names another, " +
@@ -46,15 +48,30 @@ func newLoginCmd() *cobra.Command {
 			}
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
-			return login(ctx, client, store, site)
+			return login(ctx, client, store, site, thisDevice())
 		},
 	}
 	cmd.Flags().StringVar(&siteFlag, "site", "", "Sign in to this Astrona site (e.g. http://localhost:3000) instead of "+account.DefaultSite+"; it's remembered for later commands")
 	return cmd
 }
 
-// login runs the device flow against site and saves the credentials.
-func login(ctx context.Context, client *account.Client, store account.Store, site string) error {
+// thisDevice is how this computer is named on the site's device list.
+func thisDevice() account.Device {
+	host, _ := os.Hostname()
+	return account.Device{Name: account.DeviceName(host), OS: deviceOS(runtime.GOOS, os.Getenv)}
+}
+
+// deviceOS is the OS reported to the site: GOOS, or "linux-wsl" under WSL.
+func deviceOS(goos string, getenv func(string) string) string {
+	if goos == "linux" && isWSL(getenv) {
+		return goos + "-wsl"
+	}
+	return goos
+}
+
+// login signs in through the site: the student authorizes this computer on
+// the site's own page, and the site issues the tokens, which are saved.
+func login(ctx context.Context, client *account.Client, store account.Store, site string, device account.Device) error {
 	// An earlier sign-in is replaced; its refresh token is revoked once the
 	// new one is saved. One that can't be read is simply overwritten.
 	previous, _ := store.Load()
@@ -67,45 +84,37 @@ func login(ctx context.Context, client *account.Client, store account.Store, sit
 	if err != nil {
 		return err
 	}
-	p, err := client.Discover(ctx, sc.Issuer)
-	if err != nil {
-		return err
-	}
-	dc, err := client.StartDeviceFlow(ctx, p, sc.ClientID)
+	dc, err := client.StartDeviceFlow(ctx, site, sc, device)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("\nOpening your browser… If it doesn't open, go to %s and enter code %s\n", dc.VerificationURI, dc.UserCode)
-	target := dc.VerificationURIComplete
-	if target == "" {
-		target = dc.VerificationURI
-	}
-	if !browserOpener(target) {
+	fmt.Printf("\nOpening your browser to sign in… If it doesn't open, go to %s\n", dc.VerificationURIComplete)
+	fmt.Printf("Confirm the code %s matches the one in your browser.\n", dc.UserCode)
+	if !browserOpener(dc.VerificationURIComplete) {
 		fmt.Println("(No browser here — open that link on any device; this terminal waits for you.)")
 	}
-	fmt.Println("Waiting for you to confirm in the browser… (Ctrl+C cancels)")
+	fmt.Println("Waiting for you to authorize this computer… (Ctrl+C cancels)")
 
-	tokens, err := client.PollToken(ctx, p, sc.ClientID, dc)
+	tokens, err := client.PollToken(ctx, sc, dc)
 	switch {
 	case errors.Is(err, context.Canceled):
 		return fmt.Errorf("sign-in cancelled — you're not signed in")
 	case errors.Is(err, account.ErrAccessDenied):
-		return fmt.Errorf("the sign-in was declined in the browser — run \"astrona login\" to try again")
+		return fmt.Errorf("Sign-in was declined in the browser.") //nolint:staticcheck // ST1005: shown to the student as is
 	case errors.Is(err, account.ErrDeviceCodeExpired):
-		return fmt.Errorf("the code expired before it was confirmed (it's valid for %s) — run \"astrona login\" for a new one",
-			time.Duration(dc.ExpiresIn)*time.Second)
+		return fmt.Errorf("The code expired — run astrona login again.") //nolint:staticcheck // ST1005: shown to the student as is
 	case err != nil:
 		return err
 	}
 
-	creds := account.NewCredentials(site, sc, p, tokens, client.Now())
+	creds := account.NewCredentials(site, device, tokens, client.Now())
 	if err := store.Save(creds); err != nil {
 		return err
 	}
-	if previous != nil && previous.RefreshToken != "" && previous.RefreshToken != creds.RefreshToken {
-		rctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = client.Revoke(rctx, previous.RevocationEndpoint, previous.ClientID, previous.RefreshToken) // best effort
+	if previous != nil && previous.RefreshToken != creds.RefreshToken {
+		rctx, cancel := context.WithTimeout(context.Background(), revokeTimeout)
+		_ = client.Revoke(rctx, previous.Site, previous.RefreshToken) // best effort
 		cancel()
 	}
 

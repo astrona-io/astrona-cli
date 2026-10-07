@@ -32,7 +32,7 @@ func browserCommand(goos string, getenv func(string) string, lookPath func(strin
 		return []string{"rundll32", "url.dll,FileProtocolHandler", rawURL}
 	case "linux":
 		// Under WSL (how astrona runs on Windows) the browser is Windows'.
-		if getenv("WSL_DISTRO_NAME") != "" || getenv("WSL_INTEROP") != "" {
+		if isWSL(getenv) {
 			if has("wslview") {
 				return []string{"wslview", rawURL}
 			}
@@ -49,6 +49,11 @@ func browserCommand(goos string, getenv func(string) string, lookPath func(strin
 		}
 	}
 	return nil
+}
+
+// isWSL reports whether astrona runs inside WSL (how it runs on Windows).
+func isWSL(getenv func(string) string) bool {
+	return getenv("WSL_DISTRO_NAME") != "" || getenv("WSL_INTEROP") != ""
 }
 
 // openInBrowser opens rawURL in the default browser without waiting for it.

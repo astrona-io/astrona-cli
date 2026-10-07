@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// revokeTimeout bounds logout's call to the sign-in server: signing out
+// revokeTimeout bounds the call that revokes a sign-in on the site: signing out
 // locally must not hang on a server that's down.
 const revokeTimeout = 5 * time.Second
 
@@ -18,7 +19,7 @@ func newLogoutCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "logout",
 		Short: "Sign out of Astrona on this computer",
-		Long: "Sign out: revoke this computer's sign-in on the Astrona sign-in server (best effort, a few " +
+		Long: "Sign out: revoke this computer's sign-in on the Astrona website (best effort, a few " +
 			"seconds at most) and delete ~/.astrona/credentials.json. Catalog labs then need " +
 			"`astrona login` again; labs that are already running keep running.",
 		Args: cobra.NoArgs,
@@ -40,9 +41,9 @@ func logout(client *account.Client, store account.Store) error {
 	}
 
 	revoked := "nothing to revoke on the server"
-	if creds != nil && creds.RefreshToken != "" {
+	if creds != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), revokeTimeout)
-		err := client.Revoke(ctx, creds.RevocationEndpoint, creds.ClientID, creds.RefreshToken)
+		err := client.Revoke(ctx, creds.Site, creds.RefreshToken)
 		cancel()
 		if err != nil {
 			revoked = fmt.Sprintf("couldn't revoke it on the server (%s) — it stays valid there until it expires", err)
@@ -55,6 +56,8 @@ func logout(client *account.Client, store account.Store) error {
 	}
 
 	switch {
+	case creds == nil && errors.Is(loadErr, account.ErrSignedOut):
+		fmt.Printf("Removed the sign-in an older astrona saved in %s. You're signed out.\n", store.Path)
 	case creds == nil:
 		fmt.Printf("Removed %s (it couldn't be used: %s). You're signed out.\n", store.Path, loadErr)
 	case creds.Username != "":

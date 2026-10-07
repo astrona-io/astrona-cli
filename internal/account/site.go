@@ -1,9 +1,13 @@
-// Package account signs the CLI in to an Astrona site (OAuth 2.0 Device
-// Authorization Grant against the site's Keycloak realm), keeps the
+// Package account signs the CLI in to an Astrona site, keeps the
 // credentials on disk, and asks the site for lab sessions.
 //
+// Sign-in is a device-code flow run by the site itself: the CLI asks the
+// site for a code, the student authorizes it on the site's own page (signing
+// in there first if needed), and the CLI polls until the site issues its
+// tokens. The tokens are opaque to the CLI.
+//
 // Tokens are secrets: nothing in this package prints or logs them, and they
-// are only ever sent to the site and issuer they were obtained from.
+// are only ever sent to the site they were obtained from.
 package account
 
 import (

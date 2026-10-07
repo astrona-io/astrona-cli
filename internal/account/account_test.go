@@ -2,7 +2,6 @@ package account
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,81 +16,76 @@ import (
 	"time"
 )
 
-// fakeIdP is a site plus a Keycloak-like issuer on one httptest server.
-type fakeIdP struct {
+// fakeSite is an Astrona site: CLI config, device sign-in, token,
+// revocation and lab-session endpoints.
+type fakeSite struct {
 	*httptest.Server
 	mu sync.Mutex
+	// config overrides /api/cli/config's answer.
+	config string
+	// pageURL overrides verification_uri_complete.
+	pageURL string
+	devices []Device
 	// pollAnswers are the token endpoint's device-code answers, in order.
 	pollAnswers []string
-	// refresh answers refresh_token grants: "" = new tokens, else an OAuth error code.
-	refresh      string
-	refreshCalls int
-	revoked      []string
+	// refresh answers refresh_token grants: "" = new tokens, else an error code.
+	refresh       string
+	refreshCalls  int
+	refreshTokens []string
+	revoked       []string
 	// sessions are the lab-session endpoint's statuses, in order (then 201).
 	sessions     []int
 	sessionAuths []string
-	issuerName   string // what discovery claims; defaults to the real issuer
-	endpointHost string // overrides the endpoints' host
 }
 
-func jwtWith(claims map[string]string) string {
-	b, _ := json.Marshal(claims)
-	return "e30." + base64.RawURLEncoding.EncodeToString(b) + ".sig"
-}
-
-func newFakeIdP(t *testing.T) *fakeIdP {
-	f := &fakeIdP{}
+func newFakeSite(t *testing.T) *fakeSite {
+	f := &fakeSite{}
 	f.Server = httptest.NewServer(http.HandlerFunc(f.handle))
 	t.Cleanup(f.Close)
 	return f
 }
 
-func (f *fakeIdP) issuer() string { return f.URL + "/realms/astrona" }
-
-func (f *fakeIdP) handle(w http.ResponseWriter, r *http.Request) {
+func (f *fakeSite) handle(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	oauthErr := func(status int, code string) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(status)
+	w.Header().Set("Content-Type", "application/json")
+	oauthErr := func(code string) {
+		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, `{"error":%q,"error_description":"desc for %s"}`, code, code)
 	}
 	tokens := func(access, refresh string) {
 		json.NewEncoder(w).Encode(map[string]any{
-			"access_token": access, "refresh_token": refresh, "token_type": "Bearer", "expires_in": 300,
-			"id_token": jwtWith(map[string]string{"preferred_username": "student1"}),
+			"access_token": access, "token_type": "Bearer", "expires_in": 300, "refresh_token": refresh,
+			"username": "student1", "device_id": "dev-42",
 		})
+	}
+	var body map[string]string
+	if r.Method == http.MethodPost {
+		if r.Header.Get("Content-Type") != "application/json" || json.NewDecoder(r.Body).Decode(&body) != nil {
+			oauthErr("invalid_request")
+			return
+		}
 	}
 	switch r.URL.Path {
 	case "/api/cli/config":
-		fmt.Fprintf(w, `{"issuer":%q,"client_id":"astrona-cli"}`, f.issuer())
-	case "/realms/astrona/.well-known/openid-configuration":
-		iss, host := f.issuer(), f.URL
-		if f.issuerName != "" {
-			iss = f.issuerName
-		}
-		if f.endpointHost != "" {
-			host = f.endpointHost
-		}
-		base := host + "/realms/astrona/protocol/openid-connect"
-		json.NewEncoder(w).Encode(map[string]string{
-			"issuer": iss, "device_authorization_endpoint": base + "/auth/device", "token_endpoint": base + "/token",
-			"revocation_endpoint": base + "/revoke", "end_session_endpoint": base + "/logout",
-		})
-	case "/realms/astrona/protocol/openid-connect/auth/device":
-		r.ParseForm()
-		if r.Form.Get("client_id") != "astrona-cli" || r.Form.Get("scope") != Scope {
-			oauthErr(400, "invalid_request")
+		if f.config != "" {
+			fmt.Fprint(w, f.config)
 			return
 		}
+		fmt.Fprint(w, `{"device_endpoint":"/api/cli/device","token_endpoint":"/api/cli/token","revocation_endpoint":"/api/cli/revoke"}`)
+	case "/api/cli/device":
+		f.devices = append(f.devices, Device{Name: body["device_name"], OS: body["os"]})
+		page := f.pageURL
+		if page == "" {
+			page = f.URL + "/cli/authorize?code=ABCD-EFGH"
+		}
 		fmt.Fprintf(w, `{"device_code":"dev-123","user_code":"ABCD-EFGH","verification_uri":%q,"verification_uri_complete":%q,"expires_in":600,"interval":5}`,
-			f.URL+"/device", f.URL+"/device?user_code=ABCD-EFGH")
-	case "/realms/astrona/protocol/openid-connect/token":
-		r.ParseForm()
-		switch r.Form.Get("grant_type") {
-		case deviceCodeGrant:
-			if r.Form.Get("device_code") != "dev-123" {
-				oauthErr(400, "invalid_grant")
+			f.URL+"/cli/authorize", page)
+	case "/api/cli/token":
+		switch body["grant_type"] {
+		case "device_code":
+			if body["device_code"] != "dev-123" {
+				oauthErr("invalid_grant")
 				return
 			}
 			next := "ok"
@@ -99,39 +93,37 @@ func (f *fakeIdP) handle(w http.ResponseWriter, r *http.Request) {
 				next, f.pollAnswers = f.pollAnswers[0], f.pollAnswers[1:]
 			}
 			if next != "ok" {
-				oauthErr(400, next)
+				oauthErr(next)
 				return
 			}
 			tokens("access-1", "refresh-1")
 		case "refresh_token":
 			f.refreshCalls++
+			f.refreshTokens = append(f.refreshTokens, body["refresh_token"])
 			if f.refresh != "" {
-				oauthErr(400, f.refresh)
+				oauthErr(f.refresh)
 				return
 			}
 			tokens(fmt.Sprintf("access-r%d", f.refreshCalls), fmt.Sprintf("refresh-r%d", f.refreshCalls))
 		default:
-			oauthErr(400, "unsupported_grant_type")
+			oauthErr("unsupported_grant_type")
 		}
-	case "/realms/astrona/protocol/openid-connect/revoke":
-		r.ParseForm()
-		f.revoked = append(f.revoked, r.Form.Get("token"))
+	case "/api/cli/revoke":
+		f.revoked = append(f.revoked, body["refresh_token"])
+		w.WriteHeader(http.StatusNoContent)
 	case "/api/cli/lab-sessions":
 		f.sessionAuths = append(f.sessionAuths, r.Header.Get("Authorization"))
 		status := http.StatusCreated
 		if len(f.sessions) > 0 {
 			status, f.sessions = f.sessions[0], f.sessions[1:]
 		}
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
 		if status != http.StatusCreated {
 			fmt.Fprintf(w, `{"statusCode":%d,"statusMessage":"server says %d"}`, status, status)
 			return
 		}
-		var body struct{ Lab string }
-		json.NewDecoder(r.Body).Decode(&body)
 		fmt.Fprintf(w, `{"id":"s1","token":"tok","lab":%q,"username":"student1","expires_at":"2026-10-07T20:00:00","url":%q}`,
-			body.Lab, f.URL+"/labs/"+body.Lab+"?t=tok")
+			body["lab"], f.URL+"/labs/"+body["lab"]+"?t=tok")
 	default:
 		http.NotFound(w, r)
 	}
@@ -188,29 +180,36 @@ func TestResolveSiteSaved(t *testing.T) {
 	}
 }
 
-func TestConfigAndDiscovery(t *testing.T) {
-	f := newFakeIdP(t)
+func TestSiteConfig(t *testing.T) {
+	f := newFakeSite(t)
 	c := testClient(nil)
 	ctx := context.Background()
 	sc, err := c.FetchSiteConfig(ctx, f.URL)
-	if err != nil || sc.Issuer != f.issuer() || sc.ClientID != "astrona-cli" {
+	if err != nil || sc.DeviceEndpoint != f.URL+"/api/cli/device" || sc.TokenEndpoint != f.URL+"/api/cli/token" ||
+		sc.RevocationEndpoint != f.URL+"/api/cli/revoke" {
 		t.Fatalf("FetchSiteConfig = %+v, %v", sc, err)
 	}
-	p, err := c.Discover(ctx, sc.Issuer)
-	if err != nil || !strings.HasSuffix(p.TokenEndpoint, "/token") || p.RevocationEndpoint == "" {
-		t.Fatalf("Discover = %+v, %v", p, err)
-	}
 
-	f.issuerName = "http://127.0.0.1:1/realms/other"
-	if _, err := c.Discover(ctx, sc.Issuer); err == nil || !strings.Contains(err.Error(), "refusing") {
-		t.Errorf("issuer mismatch accepted: %v", err)
+	// Any endpoint that resolves off the site is refused.
+	for _, cfg := range []string{
+		`{"device_endpoint":"https://evil.example.com/device","token_endpoint":"/api/cli/token"}`,
+		`{"device_endpoint":"/api/cli/device","token_endpoint":"//evil.example.com/token"}`,
+		`{"device_endpoint":"/api/cli/device","token_endpoint":"/api/cli/token","revocation_endpoint":"http://localhost:9/revoke"}`,
+		`{"device_endpoint":"/api/cli/device","token_endpoint":"https://u:p@` + strings.TrimPrefix(f.URL, "http://") + `/t"}`,
+	} {
+		f.config = cfg
+		if _, err := c.FetchSiteConfig(ctx, f.URL); err == nil || !strings.Contains(err.Error(), "refusing") {
+			t.Errorf("%s accepted: %v", cfg, err)
+		}
 	}
-	f.issuerName, f.endpointHost = "", "http://localhost:9"
-	if _, err := c.Discover(ctx, sc.Issuer); err == nil || !strings.Contains(err.Error(), "not on") {
-		t.Errorf("endpoint on another host accepted: %v", err)
+	f.config = `{"token_endpoint":"/api/cli/token"}`
+	if _, err := c.FetchSiteConfig(ctx, f.URL); err == nil || !strings.Contains(err.Error(), "device_endpoint is missing") {
+		t.Errorf("missing device endpoint: %v", err)
 	}
-	if _, err := c.Discover(ctx, "http://keycloak.example.com/realms/x"); err == nil || !strings.Contains(err.Error(), "https") {
-		t.Errorf("plain-http remote issuer accepted: %v", err)
+	// The revocation endpoint is optional.
+	f.config = `{"device_endpoint":"/api/cli/device","token_endpoint":"/api/cli/token"}`
+	if sc, err := c.FetchSiteConfig(ctx, f.URL); err != nil || sc.RevocationEndpoint != "" {
+		t.Errorf("no revocation endpoint: %+v, %v", sc, err)
 	}
 }
 
@@ -228,103 +227,126 @@ func TestRedirectToAnotherSiteIsRefused(t *testing.T) {
 	}
 }
 
-func deviceFlow(t *testing.T, f *fakeIdP, sleeps *[]time.Duration) (Tokens, error) {
+var testDevice = Device{Name: "ana-laptop", OS: "linux-wsl"}
+
+func deviceFlow(t *testing.T, f *fakeSite, sleeps *[]time.Duration) (Tokens, error) {
 	t.Helper()
 	c := testClient(sleeps)
 	ctx := context.Background()
-	sc, _ := c.FetchSiteConfig(ctx, f.URL)
-	p, err := c.Discover(ctx, sc.Issuer)
+	sc, err := c.FetchSiteConfig(ctx, f.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	dc, err := c.StartDeviceFlow(ctx, p, sc.ClientID)
+	dc, err := c.StartDeviceFlow(ctx, f.URL, sc, testDevice)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dc.UserCode != "ABCD-EFGH" || !strings.Contains(dc.VerificationURIComplete, "user_code=") {
+	if dc.UserCode != "ABCD-EFGH" || dc.VerificationURIComplete != f.URL+"/cli/authorize?code=ABCD-EFGH" {
 		t.Fatalf("device code = %+v", dc)
 	}
-	return c.PollToken(ctx, p, sc.ClientID, dc)
+	if len(f.devices) != 1 || f.devices[0] != testDevice {
+		t.Errorf("device sent = %+v", f.devices)
+	}
+	return c.PollToken(ctx, sc, dc)
 }
 
 func TestDeviceFlowPendingSlowDownSuccess(t *testing.T) {
-	f := newFakeIdP(t)
+	f := newFakeSite(t)
 	f.pollAnswers = []string{"authorization_pending", "slow_down", "authorization_pending", "ok"}
 	var sleeps []time.Duration
 	tok, err := deviceFlow(t, f, &sleeps)
-	if err != nil || tok.AccessToken != "access-1" || tok.RefreshToken != "refresh-1" {
+	if err != nil || tok.AccessToken != "access-1" || tok.RefreshToken != "refresh-1" || tok.Username != "student1" || tok.DeviceID != "dev-42" {
 		t.Fatalf("PollToken = %+v, %v", tok, err)
 	}
 	want := []time.Duration{5 * time.Second, 5 * time.Second, 10 * time.Second, 10 * time.Second}
 	if fmt.Sprint(sleeps) != fmt.Sprint(want) {
 		t.Errorf("waits = %v, want %v (slow_down adds 5s)", sleeps, want)
 	}
-	if got := UsernameFromTokens(tok); got != "student1" {
-		t.Errorf("username = %q", got)
+}
+
+func TestDeviceFlowSignInPageMustBeOnTheSite(t *testing.T) {
+	c := testClient(nil)
+	ctx := context.Background()
+	for _, page := range []string{"https://evil.example.com/cli/authorize", "javascript:alert(1)", "/cli/authorize"} {
+		f := newFakeSite(t)
+		f.pageURL = page
+		sc, _ := c.FetchSiteConfig(ctx, f.URL)
+		if _, err := c.StartDeviceFlow(ctx, f.URL, sc, testDevice); err == nil {
+			t.Errorf("sign-in page %q accepted", page)
+		}
 	}
 }
 
 func TestDeviceFlowDeniedAndExpired(t *testing.T) {
 	for code, want := range map[string]error{"access_denied": ErrAccessDenied, "expired_token": ErrDeviceCodeExpired} {
-		f := newFakeIdP(t)
+		f := newFakeSite(t)
 		f.pollAnswers = []string{"authorization_pending", code}
 		if _, err := deviceFlow(t, f, nil); !errors.Is(err, want) {
 			t.Errorf("%s: err = %v, want %v", code, err, want)
 		}
 	}
 
-	// The code's own lifetime runs out while the user is still pending.
-	f := newFakeIdP(t)
+	// The code's own lifetime runs out while the student is still pending.
+	f := newFakeSite(t)
 	f.pollAnswers = []string{"authorization_pending", "authorization_pending", "authorization_pending"}
 	c := testClient(nil)
-	start := time.Now()
-	now := start
+	now := time.Now()
 	c.Now = func() time.Time { return now }
 	c.Sleep = func(ctx context.Context, d time.Duration) error { now = now.Add(d); return nil }
 	ctx := context.Background()
 	sc, _ := c.FetchSiteConfig(ctx, f.URL)
-	p, _ := c.Discover(ctx, sc.Issuer)
-	dc, _ := c.StartDeviceFlow(ctx, p, sc.ClientID)
+	dc, _ := c.StartDeviceFlow(ctx, f.URL, sc, testDevice)
 	dc.ExpiresIn = 12
-	if _, err := c.PollToken(ctx, p, sc.ClientID, dc); !errors.Is(err, ErrDeviceCodeExpired) {
+	if _, err := c.PollToken(ctx, sc, dc); !errors.Is(err, ErrDeviceCodeExpired) {
 		t.Errorf("deadline: err = %v", err)
 	}
 }
 
 func TestDeviceFlowCancel(t *testing.T) {
-	f := newFakeIdP(t)
+	f := newFakeSite(t)
 	f.pollAnswers = []string{"authorization_pending", "authorization_pending"}
 	c := NewClient()
 	ctx, cancel := context.WithCancel(context.Background())
 	sc, _ := c.FetchSiteConfig(ctx, f.URL)
-	p, _ := c.Discover(ctx, sc.Issuer)
-	dc, _ := c.StartDeviceFlow(ctx, p, sc.ClientID)
+	dc, _ := c.StartDeviceFlow(ctx, f.URL, sc, testDevice)
 	cancel()
-	if _, err := c.PollToken(ctx, p, sc.ClientID, dc); !errors.Is(err, context.Canceled) {
+	if _, err := c.PollToken(ctx, sc, dc); !errors.Is(err, context.Canceled) {
 		t.Errorf("cancelled poll = %v", err)
 	}
 }
 
-func TestUsernameIsDisplayOnly(t *testing.T) {
-	for jwt, want := range map[string]string{
-		jwtWith(map[string]string{"preferred_username": "ana"}):           "ana",
-		jwtWith(map[string]string{"email": "ana@example.com"}):            "ana@example.com",
-		jwtWith(map[string]string{"preferred_username": "a\x1b[31mb\nc"}): "a[31mb c",
-		"not-a-jwt": "",
-		"a.!!!.c":   "",
+func TestDeviceName(t *testing.T) {
+	long := strings.Repeat("x", 150)
+	for in, want := range map[string]string{
+		"ana-laptop.local": "ana-laptop.local",
+		"  box\x1b[31m\n":  "box[31m",
+		long:               long[:100],
+		"":                 "unknown",
 	} {
-		if got := UsernameFromTokens(Tokens{IDToken: jwt}); got != want {
-			t.Errorf("username(%q) = %q, want %q", jwt, got, want)
+		if got := DeviceName(in); got != want {
+			t.Errorf("DeviceName(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
 
-func testCreds(f *fakeIdP, expires time.Time) *Credentials {
-	base := f.issuer() + "/protocol/openid-connect"
+func TestRevoke(t *testing.T) {
+	f := newFakeSite(t)
+	if err := testClient(nil).Revoke(context.Background(), f.URL, "refresh-0"); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.revoked) != 1 || f.revoked[0] != "refresh-0" {
+		t.Errorf("revoked = %v", f.revoked)
+	}
+	f.config = `{"device_endpoint":"/api/cli/device","token_endpoint":"/api/cli/token"}`
+	if err := testClient(nil).Revoke(context.Background(), f.URL, "refresh-0"); err == nil {
+		t.Error("revoke without an endpoint succeeded")
+	}
+}
+
+func testCreds(f *fakeSite, expires time.Time) *Credentials {
 	return &Credentials{
-		Site: f.URL, Issuer: f.issuer(), ClientID: "astrona-cli",
-		TokenEndpoint: base + "/token", RevocationEndpoint: base + "/revoke",
-		AccessToken: "access-0", RefreshToken: "refresh-0", AccessExpiresAt: expires, Username: "student1",
+		Site: f.URL, AccessToken: "access-0", RefreshToken: "refresh-0", AccessExpiresAt: expires,
+		Username: "student1", DeviceID: "dev-42", DeviceName: "ana-laptop",
 	}
 }
 
@@ -334,7 +356,7 @@ func TestCredentialsFile(t *testing.T) {
 	if cr, err := s.Load(); cr != nil || err != nil {
 		t.Fatalf("missing file: %+v, %v", cr, err)
 	}
-	f := newFakeIdP(t)
+	f := newFakeSite(t)
 	want := testCreds(f, time.Now().Add(time.Hour).UTC().Truncate(time.Second))
 	if err := s.Save(want); err != nil {
 		t.Fatal(err)
@@ -375,14 +397,21 @@ func TestCredentialsFile(t *testing.T) {
 		}
 	}
 
-	// Edited to send the tokens somewhere else: refused.
+	// Edited to send the tokens to a plain-http remote site: refused.
 	bad := *want
-	bad.TokenEndpoint = "https://evil.example.com/token"
+	bad.Site = "http://evil.example.com"
 	if err := s.Save(&bad); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.Load(); err == nil || !strings.Contains(err.Error(), "astrona logout") {
-		t.Errorf("foreign token endpoint: %v", err)
+		t.Errorf("plain-http remote site: %v", err)
+	}
+	// Terminal escapes in display fields are stripped on load.
+	esc := *want
+	esc.Username = "ana\x1b[2J"
+	s.Save(&esc)
+	if got, err := s.Load(); err != nil || got.Username != "ana[2J" {
+		t.Errorf("escaped username = %+v, %v", got, err)
 	}
 
 	os.WriteFile(s.Path, []byte("{not json"), 0o600)
@@ -398,7 +427,7 @@ func TestCredentialsFile(t *testing.T) {
 }
 
 func TestActiveRefreshes(t *testing.T) {
-	f := newFakeIdP(t)
+	f := newFakeSite(t)
 	s := Store{Path: filepath.Join(t.TempDir(), "credentials.json")}
 	c := testClient(nil)
 	ctx := context.Background()
@@ -417,14 +446,24 @@ func TestActiveRefreshes(t *testing.T) {
 		t.Errorf("other site: %v", err)
 	}
 
-	// Expired: renewed and saved.
+	// Expired: renewed, and the rotated refresh token saved.
 	s.Save(testCreds(f, time.Now().Add(-time.Minute)))
 	cr, err := c.Active(ctx, s, f.URL)
-	if err != nil || cr.AccessToken != "access-r1" || cr.RefreshToken != "refresh-r1" {
+	if err != nil || cr.AccessToken != "access-r1" || cr.RefreshToken != "refresh-r1" || cr.DeviceName != "ana-laptop" {
 		t.Fatalf("expired = %+v, %v", cr, err)
 	}
-	if saved, _ := s.Load(); saved.AccessToken != "access-r1" || !saved.fresh(time.Now()) {
+	if f.refreshTokens[0] != "refresh-0" {
+		t.Errorf("refreshed with %q", f.refreshTokens[0])
+	}
+	if saved, _ := s.Load(); saved.AccessToken != "access-r1" || saved.RefreshToken != "refresh-r1" || !saved.fresh(time.Now()) {
 		t.Errorf("renewed credentials not saved: %+v", saved)
+	}
+	// The next renewal uses the rotated token, never the old one.
+	if _, err := c.Renew(ctx, s, cr); err != nil || f.refreshTokens[1] != "refresh-r1" {
+		t.Errorf("second renewal used %v, %v", f.refreshTokens, err)
+	}
+	if saved, _ := s.Load(); saved.RefreshToken != "refresh-r2" {
+		t.Errorf("second rotation not saved: %q", saved.RefreshToken)
 	}
 
 	// Refresh token rejected: signed out, stale file removed.
@@ -435,6 +474,19 @@ func TestActiveRefreshes(t *testing.T) {
 	}
 	if cr, _ := s.Load(); cr != nil {
 		t.Error("stale credentials kept after invalid_grant")
+	}
+
+	// Rejected because another astrona already rotated it: that one's
+	// saved sign-in is used, not deleted.
+	stale := testCreds(f, time.Now().Add(-time.Minute))
+	rotated := testCreds(f, time.Now().Add(time.Hour))
+	rotated.AccessToken, rotated.RefreshToken = "access-other", "refresh-other"
+	s.Save(rotated)
+	if cr, err := c.Renew(ctx, s, stale); err != nil || cr.AccessToken != "access-other" {
+		t.Errorf("concurrent rotation = %+v, %v", cr, err)
+	}
+	if cr, _ := s.Load(); cr == nil {
+		t.Error("credentials removed after a concurrent rotation")
 	}
 
 	// Any other refresh failure is an error, and the sign-in is kept.
@@ -448,10 +500,32 @@ func TestActiveRefreshes(t *testing.T) {
 	}
 }
 
+func TestOldCredentialsFormatIsSignedOut(t *testing.T) {
+	f := newFakeSite(t)
+	s := Store{Path: filepath.Join(t.TempDir(), "credentials.json")}
+	old := fmt.Sprintf(`{"site":%q,"issuer":%q,"client_id":"astrona-cli","token_endpoint":%q,"access_token":"a","refresh_token":"r","access_expires_at":"2099-01-01T00:00:00Z"}`,
+		f.URL, f.URL+"/realms/astrona", f.URL+"/realms/astrona/protocol/openid-connect/token")
+	if err := os.WriteFile(s.Path, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if cr, err := s.Load(); cr != nil || !errors.Is(err, ErrSignedOut) || !strings.Contains(err.Error(), "older version") {
+		t.Errorf("Load = %+v, %v", cr, err)
+	}
+	if _, err := testClient(nil).Active(context.Background(), s, f.URL); !errors.Is(err, ErrSignedOut) {
+		t.Errorf("Active = %v", err)
+	}
+	if _, err := os.Stat(s.Path); !os.IsNotExist(err) {
+		t.Error("old credentials file kept")
+	}
+	if f.refreshCalls != 0 || len(f.revoked) != 0 {
+		t.Error("old tokens were sent to the site")
+	}
+}
+
 func TestCreateLabSession(t *testing.T) {
 	ctx := context.Background()
-	setup := func(t *testing.T, statuses ...int) (*fakeIdP, Store, *Credentials) {
-		f := newFakeIdP(t)
+	setup := func(t *testing.T, statuses ...int) (*fakeSite, Store, *Credentials) {
+		f := newFakeSite(t)
 		f.sessions = statuses
 		s := Store{Path: filepath.Join(t.TempDir(), "credentials.json")}
 		cr := testCreds(f, time.Now().Add(time.Hour))

@@ -1,6 +1,7 @@
 package account
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,7 +15,7 @@ import (
 )
 
 const (
-	// requestTimeout bounds every call to the site or the issuer.
+	// requestTimeout bounds every call to the site.
 	requestTimeout = 15 * time.Second
 	// maxResponse caps how much of a response is read: every answer this
 	// package expects is a small JSON document.
@@ -22,7 +23,7 @@ const (
 	maxRedirects = 3
 )
 
-// newHTTPClient is the client for the site and the issuer: default TLS
+// newHTTPClient is the client for the site: default TLS
 // verification, a timeout, and redirects only within the same scheme and
 // host (a token must never follow a redirect to somewhere else).
 func newHTTPClient() *http.Client {
@@ -159,11 +160,15 @@ func getJSON(ctx context.Context, client *http.Client, rawURL string, out any) e
 	return err
 }
 
-func postForm(ctx context.Context, client *http.Client, rawURL string, form url.Values, out any) (int, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, strings.NewReader(form.Encode()))
+func postJSON(ctx context.Context, client *http.Client, rawURL string, body, out any) (int, error) {
+	data, err := json.Marshal(body)
 	if err != nil {
 		return 0, err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, bytes.NewReader(data))
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
 	return do(client, req, out)
 }
