@@ -48,6 +48,11 @@ jobs:
       - name: go test
         run: go test ./...
 
+      # astrona.exe (the Windows launcher) is built from its own package so
+      # it compiles without the CLI's Unix-only code. Keep it compiling.
+      - name: Build the Windows launcher
+        run: GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/astrona-windows
+
   e2e:
     name: E2E (kind runtime)
     needs: test

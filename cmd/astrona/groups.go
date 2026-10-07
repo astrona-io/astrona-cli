@@ -17,6 +17,9 @@ type commandGroup struct {
 // then managing running labs, authoring, and troubleshooting.
 func commandGroups(flags *rootFlags) []commandGroup {
 	return []commandGroup{
+		{"start", "Get started:", []*cobra.Command{
+			newSetupCmd(),
+		}},
 		{"lab", "Take a lab:", []*cobra.Command{
 			newLabsCmd(),
 			newUseCmd(flags),
