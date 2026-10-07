@@ -530,6 +530,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-short-way-astrona-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The short way: astrona setup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#windows-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows (preview)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#homebrew-macos-linux" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1336,6 +1358,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1380,6 +1410,118 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_login/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona login
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_whoami/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona whoami
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_logout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona logout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3249,6 +3391,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-short-way-astrona-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The short way: astrona setup
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#windows-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Windows (preview)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#homebrew-macos-linux" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3416,8 +3580,63 @@
 </tr>
 </tbody>
 </table>
+<h2 id="the-short-way-astrona-setup">The short way: <code>astrona setup</code><a class="headerlink" href="#the-short-way-astrona-setup" title="Permanent link">&para;</a></h2>
+<p>After installing astrona (below), one command gets the rest of the machine ready:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona<span class="w"> </span>setup<span class="w">             </span><span class="c1"># shows each step and asks before doing it</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>astrona<span class="w"> </span>setup<span class="w"> </span>--dry-run<span class="w">   </span><span class="c1"># only show the plan</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>astrona<span class="w"> </span>setup<span class="w"> </span>--yes<span class="w">       </span><span class="c1"># approve every step (no questions)</span>
+</code></pre></div>
+<p>It looks at what <a href="#verify"><code>astrona check</code></a> would report and fixes what it can:</p>
+<table>
+<thead>
+<tr>
+<th>On</th>
+<th>What setup does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>macOS</td>
+<td><code>brew install</code> whatever is missing of kind, kubectl and Podman, then <code>podman machine init --cpus 4 --memory 8192</code> and <code>podman machine start</code> (or starts Docker Desktop if that is what you have), and waits until the engine answers</td>
+</tr>
+<tr>
+<td>macOS without Homebrew</td>
+<td>tells you to install <a href="https://brew.sh">Homebrew</a> first, then run setup again</td>
+</tr>
+<tr>
+<td>Linux with Homebrew</td>
+<td><code>brew install</code> kind and kubectl</td>
+</tr>
+<tr>
+<td>Linux without Homebrew</td>
+<td>downloads kind (GitHub release) and kubectl (<code>dl.k8s.io</code>) into <code>~/.local/bin</code>, verified against their published SHA-256 before anything is moved into place</td>
+</tr>
+<tr>
+<td>Linux, no container engine</td>
+<td>prints the command to install Docker for your distribution — a container engine needs <code>sudo</code> and distribution-specific setup, so setup never runs that for you</td>
+</tr>
+</tbody>
+</table>
+<p>It ends by running <code>astrona check</code>. Without a terminal to ask on, setup refuses to change anything unless you pass <code>--yes</code>.</p>
+<h2 id="windows-preview">Windows (preview)<a class="headerlink" href="#windows-preview" title="Permanent link">&para;</a></h2>
+<p>Labs need Linux, so on Windows astrona runs inside <a href="https://learn.microsoft.com/windows/wsl/">WSL 2</a> (Linux inside Windows). <code>astrona.exe</code> is a small launcher that sets that up and then forwards every command into it — you keep typing <code>astrona …</code> in PowerShell.</p>
+<p>Requirements: Windows 10 22H2 or Windows 11, virtualization turned on in your BIOS/UEFI, and <a href="https://www.docker.com/products/docker-desktop/">Docker Desktop</a>.</p>
+<p>In PowerShell:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">irm </span><span class="n">https</span><span class="p">://</span><span class="n">github</span><span class="p">.</span><span class="n">com</span><span class="p">/</span><span class="n">astrona-io</span><span class="p">/</span><span class="n">astrona-cli</span><span class="p">/</span><span class="n">releases</span><span class="p">/</span><span class="n">latest</span><span class="p">/</span><span class="n">download</span><span class="p">/</span><span class="n">astrona-windows-amd64</span><span class="p">.</span><span class="n">exe</span> <span class="n">-OutFile</span> <span class="nv">$env:LOCALAPPDATA</span><span class="p">\</span><span class="n">astrona</span><span class="p">.</span><span class="n">exe</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="p">&amp;</span> <span class="nv">$env:LOCALAPPDATA</span><span class="p">\</span><span class="n">astrona</span><span class="p">.</span><span class="n">exe</span> <span class="n">setup</span>
+</code></pre></div>
+<p>(<code>astrona-windows-arm64.exe</code> on ARM PCs.) <code>astrona setup</code> on Windows, one step at a time — run it again after a restart or a manual step, and finished steps are skipped:</p>
+<ol>
+<li><strong>WSL 2</strong> — <code>wsl --install --no-distribution</code> if WSL is missing (Windows asks for admin; restart afterwards).</li>
+<li><strong>Ubuntu</strong> — <code>wsl --install -d Ubuntu</code>; a window asks you to choose a Linux username and password. Set <code>ASTRONA_WSL_DISTRO</code> to use another distribution.</li>
+<li><strong>Docker</strong> — checks <code>docker info</code> works inside Ubuntu. If not, install Docker Desktop, start it, and turn on <em>Settings → Resources → WSL integration</em> for Ubuntu (<a href="https://docs.docker.com/desktop/features/wsl/">guide</a>).</li>
+<li><strong>astrona inside Ubuntu</strong> — the Linux astrona, into <code>~/.local/bin</code> (same release as the launcher).</li>
+<li><strong>kind and kubectl</strong> — runs <code>astrona setup</code> inside Ubuntu.</li>
+<li><strong>PATH</strong> — copies <code>astrona.exe</code> to <code>%LOCALAPPDATA%\Programs\astrona</code> and adds that folder to your <em>user</em> PATH (no admin).</li>
+</ol>
+<p>After that, any command — <code>astrona labs</code>, <code>astrona run …</code>, <code>astrona submit …</code> — runs inside Ubuntu, with the same output and exit codes (<code>astrona submit</code> still exits 2 for "graded, didn't pass"). Your arguments are passed through as they are, never re-parsed by a shell. <code>astrona --launcher-version</code> prints the launcher's own version.</p>
 <h2 id="homebrew-macos-linux">Homebrew (macOS &amp; Linux)<a class="headerlink" href="#homebrew-macos-linux" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>brew<span class="w"> </span>install<span class="w"> </span>astrona-io/tap/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>brew<span class="w"> </span>install<span class="w"> </span>astrona-io/tap/astrona
 </code></pre></div>
 <p>The <a href="https://github.com/astrona-io/homebrew-tap">tap</a> is updated by every release, pinned to the same binaries and SHA-256 values as the GitHub release. CI installs the formula with real Homebrew on macOS and Linux for every change that could affect it, and again from the tap right after each release. Upgrade with <code>brew upgrade astrona</code>, or <code>astrona upgrade</code> — on a Homebrew install it runs <code>brew upgrade astrona</code> for you instead of downloading the binary itself.</p>
 <p>What the Homebrew install gives you on top of the binary:</p>
@@ -3433,13 +3652,13 @@
 <li><code>brew uninstall astrona</code> removes the program, not <code>~/.astrona</code> (lab state, results, approvals, installed versions). Destroy running labs first (<code>astrona destroy &lt;lab&gt;</code>); delete <code>~/.astrona</code> yourself if you want it gone.</li>
 </ul>
 <h2 id="quick-install-macos-linux">Quick install (macOS &amp; Linux)<a class="headerlink" href="#quick-install-macos-linux" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.local/bin<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nv">OS</span><span class="o">=</span><span class="k">$(</span>uname<span class="w"> </span>-s<span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span><span class="s1">'[:upper:]'</span><span class="w"> </span><span class="s1">'[:lower:]'</span><span class="k">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nv">ARCH</span><span class="o">=</span><span class="k">$(</span>uname<span class="w"> </span>-m<span class="k">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$ARCH</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"x86_64"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">ARCH</span><span class="o">=</span><span class="s2">"amd64"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">true</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$ARCH</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"aarch64"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$ARCH</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"arm64"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">ARCH</span><span class="o">=</span><span class="s2">"arm64"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">true</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>curl<span class="w"> </span>-L<span class="w"> </span>-o<span class="w"> </span>~/.local/bin/astrona<span class="w"> </span><span class="s2">"https://github.com/astrona-io/astrona-cli/releases/latest/download/astrona-</span><span class="si">${</span><span class="nv">OS</span><span class="si">}</span><span class="s2">-</span><span class="si">${</span><span class="nv">ARCH</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>chmod<span class="w"> </span>+x<span class="w"> </span>~/.local/bin/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.local/bin<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nv">OS</span><span class="o">=</span><span class="k">$(</span>uname<span class="w"> </span>-s<span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span><span class="s1">'[:upper:]'</span><span class="w"> </span><span class="s1">'[:lower:]'</span><span class="k">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nv">ARCH</span><span class="o">=</span><span class="k">$(</span>uname<span class="w"> </span>-m<span class="k">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$ARCH</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"x86_64"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">ARCH</span><span class="o">=</span><span class="s2">"amd64"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">true</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$ARCH</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"aarch64"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$ARCH</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"arm64"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">ARCH</span><span class="o">=</span><span class="s2">"arm64"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">true</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>curl<span class="w"> </span>-L<span class="w"> </span>-o<span class="w"> </span>~/.local/bin/astrona<span class="w"> </span><span class="s2">"https://github.com/astrona-io/astrona-cli/releases/latest/download/astrona-</span><span class="si">${</span><span class="nv">OS</span><span class="si">}</span><span class="s2">-</span><span class="si">${</span><span class="nv">ARCH</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>chmod<span class="w"> </span>+x<span class="w"> </span>~/.local/bin/astrona
 </code></pre></div>
 <p>Make sure <code>~/.local/bin</code> is on your shell's <code>PATH</code>.</p>
 <h2 id="manual-install">Manual install<a class="headerlink" href="#manual-install" title="Permanent link">&para;</a></h2>
@@ -3448,16 +3667,16 @@
 <li>Download the binary for your platform: <code>astrona-darwin-arm64</code>, <code>astrona-darwin-amd64</code>, <code>astrona-linux-arm64</code>, or <code>astrona-linux-amd64</code>.</li>
 <li>Make it executable and move it onto your <code>PATH</code>:</li>
 </ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>chmod<span class="w"> </span>+x<span class="w"> </span>astrona-&lt;os&gt;-&lt;arch&gt;
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>mv<span class="w"> </span>astrona-&lt;os&gt;-&lt;arch&gt;<span class="w"> </span>~/.local/bin/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>chmod<span class="w"> </span>+x<span class="w"> </span>astrona-&lt;os&gt;-&lt;arch&gt;
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>mv<span class="w"> </span>astrona-&lt;os&gt;-&lt;arch&gt;<span class="w"> </span>~/.local/bin/astrona
 </code></pre></div>
 <h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>check
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>astrona<span class="w"> </span>check
 </code></pre></div>
 <p>This prints a ✓/⚠/✗ per item and exits non-zero only on a ✗. It checks three things:</p>
 <p><strong>Dependencies.</strong> A missing <em>required</em> tool is a ✗; optional ones (qemu toolchain, <code>git</code>) only warn, since they're only needed for specific runtimes or flags. Each missing tool says how to install it — with Homebrew installed that's the <code>brew install</code> command, and the end of the list gives one line for everything missing:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Install what's required: brew install kind podman kubernetes-cli
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Optional tools, all at once: brew install git qemu oras cdrtools
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Install what's required: brew install kind podman kubernetes-cli
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>Optional tools, all at once: brew install git qemu oras cdrtools
 </code></pre></div>
 <p><code>astrona doctor</code> prints the same line for missing required tools.</p>
 <p><strong>Container engine.</strong> Whether Docker/Podman is actually running (a stopped <code>podman machine</code> or Docker daemon is the most common cause of confusing kind errors), and whether it has enough resources — for Docker Desktop and <code>podman machine</code> that's the VM's memory/CPUs, not your Mac's:</p>
@@ -3499,13 +3718,13 @@
 </table>
 <p>Each ⚠/✗ prints the command that fixes it, e.g. <code>podman machine stop &amp;&amp; podman machine set --memory 8192 --cpus 4 &amp;&amp; podman machine start</code>.</p>
 <p><strong>Your lab</strong> — when a lab config is found (<code>-c</code>, default <code>./config.yaml</code>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>astrona<span class="w"> </span>check<span class="w"> </span>-c<span class="w"> </span>./labs/my-lab
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>astrona<span class="w"> </span>check<span class="w"> </span>-c<span class="w"> </span>./labs/my-lab
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Lab astro-my-lab:
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>  ✓  lab memory estimate                    ~6.9 GiB for this lab of 9.7 GiB
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>  ✓  host port 8080                         gateway http, free
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  ✗  host port 18290                        port forward 'web', in use
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        fix: find the user with `lsof -nP -iTCP:18290 -sTCP:LISTEN`, or change the port in the lab config
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Lab astro-my-lab:
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>  ✓  lab memory estimate                    ~6.9 GiB for this lab of 9.7 GiB
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>  ✓  host port 8080                         gateway http, free
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>  ✗  host port 18290                        port forward 'web', in use
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        fix: find the user with `lsof -nP -iTCP:18290 -sTCP:LISTEN`, or change the port in the lab config
 </code></pre></div>
 <ul>
 <li><strong>Memory estimate</strong> — a rough figure from the lab's nodes and addons, plus astrona kind labs already running; ⚠ when it's over 75% of the engine's memory.</li>
@@ -3514,15 +3733,15 @@
 </ul>
 <h3 id="when-something-isnt-working-astrona-doctor">When something isn't working: <code>astrona doctor</code><a class="headerlink" href="#when-something-isnt-working-astrona-doctor" title="Permanent link">&para;</a></h3>
 <p><code>astrona doctor</code> runs all of the above <strong>and</strong> looks at the running lab, then says what's wrong and how to fix it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>Running lab astro-linked-labs-01:
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>  ✓  nodes                                  Ready (1/1)
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>  ✓  linked cluster idp                     Ready (1/1) · idp.astrona.internal
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>  ✗  port forward idp                       Stopped · http://127.0.0.1:30080
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        fix: astrona port-forward start
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>  ⚠  pods in astro-linked-labs-01-idp       1 unhealthy: auth/broken: ErrImagePull (…)
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>        fix: astrona diagnose collects their logs and events
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>Error: 1 problem(s) found — the ✗ lines above say how to fix each
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>Running lab astro-linked-labs-01:
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>  ✓  nodes                                  Ready (1/1)
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>  ✓  linked cluster idp                     Ready (1/1) · idp.astrona.internal
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>  ✗  port forward idp                       Stopped · http://127.0.0.1:30080
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>        fix: astrona port-forward start
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>  ⚠  pods in astro-linked-labs-01-idp       1 unhealthy: auth/broken: ErrImagePull (…)
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        fix: astrona diagnose collects their logs and events
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>Error: 1 problem(s) found — the ✗ lines above say how to fix each
 </code></pre></div>
 <p>It checks this machine (tools, container engine, inotify), the lab (its config, whether this astrona may run it, memory and free ports when it isn't running) and the running lab (nodes, linked clusters, port forwards, unhealthy pods, exam clock). It only reads — nothing is started or changed — and exits non-zero on any ✗ — including a lab you named (argument, <code>-c</code>, <code>--file</code>, <code>--git</code>, <code>astrona use</code> — <code>astrona doctor .</code> counts) that isn't there or whose config doesn't parse; only when no lab is named and the current directory has none does it check the machine alone. <code>--bundle</code> also writes the full <a href="../../guides/ci-integration/#diagnostics-on-failure">diagnostics bundle</a>. Unhealthy pods are ⚠, not ✗: in a lab they may be the exercise.</p>
 <h2 id="shell-completion">Shell completion<a class="headerlink" href="#shell-completion" title="Permanent link">&para;</a></h2>
@@ -3537,21 +3756,21 @@
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">zsh</label><label for="__tabbed_1_2">bash</label><label for="__tabbed_1_3">fish</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
 </code></pre></div>
 </div>
 </div>
 </div>
 <h2 id="staying-up-to-date">Staying up to date<a class="headerlink" href="#staying-up-to-date" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>astrona<span class="w"> </span>upgrade
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>astrona<span class="w"> </span>upgrade
 </code></pre></div>
 <p><code>astrona upgrade</code> checks GitHub for the latest release, downloads the binary for your OS/architecture, verifies it against the SHA-256 digest GitHub records for it (and its <a href="../../guides/astrona-versions/#build-provenance">build provenance</a> when the GitHub CLI is installed), and atomically replaces the currently running executable — only when the release is newer than yours. On a <a href="#homebrew-macos-linux">Homebrew</a> install it runs <code>brew upgrade astrona</code> instead (<code>brew reinstall astrona</code> with <code>--force</code>), so Homebrew keeps track of the install.</p>
 <p>astrona tells you when a newer release exists — <code>[INFO] astrona v0.2.3 is available (you have v0.2.2) — astrona upgrade · what's new: &lt;release notes&gt;</code> — at most <strong>once a day</strong>. It asks GitHub at most once a day too (cached in <code>~/.astrona/update-check.json</code>), so commands don't wait on the network. It never checks in CI (<code>CI</code>/<code>GITHUB_ACTIONS</code>/… set) or when stderr isn't a terminal; <code>ASTRONA_NO_UPDATE_CHECK=1</code> turns it off everywhere.</p>

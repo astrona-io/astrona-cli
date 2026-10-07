@@ -999,6 +999,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#your-astrona-account" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Your Astrona account
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-the-catalog-comes-from" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1275,6 +1286,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1319,6 +1338,118 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_login/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona login
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_whoami/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona whoami
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_logout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona logout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3177,6 +3308,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#your-astrona-account" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Your Astrona account
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-the-catalog-comes-from" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3252,7 +3394,24 @@
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>astrona<span class="w"> </span>labs<span class="w"> </span>--search<span class="w"> </span><span class="s2">"fault injection"</span><span class="w">        </span><span class="c1"># search lab titles</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>astrona<span class="w"> </span>run<span class="w"> </span>ATS014/section-050/module-01/lab-01
 </code></pre></div>
-<p>A catalog name works wherever a command takes a lab: <code>astrona use ATS014/…</code> picks it for every command, <code>astrona test ATS014/…</code>, <code>astrona validate ATS014/…</code>, <code>astrona doctor ATS014/…</code>.</p>
+<p>A catalog name works wherever a command takes a lab: <code>astrona use ATS014/…</code> picks it for every command, <code>astrona run</code>, <code>submit</code>, <code>reset</code>, <code>test</code>, <code>validate</code> and <code>doctor ATS014/…</code>, and also the commands that otherwise take a running lab's name — <code>astrona status</code>, <code>shell</code>, <code>kubeconfig</code>, <code>destroy ATS014/…</code> and <code>astrona docs question ATS014/…</code>. That way the one name a student copies from astrona.io works for every step. Running-lab names (<code>my-lab</code>, <code>astro-my-lab</code>) and globs work as before: catalog names always contain a <code>/</code>, lab names never do.</p>
+<h2 id="your-astrona-account">Your Astrona account<a class="headerlink" href="#your-astrona-account" title="Permanent link">&para;</a></h2>
+<p>Catalog labs are tied to your Astrona account, so the lab page on astrona.io can track your time. Sign in once per computer:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>login<span class="w">      </span><span class="c1"># opens your browser; confirm the code shown in the terminal</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>astrona<span class="w"> </span>whoami<span class="w">     </span><span class="c1"># who is signed in, and on which site</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>astrona<span class="w"> </span><span class="nb">logout</span><span class="w">     </span><span class="c1"># revoke the sign-in and forget it</span>
+</code></pre></div>
+<p><code>astrona login</code> uses the OAuth device flow: the terminal shows a short code and opens the sign-in page, you confirm the code in the browser, and the terminal finishes by itself — no password is ever typed into the terminal, and it works from a machine without a browser (open the link on any device). The sign-in is kept in <code>~/.astrona/credentials.json</code> (mode 0600; astrona refuses to use it if other users can read it) and renewed automatically.</p>
+<p>Then <code>astrona run ATS014/…</code>:</p>
+<ol>
+<li>checks the sign-in <strong>before</strong> anything is fetched or built — signed out (or the sign-in expired), it stops and tells you to run <code>astrona login</code>;</li>
+<li>asks Astrona for a lab session (too many open sessions or an unknown lab stop it here, with nothing built);</li>
+<li>builds the lab;</li>
+<li>prints the lab page URL and opens it in your browser — the clock starts there, so setup time never counts. Without a browser (a headless box), open the printed URL yourself. If the build fails, nothing is opened.</li>
+</ol>
+<p>A full <code>astrona reset ATS014/…</code> does the same: a fresh session and a new lab page once the lab is rebuilt. <code>reset --soft</code> and <code>reset --cluster</code> keep the current session and need no sign-in.</p>
+<p>Labs from your own files or repositories (<code>-c ./my-lab</code>, <code>--git &lt;url&gt;</code>) are not tied to an account: they run without signing in, and no page is opened.</p>
+<p>The site is <code>https://astrona.io</code>; <code>ASTRONA_URL</code> points astrona at another one (for example <code>ASTRONA_URL=http://localhost:3000</code> for local development — plain http only to <code>localhost</code>). The sign-in is stored with the site it came from and is only ever sent back there: with <code>ASTRONA_URL</code> pointing elsewhere, you're signed out until you <code>astrona login</code> on that site.</p>
 <h2 id="where-the-catalog-comes-from">Where the catalog comes from<a class="headerlink" href="#where-the-catalog-comes-from" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Published trainings</strong> — repositories in the <a href="https://github.com/astrona-io">astrona-io</a> organization with the <code>astrona-training</code> topic. astrona finds them with one GitHub search.</li>
@@ -3261,22 +3420,22 @@
 <p>The catalog is cached for an hour in <code>~/.astrona/catalog.json</code>; <code>--refresh</code> reads it again. When it can't be refreshed (offline), the last copy is used, with a warning. <code>ASTRONA_CATALOG_ORG</code> points it at another organization (empty: only your own sources).</p>
 <h2 id="lab-names">Lab names<a class="headerlink" href="#lab-names" title="Permanent link">&para;</a></h2>
 <p>A training's <code>astrona.yaml</code> lists its labs (<code>content</code> entries of <code>type: lab</code>, in <code>modules</code>, or in <code>sections</code> with their <code>modules</code> and <code>capstone</code>). A lab's name is the training id and the lab's path, without <code>sections/</code> and <code>labs/</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>sections/section-050/module-01/labs/lab-01   →   ATS014/section-050/module-01/lab-01
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>sections/section-050/module-01/labs/lab-01   →   ATS014/section-050/module-01/lab-01
 </code></pre></div>
 <h2 id="safety">Safety<a class="headerlink" href="#safety" title="Permanent link">&para;</a></h2>
 <p>A lab from the catalog is a remote lab: astrona fetches the training's repository with git and <strong>asks for your trust</strong> before running it, showing what it will do — like any <code>--git</code> lab (<code>--trust</code> approves it up front, e.g. in CI). Everything a manifest says is treated as data: a lab path that would leave the repository is rejected. A path that exists on your disk always wins over a catalog name.</p>
 <h2 id="publishing-a-training">Publishing a training<a class="headerlink" href="#publishing-a-training" title="Permanent link">&para;</a></h2>
 <p>Give the repository an <code>astrona.yaml</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">training</span><span class="p">:</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ATS014</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"ICA:</span><span class="nv"> </span><span class="s">Traffic</span><span class="nv"> </span><span class="s">Management"</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">…</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nt">modules</span><span class="p">:</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">module-010</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">content</span><span class="p">:</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lab</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">        </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"Route</span><span class="nv"> </span><span class="s">Requests</span><span class="nv"> </span><span class="s">By</span><span class="nv"> </span><span class="s">Header</span><span class="nv"> </span><span class="s">Lab"</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">        </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sections/section-010/module-01/labs/lab-01</span><span class="w">   </span><span class="c1"># a lab directory with config.yaml</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">training</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ATS014</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"ICA:</span><span class="nv"> </span><span class="s">Traffic</span><span class="nv"> </span><span class="s">Management"</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">…</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nt">modules</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">module-010</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">content</span><span class="p">:</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lab</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">        </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"Route</span><span class="nv"> </span><span class="s">Requests</span><span class="nv"> </span><span class="s">By</span><span class="nv"> </span><span class="s">Header</span><span class="nv"> </span><span class="s">Lab"</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">        </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sections/section-010/module-01/labs/lab-01</span><span class="w">   </span><span class="c1"># a lab directory with config.yaml</span>
 </code></pre></div>
 <p>…and the <code>astrona-training</code> topic (in the astrona-io organization) — or tell people to <code>astrona labs add</code> its URL.</p>
 

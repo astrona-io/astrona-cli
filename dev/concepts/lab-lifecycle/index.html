@@ -1336,6 +1336,14 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1380,6 +1388,118 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_login/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona login
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_whoami/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona whoami
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_logout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona logout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3432,6 +3552,7 @@
 <li><code>--soft</code> keeps the cluster(s) and only puts the lab back: it deletes every namespace created after the platform (kube-system, addons, …) was set up, clears what isn't astrona's from <code>default</code>, re-runs the bootstrap and restarts port forwards — about 5 seconds instead of 40. Cluster-wide objects a student created (CRDs, ClusterRoles, …) aren't reverted; use a full reset for those. A lab started by astrona before v0.3 has no baseline yet and needs one full reset first.</li>
 <li><code>--cluster &lt;name&gt;</code> rebuilds just one <a href="../../guides/linked-labs/">linked cluster</a> of a running lab, leaving the lab and its other clusters as they are.</li>
 <li>In a terminal it asks for confirmation; without a terminal it refuses unless <code>--yes</code> is passed.</li>
+<li>A full reset of a <a href="../../guides/lab-catalog/#your-astrona-account">catalog lab</a> needs <code>astrona login</code>, like <code>run</code>: it starts a fresh lab session and opens the new lab page once the lab is rebuilt. <code>--soft</code> and <code>--cluster</code> keep the current session and need no sign-in.</li>
 </ul>
 <p>To pause a lab instead of losing it, see <a href="../runtimes/#pausing-a-lab-astrona-stop-astrona-start"><code>astrona stop</code> / <code>astrona start</code></a>.</p>
 <h2 id="source-types-everywhere">Source types, everywhere<a class="headerlink" href="#source-types-everywhere" title="Permanent link">&para;</a></h2>
