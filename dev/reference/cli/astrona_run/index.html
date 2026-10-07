@@ -3464,6 +3464,7 @@
 <p>Spin up a lab environment: create the kind cluster or qemu VM(s), run bootstrap init scripts, and apply bootstrap manifests.</p>
 <p>For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) and their URLs and status are printed when the lab is ready — see <code>astrona port-forward</code>.</p>
 <p>A lab from the catalog (<code>astrona run ATS014/section-010/module-01/lab-02</code>, see <code>astrona labs</code>) is tied to your Astrona account: sign in first with <code>astrona login</code>. Before anything is built, astrona starts a lab session on Astrona; once the lab is ready it prints the lab page URL and opens it in your browser, which starts the clock there — setup time never counts. Labs from your own files or repositories (-c / --git) run without signing in.</p>
+<p>If the lab is already running, run asks whether to destroy it and start over (or keep it as it is); --yes starts over without asking and is required when not in a terminal. If other labs are running, it also offers to destroy them first — only when asked in a terminal; --yes never touches other labs.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona run [lab] [flags]
 </code></pre></div>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
@@ -3474,6 +3475,7 @@
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>  -h, --help           help for run
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>      --parallel int   Create up to N linked clusters (runtime.kind.clusters) at once, 1-5 (default 1: one at a time). dependsOn is still respected, and after a failure nothing new starts (default 1)
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  -y, --yes            If the lab is already running, destroy it and start over without asking
 </code></pre></div>
 <h3 id="options-inherited-from-parent-commands">Options inherited from parent commands<a class="headerlink" href="#options-inherited-from-parent-commands" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>  -c, --config string     Path or URL to the lab config directory (with --git: a subdirectory within the cloned repo) (default ".")

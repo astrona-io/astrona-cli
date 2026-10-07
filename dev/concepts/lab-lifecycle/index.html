@@ -3554,6 +3554,7 @@
 <li>In a terminal it asks for confirmation; without a terminal it refuses unless <code>--yes</code> is passed.</li>
 <li>A full reset of a <a href="../../guides/lab-catalog/#your-astrona-account">catalog lab</a> needs <code>astrona login</code>, like <code>run</code>: it starts a fresh lab session and opens the new lab page once the lab is rebuilt. <code>--soft</code> and <code>--cluster</code> keep the current session and need no sign-in.</li>
 </ul>
+<p><strong><code>astrona run</code> on a lab that's already running</strong> asks the same question: <em>destroy it and start over?</em> — yes does what <code>reset</code> does, no keeps the lab as it is. <code>astrona run --yes</code> starts over without asking; without a terminal, <code>run</code> on a running lab stops and names <code>--yes</code>. If <strong>other</strong> labs are running, <code>run</code> also offers to destroy them first (handy when moving from one lab of a training to the next) — only when asked in a terminal; <code>--yes</code> never touches other labs.</p>
 <p>To pause a lab instead of losing it, see <a href="../runtimes/#pausing-a-lab-astrona-stop-astrona-start"><code>astrona stop</code> / <code>astrona start</code></a>.</p>
 <h2 id="source-types-everywhere">Source types, everywhere<a class="headerlink" href="#source-types-everywhere" title="Permanent link">&para;</a></h2>
 <p>Every script/manifest reference (<code>bootstrap.init</code>, <code>bootstrap.manifests</code>, <code>testing.*</code>, <code>teardown.init</code>, <code>validation.script</code>) shares the same <code>ResourceItem</code> shape:</p>
@@ -3599,7 +3600,7 @@ path of the full log — <code>astrona logs view</code> opens it.</p>
 </thead>
 <tbody>
 <tr>
-<td>Throw a lab away? (<code>reset</code>, <code>logs clean</code>)</td>
+<td>Throw a lab away? (<code>reset</code>, <code>logs clean</code>, <code>run</code> on a running lab)</td>
 <td><code>--yes</code> / <code>-y</code></td>
 </tr>
 <tr>
