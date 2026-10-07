@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"time"
 
@@ -21,13 +22,16 @@ import (
 // is bound to the root command's persistent --config/--file/--git/--git-ref
 // flags.
 func newRunCmd(flags *rootFlags) *cobra.Command {
+	var openURL string
 	cmd := &cobra.Command{
 		Use:   "run [lab]",
 		Short: "Start a lab: create its cluster(s) or VM(s) and set it up",
 		Long: "Spin up a lab environment: create the kind cluster or qemu VM(s), run bootstrap init scripts, " +
 			"and apply bootstrap manifests.\n\n" +
 			"For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) " +
-			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.",
+			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.\n\n" +
+			"With --open <url> (the lab page's \"start\" command adds it), the URL is printed and opened in your " +
+			"browser once the lab is ready, so the clock never counts setup time.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
@@ -35,6 +39,15 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			if flags.configPath == "" {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
+			}
+			// Checked before anything starts: a bad URL should not cost a cluster build.
+			var page *url.URL
+			if openURL != "" {
+				u, err := validateOpenURL(openURL)
+				if err != nil {
+					return err
+				}
+				page = u
 			}
 
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
@@ -59,11 +72,18 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err := validateParallel(flags.parallel); err != nil {
 				return err
 			}
-			return bringUpLab(cfg, baseDir, flags, rep)
+			if err := bringUpLab(cfg, baseDir, flags, rep); err != nil {
+				return err
+			}
+			if page != nil {
+				printAndOpen(page)
+			}
+			return nil
 		},
 	}
 
 	addParallelFlag(cmd, flags)
+	cmd.Flags().StringVar(&openURL, "open", "", "Once the lab is ready, print this http(s) URL and open it in your browser (the lab page's start command adds it)")
 	return cmd
 }
 
