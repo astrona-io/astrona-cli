@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -115,11 +116,13 @@ func destroyByDiscovery(rep *ui.Reporter) error {
 	for _, r := range realLabs {
 		rep.Info("No lab config found — auto-detected the only running astrona lab: '%s' (%s runtime). Destroying it (teardown scripts skipped, config unknown).", r.name, r.runtime)
 		owned := lifecycle.OwnedClusters(r.name, nil)
+		releaseLab(os.Stdout, r.name) // before the delete unsets the lab's context
 		err := runtime.DestroyEnvironment(r.name, config.RuntimeConfig{Type: r.runtime}, rep)
 		lifecycle.DestroyOwnedClusters(owned, rep) // even when the lab itself failed — never leak them
 		if err != nil {
 			return fmt.Errorf("failed to destroy '%s': %w", r.name, err)
 		}
+		forgetLab(r.name)
 	}
 	for _, r := range test {
 		rep.Info("Cleaning up leftover test lab '%s' (%s runtime).", r.name, r.runtime)
@@ -160,8 +163,11 @@ func destroyByName(name string, rep *ui.Reporter) error {
 	}
 
 	if !foundQemu && !foundKind && len(owned) == 0 {
+		forgetLab(name) // whatever was remembered about it is stale
 		return fmt.Errorf("no astrona lab named '%s' found (checked qemu state and kind clusters) — run `astrona list` to see what's actually running", name)
 	}
+
+	releaseLab(os.Stdout, name) // before the delete unsets the lab's context
 
 	var errs []string
 	if foundQemu {
@@ -179,6 +185,7 @@ func destroyByName(name string, rep *ui.Reporter) error {
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to destroy '%s': %s", name, strings.Join(errs, "; "))
 	}
+	forgetLab(name)
 
 	fmt.Printf("Lab '%s' cleaned up successfully.\n", name)
 	return nil
@@ -337,6 +344,33 @@ func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir strin
 	return nil
 }
 
+// destroyLab is `astrona destroy` for a lab whose config is loaded: the
+// user's kubectl context is put back, teardown scripts run (unless
+// info.skipScripts), the lab and any leftover `astrona test` copy are
+// destroyed, and what was remembered about the lab is forgotten. A lab with
+// teardown.keepCluster stays — and so do its context and memory.
+func destroyLab(info teardownInfo, baseDir string, rep *ui.Reporter) error {
+	clusterName := config.NormalizeClusterName(info.clusterName)
+	if !info.teardown.KeepCluster {
+		releaseLab(os.Stdout, clusterName) // before the delete unsets the lab's context
+	}
+	if err := tearDownLabEnvironment(clusterName, info, baseDir, true, rep); err != nil {
+		return err
+	}
+	if !info.teardown.KeepCluster {
+		forgetLab(clusterName)
+	}
+
+	testClusterName := config.NormalizeTestClusterName(info.clusterName)
+	if err := tearDownLabEnvironment(testClusterName, info, baseDir, false, rep); err != nil {
+		// tearDownLabEnvironment(hardFail=false) never actually
+		// returns an error, but handle it rather than silently
+		// dropping one if that ever changes.
+		rep.Warn("%s", err)
+	}
+	return nil
+}
+
 // newDestroyCmd builds `astrona destroy`: run teardown scripts, then tear
 // down the lab environment (unless the config says keepCluster: true).
 // Also best-effort tears down the "test-<lab>" environment `astrona test`
@@ -363,6 +397,10 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			"e.g. `astrona destroy 'qemu-jumphost-*'` (quote it so your shell doesn't expand the glob itself). " +
 			"No config needed, same trade-offs as a single name.\n\n" +
 			"A lab's linked clusters (runtime.kind.clusters) are destroyed with it.\n\n" +
+			"If `astrona run` pointed kubectl at the lab, the kubectl context you had before comes " +
+			"back — only when the lab's context is still current (if you've switched elsewhere, " +
+			"that's left as it is). What astrona remembered about the lab (its config, its lab " +
+			"session) is forgotten.\n\n" +
 			"A remote lab (--git, URL, catalog) that has teardown scripts asks for approval first, like `run` — " +
 			"--trust approves it up front. If it isn't approved (declined, or no terminal and no --trust), " +
 			"its teardown scripts are skipped and the lab is still destroyed.",
@@ -418,17 +456,8 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			// them like run does, but never let a refusal stop the destroy.
 			info.skipScripts = !teardownTrusted(flags, info, baseDir, rep)
 
-			clusterName := config.NormalizeClusterName(info.clusterName)
-			if err := tearDownLabEnvironment(clusterName, info, baseDir, true, rep); err != nil {
+			if err := destroyLab(info, baseDir, rep); err != nil {
 				return err
-			}
-
-			testClusterName := config.NormalizeTestClusterName(info.clusterName)
-			if err := tearDownLabEnvironment(testClusterName, info, baseDir, false, rep); err != nil {
-				// tearDownLabEnvironment(hardFail=false) never actually
-				// returns an error, but handle it rather than silently
-				// dropping one if that ever changes.
-				rep.Warn("%s", err)
 			}
 
 			rep.Close()

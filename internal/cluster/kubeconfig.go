@@ -22,8 +22,10 @@ import (
 //
 // kind still merges the cluster into the user's own kubeconfig too (so
 // `kubectl --context kind-<lab>` keeps working), but astrona restores the
-// user's current-context afterwards — creating a lab never silently
-// re-points the student's plain `kubectl` at a different cluster.
+// user's current-context right after `kind create` — a lab is never made
+// current mid-build. Only once the lab is ready does `astrona run`
+// deliberately switch to it (KubectlContexts, labstate.SwitchContext),
+// and `astrona destroy` switches back.
 
 const kubeconfigFile = "kubeconfig"
 
@@ -253,4 +255,65 @@ func WaitForDefaultServiceAccount(kubeContext, kubeconfig string, timeout time.D
 		}
 		time.Sleep(defaultSAPollInterval)
 	}
+}
+
+// KubectlContexts is the user's own kubeconfig, read and changed through
+// kubectl config — so $KUBECONFIG (one file or several) is respected
+// exactly as the user's own kubectl respects it. Implements
+// labstate.Contexts.
+type KubectlContexts struct {
+	Path string // kubectl binary
+}
+
+// NewKubectlContexts finds kubectl.
+func NewKubectlContexts() (KubectlContexts, error) {
+	path, err := executor.LookKubectl()
+	if err != nil {
+		return KubectlContexts{}, err
+	}
+	return KubectlContexts{Path: path}, nil
+}
+
+// Current returns the current-context; set is false when there is none.
+func (k KubectlContexts) Current() (string, bool, error) {
+	name, err := currentContext(k.Path)
+	if errors.Is(err, errNoCurrentContext) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return name, name != "", nil
+}
+
+// Use makes name the current-context.
+func (k KubectlContexts) Use(name string) error {
+	return k.run("config", "use-context", name)
+}
+
+// Unset clears the current-context.
+func (k KubectlContexts) Unset() error {
+	return k.run("config", "unset", "current-context")
+}
+
+// Exists reports whether the kubeconfig has a context called name.
+func (k KubectlContexts) Exists(name string) (bool, error) {
+	out, err := exec.Command(k.Path, "config", "get-contexts", "-o", "name").Output()
+	if err != nil {
+		return false, fmt.Errorf("kubectl config get-contexts: %w", err)
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.TrimSpace(line) == name {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (k KubectlContexts) run(args ...string) error {
+	out, err := exec.Command(k.Path, args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("kubectl %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+	}
+	return nil
 }

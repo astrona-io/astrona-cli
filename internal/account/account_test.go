@@ -36,6 +36,13 @@ type fakeSite struct {
 	// sessions are the lab-session endpoint's statuses, in order (then 201).
 	sessions     []int
 	sessionAuths []string
+	// results are the result endpoint's statuses, in order (then 201).
+	results     []int
+	resultAuths []string
+	resultPaths []string
+	resultBody  []byte
+	// goneAsDetail answers 410 in the labs service's {"detail"} shape.
+	goneAsDetail bool
 }
 
 func newFakeSite(t *testing.T) *fakeSite {
@@ -58,6 +65,10 @@ func (f *fakeSite) handle(w http.ResponseWriter, r *http.Request) {
 			"access_token": access, "token_type": "Bearer", "expires_in": 300, "refresh_token": refresh,
 			"username": "student1", "device_id": "dev-42",
 		})
+	}
+	if strings.HasPrefix(r.URL.Path, "/api/cli/lab-sessions/") {
+		f.handleResult(w, r)
+		return
 	}
 	var body map[string]string
 	if r.Method == http.MethodPost {
@@ -122,7 +133,7 @@ func (f *fakeSite) handle(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, `{"statusCode":%d,"statusMessage":"server says %d"}`, status, status)
 			return
 		}
-		fmt.Fprintf(w, `{"id":"s1","token":"tok","lab":%q,"username":"student1","expires_at":"2026-10-07T20:00:00","url":%q}`,
+		fmt.Fprintf(w, `{"id":"s1","token":"tok","lab":%q,"username":"student1","expires_at":"2026-10-07T20:00:00","max_minutes":60,"url":%q}`,
 			body["lab"], f.URL+"/labs/"+body["lab"]+"?t=tok")
 	default:
 		http.NotFound(w, r)
@@ -537,6 +548,9 @@ func TestCreateLabSession(t *testing.T) {
 	ls, err := testClient(nil).CreateLabSession(ctx, s, cr, "ATS014/section-010/module-01/lab-02")
 	if err != nil || ls.Lab != "ATS014/section-010/module-01/lab-02" || !strings.HasPrefix(ls.URL, f.URL+"/labs/") {
 		t.Fatalf("session = %+v, %v", ls, err)
+	}
+	if ls.MaxMinutes != 60 {
+		t.Errorf("MaxMinutes = %d", ls.MaxMinutes)
 	}
 	if f.sessionAuths[0] != "Bearer access-0" {
 		t.Errorf("Authorization = %q", f.sessionAuths[0])

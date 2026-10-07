@@ -120,7 +120,14 @@ Limits:
 
 Every kind lab gets its own kubeconfig, `~/.astrona/kind/<lab>/kubeconfig` (mode `0600`), containing only that cluster. astrona:
 
-- **never changes your kubectl current-context.** `kind create cluster` switches it to the new cluster; astrona records it beforehand and restores it afterwards (or leaves it unset, if it was unset). A lab never silently re-points your plain `kubectl` at a different cluster.
+- **points your kubectl at the lab once it's ready, and back on destroy.** When `astrona run` (or a full `astrona reset`) has the lab ready, the `kind-<lab>` context becomes the current-context of your own kubeconfig (`$KUBECONFIG` is respected, like kubectl does) and astrona prints which context you had before:
+
+    ```text
+    kubectl now points at this lab (kind-astro-my-lab). Your previous context "prod" comes back with: astrona destroy astro-my-lab
+    ```
+
+    `astrona destroy` (or deleting the lab after a passing `astrona submit`) switches back to that context — but only if the lab's context is still current: if you've switched to another one meanwhile, that's left as it is and destroy says so. If the previous context no longer exists, nothing is switched and destroy says so; if you had none, it's unset again. The context to go back to is kept in `~/.astrona/labs/<lab>.json` (mode `0600`). Starting a lab over (`run` on a running lab, `reset`) keeps the context from before the lab first ran.
+- `--keep-context` on `run`/`reset` leaves your current-context alone: reach the lab with `astrona shell` or `kubectl --context kind-astro-<lab> …`. Either way, the switch never happens mid-build — `kind create cluster`'s own switch is undone straight away, and only the finished lab is made current.
 - still lets kind add the `kind-<lab>` context to your own kubeconfig, so `kubectl --context kind-astro-<lab> …` works from any terminal.
 - runs lab scripts and `command` validation checks with `KUBECONFIG=<lab kubeconfig>`.
 - deletes the file on `astrona destroy`.

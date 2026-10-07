@@ -50,6 +50,9 @@ type rootFlags struct {
 	// parallel is --parallel on commands that create a lab (run, reset,
 	// test): linked clusters created at once.
 	parallel int
+	// keepContext is --keep-context on run and reset: leave the user's
+	// kubectl current-context alone instead of switching to the lab.
+	keepContext bool
 }
 
 // Version is the current version of the astrona-cli binary, burnt in at build

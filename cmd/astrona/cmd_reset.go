@@ -11,6 +11,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
 	"astrona/internal/runtime"
@@ -80,6 +81,8 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			"A full reset of a catalog lab starts a fresh lab session on Astrona, like `astrona run`: " +
 			"it needs `astrona login`, and the new lab page opens once the lab is ready. --soft and " +
 			"--cluster keep the current session and need no sign-in.\n\n" +
+			"Like `astrona run`, a full reset points kubectl at the lab (the context to go back to " +
+			"is still the one from before the lab first ran); --keep-context leaves it alone.\n\n" +
 			"--soft keeps the clusters: it deletes every namespace created after the platform " +
 			"(kube-system, addons, …) was set up, clears what isn't astrona's from the default " +
 			"namespace, and runs the bootstrap again — seconds instead of minutes. Cluster-wide " +
@@ -165,8 +168,9 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			var page *url.URL
+			var sess *labstate.Session
 			if acct != nil {
-				if page, err = acct.startSession(ctx, "reset", flags.catalogLab); err != nil {
+				if page, sess, err = acct.startSession(ctx, "reset", flags.catalogLab); err != nil {
 					return err
 				}
 			}
@@ -178,6 +182,9 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			defer rep.Close()
 
 			if exists {
+				if flags.keepContext { // not switching again: put back what the old lab switched away from
+					releaseLab(os.Stdout, clusterName)
+				}
 				teardown := cfg.Teardown
 				teardown.KeepCluster = false
 				info := teardownInfo{clusterName: clusterName, teardown: teardown, runtime: cfg.Runtime}
@@ -188,11 +195,12 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				rep.Info("Lab '%s' isn't running — creating it fresh.", clusterName)
 			}
 
-			if err := bringUpLab(cfg, baseDir, flags, rep); err != nil {
+			if err := bringUpLab(cfg, baseDir, flags, rep, sess); err != nil {
 				return err
 			}
 			if page != nil {
 				printAndOpen(page)
+				printTimeLimit(sess)
 			}
 			return nil
 		},
@@ -200,6 +208,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Don't ask for confirmation")
 	addParallelFlag(cmd, flags)
+	addKeepContextFlag(cmd, flags)
 	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "Rebuild only this linked cluster (its runtime.kind.clusters name)")
 	_ = cmd.RegisterFlagCompletionFunc("cluster", clusterFlagCompletion(flags, false))
 	cmd.Flags().BoolVar(&soft, "soft", false, "Keep the cluster(s): delete the lab's namespaces and re-run its bootstrap (seconds instead of minutes)")

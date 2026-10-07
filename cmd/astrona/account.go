@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"astrona/internal/account"
+	"astrona/internal/labstate"
 )
 
 // labAccount is a signed-in student, for a catalog lab's run/reset.
@@ -82,25 +83,30 @@ func capitalize(s string) string {
 
 // startSession asks Astrona for a session for the catalog lab and checks
 // the lab page URL it returns — all before the lab is built, so a refusal
-// costs nothing. The URL must be on the signed-in site.
-func (a *labAccount) startSession(ctx context.Context, command, lab string) (*url.URL, error) {
+// costs nothing. The URL must be on the signed-in site. The session comes
+// back as it is remembered for the lab (labstate) — without its token.
+func (a *labAccount) startSession(ctx context.Context, command, lab string) (*url.URL, *labstate.Session, error) {
 	ls, err := a.client.CreateLabSession(ctx, a.store, a.creds, lab)
 	if err != nil {
-		return nil, labSessionError(err, a.creds.Site, command, lab)
+		return nil, nil, labSessionError(err, a.creds.Site, command, lab)
 	}
 	page, err := validateOpenURL(ls.URL)
 	if err != nil {
-		return nil, fmt.Errorf("%s returned a lab page URL that can't be opened (%w) — nothing was built", a.creds.Site, err)
+		return nil, nil, fmt.Errorf("%s returned a lab page URL that can't be opened (%w) — nothing was built", a.creds.Site, err)
 	}
 	if !account.SameSite(page, a.creds.Site) {
-		return nil, fmt.Errorf("%s returned a lab page on another site (%s) — refusing to open it; nothing was built", a.creds.Site, page.Host)
+		return nil, nil, fmt.Errorf("%s returned a lab page on another site (%s) — refusing to open it; nothing was built", a.creds.Site, page.Host)
 	}
 	who := a.creds.Username
 	if who == "" {
 		who = "your account"
 	}
 	fmt.Printf("Lab session started for %s on %s — the lab page opens once the lab is ready.\n", who, a.creds.Site)
-	return page, nil
+	sess := &labstate.Session{Site: a.creds.Site, ID: ls.ID, Lab: ls.Lab, URL: page.String(), ExpiresAt: ls.ExpiresAt, MaxMinutes: ls.MaxMinutes}
+	if sess.Lab == "" {
+		sess.Lab = lab
+	}
+	return page, sess, nil
 }
 
 // labSessionError turns a failed session request into what to do next.

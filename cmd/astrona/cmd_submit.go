@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/exam"
 	"astrona/internal/junit"
+	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/proctor"
 	"astrona/internal/runtime"
@@ -26,7 +28,7 @@ import (
 // command's persistent flags.
 func newSubmitCmd(flags *rootFlags) *cobra.Command {
 	var junitPath, output string
-	var noHints, history, watch bool
+	var noHints, history, watch, keep bool
 	var watchInterval time.Duration
 
 	cmd := &cobra.Command{
@@ -38,7 +40,15 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			"continuously while you work, without recording attempts.\n\n" +
 			"Passing means every check passes, or — when the lab sets validation.passPercent — " +
 			"reaching that score.\n\n" +
-			"Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong.",
+			"With no lab named, none picked with `astrona use` and no lab config in the current " +
+			"directory, the only running lab is submitted; with several running, it lists them and " +
+			"how to name each.\n\n" +
+			"A catalog lab started while signed in (`astrona run ATS…`) sends each result to its lab " +
+			"page on Astrona as well. After a passing result is sent, submit asks whether to delete " +
+			"the lab cluster now (Enter deletes it, exactly like `astrona destroy`); --keep, -o json " +
+			"or no terminal keep it. A failing result never asks — fix it and submit again.\n\n" +
+			"Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong. Sending the " +
+			"result to Astrona never changes it.",
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -50,6 +60,29 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			}
 			if watch && output == "json" {
 				return fmt.Errorf("--watch redraws a live view; -o json grades once")
+			}
+			// Status lines never go to stdout under -o json: it carries
+			// exactly one JSON document.
+			var status io.Writer = os.Stdout
+			if output == "json" {
+				status = os.Stderr
+			}
+			// No lab named, none picked with `astrona use`, none here: the
+			// only running lab, if there is exactly one.
+			if len(args) == 0 && !flags.fromCurrent && !cmd.Flags().Changed("config") && !cmd.Flags().Changed("git") &&
+				!cmd.Flags().Changed("file") && !labConfigHere(flags) {
+				name, src, err := pickRunningLab(runningLabNames(), labstate.Load)
+				if err != nil {
+					return err
+				}
+				if src != nil {
+					applySource(flags, src)
+					verb := "Submitting"
+					if history {
+						verb = "Attempts for"
+					}
+					fmt.Fprintf(status, "%s %s (the only running lab).\n", verb, name)
+				}
 			}
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
@@ -160,34 +193,49 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			if err := proctor.RecordAttempt(clusterName, attempt); err != nil {
 				rep.Warn("could not record this attempt: %s", err)
 			}
-			if output == "json" {
-				if junitPath != "" {
-					if err := junit.WriteJUnitReport(junitPath, clusterName, results); err != nil {
-						rep.Warn("failed to write JUnit report: %s", err)
-					}
-				}
-				if err := printJSON(submissionJSON(cfg, clusterName, results, pass, overTime, len(previous)+1, pr.HintsHidden(), now)); err != nil {
-					return err
-				}
-				if !pass {
-					return notPassed("submission did not pass grading")
-				}
-				return nil
-			}
-			printProgress(os.Stdout, previous, attempt)
-
+			result := submissionJSON(cfg, clusterName, results, pass, overTime, len(previous)+1, pr.HintsHidden(), now)
 			if junitPath != "" {
 				if err := junit.WriteJUnitReport(junitPath, clusterName, results); err != nil {
 					rep.Warn("failed to write JUnit report: %s", err)
 				}
 			}
+			if output == "json" {
+				if err := printJSON(result); err != nil {
+					return err
+				}
+			} else {
+				printProgress(os.Stdout, previous, attempt)
+				fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, pass, 0))
+			}
+			rep.Close()
 
+			// The grade stands whatever happens to sending it: a failure
+			// here is a warning, never a different exit code.
+			sent := sendResult(context.Background(), status, clusterName, flags.catalogLab, result)
 			if !pass {
-				fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, false, 0))
 				return notPassed("submission did not pass grading")
 			}
-
-			fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, true, 0))
+			follow := submitFollowUp(pass, sent, keep, output == "json", stdinIsTerminal(), cfg.Teardown.KeepCluster)
+			if follow != followNothing {
+				name := clusterName
+				if flags.catalogLab != "" {
+					name = flags.catalogLab
+				}
+				offerDestroy(promptIn, promptOut, status, follow == followAsk, name, func() error {
+					drep, err := ui.NewReporter("destroy", cfg.Metadata.Name, flags.verbose)
+					if err != nil {
+						return err
+					}
+					defer drep.Close()
+					info := teardownInfo{clusterName: cfg.Metadata.Name, teardown: cfg.Teardown, runtime: cfg.Runtime, cfg: cfg}
+					if err := destroyLab(info, baseDir, drep); err != nil {
+						return err
+					}
+					drep.Close()
+					fmt.Fprintf(status, "Lab %s deleted.\n", name)
+					return nil
+				})
+			}
 			return nil
 		},
 	}
@@ -197,6 +245,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&history, "history", false, "List previous attempts for this lab instead of grading")
 	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Re-grade continuously while you work (Ctrl-C to stop; not recorded as attempts)")
 	cmd.Flags().DurationVar(&watchInterval, "interval", 5*time.Second, "How often --watch re-grades (minimum 2s)")
+	cmd.Flags().BoolVar(&keep, "keep", false, "After a passing result is sent to Astrona, keep the lab instead of asking whether to delete it")
 	addOutputFlag(cmd, &output)
 
 	return cmd
