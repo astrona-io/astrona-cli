@@ -14,7 +14,8 @@ import (
 )
 
 func newLoginCmd() *cobra.Command {
-	return &cobra.Command{
+	var siteFlag string
+	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Sign in to your Astrona account (catalog labs need it)",
 		Long: "Sign this computer in to your Astrona account. Catalog labs (`astrona run ATS014/…`) are tied " +
@@ -25,21 +26,31 @@ func newLoginCmd() *cobra.Command {
 			"ever typed into the terminal. On a machine without a browser, open the link on any device.\n\n" +
 			"The sign-in is saved in ~/.astrona/credentials.json (readable only by you) and renewed " +
 			"automatically. `astrona whoami` shows who is signed in, `astrona logout` signs out.\n\n" +
-			"The site is " + account.DefaultSite + " unless " + account.SiteEnv + " points elsewhere " +
-			"(for example http://localhost:3000 for local development).",
+			"The site is " + account.DefaultSite + " unless --site (or " + account.SiteEnv + ") names another, " +
+			"for example http://localhost:3000 for local development. The site is remembered with the " +
+			"sign-in, so whoami, logout and catalog labs use it without repeating it; " + account.SiteEnv +
+			" still overrides it per command. Plain http:// is only accepted for localhost.",
 		Example: `  astrona login
-  ASTRONA_URL=http://localhost:3000 astrona login`,
+  astrona login --site http://localhost:3000     # local development; remembered
+  ASTRONA_URL=https://staging.astrona.io astrona whoami`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, store, site, err := accountDeps()
 			if err != nil {
 				return err
 			}
+			if siteFlag != "" {
+				if site, err = account.NormalizeSite(siteFlag); err != nil {
+					return fmt.Errorf("--site %q: %w", siteFlag, err)
+				}
+			}
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
 			return login(ctx, client, store, site)
 		},
 	}
+	cmd.Flags().StringVar(&siteFlag, "site", "", "Sign in to this Astrona site (e.g. http://localhost:3000) instead of "+account.DefaultSite+"; it's remembered for later commands")
+	return cmd
 }
 
 // login runs the device flow against site and saves the credentials.
@@ -50,6 +61,9 @@ func login(ctx context.Context, client *account.Client, store account.Store, sit
 
 	fmt.Printf("Signing in to %s…\n", site)
 	sc, err := client.FetchSiteConfig(ctx, site)
+	if account.IsNotFound(err) {
+		return fmt.Errorf("%w\n%s doesn't offer astrona sign-in (no %s/api/cli/config) — for another site, e.g. a local one: astrona login --site http://localhost:3000", err, site, site)
+	}
 	if err != nil {
 		return err
 	}

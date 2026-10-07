@@ -20,13 +20,19 @@ type labAccount struct {
 	creds  *account.Credentials
 }
 
-// accountDeps are what the sign-in gate needs (replaced in tests).
+// accountDeps are what the sign-in gate needs (replaced in tests). The
+// site is ASTRONA_URL, else the one this computer signed in to, else
+// account.DefaultSite.
 var accountDeps = func() (*account.Client, account.Store, string, error) {
-	site, err := account.ResolveSite(os.Getenv)
+	store, err := account.DefaultStore()
 	if err != nil {
 		return nil, account.Store{}, "", err
 	}
-	store, err := account.DefaultStore()
+	saved := ""
+	if cr, err := store.Load(); err == nil && cr != nil { // an unreadable file is reported by whoever uses it
+		saved = cr.Site
+	}
+	site, err := account.ResolveSite(os.Getenv, saved)
 	if err != nil {
 		return nil, account.Store{}, "", err
 	}
