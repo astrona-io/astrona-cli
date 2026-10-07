@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"astrona/internal/addons"
+	"astrona/internal/catalog"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
@@ -14,6 +15,7 @@ import (
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
 
@@ -23,6 +25,7 @@ import (
 // flags.
 func newRunCmd(flags *rootFlags) *cobra.Command {
 	var openURL string
+	var yes bool
 	cmd := &cobra.Command{
 		Use:   "run [lab]",
 		Short: "Start a lab: create its cluster(s) or VM(s) and set it up",
@@ -31,7 +34,11 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) " +
 			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.\n\n" +
 			"With --open <url> (the lab page's \"start\" command adds it), the URL is printed and opened in your " +
-			"browser once the lab is ready, so the clock never counts setup time.",
+			"browser once the lab is ready, so the clock never counts setup time.\n\n" +
+			"If the lab is already running, run asks whether to destroy it and start over (or keep it as " +
+			"it is); --yes starts over without asking and is required when not in a terminal. If other " +
+			"labs are running, it also offers to destroy them first — only when asked in a terminal; " +
+			"--yes never touches other labs.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
@@ -56,6 +63,25 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer configCleanup()
 
+			// Running labs are dealt with first: keeping the lab costs nothing.
+			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
+			label := clusterName
+			if len(args) > 0 && catalog.LooksLikeLabID(args[0]) {
+				label = args[0] + " (" + clusterName + ")"
+			}
+			choice, err := chooseRun(os.Stdin, promptOut, isatty.IsTerminal(os.Stdin.Fd()), yes,
+				labExists(cfg, clusterName), label, otherRunningLabNames(clusterName))
+			if err != nil {
+				return err
+			}
+			if choice.keep {
+				fmt.Printf("Kept the running lab %s — nothing changed.\n", clusterName)
+				if page != nil {
+					printAndOpen(page)
+				}
+				return nil
+			}
+
 			if err := requireTrust(flags, cfg, baseDir); err != nil {
 				return err
 			}
@@ -72,6 +98,20 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err := validateParallel(flags.parallel); err != nil {
 				return err
 			}
+			for _, other := range choice.stopOthers {
+				rep.Section("Destroy %s", other)
+				if err := destroyByName(other, rep); err != nil {
+					rep.Warn("couldn't destroy %s: %s — continuing", other, err)
+				}
+			}
+			if choice.startOver {
+				teardown := cfg.Teardown
+				teardown.KeepCluster = false
+				info := teardownInfo{clusterName: clusterName, teardown: teardown, runtime: cfg.Runtime}
+				if err := tearDownLabEnvironment(clusterName, info, baseDir, true, rep); err != nil {
+					return fmt.Errorf("could not remove the running lab, nothing was started: %w", err)
+				}
+			}
 			if err := bringUpLab(cfg, baseDir, flags, rep); err != nil {
 				return err
 			}
@@ -83,6 +123,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	addParallelFlag(cmd, flags)
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "If the lab is already running, destroy it and start over without asking")
 	cmd.Flags().StringVar(&openURL, "open", "", "Once the lab is ready, print this http(s) URL and open it in your browser (the lab page's start command adds it)")
 	return cmd
 }

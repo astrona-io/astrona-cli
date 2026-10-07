@@ -82,6 +82,8 @@ astrona reset -c ./labs/my-lab --yes    # no prompt (required in scripts/CI)
 - `--cluster <name>` rebuilds just one [linked cluster](../guides/linked-labs.md) of a running lab, leaving the lab and its other clusters as they are.
 - In a terminal it asks for confirmation; without a terminal it refuses unless `--yes` is passed.
 
+**`astrona run` on a lab that's already running** asks the same question: *destroy it and start over?* — yes does what `reset` does, no keeps the lab as it is (and still opens the lab page with `--open`). `astrona run --yes` starts over without asking; without a terminal, `run` on a running lab stops and names `--yes`. If **other** labs are running, `run` also offers to destroy them first (handy when moving from one lab of a training to the next) — only when asked in a terminal; `--yes` never touches other labs.
+
 To pause a lab instead of losing it, see [`astrona stop` / `astrona start`](runtimes.md#pausing-a-lab-astrona-stop-astrona-start).
 
 ## Source types, everywhere
@@ -132,7 +134,7 @@ path of the full log — `astrona logs view` opens it.
 
 | Question | Answer it up front with |
 |---|---|
-| Throw a lab away? (`reset`, `logs clean`) | `--yes` / `-y` |
+| Throw a lab away? (`reset`, `logs clean`, `run` on a running lab) | `--yes` / `-y` |
 | Run a lab from a URL, git repo or bundle? (shows what it will do) | `--trust` |
 | Download and install the astrona version a lab needs? | `--install-version` |
 
