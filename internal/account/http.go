@@ -60,6 +60,12 @@ func (e *httpError) Error() string {
 	return msg
 }
 
+// IsNotFound reports whether err is an HTTP 404 answer.
+func IsNotFound(err error) bool {
+	var he *httpError
+	return errors.As(err, &he) && he.Status == http.StatusNotFound
+}
+
 // do sends req and decodes a 2xx JSON answer into out (when out is non-nil).
 // Other statuses come back as *httpError.
 func do(client *http.Client, req *http.Request, out any) (int, error) {

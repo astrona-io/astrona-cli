@@ -248,3 +248,15 @@ func TestNotSignedInReasons(t *testing.T) {
 		t.Errorf("expired: %s", got)
 	}
 }
+
+// A site without astrona sign-in (404 on /api/cli/config) says how to sign
+// in to another one.
+func TestLoginSiteWithoutSignIn(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	defer srv.Close()
+	store := account.Store{Path: filepath.Join(t.TempDir(), "credentials.json")}
+	err := login(context.Background(), account.NewClient(), store, srv.URL)
+	if err == nil || !strings.Contains(err.Error(), "HTTP 404") || !strings.Contains(err.Error(), "astrona login --site http://localhost:3000") {
+		t.Errorf("err = %v", err)
+	}
+}
