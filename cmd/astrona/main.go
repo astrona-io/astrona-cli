@@ -37,6 +37,10 @@ type rootFlags struct {
 	labArg string
 	// fromCurrent: the lab came from `astrona use` (applyCurrentLab).
 	fromCurrent bool
+	// catalogLab is the catalog name (ATS014/section-010/module-01/lab-02)
+	// when the lab came from the catalog — given as the argument or picked
+	// with `astrona use`. Only catalog labs are tied to an Astrona account.
+	catalogLab string
 	// installVersion: --install-version, install the astrona release a lab
 	// requires without asking.
 	installVersion bool
