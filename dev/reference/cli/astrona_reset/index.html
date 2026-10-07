@@ -3466,6 +3466,7 @@
 <p>Asks for confirmation (everything done in the lab is lost); --yes skips it and is required when not running in a terminal.</p>
 <p>--cluster <name> rebuilds only that linked cluster (runtime.kind.clusters) of a running lab: its teardown scripts, destroy, then create and bootstrap it again (with the addresses of the clusters it dependsOn). The lab and its other clusters are left alone; port forwards into the rebuilt cluster are restarted.</p>
 <p>A full reset of a catalog lab starts a fresh lab session on Astrona, like <code>astrona run</code>: it needs <code>astrona login</code>, and the new lab page opens once the lab is ready. --soft and --cluster keep the current session and need no sign-in.</p>
+<p>Like <code>astrona run</code>, a full reset points kubectl at the lab (the context to go back to is still the one from before the lab first ran); --keep-context leaves it alone.</p>
 <p>--soft keeps the clusters: it deletes every namespace created after the platform (kube-system, addons, …) was set up, clears what isn't astrona's from the default namespace, and runs the bootstrap again — seconds instead of minutes. Cluster-wide objects (CRDs, ClusterRoles, …) aren't reverted; use a full reset for those. With --cluster, only that linked cluster.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona reset [lab] [flags]
 </code></pre></div>
@@ -3478,9 +3479,10 @@
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>      --cluster string   Rebuild only this linked cluster (its runtime.kind.clusters name)
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  -h, --help             help for reset
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>      --parallel int     Create up to N linked clusters (runtime.kind.clusters) at once, 1-5 (default 1: one at a time). dependsOn is still respected, and after a failure nothing new starts (default 1)
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      --soft             Keep the cluster(s): delete the lab's namespaces and re-run its bootstrap (seconds instead of minutes)
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>  -y, --yes              Don't ask for confirmation
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>      --keep-context     Leave your kubectl current-context alone (kind labs) — reach the lab with astrona shell or kubectl --context instead
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      --parallel int     Create up to N linked clusters (runtime.kind.clusters) at once, 1-5 (default 1: one at a time). dependsOn is still respected, and after a failure nothing new starts (default 1)
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>      --soft             Keep the cluster(s): delete the lab's namespaces and re-run its bootstrap (seconds instead of minutes)
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>  -y, --yes              Don't ask for confirmation
 </code></pre></div>
 <h3 id="options-inherited-from-parent-commands">Options inherited from parent commands<a class="headerlink" href="#options-inherited-from-parent-commands" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>  -c, --config string     Path or URL to the lab config directory (with --git: a subdirectory within the cloned repo) (default ".")

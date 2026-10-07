@@ -3642,6 +3642,8 @@
 <li><strong>Pass rule:</strong> without <code>passPercent</code>, every check and script must pass (as before). With it, the submission passes once the weighted score reaches it — like a certification exam's pass mark.</li>
 <li><code>astrona submit --no-hints</code> grades without showing hints (exam conditions).</li>
 <li>Every <code>astrona submit</code> is recorded in <code>~/.astrona/results/&lt;lab&gt;.jsonl</code>; each submission shows the change since the previous one, and <code>astrona submit --history</code> lists all attempts with the best score. <code>astrona test</code> (CI) doesn't record attempts.</li>
+<li><code>astrona submit</code> with no lab named — no argument, nothing picked with <code>astrona use</code>, no lab config in the current directory — grades the only running lab (<code>Submitting astro-my-lab (the only running lab).</code>), found again through what <code>astrona run</code> remembered. With several running it lists them, each with the command that names it.</li>
+<li>A <a href="../../guides/lab-catalog/#your-astrona-account">catalog lab</a> started while signed in also sends each result to its lab page; after a pass that was sent, submit offers to delete the lab (<code>--keep</code> to skip). Sending never changes the exit code.</li>
 </ul>
 <h2 id="live-grading-while-you-work">Live grading while you work<a class="headerlink" href="#live-grading-while-you-work" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>astrona<span class="w"> </span>submit<span class="w"> </span>--watch<span class="w">            </span><span class="c1"># re-grade every 5s (--interval to change, min 2s)</span>

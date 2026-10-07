@@ -3503,14 +3503,14 @@
 </tbody>
 </table>
 <p><code>astrona list -o wide</code> adds the Kubernetes version and port-forward status (<code>1/1 Ready</code>); <code>-o json</code> prints the same for scripts.</p>
-<p>Work with the cluster from a lab shell — your <code>$SHELL</code> with <code>kubectl</code> pointed at the lab (type <code>exit</code> to leave):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>astrona<span class="w"> </span>shell<span class="w"> </span>k8s-basics-01
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>ns
+<p>Once the lab is ready, your <code>kubectl</code> points at it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>ns
 </code></pre></div>
-<p>or from any terminal, without switching anything:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span>kind-astro-k8s-basics-01<span class="w"> </span>get<span class="w"> </span>ns
+<p><code>astrona destroy</code> switches kubectl back to the context you had before (run prints which one). Prefer to leave your current-context alone? <code>astrona run --keep-context</code>, then work from a lab shell — your <code>$SHELL</code> with <code>kubectl</code> pointed at the lab (type <code>exit</code> to leave) — or name the context:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>astrona<span class="w"> </span>shell<span class="w"> </span>k8s-basics-01
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span>kind-astro-k8s-basics-01<span class="w"> </span>get<span class="w"> </span>ns
 </code></pre></div>
-<p>astrona never changes your own kubectl current-context — see <a href="../../concepts/runtimes/#kubeconfig-isolation">kubeconfig isolation</a>.</p>
+<p>See <a href="../../concepts/runtimes/#kubeconfig-isolation">kubeconfig isolation</a>.</p>
 <h2 id="4-submit-for-grading">4. Submit for grading<a class="headerlink" href="#4-submit-for-grading" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>astrona<span class="w"> </span>submit
 </code></pre></div>

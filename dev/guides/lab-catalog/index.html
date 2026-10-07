@@ -3413,9 +3413,16 @@
 <li>checks the sign-in <strong>before</strong> anything is fetched or built — signed out (or the sign-in expired), it stops and tells you to run <code>astrona login</code>;</li>
 <li>asks Astrona for a lab session (too many open sessions or an unknown lab stop it here, with nothing built);</li>
 <li>builds the lab;</li>
-<li>prints the lab page URL and opens it in your browser — the clock starts there, so setup time never counts. Without a browser (a headless box), open the printed URL yourself. If the build fails, nothing is opened.</li>
+<li>prints the lab page URL and opens it in your browser — the clock starts there, so setup time never counts. Without a browser (a headless box), open the printed URL yourself. If the build fails, nothing is opened. When Astrona sets a time limit for the attempt, run says so: <code>You have 60 minutes once the lab page opens.</code></li>
 </ol>
 <p>A full <code>astrona reset ATS014/…</code> does the same: a fresh session and a new lab page once the lab is rebuilt. <code>reset --soft</code> and <code>reset --cluster</code> keep the current session and need no sign-in.</p>
+<p>The session is remembered with the lab in <code>~/.astrona/labs/&lt;lab&gt;.json</code> (mode 0600: the site, the session id, the lab and its page — never a token). Then <code>astrona submit</code>:</p>
+<ol>
+<li>grades the lab exactly as always (the Proctor decides; the exit code is the grade's);</li>
+<li>sends the result — the same object <code>astrona submit -o json</code> prints — to the lab page, and prints <code>Sent to your lab page (attempt N): &lt;url&gt;</code>;</li>
+<li>after a <strong>pass</strong> that was sent, asks <code>Delete the lab cluster now? [Y/n]</code> — Enter deletes it exactly like <code>astrona destroy</code> (your kubectl context comes back too); <code>n</code> keeps it. <code>--keep</code>, <code>-o json</code> or no terminal keep it and print how to remove it later. A failing result never asks: the clock keeps running, so fix it and submit again.</li>
+</ol>
+<p>When the result can't be sent, the grade still stands: an expired session (or one that isn't yours) says to run the lab again for a new attempt, an attempt that's already finished shows Astrona's message, a session whose time ran out shows Astrona's message plus how to start a new attempt (<code>astrona reset &lt;lab&gt;</code>, or <code>astrona destroy &lt;lab&gt;</code> then <code>astrona run &lt;lab&gt;</code>) and never offers to delete the lab, and a network or server error is a warning. Signed out, submit says to <code>astrona login</code> and run the lab again. Under <code>-o json</code> these lines go to stderr, so stdout stays exactly one JSON document.</p>
 <p>Labs from your own files or repositories (<code>-c ./my-lab</code>, <code>--git &lt;url&gt;</code>) are not tied to an account: they run without signing in, and no page is opened.</p>
 <p>The site is <code>https://astrona.io</code> unless you sign in to another one:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>login<span class="w"> </span>--site<span class="w"> </span>http://localhost:3000<span class="w">    </span><span class="c1"># e.g. local development (plain http only to localhost)</span>
