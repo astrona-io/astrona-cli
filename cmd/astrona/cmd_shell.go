@@ -107,7 +107,11 @@ func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
   kubectl --kubeconfig "$(astrona kubeconfig my-lab --cluster idp)" get pods -A`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lab, err := resolveKindCluster(firstArg(args), flags)
+			labName, err := catalogLabArg(firstArg(args), flags)
+			if err != nil {
+				return err
+			}
+			lab, err := resolveKindCluster(labName, flags)
 			if err != nil {
 				return err
 			}
@@ -164,7 +168,11 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
-			lab, err := resolveKindCluster(firstArg(labArgs), flags)
+			labName, err := catalogLabArg(firstArg(labArgs), flags)
+			if err != nil {
+				return err
+			}
+			lab, err := resolveKindCluster(labName, flags)
 			if err != nil {
 				return err
 			}

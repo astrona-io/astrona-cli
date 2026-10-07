@@ -7,8 +7,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
+	"astrona/internal/catalog"
 	"astrona/internal/config"
 
 	"github.com/spf13/cobra"
@@ -79,11 +81,30 @@ func readLabDoc(configPath, docPath string) (string, error) {
 	return string(data), nil
 }
 
+// docKeys are the docs `astrona docs` can show.
+var docKeys = []string{"question", "case-study", "prerequisites", "guide"}
+
+// splitDocsArgs sorts `astrona docs` arguments into a doc key and a catalog
+// lab, in either order: `docs question ATS016/…`, `docs ATS016/…`.
+func splitDocsArgs(args []string) (key, lab string, err error) {
+	for _, a := range args {
+		switch {
+		case slices.Contains(docKeys, a) && key == "":
+			key = a
+		case catalog.LooksLikeLabID(a) && lab == "":
+			lab = a
+		default:
+			return "", "", fmt.Errorf("unexpected argument %q — expected one of %s and/or a catalog lab (ATS016/section-020/module-01/lab-01)", a, strings.Join(docKeys, ", "))
+		}
+	}
+	return key, lab, nil
+}
+
 func newDocsCmd(flags *rootFlags) *cobra.Command {
 	var noPager bool
 
 	cmd := &cobra.Command{
-		Use:   "docs [question|case-study|prerequisites|guide]",
+		Use:   "docs [question|case-study|prerequisites|guide] [catalog-lab]",
 		Short: "Read the lab's docs (task, hints, prerequisites, solution) in the terminal",
 		Long: "Show a lab's own documentation from metadata.docs, rendered for the terminal and " +
 			"paged ($PAGER, else less; --no-pager to print). With no argument, lists what the lab " +
@@ -92,12 +113,26 @@ func newDocsCmd(flags *rootFlags) *cobra.Command {
 			"  case-study     the same task with more guidance (metadata.docs.caseStudy)\n" +
 			"  prerequisites  what to know before starting (metadata.docs.prerequisites)\n" +
 			"  guide          the full step-by-step solution (metadata.docs.guide) — spoilers\n\n" +
-			"Uses the lab config from -c/--file/--git (local, git or URL).",
+			"Uses the lab config from -c/--file/--git (local, git or URL), or a catalog lab named as an " +
+			"argument (`astrona docs question ATS016/section-020/module-01/lab-01`).",
 		Example: `  astrona docs -c ./labs/my-lab
   astrona docs question -c ./labs/my-lab`,
-		ValidArgs: []string{"question", "case-study", "prerequisites", "guide"},
-		Args:      cobra.MatchAll(cobra.MaximumNArgs(1), cobra.OnlyValidArgs),
+		ValidArgs: docKeys,
+		Args:      cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			key, lab, err := splitDocsArgs(args)
+			if err != nil {
+				return err
+			}
+			if lab != "" {
+				if err := labArg([]string{lab}, flags); err != nil {
+					return err
+				}
+			}
+			args = nil
+			if key != "" {
+				args = []string{key}
+			}
 			finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
 			if err != nil {
 				return withNoLabHint(err, flags)

@@ -39,3 +39,18 @@ func TestLabArgResolvesCatalogNames(t *testing.T) {
 		t.Errorf("local path = git %q config %q, %v", g.gitURL, g.configPath, err)
 	}
 }
+
+// Names that are not catalog labs pass through untouched, so `astrona destroy
+// my-lab`, globs and paths keep working exactly as before.
+func TestCatalogLabArgLeavesOtherNamesAlone(t *testing.T) {
+	flags := &rootFlags{}
+	for _, name := range []string{"", "my-lab", "astro-my-lab", "qemu-*", "./labs/x"} {
+		got, err := catalogLabArg(name, flags)
+		if err != nil || got != name {
+			t.Errorf("catalogLabArg(%q) = %q, %v", name, got, err)
+		}
+	}
+	if flags.gitURL != "" || flags.configPath != "" {
+		t.Errorf("flags changed for non-catalog names: %+v", flags)
+	}
+}

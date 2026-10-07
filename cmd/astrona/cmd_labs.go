@@ -95,6 +95,25 @@ func labArg(args []string, flags *rootFlags) error {
 	return nil
 }
 
+// catalogLabArg lets commands that take a running lab's name (destroy,
+// status, shell, kubeconfig) also take its catalog name, the one students
+// copy from astrona.io and use with run/submit: a catalog name (it has a "/",
+// is not a path on disk and not a glob) points flags at that lab's config,
+// as labArg does, and comes back as "" so the caller resolves the lab from
+// its config. Any other name is returned unchanged.
+func catalogLabArg(name string, flags *rootFlags) (string, error) {
+	if name == "" || strings.ContainsAny(name, "*?[") || !catalog.LooksLikeLabID(name) {
+		return name, nil
+	}
+	if _, err := os.Stat(name); err == nil {
+		return name, nil
+	}
+	if err := labArg([]string{name}, flags); err != nil {
+		return "", err
+	}
+	return "", nil
+}
+
 func newLabsCmd() *cobra.Command {
 	var search, output string
 	var refresh bool

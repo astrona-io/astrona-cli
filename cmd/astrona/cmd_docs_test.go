@@ -91,3 +91,24 @@ func TestLabDocsAndList(t *testing.T) {
 		t.Error("configFlagHint wrong")
 	}
 }
+
+func TestSplitDocsArgs(t *testing.T) {
+	for _, tc := range []struct {
+		args     []string
+		key, lab string
+		wantErr  bool
+	}{
+		{nil, "", "", false},
+		{[]string{"question"}, "question", "", false},
+		{[]string{"ATS016/section-020/module-01/lab-01"}, "", "ATS016/section-020/module-01/lab-01", false},
+		{[]string{"question", "ATS016/section-020/module-01/lab-01"}, "question", "ATS016/section-020/module-01/lab-01", false},
+		{[]string{"ATS016/section-020/module-01/lab-01", "guide"}, "guide", "ATS016/section-020/module-01/lab-01", false},
+		{[]string{"answers"}, "", "", true},
+		{[]string{"question", "guide"}, "", "", true},
+	} {
+		key, lab, err := splitDocsArgs(tc.args)
+		if (err != nil) != tc.wantErr || key != tc.key || lab != tc.lab {
+			t.Errorf("splitDocsArgs(%q) = %q, %q, %v", tc.args, key, lab, err)
+		}
+	}
+}

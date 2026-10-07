@@ -9,7 +9,7 @@ astrona labs --search "fault injection"        # search lab titles
 astrona run ATS014/section-050/module-01/lab-01
 ```
 
-A catalog name works wherever a command takes a lab: `astrona use ATS014/…` picks it for every command, `astrona test ATS014/…`, `astrona validate ATS014/…`, `astrona doctor ATS014/…`.
+A catalog name works wherever a command takes a lab: `astrona use ATS014/…` picks it for every command, `astrona run`, `submit`, `reset`, `test`, `validate` and `doctor ATS014/…`, and also the commands that otherwise take a running lab's name — `astrona status`, `shell`, `kubeconfig`, `destroy ATS014/…` and `astrona docs question ATS014/…`. That way the one name a student copies from astrona.io works for every step. Running-lab names (`my-lab`, `astro-my-lab`) and globs work as before: catalog names always contain a `/`, lab names never do.
 
 ## Where the catalog comes from
 
