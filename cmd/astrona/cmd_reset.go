@@ -2,8 +2,10 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
@@ -75,6 +77,9 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			"its teardown scripts, destroy, then create and bootstrap it again (with the addresses of " +
 			"the clusters it dependsOn). The lab and its other clusters are left alone; port forwards " +
 			"into the rebuilt cluster are restarted.\n\n" +
+			"A full reset of a catalog lab starts a fresh lab session on Astrona, like `astrona run`: " +
+			"it needs `astrona login`, and the new lab page opens once the lab is ready. --soft and " +
+			"--cluster keep the current session and need no sign-in.\n\n" +
 			"--soft keeps the clusters: it deletes every namespace created after the platform " +
 			"(kube-system, addons, …) was set up, clears what isn't astrona's from the default " +
 			"namespace, and runs the bootstrap again — seconds instead of minutes. Cluster-wide " +
@@ -141,6 +146,13 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			if clusterFlag != "" {
 				return resetLinkedCluster(cfg, baseDir, clusterName, clusterFlag, yes, flags)
 			}
+			// A full reset of a catalog lab starts a fresh lab session, like
+			// `astrona run`: checked before anything is destroyed.
+			ctx := context.Background()
+			acct, err := requireSignIn(ctx, flags, "reset")
+			if err != nil {
+				return err
+			}
 			exists := labExists(cfg, clusterName)
 
 			if exists && !yes {
@@ -150,6 +162,12 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				if !confirmReset(os.Stdin, promptOut, clusterName) {
 					fmt.Println("Reset cancelled — nothing was changed.")
 					return nil
+				}
+			}
+			var page *url.URL
+			if acct != nil {
+				if page, err = acct.startSession(ctx, "reset", flags.catalogLab); err != nil {
+					return err
 				}
 			}
 
@@ -170,7 +188,13 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				rep.Info("Lab '%s' isn't running — creating it fresh.", clusterName)
 			}
 
-			return bringUpLab(cfg, baseDir, flags, rep)
+			if err := bringUpLab(cfg, baseDir, flags, rep); err != nil {
+				return err
+			}
+			if page != nil {
+				printAndOpen(page)
+			}
+			return nil
 		},
 	}
 

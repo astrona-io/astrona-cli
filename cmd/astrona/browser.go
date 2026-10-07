@@ -6,25 +6,16 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
+
+	"astrona/internal/account"
 )
 
-// validateOpenURL checks a URL handed to `astrona run --open` before anything
-// is started: it is pasted from a web page, so only an absolute http(s) URL
-// with a host and no embedded credentials is accepted.
+// validateOpenURL checks a URL before it is handed to the browser: only an
+// absolute http(s) URL with a host and no embedded credentials is opened.
 func validateOpenURL(raw string) (*url.URL, error) {
-	u, err := url.Parse(strings.TrimSpace(raw))
+	u, err := account.CheckHTTPURL(raw)
 	if err != nil {
-		return nil, fmt.Errorf("--open: not a valid URL: %w", err)
-	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return nil, fmt.Errorf("--open: only http and https URLs can be opened, got %q", u.Scheme)
-	}
-	if u.Host == "" {
-		return nil, fmt.Errorf("--open: the URL has no host")
-	}
-	if u.User != nil {
-		return nil, fmt.Errorf("--open: the URL must not contain a username or password")
+		return nil, fmt.Errorf("lab page URL: %w", err)
 	}
 	return u, nil
 }
@@ -77,10 +68,13 @@ func openInBrowser(rawURL string) bool {
 	return true
 }
 
+// browserOpener opens a URL in the browser: openInBrowser, replaced in tests.
+var browserOpener = openInBrowser
+
 // printAndOpen prints the lab page URL and opens it in the browser.
 func printAndOpen(u *url.URL) {
 	fmt.Printf("\nLab page: %s\n", u)
-	if openInBrowser(u.String()) {
+	if browserOpener(u.String()) {
 		fmt.Println("Opened it in your browser — the clock starts there.")
 		return
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -22,7 +23,6 @@ import (
 // is bound to the root command's persistent --config/--file/--git/--git-ref
 // flags.
 func newRunCmd(flags *rootFlags) *cobra.Command {
-	var openURL string
 	cmd := &cobra.Command{
 		Use:   "run [lab]",
 		Short: "Start a lab: create its cluster(s) or VM(s) and set it up",
@@ -30,8 +30,14 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"and apply bootstrap manifests.\n\n" +
 			"For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) " +
 			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.\n\n" +
-			"With --open <url> (the lab page's \"start\" command adds it), the URL is printed and opened in your " +
-			"browser once the lab is ready, so the clock never counts setup time.",
+			"A lab from the catalog (`astrona run ATS014/section-010/module-01/lab-02`, see `astrona labs`) " +
+			"is tied to your Astrona account: sign in first with `astrona login`. Before anything is built, " +
+			"astrona starts a lab session on Astrona; once the lab is ready it prints the lab page URL and " +
+			"opens it in your browser, which starts the clock there — setup time never counts. Labs from " +
+			"your own files or repositories (-c / --git) run without signing in.",
+		Example: `  astrona run ATS014/section-010/module-01/lab-02   # catalog lab: needs astrona login
+  astrona run ./labs/my-lab
+  astrona run --git https://github.com/org/labs -c labs/net-01`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
@@ -40,14 +46,11 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if flags.configPath == "" {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
 			}
-			// Checked before anything starts: a bad URL should not cost a cluster build.
-			var page *url.URL
-			if openURL != "" {
-				u, err := validateOpenURL(openURL)
-				if err != nil {
-					return err
-				}
-				page = u
+			ctx := context.Background()
+			// A catalog lab needs a sign-in: checked before the lab is even fetched.
+			acct, err := requireSignIn(ctx, flags, "run")
+			if err != nil {
+				return err
 			}
 
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
@@ -59,6 +62,21 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err := requireTrust(flags, cfg, baseDir); err != nil {
 				return err
 			}
+			if err := lifecycle.Validate(cfg); err != nil {
+				return err
+			}
+			if err := validateParallel(flags.parallel); err != nil {
+				return err
+			}
+
+			// The session is started before the build, so a refusal costs
+			// nothing; the page is only opened once the lab is ready.
+			var page *url.URL
+			if acct != nil {
+				if page, err = acct.startSession(ctx, "run", flags.catalogLab); err != nil {
+					return err
+				}
+			}
 
 			rep, err := ui.NewReporter("run", cfg.Metadata.Name, flags.verbose)
 			if err != nil {
@@ -66,12 +84,6 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
-			if err := lifecycle.Validate(cfg); err != nil {
-				return err
-			}
-			if err := validateParallel(flags.parallel); err != nil {
-				return err
-			}
 			if err := bringUpLab(cfg, baseDir, flags, rep); err != nil {
 				return err
 			}
@@ -83,7 +95,6 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	addParallelFlag(cmd, flags)
-	cmd.Flags().StringVar(&openURL, "open", "", "Once the lab is ready, print this http(s) URL and open it in your browser (the lab page's start command adds it)")
 	return cmd
 }
 

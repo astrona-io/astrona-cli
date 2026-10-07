@@ -87,6 +87,7 @@ func labArg(args []string, flags *rootFlags) error {
 			}
 			flags.labArg = args[0]
 			flags.fromCurrent = false
+			flags.catalogLab = l.ID
 			flags.gitURL, flags.gitRef, flags.configPath = t.Repo, "", l.Path
 			return nil
 		}
