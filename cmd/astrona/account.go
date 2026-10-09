@@ -85,8 +85,8 @@ func capitalize(s string) string {
 // the lab page URL it returns — all before the lab is built, so a refusal
 // costs nothing. The URL must be on the signed-in site. The session comes
 // back as it is remembered for the lab (labstate) — without its token.
-func (a *labAccount) startSession(ctx context.Context, command, lab string) (*url.URL, *labstate.Session, error) {
-	ls, err := a.client.CreateLabSession(ctx, a.store, a.creds, lab)
+func (a *labAccount) startSession(ctx context.Context, command, lab string, opts ...account.SessionOptions) (*url.URL, *labstate.Session, error) {
+	ls, err := a.client.CreateLabSession(ctx, a.store, a.creds, lab, opts...)
 	if err != nil {
 		return nil, nil, labSessionError(err, a.creds.Site, command, lab)
 	}
@@ -101,8 +101,12 @@ func (a *labAccount) startSession(ctx context.Context, command, lab string) (*ur
 	if who == "" {
 		who = "your account"
 	}
-	fmt.Printf("Lab session started for %s on %s — the lab page opens once the lab is ready.\n", who, a.creds.Site)
-	sess := &labstate.Session{Site: a.creds.Site, ID: ls.ID, Lab: ls.Lab, URL: page.String(), ExpiresAt: ls.ExpiresAt, MaxMinutes: ls.MaxMinutes}
+	sess := &labstate.Session{Site: a.creds.Site, ID: ls.ID, Lab: ls.Lab, URL: page.String(), ExpiresAt: ls.ExpiresAt, MaxMinutes: ls.MaxMinutes, Kind: ls.Kind, DeadlineAt: ls.DeadlineAt}
+	if sess.IsPlayground() {
+		fmt.Printf("Playground time started for %s on %s — %d minutes until it stops and is removed.\n", who, a.creds.Site, ls.MaxMinutes)
+	} else {
+		fmt.Printf("Lab session started for %s on %s — the lab page opens once the lab is ready.\n", who, a.creds.Site)
+	}
 	if sess.Lab == "" {
 		sess.Lab = lab
 	}

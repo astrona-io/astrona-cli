@@ -124,8 +124,10 @@ func releaseLab(w io.Writer, clusterName string) {
 	}
 }
 
-// forgetLab removes everything remembered about a destroyed lab.
+// forgetLab removes everything remembered about a destroyed lab — first
+// ending a timed playground (its watchdog and its clock).
 func forgetLab(clusterName string) {
+	endPlayground(clusterName)
 	if err := labstate.Remove(clusterName); err != nil {
 		ui.Warnf("%s", err)
 	}

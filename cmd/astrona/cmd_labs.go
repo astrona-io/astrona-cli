@@ -82,7 +82,15 @@ func labArg(args []string, flags *rootFlags) error {
 			}
 			t, l, ok := c.Find(args[0])
 			if !ok {
-				training, _, _ := strings.Cut(args[0], "/")
+				// The name may start with an owner (astrona-io/ATS014/…): hint at the training.
+				training, rest, _ := strings.Cut(args[0], "/")
+				if _, known := c.Training(training); !known {
+					if second, _, ok := strings.Cut(rest, "/"); ok {
+						if _, known := c.Training(second); known {
+							training = second
+						}
+					}
+				}
 				return fmt.Errorf("no lab %s in the catalog — `astrona labs %s` lists that training's labs, `astrona labs --refresh` re-reads the catalog", args[0], training)
 			}
 			flags.labArg = args[0]
@@ -127,7 +135,9 @@ func newLabsCmd() *cobra.Command {
 			"  astrona labs                       trainings\n" +
 			"  astrona labs ATS014                its labs\n" +
 			"  astrona labs --search routing      search lab titles\n" +
-			"  astrona run ATS014/section-010/module-01/lab-02\n\n" +
+			"  astrona run ATS014/section-010/module-01/lab-02\n" +
+			"  astrona run astrona-io/ATS014/section-010/module-01/lab-02   (the same, owner first)\n" +
+			"  astrona run astrona-io/ATS014/section-010/module-01/playground\n\n" +
 			"A lab from the catalog is a remote lab: it's fetched with git and asks for your trust " +
 			"before it runs, like any --git lab. The catalog is cached for an hour (--refresh reads " +
 			"it again).",

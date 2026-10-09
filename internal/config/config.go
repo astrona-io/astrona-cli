@@ -34,6 +34,37 @@ type DocsConfig struct {
 type MetadataConfig struct {
 	Name string     `yaml:"name"`
 	Docs DocsConfig `yaml:"docs"`
+	// TimeLimit is how long a playground may run ("90m", "2h", "1h30m")
+	// before its clock stops and its cluster is removed. Empty: the site's
+	// default (2h). Only playgrounds started from the catalog are timed.
+	TimeLimit string `yaml:"timeLimit"`
+}
+
+// MinTimeLimit and MaxTimeLimit bound metadata.timeLimit.
+const (
+	MinTimeLimit = 5 * time.Minute
+	MaxTimeLimit = 24 * time.Hour
+)
+
+// TimeLimitMinutes is metadata.timeLimit in minutes (0: not set).
+func (m MetadataConfig) TimeLimitMinutes() (int, error) {
+	if strings.TrimSpace(m.TimeLimit) == "" {
+		return 0, nil
+	}
+	d, err := time.ParseDuration(strings.TrimSpace(m.TimeLimit))
+	if err != nil {
+		return 0, fmt.Errorf("metadata.timeLimit %q isn't a duration — write it like 90m, 2h or 1h30m", m.TimeLimit)
+	}
+	if d < MinTimeLimit || d > MaxTimeLimit {
+		return 0, fmt.Errorf("metadata.timeLimit %s must be between %s and %s", d, MinTimeLimit, MaxTimeLimit)
+	}
+	return int(d.Minutes()), nil
+}
+
+// ValidateTimeLimit checks metadata.timeLimit before anything is built.
+func ValidateTimeLimit(cfg *LabConfig) error {
+	_, err := cfg.Metadata.TimeLimitMinutes()
+	return err
 }
 
 // RuntimeConfig picks which backend runs the lab. An empty/omitted Type
