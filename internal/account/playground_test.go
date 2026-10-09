@@ -17,22 +17,22 @@ func TestPlaygroundSessionAndStop(t *testing.T) {
 	var created map[string]any
 	var stops []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/api/cli/lab-sessions":
+		switch r.URL.Path {
+		case "/api/cli/lab-sessions":
 			json.NewDecoder(r.Body).Decode(&created)
 			w.Header().Set("Content-Type", "application/json")
 			w.Write([]byte(`{"id":"s-1","token":"t","lab":"ATS014/section-010/module-01/playground","url":"http://x/labs/a","max_minutes":90,"kind":"playground","deadline_at":"2026-10-08T12:00:00Z"}`))
-		case r.URL.Path == "/api/cli/lab-sessions/s-1/stop":
+		case "/api/cli/lab-sessions/s-1/stop":
 			var body map[string]string
 			json.NewDecoder(r.Body).Decode(&body)
 			stops = append(stops, r.Header.Get("Authorization")+" "+body["reason"])
 			w.Write([]byte(`{}`))
-		case r.URL.Path == "/api/cli/lab-sessions/s-1/renew":
+		case "/api/cli/lab-sessions/s-1/renew":
 			w.Write([]byte(`{"previous_id":"s-1","banked_seconds":600,"id":"s-2","expires_at":"2026-10-09T12:00:00Z","deadline_at":"2026-10-08T14:00:00Z","max_minutes":90}`))
-		case r.URL.Path == "/api/cli/lab-sessions/done/renew":
+		case "/api/cli/lab-sessions/done/renew":
 			w.WriteHeader(http.StatusConflict)
 			w.Write([]byte(`{"statusMessage":"This playground has already stopped"}`))
-		case r.URL.Path == "/api/cli/lab-sessions/gone/stop":
+		case "/api/cli/lab-sessions/gone/stop":
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte(`{"statusMessage":"Session not found"}`))
 		default:
