@@ -13,5 +13,5 @@ func noticeOtherSite(site, what string) {
 	if site == "" || account.IsDefaultSite(site) {
 		return
 	}
-	ui.Warnf("Not astrona.io: %s goes to %s", what, site)
+	ui.Warnf("Not astrona.io — sending %s to %s", what, site)
 }

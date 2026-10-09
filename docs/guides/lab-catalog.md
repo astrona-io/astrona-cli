@@ -63,7 +63,7 @@ The site is remembered with the sign-in: `whoami`, `logout` and catalog labs use
 Signed in to any site other than astrona.io — a local or self-hosted Astrona — every command that sends it something says so first, so nothing goes to an unexpected place unnoticed:
 
 ```
-[WARN] Not astrona.io: your lab results goes to http://localhost:3000
+[WARN] Not astrona.io — sending your lab results to http://localhost:3000
 ```
 
 It is shown for the sign-in, a new lab session, `astrona submit`, `astrona run renew`, stopping a playground's clock and `astrona logout`; for astrona.io itself nothing extra is printed.
