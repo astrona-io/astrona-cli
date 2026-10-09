@@ -97,6 +97,18 @@ func NormalizeSite(raw string) (string, error) {
 	return u.Scheme + "://" + strings.ToLower(u.Host), nil
 }
 
+// IsDefaultSite reports whether site is the official Astrona site
+// (DefaultSite, with or without "www."). Anything else — a local or
+// self-hosted Astrona (it is open source) — is worth telling the user about
+// before data is sent to it.
+func IsDefaultSite(site string) bool {
+	u, err := url.Parse(strings.TrimSpace(site))
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return SameSite(u, DefaultSite)
+}
+
 // sameOrigin reports whether a and b have the same scheme and host:port.
 func sameOrigin(a, b *url.URL) bool {
 	return a.Scheme == b.Scheme && strings.EqualFold(a.Host, b.Host)

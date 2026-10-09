@@ -156,6 +156,7 @@ func stopPlaygroundClock(ctx context.Context, sess *labstate.Session, reason str
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
+	noticeOtherSite(creds.Site, "the playground time")
 	if err := client.StopLabSession(ctx, store, creds, sess.ID, reason); err != nil {
 		ui.Warnf("couldn't stop the playground's clock on %s: %s — it stops by itself at the time limit", sess.Site, err)
 	}

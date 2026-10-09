@@ -115,6 +115,7 @@ func renewPlayground(ctx context.Context, cluster string) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
+	noticeOtherSite(creds.Site, "the playground time so far")
 	renewed, err := client.RenewLabSession(ctx, store, creds, st.Session.ID)
 	if errors.Is(err, account.ErrPlaygroundStopped) {
 		return fmt.Errorf("%w — `astrona destroy %s`, then run it again", err, cluster)

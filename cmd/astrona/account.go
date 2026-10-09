@@ -86,6 +86,7 @@ func capitalize(s string) string {
 // costs nothing. The URL must be on the signed-in site. The session comes
 // back as it is remembered for the lab (labstate) — without its token.
 func (a *labAccount) startSession(ctx context.Context, command, lab string, opts ...account.SessionOptions) (*url.URL, *labstate.Session, error) {
+	noticeOtherSite(a.creds.Site, "this lab session (your account, the lab and its timing)")
 	ls, err := a.client.CreateLabSession(ctx, a.store, a.creds, lab, opts...)
 	if err != nil {
 		return nil, nil, labSessionError(err, a.creds.Site, command, lab)
