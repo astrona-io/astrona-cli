@@ -91,3 +91,16 @@ func TestNormalizeTestClusterName(t *testing.T) {
 		}
 	}
 }
+
+func TestTimeLimitMinutes(t *testing.T) {
+	for in, want := range map[string]int{"": 0, "90m": 90, "2h": 120, "1h30m": 90, " 45m ": 45} {
+		if got, err := (MetadataConfig{TimeLimit: in}).TimeLimitMinutes(); err != nil || got != want {
+			t.Errorf("TimeLimitMinutes(%q) = %d, %v; want %d", in, got, err, want)
+		}
+	}
+	for _, in := range []string{"soon", "90", "1m", "25h"} {
+		if _, err := (MetadataConfig{TimeLimit: in}).TimeLimitMinutes(); err == nil {
+			t.Errorf("TimeLimitMinutes(%q) accepted", in)
+		}
+	}
+}

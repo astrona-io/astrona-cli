@@ -52,7 +52,16 @@ type Session struct {
 	ExpiresAt string `json:"expiresAt,omitempty"`
 	// MaxMinutes is the attempt's time limit (0: not given).
 	MaxMinutes int `json:"maxMinutes,omitempty"`
+	// Kind is "playground" for a timed playground run ("" or "lab": a lab).
+	// Its clock stops at DeadlineAt (RFC 3339), when WatchdogPID — a
+	// detached `astrona playground-watchdog` — removes the cluster.
+	Kind        string `json:"kind,omitempty"`
+	DeadlineAt  string `json:"deadlineAt,omitempty"`
+	WatchdogPID int    `json:"watchdogPid,omitempty"`
 }
+
+// IsPlayground reports whether s is a timed playground run.
+func (s *Session) IsPlayground() bool { return s != nil && s.Kind == "playground" }
 
 // State is everything remembered about one lab.
 type State struct {

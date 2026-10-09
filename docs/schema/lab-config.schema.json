@@ -309,6 +309,9 @@
         "name": {
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
           "type": "string"
+        },
+        "timeLimit": {
+          "type": "string"
         }
       },
       "type": "object"

@@ -207,6 +207,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	// Ungrouped: listed under "Additional Commands" with completion and help.
 	rootCmd.AddCommand(newDocgenCmd(flags))
 	rootCmd.AddCommand(newSchemaCmd())
+	rootCmd.AddCommand(newPlaygroundWatchdogCmd())
 
 	return rootCmd
 }

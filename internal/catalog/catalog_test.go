@@ -66,6 +66,33 @@ func TestFindSearchAndLabIDs(t *testing.T) {
 	}
 }
 
+func TestFindWithOwnerAndByConvention(t *testing.T) {
+	tr, _ := ParseManifest([]byte(ats014), "https://github.com/astrona-io/ATS014.git", "ATS014")
+	c := Catalog{Trainings: []Training{tr}}
+	// The owner may lead the name; it must be the repository's.
+	if _, l, ok := c.Find("astrona-io/ATS014/section-010/module-01/lab-01"); !ok || l.ID != "ATS014/section-010/module-01/lab-01" {
+		t.Errorf("Find with owner = %+v %v", l, ok)
+	}
+	if _, _, ok := c.Find("someone-else/ATS014/section-010/module-01/lab-01"); ok {
+		t.Error("Find accepted another owner")
+	}
+	// A folder the manifest does not list, by convention.
+	for id, want := range map[string]string{
+		"ATS014/section-010/module-01/playground":            "sections/section-010/module-01/playground",
+		"astrona-io/ATS014/section-010/module-03/playground": "sections/section-010/module-03/playground",
+	} {
+		if _, l, ok := c.Find(id); !ok || l.Path != want {
+			t.Errorf("Find(%q) = %+v %v, want path %s", id, l, ok, want)
+		}
+	}
+	// Only a playground is found by convention: a mistyped lab is not.
+	for _, id := range []string{"ATS999/section-010/module-01/playground", "ATS014/section-020/module-02/lab-03", "ATS014", "ATS014/../playground", "ATS014/a/../../playground"} {
+		if _, l, ok := c.Find(id); ok {
+			t.Errorf("Find(%q) = %+v, want not found", id, l)
+		}
+	}
+}
+
 func TestFetchFromGitHub(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {

@@ -43,6 +43,7 @@ func logout(client *account.Client, store account.Store) error {
 	revoked := "nothing to revoke on the server"
 	if creds != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), revokeTimeout)
+		noticeOtherSite(creds.Site, "the sign-out")
 		err := client.Revoke(ctx, creds.Site, creds.RefreshToken)
 		cancel()
 		if err != nil {

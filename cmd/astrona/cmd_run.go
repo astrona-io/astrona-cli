@@ -1,6 +1,7 @@
 package main
 
 import (
+	"astrona/internal/account"
 	"context"
 	"fmt"
 	"net/url"
@@ -50,7 +51,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"--yes never touches other labs.",
 		Example: `  astrona run ATS014/section-010/module-01/lab-02   # catalog lab: needs astrona login
   astrona run ./labs/my-lab
-  astrona run --git https://github.com/org/labs -c labs/net-01`,
+  astrona run --git https://github.com/org/labs -c labs/net-01
+  astrona run renew                                  # a running playground: its full time limit again`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
@@ -103,7 +105,12 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			var page *url.URL
 			var sess *labstate.Session
 			if acct != nil {
-				if page, sess, err = acct.startSession(ctx, "run", flags.catalogLab); err != nil {
+				var opts []account.SessionOptions
+				if isPlaygroundName(flags.catalogLab) {
+					minutes, _ := cfg.Metadata.TimeLimitMinutes() // checked by lifecycle.Validate
+					opts = append(opts, account.SessionOptions{Kind: "playground", TimeLimitMinutes: minutes})
+				}
+				if page, sess, err = acct.startSession(ctx, "run", flags.catalogLab, opts...); err != nil {
 					return err
 				}
 			}
@@ -134,6 +141,11 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err := bringUpLab(cfg, baseDir, flags, rep, sess); err != nil {
 				return err
 			}
+			if sess.IsPlayground() {
+				// No lab page to open: the clock is running; the watchdog ends it.
+				startPlaygroundWatchdog(clusterName, sess)
+				return nil
+			}
 			if page != nil {
 				printAndOpen(page)
 				printTimeLimit(sess)
@@ -145,6 +157,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	addParallelFlag(cmd, flags)
 	addKeepContextFlag(cmd, flags)
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "If the lab is already running, destroy it and start over without asking")
+	cmd.AddCommand(newRunRenewCmd())
 	return cmd
 }
 

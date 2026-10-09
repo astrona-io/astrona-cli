@@ -154,6 +154,7 @@ func sendResult(ctx context.Context, w io.Writer, clusterName, catalogLab string
 		return false
 	}
 
+	noticeOtherSite(creds.Site, "your lab results")
 	lr, err := client.SendLabResult(ctx, store, creds, sess.ID, result)
 	switch {
 	case err == nil:

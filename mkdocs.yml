@@ -93,6 +93,7 @@ nav:
               - reference/cli/astrona_labs_sources.md
               - reference/cli/astrona_use.md
               - reference/cli/astrona_run.md
+              - reference/cli/astrona_run_renew.md
               - reference/cli/astrona_docs.md
               - reference/cli/astrona_shell.md
               - reference/cli/astrona_ssh.md

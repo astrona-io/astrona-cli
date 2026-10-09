@@ -32,6 +32,9 @@ func Validate(cfg *config.LabConfig) error {
 	if err := config.ValidateKindClusters(cfg); err != nil {
 		return err
 	}
+	if err := config.ValidateTimeLimit(cfg); err != nil {
+		return err
+	}
 	if err := config.ValidateExam(cfg); err != nil {
 		return err
 	}

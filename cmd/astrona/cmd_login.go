@@ -84,6 +84,7 @@ func login(ctx context.Context, client *account.Client, store account.Store, sit
 	if err != nil {
 		return err
 	}
+	noticeOtherSite(site, "your sign-in (this device's name)")
 	dc, err := client.StartDeviceFlow(ctx, site, sc, device)
 	if err != nil {
 		return err

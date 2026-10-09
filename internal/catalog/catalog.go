@@ -137,7 +137,39 @@ func LabID(trainingID, labPath string) string {
 }
 
 // Find looks a lab up by its catalog name (training id case-insensitive).
+// The name may start with the GitHub owner of the training's repository —
+// astrona-io/ATS014/section-010/module-01/lab-02 — so it says where the code
+// comes from; the owner must match. A module's playground, which manifests do
+// not list, is found by convention:
+// ATS014/section-010/module-01/playground → sections/section-010/module-01/playground.
+// Any other unlisted name is not found, so a typo still gets the catalog's hint.
+// Whatever it resolves to is still fetched with git and trust-checked like
+// any remote lab, and must hold a config.yaml to run.
 func (c Catalog) Find(id string) (Training, Lab, bool) {
+	if t, l, ok := c.find(id); ok {
+		return t, l, true
+	}
+	owner, rest, ok := strings.Cut(id, "/")
+	if !ok {
+		return Training{}, Lab{}, false
+	}
+	for _, t := range c.Trainings {
+		if o, _, ok := githubRepo(t.Repo); ok && strings.EqualFold(o, owner) {
+			if t, l, ok := c.find(rest); ok && sameTraining(t, o) {
+				return t, l, true
+			}
+		}
+	}
+	return Training{}, Lab{}, false
+}
+
+func sameTraining(t Training, owner string) bool {
+	o, _, ok := githubRepo(t.Repo)
+	return ok && strings.EqualFold(o, owner)
+}
+
+// find is Find without the owner: a listed lab, else a playground by convention.
+func (c Catalog) find(id string) (Training, Lab, bool) {
 	for _, t := range c.Trainings {
 		for _, l := range t.Labs {
 			if strings.EqualFold(l.ID, id) {
@@ -145,7 +177,30 @@ func (c Catalog) Find(id string) (Training, Lab, bool) {
 			}
 		}
 	}
-	return Training{}, Lab{}, false
+	training, rest, ok := strings.Cut(id, "/")
+	if !ok || rest == "" || path.Base(rest) != "playground" {
+		return Training{}, Lab{}, false
+	}
+	t, ok := c.Training(training)
+	if !ok {
+		return Training{}, Lab{}, false
+	}
+	p, ok := labPathFromID(rest)
+	if !ok {
+		return Training{}, Lab{}, false
+	}
+	return t, Lab{ID: LabID(t.ID, p), Title: rest, Path: p}, true
+}
+
+// labPathFromID is a playground's folder from the rest of its catalog name:
+// section-010/module-01/playground → sections/section-010/module-01/playground.
+func labPathFromID(rest string) (string, bool) {
+	for _, part := range strings.Split(rest, "/") {
+		if !idPattern.MatchString(part) {
+			return "", false
+		}
+	}
+	return cleanLabPath("sections/" + rest)
 }
 
 // Training looks a training up by id (case-insensitive).
