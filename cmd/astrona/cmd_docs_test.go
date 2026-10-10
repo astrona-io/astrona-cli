@@ -70,9 +70,9 @@ func TestReadLabDocStaysInsideLab(t *testing.T) {
 }
 
 func TestLabDocsAndList(t *testing.T) {
-	cfg := &config.LabConfig{Metadata: config.MetadataConfig{Name: "x", Docs: config.DocsConfig{ExamQuestion: "q.md", Guide: "g.md"}}}
+	cfg := &config.LabConfig{Metadata: config.MetadataConfig{Name: "x", Docs: config.DocsConfig{Question: "q.md", Solution: "g.md"}}}
 	docs := labDocs(cfg)
-	if len(docs) != 2 || docs[0].key != "question" || docs[1].key != "guide" || !docs[1].spoiler || docs[0].spoiler {
+	if len(docs) != 2 || docs[0].key != "question" || docs[1].key != "solution" || !docs[1].spoiler || docs[0].spoiler {
 		t.Fatalf("labDocs = %+v", docs)
 	}
 
@@ -102,7 +102,7 @@ func TestSplitDocsArgs(t *testing.T) {
 		{[]string{"question"}, "question", "", false},
 		{[]string{"ATS016/section-020/module-01/lab-01"}, "", "ATS016/section-020/module-01/lab-01", false},
 		{[]string{"question", "ATS016/section-020/module-01/lab-01"}, "question", "ATS016/section-020/module-01/lab-01", false},
-		{[]string{"ATS016/section-020/module-01/lab-01", "guide"}, "guide", "ATS016/section-020/module-01/lab-01", false},
+		{[]string{"ATS016/section-020/module-01/lab-01", "guide"}, "solution", "ATS016/section-020/module-01/lab-01", false},
 		{[]string{"answers"}, "", "", true},
 		{[]string{"question", "guide"}, "", "", true},
 	} {
