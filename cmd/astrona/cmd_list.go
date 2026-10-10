@@ -33,6 +33,7 @@ type labRow struct {
 	uptime  string
 	nics    string
 	details string
+	lab     string // qemu: the lab the VM belongs to ("" if its handle predates recording it)
 
 	// Filled for kind by enrichKindHealth (`astrona list` only — other
 	// callers just need names); "-" when unknown/not applicable.
@@ -203,6 +204,7 @@ func collectQEMURows() ([]labRow, int, error) {
 			uptime:  uptime,
 			nics:    formatNICs(h),
 			details: fmt.Sprintf("ssh %s@%s -p %d", h.SSHUser, h.SSHHost, h.SSHPort),
+			lab:     h.LabName,
 		})
 	}
 

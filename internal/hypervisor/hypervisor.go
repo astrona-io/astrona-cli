@@ -2317,6 +2317,7 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 
 	handle := &config.QEMUHandle{
 		ClusterName:  clusterName,
+		LabName:      labName,
 		PID:          pid,
 		SSHHost:      "127.0.0.1",
 		SSHPort:      sshPort,
@@ -2485,4 +2486,36 @@ func StateExists(name string) bool {
 	}
 	_, err = os.Stat(filepath.Join(dir, "handle.json"))
 	return err == nil
+}
+
+// MultiVMs are the VMs (cluster names, sorted) of multi-VM qemu lab
+// labName that have state — running or not — as recorded in their
+// handle.json. Empty for a single-VM lab, whose one VM is labName itself.
+func MultiVMs(labName string) []string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	base := filepath.Join(home, ".astrona", "qemu")
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == labName {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(base, e.Name(), "handle.json"))
+		if err != nil {
+			continue
+		}
+		var h config.QEMUHandle
+		if json.Unmarshal(data, &h) != nil || h.LabName != labName || h.ClusterName != e.Name() {
+			continue
+		}
+		out = append(out, e.Name())
+	}
+	sort.Strings(out)
+	return out
 }

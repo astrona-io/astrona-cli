@@ -99,22 +99,26 @@ func Collect(cfg *config.LabConfig, baseDir string) ([]Resource, error) {
 	case fi.Mode()&fs.ModeSymlink != 0 || !fi.IsDir():
 		return nil, fmt.Errorf("%s/ must be a folder (not a link)", config.ResourcesDir)
 	}
+	rt, err := os.OpenRoot(root) // every read below stays inside resources/
+	if err != nil {
+		return nil, fmt.Errorf("open %s/: %w", config.ResourcesDir, err)
+	}
+	defer rt.Close()
 
 	qemu := cfg.Runtime.Type == "qemu"
 	var out []Resource
 	covered := map[string]bool{} // top-level names an entry covers
 	for i, e := range cfg.Resources {
 		file := path.Clean(strings.TrimSpace(e.File))
-		full, err := config.JoinStrictlyWithinBaseDir(root, filepath.FromSlash(file))
-		if err != nil {
+		if _, err := config.JoinStrictlyWithinBaseDir(root, filepath.FromSlash(file)); err != nil {
 			return nil, fmt.Errorf("resources[%d]: %w", i, err)
 		}
-		fi, err := os.Lstat(full)
-		if err != nil {
+		fi, err := lstatNoLinks(rt, file)
+		switch {
+		case errors.Is(err, errLink):
+			return nil, fmt.Errorf("resources[%d]: %w", i, err)
+		case err != nil:
 			return nil, fmt.Errorf("resources[%d]: %s/%s doesn't exist", i, config.ResourcesDir, file)
-		}
-		if fi.Mode()&fs.ModeSymlink != 0 {
-			return nil, fmt.Errorf("resources[%d]: %s/%s is a link — resources must be real files", i, config.ResourcesDir, file)
 		}
 		r := Resource{File: file, Description: strings.TrimSpace(e.Description), VM: e.VM, Dir: fi.IsDir()}
 		r.Name = nameOf(file)
@@ -124,7 +128,7 @@ func Collect(cfg *config.LabConfig, baseDir string) ([]Resource, error) {
 		case strings.TrimSpace(e.Run) != "":
 			r.How, r.Run = HowCommand, strings.TrimSpace(e.Run)
 		default:
-			r.How = howOf(full, fi, qemu)
+			r.How = howOf(rt, file, fi, qemu)
 		}
 		out = append(out, r)
 		top, _, _ := strings.Cut(file, "/")
@@ -139,16 +143,13 @@ func Collect(cfg *config.LabConfig, baseDir string) ([]Resource, error) {
 		if strings.HasPrefix(de.Name(), ".") || covered[strings.ToLower(de.Name())] {
 			continue
 		}
-		fi, err := os.Lstat(filepath.Join(root, de.Name()))
+		fi, err := lstatNoLinks(rt, de.Name())
 		if err != nil {
 			return nil, err
 		}
-		if fi.Mode()&fs.ModeSymlink != 0 {
-			return nil, fmt.Errorf("%s/%s is a link — resources must be real files", config.ResourcesDir, de.Name())
-		}
 		out = append(out, Resource{
 			Name: nameOf(de.Name()), File: de.Name(), Dir: fi.IsDir(),
-			How: howOf(filepath.Join(root, de.Name()), fi, qemu),
+			How: howOf(rt, de.Name(), fi, qemu),
 		})
 	}
 
@@ -176,12 +177,37 @@ func nameOf(file string) string {
 	return base
 }
 
-// howOf picks how a resource without a run command or type is used.
-func howOf(full string, fi fs.FileInfo, qemu bool) string {
+// errLink marks a resource path with a link in it.
+var errLink = errors.New("is a link — resources must be real files")
+
+// lstatNoLinks is Lstat of file (slash-separated, inside rt) that refuses
+// a link anywhere in its path — a linked folder in the middle
+// (home/.ssh/id_ed25519 with home → ~) as much as the file itself. rt
+// already stops anything resolving outside it; this also keeps links
+// inside it out, so what's copied is exactly what's in the lab.
+func lstatNoLinks(rt *os.Root, file string) (fs.FileInfo, error) {
+	var fi fs.FileInfo
+	parts := strings.Split(file, "/")
+	for i := range parts {
+		p := strings.Join(parts[:i+1], "/")
+		var err error
+		if fi, err = rt.Lstat(filepath.FromSlash(p)); err != nil {
+			return nil, err
+		}
+		if fi.Mode()&fs.ModeSymlink != 0 {
+			return nil, fmt.Errorf("%s/%s %w", config.ResourcesDir, p, errLink)
+		}
+	}
+	return fi, nil
+}
+
+// howOf picks how a resource (file, inside rt) without a run command or
+// type is used.
+func howOf(rt *os.Root, file string, fi fs.FileInfo, qemu bool) string {
 	if fi.IsDir() {
 		return HowFile
 	}
-	switch strings.ToLower(filepath.Ext(full)) {
+	switch strings.ToLower(path.Ext(file)) {
 	case ".sh":
 		return HowBash
 	case ".yaml", ".yml":
@@ -190,14 +216,14 @@ func howOf(full string, fi fs.FileInfo, qemu bool) string {
 		}
 		return HowApply
 	}
-	if fi.Mode()&0o111 != 0 && hasShebang(full) {
+	if fi.Mode()&0o111 != 0 && hasShebang(rt, file) {
 		return HowExec
 	}
 	return HowFile
 }
 
-func hasShebang(file string) bool {
-	f, err := os.Open(file)
+func hasShebang(rt *os.Root, file string) bool {
+	f, err := rt.Open(filepath.FromSlash(file))
 	if err != nil {
 		return false
 	}
@@ -231,7 +257,11 @@ func Snapshot(clusterName, baseDir string, list []Resource) (string, error) {
 	if len(list) == 0 {
 		return "", Remove(clusterName)
 	}
-	root := filepath.Join(baseDir, config.ResourcesDir)
+	rt, err := openNoLink(filepath.Join(baseDir, config.ResourcesDir))
+	if err != nil {
+		return "", err
+	}
+	defer rt.Close()
 	if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
 		return "", err
 	}
@@ -241,14 +271,16 @@ func Snapshot(clusterName, baseDir string, list []Resource) (string, error) {
 	}
 	defer os.RemoveAll(tmp) // gone after the rename; cleans up on error
 
-	var budget copyBudget
+	budget := copyBudget{dirMode: 0o700, fileMode: 0o600, execMode: 0o700}
 	for _, r := range list {
-		src := filepath.Join(root, filepath.FromSlash(r.File))
+		if !fs.ValidPath(r.File) || r.File == "." {
+			return "", fmt.Errorf("%s/%s: not a path inside %s/", config.ResourcesDir, r.File, config.ResourcesDir)
+		}
 		dst := filepath.Join(tmp, filepath.FromSlash(r.File))
 		if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
 			return "", err
 		}
-		if err := budget.copyTree(src, dst); err != nil {
+		if err := budget.copyTree(rt, r.File, dst); err != nil {
 			return "", fmt.Errorf("%s/%s: %w", config.ResourcesDir, r.File, err)
 		}
 	}
@@ -280,29 +312,50 @@ func Remove(clusterName string) error {
 	return nil
 }
 
-// copyBudget enforces the limits across one Snapshot.
+// openNoLink opens dir as an os.Root, refusing dir itself being a link
+// (os.OpenRoot would follow it).
+func openNoLink(dir string) (*os.Root, error) {
+	fi, err := os.Lstat(dir)
+	if err != nil {
+		return nil, err
+	}
+	if fi.Mode()&fs.ModeSymlink != 0 || !fi.IsDir() {
+		return nil, fmt.Errorf("%s must be a folder (not a link)", dir)
+	}
+	return os.OpenRoot(dir)
+}
+
+// copyBudget enforces the limits across one copy, and the modes it
+// writes: folders get dirMode, files fileMode — execMode when their
+// owner may run them.
 type copyBudget struct {
 	files int
 	bytes int64
+
+	dirMode, fileMode, execMode os.FileMode
 }
 
-// copyTree copies a file or folder; links are refused, files keep only
-// their owner's executable bit (0700/0600).
-func (b *copyBudget) copyTree(src, dst string) error {
-	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+// copyTree copies src (a file or folder, slash-separated, inside rt) to
+// dst. Every read goes through rt, so nothing outside it is reached, and a
+// link anywhere — in src's path or under it — is refused.
+func (b *copyBudget) copyTree(rt *os.Root, src, dst string) error {
+	if _, err := lstatNoLinks(rt, src); err != nil {
+		return err
+	}
+	return fs.WalkDir(rt.FS(), src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(src, p)
-		if err != nil {
-			return err
+		rel := "."
+		if p != src {
+			rel = strings.TrimPrefix(p, src+"/")
 		}
-		target := filepath.Join(dst, rel)
+		target := filepath.Join(dst, filepath.FromSlash(rel))
 		if d.Type()&fs.ModeSymlink != 0 {
-			return fmt.Errorf("%s is a link — resources must be real files", rel)
+			return fmt.Errorf("%s %w", rel, errLink)
 		}
 		if d.IsDir() {
-			return os.MkdirAll(target, 0o700)
+			return os.MkdirAll(target, b.dirMode)
 		}
 		if !d.Type().IsRegular() {
 			return fmt.Errorf("%s isn't a regular file", rel)
@@ -321,20 +374,24 @@ func (b *copyBudget) copyTree(src, dst string) error {
 		case b.bytes > maxTotal:
 			return fmt.Errorf("resources add up to more than %d MB", maxTotal>>20)
 		}
-		mode := os.FileMode(0o600)
+		mode := b.fileMode
 		if fi.Mode()&0o100 != 0 {
-			mode = 0o700
+			mode = b.execMode
 		}
-		return copyFile(p, target, mode)
+		return copyFile(rt, p, target, mode)
 	})
 }
 
-func copyFile(src, dst string, mode os.FileMode) (err error) {
-	in, err := os.Open(src)
+// copyFile copies src (slash-separated, inside rt) to a new file dst.
+func copyFile(rt *os.Root, src, dst string, mode os.FileMode) (err error) {
+	in, err := rt.Open(filepath.FromSlash(src))
 	if err != nil {
 		return err
 	}
 	defer in.Close()
+	if fi, err := in.Stat(); err != nil || !fi.Mode().IsRegular() {
+		return fmt.Errorf("%s isn't a regular file", src)
+	}
 	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
 	if err != nil {
 		return err
@@ -423,9 +480,16 @@ func Labs() ([]string, error) {
 // file is only replaced with force; files are written 0644/0755 (they're
 // the student's now), links are never followed.
 func (r Resource) CopyTo(dir, dest string, force bool) (string, error) {
-	src, err := r.Path(dir)
+	if _, err := r.Path(dir); err != nil {
+		return "", err
+	}
+	rt, err := openNoLink(dir)
 	if err != nil {
 		return "", err
+	}
+	defer rt.Close()
+	if _, err := lstatNoLinks(rt, r.File); err != nil { // before replacing anything
+		return "", fmt.Errorf("copy %s: %w", r.Name, err)
 	}
 	if fi, err := os.Stat(dest); err == nil && fi.IsDir() {
 		dest = filepath.Join(dest, path.Base(r.File))
@@ -438,35 +502,8 @@ func (r Resource) CopyTo(dir, dest string, force bool) (string, error) {
 			return "", err
 		}
 	}
-	var budget copyBudget
-	err = filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(src, p)
-		target := filepath.Join(dest, rel)
-		switch {
-		case d.Type()&fs.ModeSymlink != 0:
-			return fmt.Errorf("%s is a link", rel)
-		case d.IsDir():
-			return os.MkdirAll(target, 0o755)
-		case !d.Type().IsRegular():
-			return fmt.Errorf("%s isn't a regular file", rel)
-		}
-		fi, err := d.Info()
-		if err != nil {
-			return err
-		}
-		if budget.files++; budget.files > maxFiles {
-			return fmt.Errorf("more than %d files", maxFiles)
-		}
-		mode := os.FileMode(0o644)
-		if fi.Mode()&0o100 != 0 {
-			mode = 0o755
-		}
-		return copyFile(p, target, mode)
-	})
-	if err != nil {
+	budget := copyBudget{dirMode: 0o755, fileMode: 0o644, execMode: 0o755}
+	if err := budget.copyTree(rt, r.File, dest); err != nil {
 		return "", fmt.Errorf("copy %s: %w", r.Name, err)
 	}
 	return dest, nil

@@ -240,3 +240,84 @@ func TestLoadRefusesTamperedManifest(t *testing.T) {
 		t.Errorf("Labs = %v", labs)
 	}
 }
+
+// outsideSecret is a folder outside any lab holding .ssh/id_ed25519.
+func outsideSecret(t *testing.T) string {
+	t.Helper()
+	out := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(out, ".ssh"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(out, ".ssh", "id_ed25519"), []byte("SECRET"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+// A linked folder anywhere in a resource's path is refused, not only as
+// its last component.
+func TestCollectRefusesLinkedFolders(t *testing.T) {
+	for name, c := range map[string]struct {
+		link string // resources/<link> → a folder outside the lab
+		cfg  []config.LabResource
+	}{
+		"link in the middle of an entry": {link: "home", cfg: []config.LabResource{{File: "home/.ssh/id_ed25519"}}},
+		"deeper link in an entry":        {link: "tools/home", cfg: []config.LabResource{{File: "tools/home/.ssh/id_ed25519"}}},
+		"linked folder at the top":       {link: "home"},
+		"linked folder named by entry":   {link: "home", cfg: []config.LabResource{{File: "home"}}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := lab(t, map[string]string{"resources/a.sh": "", "resources/tools/x.sh": ""})
+			if err := os.Symlink(outsideSecret(t), filepath.Join(dir, "resources", filepath.FromSlash(c.link))); err != nil {
+				t.Fatal(err)
+			}
+			_, err := Collect(&config.LabConfig{Resources: c.cfg}, dir)
+			if err == nil || !strings.Contains(err.Error(), "is a link") {
+				t.Errorf("err = %v, want a link refused", err)
+			}
+		})
+	}
+}
+
+// Snapshot refuses links on its own too — the list it's handed may be
+// stale, or the folder may have changed since Collect.
+func TestSnapshotRefusesLinkedFolders(t *testing.T) {
+	for name, c := range map[string]struct {
+		link string
+		res  Resource
+	}{
+		"link in the middle of the path": {link: "home", res: Resource{Name: "id_ed25519", File: "home/.ssh/id_ed25519", How: HowFile}},
+		"linked folder inside a folder":  {link: "tool/home", res: Resource{Name: "tool", File: "tool", How: HowFile, Dir: true}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+			dir := lab(t, map[string]string{"resources/tool/main.go": "package main"})
+			if err := os.Symlink(outsideSecret(t), filepath.Join(dir, "resources", filepath.FromSlash(c.link))); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Snapshot("astro-lab-01", dir, []Resource{c.res}); err == nil || !strings.Contains(err.Error(), "is a link") {
+				t.Errorf("err = %v, want a link refused", err)
+			}
+			d, _ := Dir("astro-lab-01")
+			if _, err := os.Stat(d); err == nil {
+				t.Error("a failed snapshot left a copy behind")
+			}
+		})
+	}
+}
+
+// CopyTo doesn't follow a link in the middle of a path in the copy.
+func TestCopyToRefusesLinkedFolder(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Symlink(outsideSecret(t), filepath.Join(dir, "home")); err != nil {
+		t.Fatal(err)
+	}
+	r := Resource{Name: "id_ed25519", File: "home/.ssh/id_ed25519", How: HowFile}
+	dest := filepath.Join(t.TempDir(), "out")
+	if _, err := r.CopyTo(dir, dest, false); err == nil || !strings.Contains(err.Error(), "is a link") {
+		t.Errorf("err = %v, want a link refused", err)
+	}
+	if _, err := os.Stat(dest); err == nil {
+		t.Error("the secret was copied")
+	}
+}
