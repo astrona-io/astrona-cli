@@ -3870,11 +3870,11 @@
 <li><strong>WSL 2</strong> — <code>wsl --install --no-distribution</code> if WSL is missing (Windows asks for admin; restart afterwards).</li>
 <li><strong>Ubuntu</strong> — <code>wsl --install -d Ubuntu</code>; a window asks you to choose a Linux username and password. Set <code>ASTRONA_WSL_DISTRO</code> to use another distribution.</li>
 <li><strong>Docker</strong> — checks <code>docker info</code> works inside Ubuntu. If not, install Docker Desktop, start it, and turn on <em>Settings → Resources → WSL integration</em> for Ubuntu (<a href="https://docs.docker.com/desktop/features/wsl/">guide</a>).</li>
-<li><strong>astrona inside Ubuntu</strong> — the Linux astrona, into <code>~/.local/bin</code> (same release as the launcher).</li>
+<li><strong>astrona inside Ubuntu</strong> — the Linux astrona, into <code>~/.local/bin</code> (same release as the launcher; a development build of <code>astrona.exe</code> says so and installs the latest release). The download is checked against that release's <code>SHA256SUMS</code> before it is made executable; if the checksum is missing or does not match, nothing is installed.</li>
 <li><strong>kind and kubectl</strong> — runs <code>astrona setup</code> inside Ubuntu.</li>
 <li><strong>PATH</strong> — copies <code>astrona.exe</code> to <code>%LOCALAPPDATA%\Programs\astrona</code> and adds that folder to your <em>user</em> PATH (no admin).</li>
 </ol>
-<p>After that, any command — <code>astrona labs</code>, <code>astrona run …</code>, <code>astrona submit …</code> — runs inside Ubuntu, with the same output and exit codes (<code>astrona submit</code> still exits 2 for "graded, didn't pass"). Your arguments are passed through as they are, never re-parsed by a shell. <code>astrona --launcher-version</code> prints the launcher's own version.</p>
+<p>After that, any command — <code>astrona labs</code>, <code>astrona run …</code>, <code>astrona submit …</code> — runs inside Ubuntu, with the same output and exit codes (<code>astrona submit</code> still exits 2 for "graded, didn't pass"). Your arguments are passed through as they are, never re-parsed by a shell (the launcher uses <code>wsl --exec</code>, which skips the distribution's default shell). <code>astrona --launcher-version</code> prints the launcher's own version.</p>
 <h2 id="homebrew-macos-linux">Homebrew (macOS &amp; Linux)<a class="headerlink" href="#homebrew-macos-linux" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>brew<span class="w"> </span>install<span class="w"> </span>astrona-io/tap/astrona
 </code></pre></div>

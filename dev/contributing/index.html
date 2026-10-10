@@ -3517,6 +3517,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Releases
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3611,6 +3622,17 @@
     <span class="md-ellipsis">
       
         Dependency updates
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Releases
       
     </span>
   </a>
@@ -3722,6 +3744,9 @@
 </code></pre></div>
 <h2 id="dependency-updates">Dependency updates<a class="headerlink" href="#dependency-updates" title="Permanent link">&para;</a></h2>
 <p><a href="https://docs.renovatebot.com/">Renovate</a> — Mend's hosted GitHub App, configured by <code>.github/renovate.json5</code> — opens PRs for dependency updates; they get the full CI run like any other PR (jobs and logs: <a href="https://developer.mend.io">developer.mend.io</a>). Go module <strong>minor and patch</strong> updates are set to auto-merge: GitHub merges them as soon as the required checks on <code>main</code> (Lint, Unit tests, E2E) pass, and never when they fail. Major updates, the <code>go</code>/<code>toolchain</code> directive and GitHub Actions updates wait for a human review. New releases are only proposed after they're 3 days old. The Dependency Dashboard issue lists everything pending.</p>
+<h2 id="releases">Releases<a class="headerlink" href="#releases" title="Permanent link">&para;</a></h2>
+<p>Pushing a tag <code>vX.Y.Z</code> runs <code>.github/workflows/release.yml</code>: it builds the four binaries with build provenance, publishes the GitHub release as <strong>latest</strong>, updates the <a href="https://github.com/astrona-io/homebrew-tap">Homebrew tap</a> and then installs from the tap on macOS and Linux to check it.</p>
+<p>A tag with a <code>-</code> — a release candidate like <code>v0.4.0-rc1</code> — is published as a <strong>pre-release</strong>: it never becomes "latest", so <code>astrona upgrade</code>, the update notice and Homebrew keep offering the last stable release, and the tap isn't touched. Testers install an RC on purpose with <code>astrona versions install 0.4.0-rc1</code>.</p>
 
 
 
