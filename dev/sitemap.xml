@@ -49,6 +49,10 @@
          <lastmod>2026-10-10</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/guides/lab-resources/</loc>
+         <lastmod>2026-10-10</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/guides/linked-labs/</loc>
          <lastmod>2026-10-10</lastmod>
     </url>
@@ -218,6 +222,30 @@
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_reset/</loc>
+         <lastmod>2026-10-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_resource/</loc>
+         <lastmod>2026-10-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_resource_copy/</loc>
+         <lastmod>2026-10-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_resource_list/</loc>
+         <lastmod>2026-10-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_resource_path/</loc>
+         <lastmod>2026-10-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_resource_run/</loc>
+         <lastmod>2026-10-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_resource_show/</loc>
          <lastmod>2026-10-10</lastmod>
     </url>
     <url>
