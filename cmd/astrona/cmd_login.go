@@ -18,7 +18,7 @@ func newLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Sign in to your Astrona account (catalog labs need it)",
-		Long: "Sign this computer in to your Astrona account. Catalog labs (`astrona run ATS014/…`) are tied " +
+		Long: "Sign this computer in to your Astrona account. Catalog labs (`astrona run astrona.io/ATS014/…`) are tied " +
 			"to your account: `astrona run` starts a lab session for you and opens the lab page, which " +
 			"tracks your time. Labs from your own files or repositories (-c / --git) don't need it.\n\n" +
 			"Sign-in happens on the Astrona website: astrona opens a page on astrona.io in your browser. " +

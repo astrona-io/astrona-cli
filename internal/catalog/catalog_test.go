@@ -76,10 +76,24 @@ func TestFindWithOwnerAndByConvention(t *testing.T) {
 	if _, _, ok := c.Find("someone-else/ATS014/section-010/module-01/lab-01"); ok {
 		t.Error("Find accepted another owner")
 	}
+	// astrona.io stands for the astrona-io GitHub owner, in any case.
+	for _, id := range []string{"astrona.io/ATS014/section-010/module-01/lab-01", "Astrona.IO/ats014/section-010/module-01/lab-01"} {
+		if _, l, ok := c.Find(id); !ok || l.ID != "ATS014/section-010/module-01/lab-01" {
+			t.Errorf("Find(%q) = %+v %v", id, l, ok)
+		}
+	}
+	other, _ := ParseManifest([]byte(ats014), "https://github.com/someone-else/ATS014.git", "ATS014")
+	if _, _, ok := (Catalog{Trainings: []Training{other}}).Find("astrona.io/ATS014/section-010/module-01/lab-01"); ok {
+		t.Error("astrona.io/ matched a training owned by someone else")
+	}
+	if !LooksLikeLabID("astrona.io/ATS014/section-010/module-01/lab-01") {
+		t.Error("LooksLikeLabID rejects the astrona.io/ form")
+	}
 	// A folder the manifest does not list, by convention.
 	for id, want := range map[string]string{
 		"ATS014/section-010/module-01/playground":            "sections/section-010/module-01/playground",
 		"astrona-io/ATS014/section-010/module-03/playground": "sections/section-010/module-03/playground",
+		"astrona.io/ATS014/section-000/module-01/playground": "sections/section-000/module-01/playground",
 	} {
 		if _, l, ok := c.Find(id); !ok || l.Path != want {
 			t.Errorf("Find(%q) = %+v %v, want path %s", id, l, ok, want)

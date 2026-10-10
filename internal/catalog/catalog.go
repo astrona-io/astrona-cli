@@ -136,10 +136,15 @@ func LabID(trainingID, labPath string) string {
 	return trainingID + "/" + p
 }
 
+// OwnerAliases are names that stand for a GitHub owner at the start of a
+// lab's catalog name: astrona.io/ATS014/… is astrona-io/ATS014/….
+var OwnerAliases = map[string]string{"astrona.io": "astrona-io"}
+
 // Find looks a lab up by its catalog name (training id case-insensitive).
 // The name may start with the GitHub owner of the training's repository —
-// astrona-io/ATS014/section-010/module-01/lab-02 — so it says where the code
-// comes from; the owner must match. A module's playground, which manifests do
+// astrona-io/ATS014/section-010/module-01/lab-02, or astrona.io/ATS014/…
+// (OwnerAliases) — so it says where the code comes from; the owner must
+// match. A module's playground, which manifests do
 // not list, is found by convention:
 // ATS014/section-010/module-01/playground → sections/section-010/module-01/playground.
 // Any other unlisted name is not found, so a typo still gets the catalog's hint.
@@ -152,6 +157,9 @@ func (c Catalog) Find(id string) (Training, Lab, bool) {
 	owner, rest, ok := strings.Cut(id, "/")
 	if !ok {
 		return Training{}, Lab{}, false
+	}
+	if alias, ok := OwnerAliases[strings.ToLower(owner)]; ok {
+		owner = alias
 	}
 	for _, t := range c.Trainings {
 		if o, _, ok := githubRepo(t.Repo); ok && strings.EqualFold(o, owner) {

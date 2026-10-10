@@ -94,7 +94,7 @@ func splitDocsArgs(args []string) (key, lab string, err error) {
 		case catalog.LooksLikeLabID(a) && lab == "":
 			lab = a
 		default:
-			return "", "", fmt.Errorf("unexpected argument %q — expected one of %s and/or a catalog lab (ATS016/section-020/module-01/lab-01)", a, strings.Join(docKeys, ", "))
+			return "", "", fmt.Errorf("unexpected argument %q — expected one of %s and/or a catalog lab (astrona.io/ATS016/section-020/module-01/lab-01)", a, strings.Join(docKeys, ", "))
 		}
 	}
 	return key, lab, nil
@@ -114,7 +114,7 @@ func newDocsCmd(flags *rootFlags) *cobra.Command {
 			"  prerequisites  what to know before starting (metadata.docs.prerequisites)\n" +
 			"  guide          the full step-by-step solution (metadata.docs.guide) — spoilers\n\n" +
 			"Uses the lab config from -c/--file/--git (local, git or URL), or a catalog lab named as an " +
-			"argument (`astrona docs question ATS016/section-020/module-01/lab-01`).",
+			"argument (`astrona docs question astrona.io/ATS016/section-020/module-01/lab-01`).",
 		Example: `  astrona docs -c ./labs/my-lab
   astrona docs question -c ./labs/my-lab`,
 		ValidArgs: docKeys,

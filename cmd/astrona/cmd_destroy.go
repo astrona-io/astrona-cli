@@ -390,7 +390,7 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			"With a lab-name (as shown by `astrona list`, with or without the 'astro-' prefix — e.g. 'astro-my-lab' " +
 			"or just 'my-lab'), destroys that lab directly — no config needed, so -c/--file/--git/--git-ref are " +
 			"ignored and any teardown scripts are skipped.\n\n" +
-			"With a catalog name (ATS016/section-020/module-01/lab-01, as `astrona labs` lists it), destroys that " +
+			"With a catalog name (astrona.io/ATS016/section-020/module-01/lab-01, or without astrona.io/ as `astrona labs` lists it), destroys that " +
 			"lab through its config, teardown scripts included.\n\n" +
 			"With a glob pattern (contains *, ?, or [), matches against all currently-running lab names " +
 			"(same list `astrona list` shows, with or without the 'astro-' prefix) and destroys every match — " +
