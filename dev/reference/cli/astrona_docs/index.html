@@ -3491,13 +3491,14 @@
 <h2 id="astrona-docs">astrona docs<a class="headerlink" href="#astrona-docs" title="Permanent link">&para;</a></h2>
 <p>Read the lab's docs (task, hints, prerequisites, solution) in the terminal</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
-<p>Show a lab's own documentation from metadata.docs, rendered for the terminal and paged ($PAGER, else less; --no-pager to print). With no argument, lists what the lab provides.</p>
-<p>question       the task to solve (metadata.docs.examQuestion)
-  case-study     the same task with more guidance (metadata.docs.caseStudy)
-  prerequisites  what to know before starting (metadata.docs.prerequisites)
-  guide          the full step-by-step solution (metadata.docs.guide) — spoilers</p>
+<p>Show a lab's own documentation, rendered for the terminal and paged ($PAGER, else less; --no-pager to print). With no argument, lists what the lab provides.</p>
+<p>question       the task to solve (question.md, or metadata.docs.question)
+  case-study     the same task with more guidance (case-study.md, or metadata.docs.caseStudy)
+  prerequisites  what to know before starting (prerequisites.md, or metadata.docs.prerequisites)
+  solution       the full step-by-step solution (solution.md, or metadata.docs.solution) — spoilers; <code>guide</code> works too</p>
+<p>A doc metadata.docs doesn't list is found by that file name next to config.yaml.</p>
 <p>Uses the lab config from -c/--file/--git (local, git or URL), or a catalog lab named as an argument (<code>astrona docs question astrona.io/ATS016/section-020/module-01/lab-01</code>).</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona docs [question|case-study|prerequisites|guide] [catalog-lab] [flags]
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona docs [question|case-study|prerequisites|solution] [catalog-lab] [flags]
 </code></pre></div>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>  astrona docs -c ./labs/my-lab

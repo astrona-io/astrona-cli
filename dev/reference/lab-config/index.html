@@ -3843,28 +3843,28 @@
 <td>Lab name — becomes the cluster/VM name, prefixed <code>astro-</code>. Must start with a letter or digit and contain only letters, digits, <code>.</code>, <code>_</code> and <code>-</code> (no <code>/</code>, <code>,</code>, spaces or <code>..</code>) — see <a href="#names">Names</a></td>
 </tr>
 <tr>
-<td><code>docs.prerequisites</code></td>
+<td><code>docs.question</code></td>
 <td>string</td>
-<td>Path to a prerequisites doc</td>
+<td>The task statement. Default: <code>question.md</code> next to <code>config.yaml</code>, if it exists</td>
 </tr>
 <tr>
-<td><code>docs.examQuestion</code></td>
+<td><code>docs.solution</code></td>
 <td>string</td>
-<td>Path to the formal, self-contained task statement</td>
+<td>The full step-by-step walkthrough. Default: <code>solution.md</code></td>
+</tr>
+<tr>
+<td><code>docs.prerequisites</code></td>
+<td>string</td>
+<td>What to know before starting. Default: <code>prerequisites.md</code></td>
 </tr>
 <tr>
 <td><code>docs.caseStudy</code></td>
 <td>string</td>
-<td>Path to a softer, hint-driven version of the same task</td>
-</tr>
-<tr>
-<td><code>docs.guide</code></td>
-<td>string</td>
-<td>Path to the full step-by-step walkthrough</td>
+<td>A softer, hint-driven version of the same task. Default: <code>case-study.md</code></td>
 </tr>
 </tbody>
 </table>
-<p>Doc paths are relative to <code>config.yaml</code> and must stay inside the lab directory (absolute paths are rejected); students read them with <a href="../cli/astrona_docs/"><code>astrona docs</code></a>.</p>
+<p><code>docs</code> is optional: a doc it doesn't list is found by its default file name next to <code>config.yaml</code>, so a lab with <code>question.md</code> and <code>solution.md</code> beside its config needs no <code>docs</code> block at all. The older names <code>examQuestion</code> (= <code>question</code>) and <code>guide</code> (= <code>solution</code>) still work; setting both names of the same doc to different files is an error. Doc paths are relative to <code>config.yaml</code> and must stay inside the lab directory (absolute paths are rejected); students read them with <a href="../cli/astrona_docs/"><code>astrona docs</code></a>.</p>
 <h3 id="names">Names<a class="headerlink" href="#names" title="Permanent link">&para;</a></h3>
 <p><code>metadata.name</code>, <code>runtime.qemu[].name</code> and <code>runtime.kind.clusters[].name</code> become directory names under <code>~/.astrona/</code> (state that <code>astrona destroy</code> deletes) and parts of qemu command lines, so they must match <code>^[A-Za-z0-9][A-Za-z0-9._-]*$</code> and must not contain <code>..</code>. Every command checks this when it loads the config and refuses the lab otherwise, e.g. <code>metadata.name: invalid name 'x/../y': must start with a letter or digit …</code>. (<code>runtime.kind.clusters[].name</code> has a stricter rule of its own, below.) <code>astrona bundle load</code> applies the same rule to the lab name recorded in a bundle.</p>
 <h2 id="runtime"><code>runtime</code><a class="headerlink" href="#runtime" title="Permanent link">&para;</a></h2>
@@ -4658,9 +4658,9 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"k8s-basics-01"</span>
 <a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">docs</span><span class="p">:</span>
 <a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">prerequisites</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/prerequisites.md"</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">examQuestion</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/exam-question.md"</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">question</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/exam-question.md"</span>
 <a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nt">caseStudy</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/case-study.md"</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nt">guide</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/step-by-step-guide.md"</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nt">solution</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/step-by-step-guide.md"</span>
 <a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>
 <a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="nt">bootstrap</span><span class="p">:</span>
 <a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
