@@ -40,7 +40,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"with `astrona ssh`.\n\n" +
 			"For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) " +
 			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.\n\n" +
-			"A lab from the catalog (`astrona run ATS014/section-010/module-01/lab-02`, see `astrona labs`) " +
+			"A lab from the catalog (`astrona run astrona.io/ATS014/section-010/module-01/lab-02`, see `astrona labs`) " +
 			"is tied to your Astrona account: sign in first with `astrona login`. Before anything is built, " +
 			"astrona starts a lab session on Astrona; once the lab is ready it prints the lab page URL and " +
 			"opens it in your browser, which starts the clock there — setup time never counts. Labs from " +
@@ -49,7 +49,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"it is); --yes starts over without asking and is required when not in a terminal. If other " +
 			"labs are running, it also offers to destroy them first — only when asked in a terminal; " +
 			"--yes never touches other labs.",
-		Example: `  astrona run ATS014/section-010/module-01/lab-02   # catalog lab: needs astrona login
+		Example: `  astrona run astrona.io/ATS014/section-010/module-01/lab-02   # catalog lab: needs astrona login
   astrona run ./labs/my-lab
   astrona run --git https://github.com/org/labs -c labs/net-01
   astrona run renew                                  # a running playground: its full time limit again`,

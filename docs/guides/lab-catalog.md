@@ -6,10 +6,12 @@ You don't need a path or URL to start a lab: astrona knows the published trainin
 astrona labs                                   # trainings
 astrona labs ATS014                            # a training's labs
 astrona labs --search "fault injection"        # search lab titles
-astrona run ATS014/section-050/module-01/lab-01
+astrona run astrona.io/ATS014/section-050/module-01/lab-01
 ```
 
-A catalog name works wherever a command takes a lab: `astrona use ATS014/…` picks it for every command, `astrona run`, `submit`, `reset`, `test`, `validate` and `doctor ATS014/…`, and also the commands that otherwise take a running lab's name — `astrona status`, `shell`, `kubeconfig`, `destroy ATS014/…` and `astrona docs question ATS014/…`. That way the one name a student copies from astrona.io works for every step. Running-lab names (`my-lab`, `astro-my-lab`) and globs work as before: catalog names always contain a `/`, lab names never do.
+A lab's catalog name may start with the organization — `astrona.io/ATS014/…`, the form astrona.io shows and the course material uses — or with the GitHub owner, `astrona-io/ATS014/…`, or leave it out: `ATS014/…`. All three are the same lab; a name with another owner (`someone-else/ATS014/…`) is refused, so the name always says where the code comes from. A module's playground isn't listed in the training's manifest but is found by its folder: `astrona.io/ATS014/section-000/module-01/playground` → `sections/section-000/module-01/playground`.
+
+A catalog name works wherever a command takes a lab: `astrona use astrona.io/ATS014/…` picks it for every command, `astrona run`, `submit`, `reset`, `test`, `validate` and `doctor ATS014/…`, and also the commands that otherwise take a running lab's name — `astrona status`, `shell`, `kubeconfig`, `destroy ATS014/…` and `astrona docs question ATS014/…`. That way the one name a student copies from astrona.io works for every step. Running-lab names (`my-lab`, `astro-my-lab`) and globs work as before: catalog names always contain a `/`, lab names never do.
 
 ## Your Astrona account
 
