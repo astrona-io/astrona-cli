@@ -41,7 +41,7 @@ func watchGrading(pr *proctor.Proctor, cfg *config.LabConfig, lab string, interv
 		if err != nil {
 			return err
 		}
-		board := renderWatchBoard(results, pass, cfg.Validation.PassPercent, !pr.HintsHidden(), examState, time.Now())
+		board := renderWatchBoard(results, pass, cfg.Validation.PassPercent, !pr.HintsHidden(), examState, cfg.Exam.Strict, time.Now())
 		key := watchKey(results)
 		switch {
 		case tty:
@@ -72,7 +72,10 @@ func watchKey(results []proctor.CheckResult) string {
 	return b.String()
 }
 
-func renderWatchBoard(results []proctor.CheckResult, pass bool, passPercent int, hints bool, examState *exam.State, now time.Time) string {
+// renderWatchBoard draws one board. strict is exam.strict: past the time
+// limit a passing grade shows as not passing, exactly as `astrona submit`
+// would record it.
+func renderWatchBoard(results []proctor.CheckResult, pass bool, passPercent int, hints bool, examState *exam.State, strict bool, now time.Time) string {
 	var b strings.Builder
 	w := io.Writer(&b)
 	fmt.Fprintln(w)
@@ -95,6 +98,10 @@ func renderWatchBoard(results []proctor.CheckResult, pass bool, passPercent int,
 		line += " · Time: " + examState.Summary(now)
 	}
 	fmt.Fprintln(w, line)
+	if strictOverTime(examState, strict, pass, now) {
+		fmt.Fprintf(w, "Over the time limit — a submit now would not count as a pass (exam.strict).\n")
+		return b.String()
+	}
 	if pass {
 		fmt.Fprintf(w, "Passing — run `astrona submit` to record this attempt.\n")
 	} else {
