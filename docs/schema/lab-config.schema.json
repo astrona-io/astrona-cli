@@ -38,6 +38,12 @@
         },
         "prerequisites": {
           "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "solution": {
+          "type": "string"
         }
       },
       "type": "object"

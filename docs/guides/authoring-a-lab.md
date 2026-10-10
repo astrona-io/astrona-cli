@@ -154,22 +154,30 @@ metadata:
   name: "k8s-basics-01"
   docs:
     prerequisites: "docs/prerequisites.md"    # knowledge/tooling needed before attempting
-    examQuestion: "docs/exam-question.md"     # formal, self-contained task statement
+    question: "docs/exam-question.md"     # formal, self-contained task statement
     caseStudy: "docs/case-study.md"           # softer, hint-driven version of the same task
-    guide: "docs/step-by-step-guide.md"       # full walkthrough with the answer
+    solution: "docs/step-by-step-guide.md"       # full walkthrough with the answer
 ```
 
-`metadata.name` becomes the cluster/VM name (prefixed `astro-` by astrona). `metadata.docs` are Markdown files, relative to `config.yaml`, that students read with `astrona docs`:
+`metadata.name` becomes the cluster/VM name (prefixed `astro-` by astrona). `metadata.docs` are Markdown files, relative to `config.yaml`, that students read with `astrona docs`. The block is optional: a doc it doesn't list is found by its usual file name next to `config.yaml` — `question.md`, `solution.md`, `prerequisites.md`, `case-study.md` — so this is enough:
+
+```text
+labs/lab-01/
+  config.yaml      # metadata: { name: "ats-015-lab-010-01" } — no docs block needed
+  question.md
+  solution.md
+```
+
 
 ```sh
 astrona docs                 # lists what the lab provides
-astrona docs question        # docs.examQuestion — the task
-astrona docs case-study      # docs.caseStudy
-astrona docs prerequisites   # docs.prerequisites
-astrona docs guide           # docs.guide — shown with a "contains the full solution" warning
+astrona docs question        # docs.question (question.md) — the task
+astrona docs case-study      # docs.caseStudy (case-study.md)
+astrona docs prerequisites   # docs.prerequisites (prerequisites.md)
+astrona docs solution        # docs.solution (solution.md) — shown with a "full solution" warning
 ```
 
-They're rendered for the terminal (headings, code blocks, lists, inline code, bold, links) and paged; `astrona run` ends with "Your task: astrona docs question" when `examQuestion` is set. Write them as plain Markdown — tables and HTML are shown as-is. Doc paths can't point outside the lab directory, and control characters (terminal escape sequences) are stripped before anything is printed. Name the cluster context as `kind-astro-<metadata.name>` in your docs — or point students at `astrona shell <lab>`.
+They're rendered for the terminal (headings, code blocks, lists, inline code, bold, links) and paged; `astrona run` ends with "Your task: astrona docs question" when the lab has a question. Write them as plain Markdown — tables and HTML are shown as-is. Doc paths can't point outside the lab directory, and control characters (terminal escape sequences) are stripped before anything is printed. Name the cluster context as `kind-astro-<metadata.name>` in your docs — or point students at `astrona shell <lab>`.
 
 ## 2. Pick a runtime
 

@@ -266,7 +266,7 @@ func printLabStatus(w io.Writer, st labStatus) {
 
 // nextStep suggests the one most useful command for where the student is.
 func nextStep(st labStatus) string {
-	if st.cfg != nil && st.cfg.Metadata.Docs.ExamQuestion != "" && len(st.attempts) == 0 {
+	if st.cfg != nil && st.cfg.Metadata.Docs.Question != "" && len(st.attempts) == 0 {
 		return "read the task — astrona docs question"
 	}
 	if st.exam != nil && st.exam.Over(st.now) {
