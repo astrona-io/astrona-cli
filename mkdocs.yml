@@ -78,6 +78,7 @@ nav:
       - Linked Labs: guides/linked-labs.md
       - Astrona Versions: guides/astrona-versions.md
       - Lab Catalog: guides/lab-catalog.md
+      - Lab Resources: guides/lab-resources.md
   - Reference:
       - Lab Config Schema: reference/lab-config.md
       - CLI Reference:
@@ -96,6 +97,12 @@ nav:
               - reference/cli/astrona_run_renew.md
               - reference/cli/astrona_docs.md
               - reference/cli/astrona_shell.md
+              - reference/cli/astrona_resource.md
+              - reference/cli/astrona_resource_list.md
+              - reference/cli/astrona_resource_show.md
+              - reference/cli/astrona_resource_copy.md
+              - reference/cli/astrona_resource_path.md
+              - reference/cli/astrona_resource_run.md
               - reference/cli/astrona_ssh.md
               - reference/cli/astrona_submit.md
               - reference/cli/astrona_status.md
