@@ -241,6 +241,21 @@ teardown:
 
 Usually just `keepCluster: false` (or omitted — that's the default). Add `init` scripts only if you need to capture state before the cluster disappears.
 
+### Files the student needs: `resources/`
+
+Instead of asking students to paste a script or a YAML file from `question.md`, put it in a `resources/` folder next to `config.yaml`. When the lab starts, astrona copies it to `~/.astrona/resources/<lab>/` and lists what's there — nothing runs until the student asks for it:
+
+```text
+sections/section-010/module-01/labs/lab-01/
+  config.yaml  question.md  solution.md
+  bootstrap/  solution/  validation/
+  resources/
+    setup-db.sh               # runs with bash
+    broken-deployment.yaml    # applied to the lab with kubectl
+```
+
+No config is needed; a `resources:` list adds descriptions and run commands — see [`resources`](../reference/lab-config.md#resources).
+
 ## 7. Prove it works
 
 ```sh

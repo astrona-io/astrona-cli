@@ -32,6 +32,7 @@ var schemaEnums = map[string][]string{
 	"KindAddons.cni":               {CNICalico},
 	"KindAddons.gatewayAPI":        {GatewayEnvoy},
 	"QEMUImageSource.type":         {"file", "url", "oci"},
+	"LabResource.type":             {ResourceTypeFile},
 }
 
 // schemaPatterns are regex constraints on string fields, same keys as

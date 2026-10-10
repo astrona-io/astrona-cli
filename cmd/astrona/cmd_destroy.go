@@ -403,7 +403,9 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			"session) is forgotten.\n\n" +
 			"A remote lab (--git, URL, catalog) that has teardown scripts asks for approval first, like `run` — " +
 			"--trust approves it up front. If it isn't approved (declined, or no terminal and no --trust), " +
-			"its teardown scripts are skipped and the lab is still destroyed.",
+			"its teardown scripts are skipped and the lab is still destroyed.\n\n" +
+			"The lab's copy of its resources (~/.astrona/resources/<lab>) is removed too; " +
+			"--keep-resources keeps it.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			labName := "-"
@@ -466,5 +468,6 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&keepResources, "keep-resources", false, "Keep the lab's resources in ~/.astrona/resources/<lab> (for reference)")
 	return cmd
 }

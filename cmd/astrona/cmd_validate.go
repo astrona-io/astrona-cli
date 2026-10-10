@@ -9,6 +9,7 @@ import (
 
 	"astrona/internal/config"
 	"astrona/internal/lifecycle"
+	"astrona/internal/resources"
 	"astrona/internal/scripts"
 
 	"github.com/spf13/cobra"
@@ -59,6 +60,15 @@ func labConfigResults(cfg *config.LabConfig, baseDir string) []checkResult {
 		if _, err := scripts.ResolveLocalSource(ref.item, baseDir); err != nil {
 			fail(ref.where, err.Error())
 		}
+	}
+	if list, err := resources.Collect(cfg, baseDir); err != nil {
+		fail("resources", err.Error())
+	} else if len(list) > 0 {
+		names := make([]string, len(list))
+		for i, r := range list {
+			names[i] = r.Name
+		}
+		res = append(res, checkResult{name: "resources", detail: fmt.Sprintf("%d in %s/: %s", len(list), config.ResourcesDir, strings.Join(names, ", "))})
 	}
 	docs := docRefs(cfg)
 	for _, where := range sortedKeysOf(docs) {

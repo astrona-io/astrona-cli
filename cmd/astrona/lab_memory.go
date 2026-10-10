@@ -8,6 +8,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/labstate"
+	"astrona/internal/resources"
 	"astrona/internal/ui"
 )
 
@@ -130,6 +131,11 @@ func forgetLab(clusterName string) {
 	endPlayground(clusterName)
 	if err := labstate.Remove(clusterName); err != nil {
 		ui.Warnf("%s", err)
+	}
+	if !keepResources {
+		if err := resources.Remove(clusterName); err != nil {
+			ui.Warnf("%s", err)
+		}
 	}
 }
 
