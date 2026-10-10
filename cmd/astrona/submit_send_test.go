@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"unicode/utf8"
 
 	"astrona/internal/config"
 	"astrona/internal/labstate"
@@ -193,14 +194,14 @@ func sendSetup(t *testing.T, srv *httptest.Server, signedOut bool, sessionSite s
 		})
 	}
 	if sessionSite != "" {
-		if err := labstate.Save("astro-x", &labstate.State{Session: &labstate.Session{Site: sessionSite, ID: "s1", Lab: "ATS/x", URL: sessionSite + "/labs/x"}}); err != nil {
+		if err := labstate.Save("astro-x", &labstate.State{Source: &labstate.Source{Catalog: "ATS/x"}, Session: &labstate.Session{Site: sessionSite, ID: "s1", Lab: "ATS/x", URL: sessionSite + "/labs/x"}}); err != nil {
 			t.Fatal(err)
 		}
 	}
 }
 
 func TestSendResult(t *testing.T) {
-	result := map[string]any{"lab": "astro-x", "pass": true}
+	result := submissionResult{Lab: "astro-x", Pass: true}
 	for _, c := range []struct {
 		name      string
 		status    int
@@ -233,7 +234,7 @@ func TestSendResult(t *testing.T) {
 			// Everything goes to w: under -o json that is stderr, so
 			// stdout must stay empty.
 			stdout := captureStdout(t, func() {
-				sent = sendResult(context.Background(), &w, "astro-x", c.catalog, result)
+				sent = sendResult(context.Background(), &w, "astro-x", &labstate.Source{Catalog: c.catalog}, result)
 			})
 			if sent != c.wantSent {
 				t.Errorf("sent = %v", sent)
@@ -259,11 +260,51 @@ func TestSendResultOnlyToTheSessionsSite(t *testing.T) {
 	srv, calls := fakeResultSite(t, http.StatusCreated)
 	sendSetup(t, srv, false, "https://elsewhere.example.com")
 	var w bytes.Buffer
-	if sendResult(context.Background(), &w, "astro-x", "ATS/x", map[string]any{}) {
+	if sendResult(context.Background(), &w, "astro-x", &labstate.Source{Catalog: "ATS/x"}, submissionResult{}) {
 		t.Error("sent to a site the session isn't on")
 	}
 	if calls.Load() != 0 || !strings.Contains(w.String(), "the result was not sent") {
 		t.Errorf("calls %d, output %q", calls.Load(), w.String())
+	}
+}
+
+// Another lab with the same metadata.name (astrona submit -c ./other) never
+// reaches the catalog lab's page.
+func TestSendResultOnlyForTheConfigItWasStartedFrom(t *testing.T) {
+	srv, calls := fakeResultSite(t, http.StatusCreated)
+	sendSetup(t, srv, false, srv.URL)
+	for _, src := range []*labstate.Source{{Config: "/home/me/other"}, {Catalog: "ATS/y"}} {
+		var w bytes.Buffer
+		if sendResult(context.Background(), &w, "astro-x", src, submissionResult{}) {
+			t.Errorf("%+v: sent to the session of another config", src)
+		}
+		if !strings.Contains(w.String(), "the result was not sent") || !strings.Contains(w.String(), "astrona submit ATS/x") {
+			t.Errorf("%+v: output %q", src, w.String())
+		}
+	}
+	// The same catalog lab still sends.
+	var w bytes.Buffer
+	if !sendResult(context.Background(), &w, "astro-x", &labstate.Source{Catalog: "ATS/x"}, submissionResult{}) {
+		t.Errorf("same catalog lab: not sent (%q)", w.String())
+	}
+	if calls.Load() != 1 {
+		t.Errorf("result requests = %d, want 1", calls.Load())
+	}
+}
+
+func TestCapCheckTexts(t *testing.T) {
+	long := strings.Repeat("é", maxSentCheckText) // 2 bytes each
+	in := submissionResult{Checks: []checkJSON{{Name: "a", Message: "ok\x1b[31m red\x00\nline\ttab", Hint: long}}}
+	out := capCheckTexts(in)
+	if got := out.Checks[0].Message; got != "ok[31m red\nline\ttab" {
+		t.Errorf("message = %q", got)
+	}
+	hint := out.Checks[0].Hint
+	if len(hint) > maxSentCheckText+len("…") || !strings.HasSuffix(hint, "…") || !utf8.ValidString(hint) {
+		t.Errorf("hint: %d bytes, valid %v", len(hint), utf8.ValidString(hint))
+	}
+	if in.Checks[0].Hint != long {
+		t.Error("the result printed and recorded here was changed")
 	}
 }
 

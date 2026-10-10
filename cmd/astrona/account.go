@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -103,6 +104,20 @@ func (a *labAccount) startSession(ctx context.Context, command, lab string, opts
 		who = "your account"
 	}
 	sess := &labstate.Session{Site: a.creds.Site, ID: ls.ID, Lab: ls.Lab, URL: page.String(), ExpiresAt: ls.ExpiresAt, MaxMinutes: ls.MaxMinutes, Kind: ls.Kind, DeadlineAt: ls.DeadlineAt}
+	// A playground — whose watchdog removes the lab at its deadline — only
+	// when one was asked for, and never with a deadline outside what was.
+	var opt account.SessionOptions
+	if len(opts) > 0 {
+		opt = opts[0]
+	}
+	if opt.Kind != "playground" {
+		if sess.IsPlayground() {
+			sess.Kind = "lab"
+		}
+		sess.DeadlineAt = ""
+	} else if sess.IsPlayground() {
+		sess.DeadlineAt = clampDeadline(sess.DeadlineAt, time.Now(), opt.TimeLimitMinutes)
+	}
 	if sess.IsPlayground() {
 		fmt.Printf("Playground time started for %s on %s — %d minutes until it stops and is removed.\n", who, a.creds.Site, ls.MaxMinutes)
 	} else {

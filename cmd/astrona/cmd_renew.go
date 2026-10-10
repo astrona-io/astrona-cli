@@ -62,9 +62,27 @@ func newRunRenewCmd() *cobra.Command {
 	}
 }
 
+// playgroundExists reports whether any part of a playground's lab still
+// exists: its kind cluster, its qemu VM, or a VM of it ("<lab>-<vm>").
+// Replaced in tests.
+var playgroundExists = func(name string) bool {
+	if kindClusterExists(name) || qemuStateExists(name) {
+		return true
+	}
+	rows, _, _ := collectQEMURows() // an unreadable qemu dir just means no qemu labs here
+	for _, r := range rows {
+		if strings.HasPrefix(r.name, name+"-") {
+			return true
+		}
+	}
+	return false
+}
+
 // runningPlaygrounds lists the labs whose remembered session is a
 // playground: all of them, or the one name matches — its cluster name (with
 // or without "astro-"), or its catalog name (with or without the owner).
+// One whose lab is gone (removed outside astrona) is forgotten — its
+// watchdog and clock stopped — rather than renewed.
 func runningPlaygrounds(name string) ([]string, error) {
 	names, err := labstate.Names()
 	if err != nil {
@@ -77,9 +95,14 @@ func runningPlaygrounds(name string) ([]string, error) {
 		if err != nil || st == nil || !st.Session.IsPlayground() {
 			continue
 		}
-		if want == "" || cluster == config.NormalizeClusterName(want) || sameCatalogName(st.Session.Lab, want) {
-			out = append(out, cluster)
+		if want != "" && cluster != config.NormalizeClusterName(want) && !sameCatalogName(st.Session.Lab, want) {
+			continue
 		}
+		if !playgroundExists(cluster) {
+			forgetLab(cluster)
+			continue
+		}
+		out = append(out, cluster)
 	}
 	return out, nil
 }
@@ -123,6 +146,7 @@ func renewPlayground(ctx context.Context, cluster string) error {
 	if err != nil {
 		return err
 	}
+	renewed.DeadlineAt = clampDeadline(renewed.DeadlineAt, time.Now(), 0)
 	deadline, err := time.Parse(time.RFC3339, renewed.DeadlineAt)
 	if err != nil {
 		return fmt.Errorf("the site sent no new deadline: %w", err)
@@ -139,7 +163,7 @@ func renewPlayground(ctx context.Context, cluster string) error {
 	}
 	// A fresh watchdog for the new deadline: the running one may be gone
 	// (a reboot) or come from an astrona that doesn't follow renewals.
-	stopWatchdog(st.Session.WatchdogPID)
+	stopWatchdog(st.Session.WatchdogPID, cluster)
 	if pid, err := spawnWatchdog(cluster); err != nil {
 		ui.Warnf("couldn't restart the playground's timer (%s) — run `astrona destroy %s` when you are done", err, cluster)
 	} else {

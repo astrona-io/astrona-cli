@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"astrona/internal/account"
 	"astrona/internal/labstate"
@@ -112,8 +114,12 @@ const signInHint = "Sign in (astrona login) and run the lab again to have result
 // prints) to the lab page of the session the lab was started under, and
 // reports whether it was recorded there. Nothing is sent without a
 // remembered session for the site the CLI is signed in to. Every outcome
-// is a line on w; none of them changes the exit code.
-func sendResult(ctx context.Context, w io.Writer, clusterName, catalogLab string, result any) bool {
+// is a line on w; none of them changes the exit code. src is where the
+// graded config came from: a result is only sent to a session started
+// from that same config — another lab of the same name (-c ./other) never
+// reaches the catalog lab's page.
+func sendResult(ctx context.Context, w io.Writer, clusterName string, src *labstate.Source, result submissionResult) bool {
+	catalogLab := src.Catalog
 	lab := catalogLab
 	if lab == "" {
 		lab = clusterName
@@ -129,6 +135,11 @@ func sendResult(ctx context.Context, w io.Writer, clusterName, catalogLab string
 	}
 	if sess == nil && catalogLab == "" {
 		return false // a lab from your own files: nothing to send it to
+	}
+	if sess != nil && !sameSource(st.Source, src) {
+		fmt.Fprintf(w, "%s runs a lab session for another config than the one graded here — the result was not sent. "+
+			"Send it from that config: %s\n", clusterName, sourceHint(st.Source))
+		return false
 	}
 
 	client, store, site, err := accountDeps()
@@ -155,7 +166,7 @@ func sendResult(ctx context.Context, w io.Writer, clusterName, catalogLab string
 	}
 
 	noticeOtherSite(creds.Site, "your lab results")
-	lr, err := client.SendLabResult(ctx, store, creds, sess.ID, result)
+	lr, err := client.SendLabResult(ctx, store, creds, sess.ID, capCheckTexts(result))
 	switch {
 	case err == nil:
 		fmt.Fprintf(w, "Sent to your lab page (attempt %d): %s\n", lr.Attempt, resultPage(lr.URL, sess, site))
@@ -189,6 +200,52 @@ func resultPage(raw string, sess *labstate.Session, site string) string {
 		return u.String()
 	}
 	return sess.URL
+}
+
+// sameSource reports whether the config being graded (b) is the one the
+// lab was started from (a, remembered by run): the same catalog lab, or
+// the same -c/--file/--git/--git-ref. Nothing remembered never matches.
+func sameSource(a, b *labstate.Source) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	if a.Catalog != "" || b.Catalog != "" {
+		return sameCatalogName(a.Catalog, b.Catalog)
+	}
+	return a.Config == b.Config && a.File == b.File && a.Git == b.Git && a.GitRef == b.GitRef
+}
+
+// maxSentCheckText caps each check's message and hint sent to the lab page.
+const maxSentCheckText = 2048
+
+// capCheckTexts is result as it is sent to the lab page: each check's
+// message and hint — script output, possibly huge — without control
+// characters (newlines and tabs stay) and capped at maxSentCheckText
+// bytes. The result printed and recorded here is unchanged.
+func capCheckTexts(result submissionResult) submissionResult {
+	clean := func(s string) string {
+		s = strings.Map(func(r rune) rune {
+			if r == '\n' || r == '\t' || unicode.IsPrint(r) {
+				return r
+			}
+			return -1
+		}, s)
+		if len(s) <= maxSentCheckText {
+			return s
+		}
+		cut := maxSentCheckText
+		for cut > 0 && !utf8.RuneStart(s[cut]) {
+			cut--
+		}
+		return s[:cut] + "…"
+	}
+	checks := make([]checkJSON, len(result.Checks))
+	for i, c := range result.Checks {
+		c.Message, c.Hint = clean(c.Message), clean(c.Hint)
+		checks[i] = c
+	}
+	result.Checks = checks
+	return result
 }
 
 // followUp is what follows a graded, possibly sent, result.

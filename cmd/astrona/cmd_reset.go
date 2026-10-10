@@ -5,13 +5,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"strings"
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
-	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
 	"astrona/internal/runtime"
@@ -167,13 +165,11 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 					return nil
 				}
 			}
-			var page *url.URL
-			var sess *labstate.Session
-			if acct != nil {
-				if page, sess, err = acct.startSession(ctx, "reset", flags.catalogLab); err != nil {
-					return err
-				}
+			start, err := startLabSession(ctx, acct, "reset", cfg, flags.catalogLab)
+			if err != nil {
+				return err
 			}
+			defer start.abandon()
 
 			rep, err := ui.NewReporter("reset", cfg.Metadata.Name, flags.verbose)
 			if err != nil {
@@ -181,6 +177,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
+			endOldSession(clusterName) // an old playground's watchdog would remove the new lab
 			if exists {
 				if flags.keepContext { // not switching again: put back what the old lab switched away from
 					releaseLab(os.Stdout, clusterName)
@@ -195,13 +192,10 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				rep.Info("Lab '%s' isn't running — creating it fresh.", clusterName)
 			}
 
-			if err := bringUpLab(cfg, baseDir, flags, rep, sess); err != nil {
+			if err := bringUpLab(cfg, baseDir, flags, rep, start.sess); err != nil {
 				return err
 			}
-			if page != nil {
-				printAndOpen(page)
-				printTimeLimit(sess)
-			}
+			start.done(clusterName)
 			return nil
 		},
 	}

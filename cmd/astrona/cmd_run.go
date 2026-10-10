@@ -103,18 +103,11 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 
 			// The session is started before the build, so a refusal costs
 			// nothing; the page is only opened once the lab is ready.
-			var page *url.URL
-			var sess *labstate.Session
-			if acct != nil {
-				var opts []account.SessionOptions
-				if isPlaygroundName(flags.catalogLab) {
-					minutes, _ := cfg.Metadata.TimeLimitMinutes() // checked by lifecycle.Validate
-					opts = append(opts, account.SessionOptions{Kind: "playground", TimeLimitMinutes: minutes})
-				}
-				if page, sess, err = acct.startSession(ctx, "run", flags.catalogLab, opts...); err != nil {
-					return err
-				}
+			start, err := startLabSession(ctx, acct, "run", cfg, flags.catalogLab)
+			if err != nil {
+				return err
 			}
+			defer start.abandon()
 
 			rep, err := ui.NewReporter("run", cfg.Metadata.Name, flags.verbose)
 			if err != nil {
@@ -128,6 +121,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 					rep.Warn("couldn't destroy %s: %s — continuing", other, err)
 				}
 			}
+			endOldSession(clusterName) // an old playground's watchdog would remove the new lab
 			if choice.startOver {
 				if flags.keepContext { // not switching again: put back what the old lab switched away from
 					releaseLab(os.Stdout, clusterName)
@@ -139,18 +133,10 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("could not remove the running lab, nothing was started: %w", err)
 				}
 			}
-			if err := bringUpLab(cfg, baseDir, flags, rep, sess); err != nil {
+			if err := bringUpLab(cfg, baseDir, flags, rep, start.sess); err != nil {
 				return err
 			}
-			if sess.IsPlayground() {
-				// No lab page to open: the clock is running; the watchdog ends it.
-				startPlaygroundWatchdog(clusterName, sess)
-				return nil
-			}
-			if page != nil {
-				printAndOpen(page)
-				printTimeLimit(sess)
-			}
+			start.done(clusterName)
 			return nil
 		},
 	}
@@ -294,6 +280,58 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 	}
 	fmt.Printf("Full log: %s\n", rep.LogPath())
 	return nil
+}
+
+// labStart is the lab session a run or a full reset builds a lab under —
+// none for a lab that isn't from the catalog. Shared by run and reset, so
+// a reset ends exactly like a fresh run.
+type labStart struct {
+	page  *url.URL
+	sess  *labstate.Session
+	ready bool
+}
+
+// startLabSession starts acct's session for the catalog lab (nil acct:
+// none) before anything is built — a timed playground for a module's
+// playground, with the config's time limit.
+func startLabSession(ctx context.Context, acct *labAccount, command string, cfg *config.LabConfig, lab string) (*labStart, error) {
+	ls := &labStart{}
+	if acct == nil {
+		return ls, nil
+	}
+	var opts []account.SessionOptions
+	if isPlaygroundName(lab) {
+		minutes, _ := cfg.Metadata.TimeLimitMinutes() // checked by lifecycle.Validate
+		opts = append(opts, account.SessionOptions{Kind: "playground", TimeLimitMinutes: minutes})
+	}
+	var err error
+	ls.page, ls.sess, err = acct.startSession(ctx, command, lab, opts...)
+	return ls, err
+}
+
+// abandon stops a playground's clock when the playground never became
+// ready (deferred right after startLabSession) — it started with the
+// session and would otherwise run on to the deadline with nothing to show
+// for it. A lab's clock only starts when its page opens: nothing to stop.
+func (ls *labStart) abandon() {
+	if ls.ready || !ls.sess.IsPlayground() {
+		return
+	}
+	stopPlaygroundClock(context.Background(), ls.sess, "destroyed")
+}
+
+// done follows a lab that is ready: a playground's watchdog starts (its
+// clock is already running), a lab's page is opened.
+func (ls *labStart) done(clusterName string) {
+	ls.ready = true
+	if ls.sess.IsPlayground() {
+		startPlaygroundWatchdog(clusterName, ls.sess)
+		return
+	}
+	if ls.page != nil {
+		printAndOpen(ls.page)
+		printTimeLimit(ls.sess)
+	}
 }
 
 // configFlagHint is the " -c <dir>" to append to a suggested command so it
