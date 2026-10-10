@@ -47,9 +47,14 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          # Passed through env, never interpolated into the script: a tag
+          # name is attacker-influenced text as far as the shell is concerned.
+          VERSION: ${{ github.ref_name }}
+          EXT: ${{ matrix.ext }}
+          PKG: ${{ matrix.pkg || './cmd/astrona' }}
         run: |
-          BINARY_NAME="astrona-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
-          go build -v -ldflags "-X main.Version=${{ github.ref_name }}" -o "$BINARY_NAME" ${{ matrix.pkg || './cmd/astrona' }}
+          BINARY_NAME="astrona-$GOOS-$GOARCH$EXT"
+          go build -v -ldflags "-X main.Version=$VERSION" -o "$BINARY_NAME" "$PKG"
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v4
