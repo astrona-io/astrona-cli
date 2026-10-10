@@ -148,3 +148,27 @@ func TestResourceCopyTo(t *testing.T) {
 		t.Errorf("executable copied as %v", fi.Mode().Perm())
 	}
 }
+
+// `astrona res run <TAB>` offers the lab's resources, with descriptions.
+func TestResourceNameCompletion(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(labShellEnvVar, "")
+	t.Setenv("ASTRONA_NO_UPDATE_CHECK", "1")
+	t.Chdir(t.TempDir())
+	snapshotLab(t, "astro-lab", map[string]string{"setup.sh": "", "notes.txt": ""},
+		config.LabResource{File: "setup.sh", Description: "Creates the demo DB"})
+
+	for _, sub := range []string{"run", "show", "copy", "path"} {
+		root := newRootCmd(&rootFlags{})
+		var out strings.Builder
+		root.SetOut(&out)
+		root.SetArgs([]string{"__complete", "res", sub, ""})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		got := out.String()
+		if !strings.Contains(got, "setup\tCreates the demo DB") || !strings.Contains(got, "notes\tfile") {
+			t.Errorf("res %s <TAB> =\n%s", sub, got)
+		}
+	}
+}
