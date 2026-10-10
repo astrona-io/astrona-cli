@@ -41,8 +41,10 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 			"`astrona res` there works on that lab.\n\n" +
 			"How `run` runs one: its run command from the lab (in its folder), .sh with bash, .yaml " +
 			"with kubectl apply -f, an executable with #! directly — in a kind lab always with " +
-			"KUBECONFIG set to the lab's own kubeconfig, so nothing reaches your other clusters. " +
-			"$ASTRONA_LAB and $" + resourceDirEnv + " are set; a plain file can only be shown or copied.",
+			"KUBECONFIG set to the lab's own kubeconfig, so nothing reaches your other clusters " +
+			"($ASTRONA_LAB and $" + resourceDirEnv + " are set). In a qemu lab it's copied into the VM " +
+			"(~/" + vmResourceDir + "/<name>) and run there as the account `astrona ssh` uses; --vm picks " +
+			"the VM of a multi-VM lab. A plain file can only be shown or copied.",
 		Example: `  astrona res
   astrona res run setup-db
   astrona res copy broken-deployment
@@ -136,10 +138,13 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 			fmt.Println(p)
 			return nil
 		}))
-	cmd.AddCommand(withResource("run <name> [args...]", "Run a resource against the lab", cobra.MinimumNArgs(1),
+	var vmFlag string
+	runCmd := withResource("run <name> [args...]", "Run a resource against the lab (in a qemu lab: inside its VM)", cobra.MinimumNArgs(1),
 		func(_ *cobra.Command, lab, dir string, r resources.Resource, rest []string) error {
-			return runResource(lab, dir, r, rest)
-		}))
+			return runResource(lab, dir, r, rest, vmFlag)
+		})
+	runCmd.Flags().StringVar(&vmFlag, "vm", "", "qemu labs: the VM to run it in (default: the resource's vm:, else the lab's only VM)")
+	cmd.AddCommand(runCmd)
 	return cmd
 }
 
@@ -275,16 +280,16 @@ func resourceCommand(dir string, r resources.Resource, args []string) (name stri
 
 // runResource runs r against lab: for a kind lab with KUBECONFIG pointing at
 // the lab's own kubeconfig (and its linked clusters'), like `astrona shell`.
-func runResource(lab, dir string, r resources.Resource, args []string) error {
+func runResource(lab, dir string, r resources.Resource, args []string, vmFlag string) error {
+	if !kindClusterExists(lab) {
+		return runResourceInVM(lab, dir, r, args, vmFlag) // qemu, or not running: it says so
+	}
+	if vmFlag != "" {
+		return fmt.Errorf("--vm is for qemu labs; %s is a kind lab", strings.TrimPrefix(lab, "astro-"))
+	}
 	name, argv, workDir, err := resourceCommand(dir, r, args)
 	if err != nil {
 		return err
-	}
-	if !kindClusterExists(lab) {
-		if qemuStateExists(lab) || r.VM != "" {
-			return fmt.Errorf("running resources in a qemu lab's VM isn't supported yet — `astrona res copy %s` and `astrona ssh` instead", r.Name)
-		}
-		return fmt.Errorf("lab %s isn't running — start it with `astrona run`", strings.TrimPrefix(lab, "astro-"))
 	}
 	kubeconfig, err := labKubeconfig(lab)
 	if err != nil {
