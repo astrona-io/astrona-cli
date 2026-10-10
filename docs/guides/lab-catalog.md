@@ -42,14 +42,16 @@ Then `astrona run ATS014/…`:
 3. builds the lab;
 4. prints the lab page URL and opens it in your browser — the clock starts there, so setup time never counts. Without a browser (a headless box), open the printed URL yourself. If the build fails, nothing is opened. When Astrona sets a time limit for the attempt, run says so: `You have 60 minutes once the lab page opens.`
 
-A full `astrona reset ATS014/…` does the same: a fresh session and a new lab page once the lab is rebuilt. `reset --soft` and `reset --cluster` keep the current session and need no sign-in.
+A module's playground has no lab page: its clock starts with the session, its timer (which removes it at the time limit) starts once it's ready, and if the build fails its clock is stopped again. The time limit is what astrona asked for (`metadata.timeLimit`): a deadline from the site outside it, or less than 5 minutes away, is moved into range.
+
+A full `astrona reset ATS014/…` does the same: a fresh session and a new lab page (for a playground: a fresh clock and timer) once the lab is rebuilt. Starting over — `reset`, or `run` on a lab that's already running — first stops the old playground's clock and timer, so the old timer never removes the new lab. `reset --soft` and `reset --cluster` keep the current session and need no sign-in. `astrona run renew` skips (and forgets) a playground whose cluster no longer exists.
 
 Only labs of the published trainings (repositories owned by the `astrona-io` GitHub organization) work this way. A lab from a source you added yourself (`astrona labs add`, or an organization set with `ASTRONA_CATALOG_ORG`) runs like a `--git` lab: no sign-in, no lab session, no results sent — astrona says so when it resolves the name — so another repository can never start a session in your account.
 
 The session is remembered with the lab in `~/.astrona/labs/<lab>.json` (mode 0600: the site, the session id, the lab and its page — never a token). Then `astrona submit`:
 
 1. grades the lab exactly as always (the Proctor decides; the exit code is the grade's);
-2. sends the result — the same object `astrona submit -o json` prints — to the lab page, and prints `Sent to your lab page (attempt N): <url>`;
+2. sends the result — the same object `astrona submit -o json` prints — to the lab page, and prints `Sent to your lab page (attempt N): <url>`. Only a result graded from the lab the session was started for is sent (another config with the same `metadata.name` never reaches the page), and each check's message and hint are sent without control characters and cut at 2 KB;
 3. after a **pass** that was sent, asks `Delete the lab cluster now? [Y/n]` — Enter deletes it exactly like `astrona destroy` (your kubectl context comes back too); `n` keeps it. `--keep`, `-o json` or no terminal keep it and print how to remove it later. A failing result never asks: the clock keeps running, so fix it and submit again.
 
 When the result can't be sent, the grade still stands: an expired session (or one that isn't yours) says to run the lab again for a new attempt, an attempt that's already finished shows Astrona's message, a session whose time ran out shows Astrona's message plus how to start a new attempt (`astrona reset <lab>`, or `astrona destroy <lab>` then `astrona run <lab>`) and never offers to delete the lab, and a network or server error is a warning. Signed out, submit says to `astrona login` and run the lab again. Under `-o json` these lines go to stderr, so stdout stays exactly one JSON document.

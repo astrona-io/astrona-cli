@@ -211,7 +211,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 
 			// The grade stands whatever happens to sending it: a failure
 			// here is a warning, never a different exit code.
-			sent := sendResult(context.Background(), status, clusterName, flags.catalogLab, result)
+			sent := sendResult(context.Background(), status, clusterName, rememberedSource(flags), result)
 			if !pass {
 				return notPassed("submission did not pass grading")
 			}

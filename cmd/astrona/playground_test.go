@@ -56,6 +56,9 @@ func TestWatchPlaygroundLeavesWhenThePlaygroundIsGone(t *testing.T) {
 
 func TestRunningPlaygroundsMatchesByClusterOrCatalogName(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
+	prev := playgroundExists
+	playgroundExists = func(string) bool { return true }
+	t.Cleanup(func() { playgroundExists = prev })
 	play := &labstate.Session{ID: "s-1", Kind: "playground", Lab: "ATS014/section-010/module-01/playground"}
 	lab := &labstate.Session{ID: "s-2", Lab: "ATS014/section-010/module-01/lab-01"}
 	if err := labstate.Save("astro-play", &labstate.State{Session: play}); err != nil {

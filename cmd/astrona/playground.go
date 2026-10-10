@@ -7,12 +7,14 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"astrona/internal/config"
 	"astrona/internal/hypervisor"
 	"astrona/internal/labstate"
 	"astrona/internal/ui"
@@ -26,6 +28,32 @@ import (
 // isPlaygroundName reports whether a catalog name is a module's playground.
 func isPlaygroundName(name string) bool {
 	return strings.HasSuffix(strings.TrimRight(name, "/"), "/playground")
+}
+
+// clampDeadline keeps a playground deadline the site sent (RFC 3339) within
+// [now+config.MinTimeLimit, now+limitMinutes] — the time limit the CLI
+// asked for, or config.MaxTimeLimit when it asked for none — so a site
+// answer can never have the watchdog remove the lab at once. An
+// unparsable deadline is returned as is (the watchdog then isn't started).
+func clampDeadline(raw string, now time.Time, limitMinutes int) string {
+	d, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return raw
+	}
+	limit := config.MaxTimeLimit
+	if limitMinutes > 0 {
+		limit = time.Duration(limitMinutes) * time.Minute
+	}
+	earliest, latest := now.Add(config.MinTimeLimit), now.Add(limit)
+	switch {
+	case d.Before(earliest):
+		d = earliest
+	case d.After(latest):
+		d = latest
+	default:
+		return raw
+	}
+	return d.UTC().Format(time.RFC3339)
 }
 
 // startPlaygroundWatchdog starts the detached process that ends the
@@ -56,8 +84,8 @@ func startPlaygroundWatchdog(clusterName string, sess *labstate.Session) {
 
 // spawnWatchdog runs `astrona playground-watchdog <cluster>` in its own
 // session (Setsid), so closing the terminal doesn't end it. Its output goes
-// to a log next to the lab's state.
-func spawnWatchdog(clusterName string) (int, error) {
+// to a log next to the lab's state. Replaced in tests.
+var spawnWatchdog = func(clusterName string) (int, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return 0, err
@@ -170,17 +198,59 @@ func endPlayground(clusterName string) {
 	if err != nil || st == nil || !st.Session.IsPlayground() {
 		return
 	}
-	stopWatchdog(st.Session.WatchdogPID)
+	stopWatchdog(st.Session.WatchdogPID, clusterName)
 	stopPlaygroundClock(context.Background(), st.Session, "destroyed")
 }
 
-// stopWatchdog ends a playground's watchdog — unless that is us. It runs
-// in its own session (Setsid), so a pid whose group is not its own is
-// some other process that reused the number: left alone.
-func stopWatchdog(pid int) {
-	if pid > 0 && pid != os.Getpid() && hypervisor.ProcessAlive(pid) {
-		if pgid, err := syscall.Getpgid(pid); err == nil && pgid == pid {
-			_ = syscall.Kill(-pid, syscall.SIGTERM)
+// endOldSession runs before a lab is built again under the same name (run's
+// start over, a full reset, or a run over what a vanished lab left behind):
+// an old playground's watchdog — which would otherwise remove the new lab
+// at the old deadline — and its clock are stopped, and the old session is
+// forgotten. The rest (where the lab came from, the kubectl context to go
+// back to) stays for the new run.
+func endOldSession(clusterName string) {
+	endPlayground(clusterName)
+	if err := labstate.Update(clusterName, func(s *labstate.State) { s.Session = nil }); err != nil {
+		ui.Warnf("could not forget the lab's previous session: %s", err)
+	}
+}
+
+// watchdogCommandLine is pid's full command line (replaced in tests). The
+// ps flags are the same on macOS and Linux; -ww stops it truncating.
+var watchdogCommandLine = func(pid int) (string, error) {
+	out, err := exec.Command("ps", "-ww", "-o", "command=", "-p", strconv.Itoa(pid)).Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to read command line of pid %d: %w", pid, err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// isWatchdogFor reports whether cmdline is `astrona playground-watchdog
+// <clusterName>` — the process spawnWatchdog started, not one that reused
+// its pid.
+func isWatchdogFor(cmdline, clusterName string) bool {
+	fields := strings.Fields(cmdline)
+	for i := 0; i+1 < len(fields); i++ {
+		if fields[i] == "playground-watchdog" && fields[i+1] == clusterName {
+			return true
 		}
 	}
+	return false
+}
+
+// stopWatchdog ends clusterName's playground watchdog — unless that is us.
+// The pid is only signalled while it still leads its own session (Setsid)
+// and runs that watchdog's command line: anything else reused the number
+// and is left alone.
+func stopWatchdog(pid int, clusterName string) {
+	if pid <= 0 || pid == os.Getpid() || !hypervisor.ProcessAlive(pid) {
+		return
+	}
+	if pgid, err := syscall.Getpgid(pid); err != nil || pgid != pid {
+		return
+	}
+	if cmdline, err := watchdogCommandLine(pid); err != nil || !isWatchdogFor(cmdline, clusterName) {
+		return
+	}
+	_ = syscall.Kill(-pid, syscall.SIGTERM)
 }
