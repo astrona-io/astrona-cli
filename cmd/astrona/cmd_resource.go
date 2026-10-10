@@ -73,6 +73,18 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 			Short:        short,
 			Args:         args,
 			SilenceUsage: true,
+			// The resource's name completes from the lab's copy; what
+			// follows (copy's dest, run's args) completes as files.
+			ValidArgsFunction: func(cmd *cobra.Command, args []string, _ string) ([]cobra.Completion, cobra.ShellCompDirective) {
+				if len(args) > 0 {
+					return nil, cobra.ShellCompDirectiveDefault
+				}
+				_, list, _, err := resourceLab(cmd, flags, labFlag)
+				if err != nil {
+					return nil, cobra.ShellCompDirectiveNoFileComp
+				}
+				return resourceCompletions(list), cobra.ShellCompDirectiveNoFileComp
+			},
 			RunE: func(cmd *cobra.Command, args []string) error {
 				lab, list, dir, err := resourceLab(cmd, flags, labFlag)
 				if err != nil {
@@ -309,4 +321,21 @@ func runResource(lab, dir string, r resources.Resource, args []string, vmFlag st
 	c.Env = env
 	fmt.Fprintf(os.Stderr, "→ %s  (lab %s)\n", strings.Join(append([]string{r.Command()}, args...), " "), strings.TrimPrefix(lab, "astro-"))
 	return runAttached(c)
+}
+
+// resourceCompletions are a lab's resources as completions: name, and what
+// it is (its description, else how it runs).
+func resourceCompletions(list []resources.Resource) []cobra.Completion {
+	out := make([]cobra.Completion, len(list))
+	for i, r := range list {
+		desc := r.Description
+		if desc == "" {
+			desc = r.Command()
+		}
+		if desc == "" {
+			desc = "file"
+		}
+		out[i] = cobra.CompletionWithDesc(r.Name, desc)
+	}
+	return out
 }

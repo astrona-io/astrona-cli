@@ -12,6 +12,7 @@ import (
 
 	"astrona/internal/catalog"
 	"astrona/internal/config"
+	"astrona/internal/resources"
 
 	"github.com/spf13/cobra"
 )
@@ -146,6 +147,7 @@ func newDocsCmd(flags *rootFlags) *cobra.Command {
 			docs := labDocs(cfg)
 			if len(args) == 0 {
 				printDocList(os.Stdout, cfg.Metadata.Name, docs)
+				printDocResources(os.Stdout, cfg, finalPath)
 				return nil
 			}
 
@@ -191,5 +193,25 @@ func printDocList(w io.Writer, lab string, docs []labDoc) {
 	fmt.Fprintf(w, "Docs for %s:\n\n", lab)
 	for _, d := range docs {
 		fmt.Fprintf(w, "  astrona docs %-14s %s\n", d.key, d.title)
+	}
+}
+
+// printDocResources adds the lab's resources to `astrona docs`'s list, so a
+// student sees them next to the task that uses them.
+func printDocResources(w io.Writer, cfg *config.LabConfig, configPath string) {
+	if strings.HasPrefix(configPath, "https://") || strings.HasPrefix(configPath, "http://") {
+		return
+	}
+	list, err := resources.Collect(cfg, filepath.Dir(configPath))
+	if err != nil || len(list) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "\nResources (astrona res show|copy|run <name>):\n\n")
+	for _, r := range list {
+		desc := r.Description
+		if desc == "" {
+			desc = r.File
+		}
+		fmt.Fprintf(w, "  %-28s %s\n", r.Name, desc)
 	}
 }

@@ -162,7 +162,14 @@ func runResourceInVM(lab, dir string, r resources.Resource, args []string, vmFla
 func writeResourceTar(w io.Writer, src string) error {
 	tw := tar.NewWriter(w)
 	root := filepath.Dir(src)
-	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+	// Files are opened through an os.Root of the copy's folder: a link
+	// swapped in while walking can't lead the read outside it.
+	rt, err := os.OpenRoot(root)
+	if err != nil {
+		return err
+	}
+	defer rt.Close()
+	err = filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -192,12 +199,12 @@ func writeResourceTar(w io.Writer, src string) error {
 		if d.IsDir() {
 			return nil
 		}
-		f, err := os.Open(p)
+		f, err := rt.Open(rel)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
-		_, err = io.Copy(tw, f)
+		_, err = io.Copy(tw, io.LimitReader(f, hdr.Size))
 		return err
 	})
 	if err != nil {

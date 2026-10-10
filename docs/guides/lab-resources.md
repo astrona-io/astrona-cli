@@ -37,7 +37,9 @@ How `run` runs a resource:
 | an executable starting with `#!` | the file itself | your current folder |
 | anything else, and folders without `run:` | — only `show` / `copy` / `path` | |
 
-In a kind lab every resource runs with **`KUBECONFIG` set to the lab's own kubeconfig** (plus its linked clusters'), exactly like [`astrona shell`](../reference/cli/astrona_shell.md) — so a resource's `kubectl` never reaches your other clusters, whatever your current context is. `$ASTRONA_LAB` holds the lab and `$ASTRONA_RESOURCE_DIR` the folder with all its resources (one resource can use another). Running resources inside a qemu lab's VM isn't supported yet — copy them and use `astrona ssh`.
+In a kind lab every resource runs with **`KUBECONFIG` set to the lab's own kubeconfig** (plus its linked clusters'), exactly like [`astrona shell`](../reference/cli/astrona_shell.md) — so a resource's `kubectl` never reaches your other clusters, whatever your current context is. `$ASTRONA_LAB` holds the lab and `$ASTRONA_RESOURCE_DIR` the folder with all its resources (one resource can use another).
+
+In a **qemu lab** a resource runs **inside the VM**, as the account `astrona ssh` logs in with: `astrona res run` copies it to `~/astrona-resources/<name>` in the VM (fresh each time) and runs it there — from that folder, with every argument passed through as-is. The VM is `--vm <name>`, else the resource's `vm:` in the lab config, else the lab's only VM; a multi-VM lab without either asks which. `.yaml` files are plain files in a qemu lab (there's no cluster to apply them to).
 
 ## Several labs, several terminals
 
@@ -49,6 +51,14 @@ In a kind lab every resource runs with **`KUBECONFIG` set to the lab's own kubec
 4. the only lab that has resources
 
 Otherwise it stops and lists the labs — it never guesses. With two labs open, run `astrona shell <lab>` in each terminal: every `astrona res` in that terminal then works on its lab.
+
+## Tab completion and the docs
+
+`astrona res run <TAB>` (and `show`, `copy`, `path`) completes the lab's resource names, with each one's description. `astrona docs` lists the lab's resources next to its documents, so the task and the files it uses are in one place.
+
+## Trust
+
+A lab's resources are part of its code: the approval prompt for a remote lab (`--git` or the catalog) lists them — *ships 3 resource(s) … each runs on this machine only when you ask* — and an approval is pinned to that exact version of the lab, resources included. Nothing in them runs when the lab starts.
 
 ## For lab authors
 
