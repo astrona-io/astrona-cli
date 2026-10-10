@@ -144,7 +144,8 @@ func destroyByDiscovery(rep *ui.Reporter) error {
 // check, same trade-off as destroyByDiscovery. Checks qemu state and kind
 // clusters directly rather than reusing collectQEMURows (which skips a
 // stale/dead qemu VM's leftover state dir) — a name-targeted destroy should
-// still clean that up.
+// still clean that up. A multi-VM qemu lab's name destroys all its VMs
+// (found by the lab recorded in each VM's handle).
 func destroyByName(name string, rep *ui.Reporter) error {
 	// Accept the lab name with or without the "astro-" prefix — `astrona
 	// list` prints the prefixed form, but a user typing the bare lab name
@@ -156,13 +157,14 @@ func destroyByName(name string, rep *ui.Reporter) error {
 	}
 
 	foundQemu := qemuStateExists(name)
+	vms := hypervisor.MultiVMs(name) // a multi-VM qemu lab's VMs: <name>-<vm>
 	foundKind := kindClusterExists(name)
 	owned := lifecycle.OwnedClusters(name, nil) // read before destroy removes the saved state
 	if err := exam.Clear(name); err != nil {
 		rep.Warn("%s", err)
 	}
 
-	if !foundQemu && !foundKind && len(owned) == 0 {
+	if !foundQemu && len(vms) == 0 && !foundKind && len(owned) == 0 {
 		forgetLab(name) // whatever was remembered about it is stale
 		return fmt.Errorf("no astrona lab named '%s' found (checked qemu state and kind clusters) — run `astrona list` to see what's actually running", name)
 	}
@@ -173,6 +175,11 @@ func destroyByName(name string, rep *ui.Reporter) error {
 	if foundQemu {
 		if err := hypervisor.DestroyQEMUVM(name, rep); err != nil {
 			errs = append(errs, fmt.Sprintf("qemu: %s", err))
+		}
+	}
+	for _, vm := range vms {
+		if err := hypervisor.DestroyQEMUVM(vm, rep); err != nil {
+			errs = append(errs, fmt.Sprintf("qemu %s: %s", vm, err))
 		}
 	}
 	if foundKind {

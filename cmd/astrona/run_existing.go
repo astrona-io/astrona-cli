@@ -71,11 +71,32 @@ func otherRunningLabNames(clusterName string) []string {
 	if err != nil {
 		return out
 	}
+	return append(out, otherQEMULabs(clusterName, rows)...)
+}
+
+// otherQEMULabs are the labs of the running qemu VMs in rows, other than
+// clusterName — one name per lab, so a multi-VM lab ("astro-net" with VMs
+// astro-net-vm1, astro-net-vm2) is destroyed and forgotten as the lab it
+// is. Test copies are left out.
+func otherQEMULabs(clusterName string, rows []labRow) []string {
+	var out []string
+	seen := map[string]bool{}
 	for _, r := range rows {
-		if r.name == clusterName || strings.HasPrefix(r.name, clusterName+"-") || strings.HasPrefix(r.name, "astro-test-") {
+		lab := r.lab
+		if lab == "" {
+			// A handle from before VMs recorded their lab: a VM named
+			// "<clusterName>-…" may be one of this lab's own, so leave it be
+			// (it can't be told from an unrelated lab with a longer name).
+			if strings.HasPrefix(r.name, clusterName+"-") {
+				continue
+			}
+			lab = r.name
+		}
+		if lab == clusterName || strings.HasPrefix(lab, "astro-test-") || seen[lab] {
 			continue
 		}
-		out = append(out, r.name)
+		seen[lab] = true
+		out = append(out, lab)
 	}
 	return out
 }
