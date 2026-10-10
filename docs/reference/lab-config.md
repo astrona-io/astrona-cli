@@ -48,12 +48,12 @@ resources: []    # LabResource — optional; everything in resources/ counts wit
 | Field | Type | Description |
 |---|---|---|
 | `name` | string | Lab name — becomes the cluster/VM name, prefixed `astro-`. Must start with a letter or digit and contain only letters, digits, `.`, `_` and `-` (no `/`, `,`, spaces or `..`) — see [Names](#names) |
-| `docs.prerequisites` | string | Path to a prerequisites doc |
-| `docs.examQuestion` | string | Path to the formal, self-contained task statement |
-| `docs.caseStudy` | string | Path to a softer, hint-driven version of the same task |
-| `docs.guide` | string | Path to the full step-by-step walkthrough |
+| `docs.question` | string | The task statement. Default: `question.md` next to `config.yaml`, if it exists |
+| `docs.solution` | string | The full step-by-step walkthrough. Default: `solution.md` |
+| `docs.prerequisites` | string | What to know before starting. Default: `prerequisites.md` |
+| `docs.caseStudy` | string | A softer, hint-driven version of the same task. Default: `case-study.md` |
 
-Doc paths are relative to `config.yaml` and must stay inside the lab directory (absolute paths are rejected); students read them with [`astrona docs`](cli/astrona_docs.md).
+`docs` is optional: a doc it doesn't list is found by its default file name next to `config.yaml`, so a lab with `question.md` and `solution.md` beside its config needs no `docs` block at all. The older names `examQuestion` (= `question`) and `guide` (= `solution`) still work; setting both names of the same doc to different files is an error. Doc paths are relative to `config.yaml` and must stay inside the lab directory (absolute paths are rejected); students read them with [`astrona docs`](cli/astrona_docs.md).
 
 ### Names
 
@@ -385,9 +385,9 @@ metadata:
   name: "k8s-basics-01"
   docs:
     prerequisites: "docs/prerequisites.md"
-    examQuestion: "docs/exam-question.md"
+    question: "docs/exam-question.md"
     caseStudy: "docs/case-study.md"
-    guide: "docs/step-by-step-guide.md"
+    solution: "docs/step-by-step-guide.md"
 
 bootstrap:
   init:

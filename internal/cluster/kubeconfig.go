@@ -208,7 +208,10 @@ func PreserveCurrentContext(rep *ui.Reporter) func() {
 		if hadNone {
 			cmd = exec.Command(kubectlPath, "config", "unset", "current-context")
 		} else {
-			cmd = exec.Command(kubectlPath, "config", "use-context", prev)
+			// set, not use-context: use-context refuses a context that no
+			// longer exists (e.g. its lab was destroyed), and the user's
+			// current-context should come back exactly as it was anyway.
+			cmd = exec.Command(kubectlPath, "config", "set", "current-context", prev)
 		}
 		if out, err := cmd.CombinedOutput(); err != nil {
 			rep.Warn("could not restore your kubectl current-context to '%s': %s", prev, strings.TrimSpace(string(out)))

@@ -13,7 +13,7 @@ func TestLabConfigResults(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "ok.sh"), []byte("true\n"), 0600)
 	cfg := &config.LabConfig{
-		Metadata:      config.MetadataConfig{Name: "x", Docs: config.DocsConfig{Guide: "guide.md"}},
+		Metadata:      config.MetadataConfig{Name: "x", Docs: config.DocsConfig{Solution: "guide.md"}},
 		Bootstrap:     config.BootstrapConfig{Init: []config.ResourceItem{{Name: "ok", Type: "file", Source: "ok.sh"}, {Name: "gone", Type: "file", Source: "gone.sh"}}},
 		Teardown:      config.TeardownConfig{Init: []config.ResourceItem{{Name: "escape", Type: "file", Source: "../../etc/passwd"}}},
 		Validation:    config.ValidationConfig{Checks: []config.ValidationCheck{{Type: "podReady"}, {Type: "httpGet"}}},
@@ -29,7 +29,7 @@ func TestLabConfigResults(t *testing.T) {
 		"validation.checks[1]":    checkFail,
 		"bootstrap.init[1] gone":  checkFail,
 		"teardown.init[0] escape": checkFail,
-		"metadata.docs.guide":     checkWarn,
+		"metadata.docs.solution":  checkWarn,
 	}
 	for name, status := range expect {
 		r, ok := byName[name]
