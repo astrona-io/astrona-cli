@@ -4095,6 +4095,11 @@
 <td>string</td>
 <td>A softer, hint-driven version of the same task. Default: <code>case-study.md</code></td>
 </tr>
+<tr>
+<td><code>timeLimit</code></td>
+<td>duration</td>
+<td>Playgrounds only: how long a module's playground may run before its clock stops and its cluster is removed, written like <code>90m</code>, <code>2h</code> or <code>1h30m</code>; between <code>5m</code> and <code>24h</code>. Empty: the site's default (2h). Ignored for labs, which have no such limit — see <a href="../../guides/lab-catalog/#playgrounds">Playgrounds</a></td>
+</tr>
 </tbody>
 </table>
 <p><code>docs</code> is optional: a doc it doesn't list is found by its default file name next to <code>config.yaml</code>, so a lab with <code>question.md</code> and <code>solution.md</code> beside its config needs no <code>docs</code> block at all. The older names <code>examQuestion</code> (= <code>question</code>) and <code>guide</code> (= <code>solution</code>) still work; setting both names of the same doc to different files is an error. Doc paths are relative to <code>config.yaml</code> and must stay inside the lab directory (absolute paths are rejected); students read them with <a href="../cli/astrona_docs/"><code>astrona docs</code></a>.</p>

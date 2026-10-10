@@ -3693,7 +3693,8 @@
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>PROCTOR: PASS
 </code></pre></div>
 <ul>
-<li>The lab is passed on as <code>-c</code>/<code>-f</code>/<code>--git</code>/<code>--git-ref</code>, since an older version may not know <a href="../../reference/cli/astrona_use/"><code>astrona use</code></a> or a lab given as an argument. Flags the older version doesn't have make it fail with its own error.</li>
+<li>The lab is passed on once, as the <code>-c</code>/<code>-f</code>/<code>--git</code>/<code>--git-ref</code> this astrona resolved — your own lab argument and lab flags are replaced, since an older version may not know <a href="../../reference/cli/astrona_use/"><code>astrona use</code></a> or a lab given as an argument, and what you typed may not be what was resolved (a catalog lab ignores <code>--git-ref</code>, for example). Your other flags are passed on unchanged.</li>
+<li><strong>Flags the other version doesn't have stop it first.</strong> Before handing over, astrona asks that version which flags the command takes (its <code>--help</code>); one it doesn't know — newer than it, like <code>run --keep-context</code> or <code>--yes</code> — ends the command here, naming the flag: <code>this lab needs astrona &lt;0.3.0, so it runs with astrona 0.2.4 — which has no --keep-context for `astrona run`; run it again without --keep-context</code>. If that version can't be asked, it is handed the command and its own flag parsing decides.</li>
 <li><strong>None installed?</strong> astrona never downloads anything just because a lab config says so — a config may come from someone else's repository. Instead:<ul>
 <li><strong>At a terminal it asks first:</strong>
   <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>This lab needs astrona &lt;=0.2.1 (this is 0.2.2). Download and install astrona 0.2.1,

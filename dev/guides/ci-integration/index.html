@@ -3791,8 +3791,16 @@
 <td>the listed items</td>
 </tr>
 <tr>
+<td><code>astrona resource list -o json</code> (or <code>astrona res -o json</code>)</td>
+<td><code>{lab, dir, resources: [{name, file, description, how, run, vm, dir}]}</code> — <code>dir</code> is the folder holding the lab's copy; <code>resources</code> is <code>[]</code> when it has none</td>
+</tr>
+<tr>
+<td><code>astrona whoami -o json</code></td>
+<td><code>{signedIn, username, site}</code> — signed out it is <code>{signedIn: false, site}</code> and still exits 1</td>
+</tr>
+<tr>
 <td><code>astrona labs -o json</code></td>
-<td>the catalog: <code>{fetchedAt, trainings: [{id, title, description, repo, labs: [{id, title, path}]}], errors}</code>; <code>labs &lt;TRAINING&gt; -o json</code> that one training; <code>labs --search &lt;words&gt; -o json</code> <code>[{training, lab: {id, title, path}}]</code></td>
+<td>the catalog: <code>{fetchedAt, trainings: [{id, title, description, repo, labs: [{id, title, path}]}], errors}</code> (<code>trainings</code> is <code>[]</code>, never <code>null</code>, when nothing was found); <code>labs &lt;TRAINING&gt; -o json</code> that one training; <code>labs --search &lt;words&gt; -o json</code> <code>[{training, lab: {id, title, path}}]</code></td>
 </tr>
 <tr>
 <td><code>astrona use -o json</code></td>
