@@ -3655,11 +3655,12 @@
   <h1>Astrona resource run</h1>
 
 <h2 id="astrona-resource-run">astrona resource run<a class="headerlink" href="#astrona-resource-run" title="Permanent link">&para;</a></h2>
-<p>Run a resource against the lab</p>
+<p>Run a resource against the lab (in a qemu lab: inside its VM)</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona resource run &lt;name&gt; [args...] [flags]
 </code></pre></div>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>  -h, --help   help for run
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>  -h, --help        help for run
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>      --vm string   qemu labs: the VM to run it in (default: the resource's vm:, else the lab's only VM)
 </code></pre></div>
 <h3 id="options-inherited-from-parent-commands">Options inherited from parent commands<a class="headerlink" href="#options-inherited-from-parent-commands" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>  -c, --config string     Path or URL to the lab config directory (with --git: a subdirectory within the cloned repo) (default ".")

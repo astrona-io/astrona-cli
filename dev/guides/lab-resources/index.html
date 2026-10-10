@@ -1062,6 +1062,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tab-completion-and-the-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tab completion and the docs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trust" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trust
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#for-lab-authors" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3570,6 +3592,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tab-completion-and-the-docs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tab completion and the docs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trust" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trust
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#for-lab-authors" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3661,7 +3705,8 @@
 </tr>
 </tbody>
 </table>
-<p>In a kind lab every resource runs with <strong><code>KUBECONFIG</code> set to the lab's own kubeconfig</strong> (plus its linked clusters'), exactly like <a href="../../reference/cli/astrona_shell/"><code>astrona shell</code></a> — so a resource's <code>kubectl</code> never reaches your other clusters, whatever your current context is. <code>$ASTRONA_LAB</code> holds the lab and <code>$ASTRONA_RESOURCE_DIR</code> the folder with all its resources (one resource can use another). Running resources inside a qemu lab's VM isn't supported yet — copy them and use <code>astrona ssh</code>.</p>
+<p>In a kind lab every resource runs with <strong><code>KUBECONFIG</code> set to the lab's own kubeconfig</strong> (plus its linked clusters'), exactly like <a href="../../reference/cli/astrona_shell/"><code>astrona shell</code></a> — so a resource's <code>kubectl</code> never reaches your other clusters, whatever your current context is. <code>$ASTRONA_LAB</code> holds the lab and <code>$ASTRONA_RESOURCE_DIR</code> the folder with all its resources (one resource can use another).</p>
+<p>In a <strong>qemu lab</strong> a resource runs <strong>inside the VM</strong>, as the account <code>astrona ssh</code> logs in with: <code>astrona res run</code> copies it to <code>~/astrona-resources/&lt;name&gt;</code> in the VM (fresh each time) and runs it there — from that folder, with every argument passed through as-is. The VM is <code>--vm &lt;name&gt;</code>, else the resource's <code>vm:</code> in the lab config, else the lab's only VM; a multi-VM lab without either asks which. <code>.yaml</code> files are plain files in a qemu lab (there's no cluster to apply them to).</p>
 <h2 id="several-labs-several-terminals">Several labs, several terminals<a class="headerlink" href="#several-labs-several-terminals" title="Permanent link">&para;</a></h2>
 <p><code>astrona res</code> picks the lab in this order:</p>
 <ol>
@@ -3671,6 +3716,10 @@
 <li>the only lab that has resources</li>
 </ol>
 <p>Otherwise it stops and lists the labs — it never guesses. With two labs open, run <code>astrona shell &lt;lab&gt;</code> in each terminal: every <code>astrona res</code> in that terminal then works on its lab.</p>
+<h2 id="tab-completion-and-the-docs">Tab completion and the docs<a class="headerlink" href="#tab-completion-and-the-docs" title="Permanent link">&para;</a></h2>
+<p><code>astrona res run &lt;TAB&gt;</code> (and <code>show</code>, <code>copy</code>, <code>path</code>) completes the lab's resource names, with each one's description. <code>astrona docs</code> lists the lab's resources next to its documents, so the task and the files it uses are in one place.</p>
+<h2 id="trust">Trust<a class="headerlink" href="#trust" title="Permanent link">&para;</a></h2>
+<p>A lab's resources are part of its code: the approval prompt for a remote lab (<code>--git</code> or the catalog) lists them — <em>ships 3 resource(s) … each runs on this machine only when you ask</em> — and an approval is pinned to that exact version of the lab, resources included. Nothing in them runs when the lab starts.</p>
 <h2 id="for-lab-authors">For lab authors<a class="headerlink" href="#for-lab-authors" title="Permanent link">&para;</a></h2>
 <p>Put the files in a <code>resources/</code> folder next to <code>config.yaml</code>; an optional <code>resources:</code> list adds descriptions and run commands. See <a href="../../reference/lab-config/#resources"><code>resources</code> in the lab config reference</a>.</p>
 
