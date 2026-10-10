@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -169,6 +170,33 @@ func TestResourceNameCompletion(t *testing.T) {
 		got := out.String()
 		if !strings.Contains(got, "setup\tCreates the demo DB") || !strings.Contains(got, "notes\tfile") {
 			t.Errorf("res %s <TAB> =\n%s", sub, got)
+		}
+	}
+}
+
+// `astrona res list -o json` is one document: the lab, its folder, the list.
+func TestResourceListJSON(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv(labShellEnvVar, "")
+	dir := snapshotLab(t, "astro-lab", map[string]string{"setup.sh": "echo hi"})
+	for _, args := range [][]string{{"-o", "json"}, {"list", "-o", "json"}} {
+		out := captureStdout(t, func() {
+			cmd := newResourceCmd(&rootFlags{configPath: ".", fileName: "config.yaml"})
+			cmd.SetArgs(args)
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+		})
+		var got struct {
+			Lab       string               `json:"lab"`
+			Dir       string               `json:"dir"`
+			Resources []resources.Resource `json:"resources"`
+		}
+		if err := json.Unmarshal([]byte(out), &got); err != nil {
+			t.Fatalf("%v: not JSON: %v\n%s", args, err, out)
+		}
+		if got.Lab != "astro-lab" || got.Dir != dir || len(got.Resources) != 1 || got.Resources[0].Name != "setup" {
+			t.Errorf("%v = %+v", args, got)
 		}
 	}
 }

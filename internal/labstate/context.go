@@ -88,6 +88,11 @@ type RestoreResult struct {
 // elsewhere meanwhile chose that. The record is dropped either way. Call
 // it before the cluster is deleted: deleting a kind cluster unsets its
 // context, after which "is it still current?" can't be answered.
+//
+// Labs started on top of each other chain: B, started while A's context
+// was current, remembers A's context. When A goes first, B is handed A's
+// own previous context, so destroying B still gets the user back to where
+// they were before either lab.
 func RestoreContext(kc Contexts, lab string) (RestoreResult, error) {
 	st, err := Load(lab)
 	if err != nil {
@@ -104,7 +109,37 @@ func RestoreContext(kc Contexts, lab string) (RestoreResult, error) {
 	if err := Update(lab, func(s *State) { s.KubeContext = nil }); err != nil {
 		return res, err
 	}
+	if err := handOver(lab, rec); err != nil {
+		return res, err
+	}
 	return res, nil
+}
+
+// handOver gives every other lab that remembers gone's context as the one
+// to go back to gone's own previous context instead.
+func handOver(gone string, rec KubeContext) error {
+	names, err := Names()
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		if name == gone {
+			continue
+		}
+		st, err := Load(name)
+		if err != nil || st == nil || st.KubeContext == nil || st.KubeContext.PreviousUnset ||
+			st.KubeContext.Previous != rec.Lab || st.KubeContext.Lab == rec.Previous {
+			continue
+		}
+		if err := Update(name, func(s *State) {
+			if s.KubeContext != nil {
+				s.KubeContext.Previous, s.KubeContext.PreviousUnset = rec.Previous, rec.PreviousUnset
+			}
+		}); err != nil {
+			return fmt.Errorf("could not hand your previous kubectl context on to %s: %w", name, err)
+		}
+	}
+	return nil
 }
 
 func restore(kc Contexts, rec KubeContext) (RestoreResult, error) {

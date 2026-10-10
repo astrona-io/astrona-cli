@@ -52,6 +52,7 @@ resources: []    # LabResource — optional; everything in resources/ counts wit
 | `docs.solution` | string | The full step-by-step walkthrough. Default: `solution.md` |
 | `docs.prerequisites` | string | What to know before starting. Default: `prerequisites.md` |
 | `docs.caseStudy` | string | A softer, hint-driven version of the same task. Default: `case-study.md` |
+| `timeLimit` | duration | Playgrounds only: how long a module's playground may run before its clock stops and its cluster is removed, written like `90m`, `2h` or `1h30m`; between `5m` and `24h`. Empty: the site's default (2h). Ignored for labs, which have no such limit — see [Playgrounds](../guides/lab-catalog.md#playgrounds) |
 
 `docs` is optional: a doc it doesn't list is found by its default file name next to `config.yaml`, so a lab with `question.md` and `solution.md` beside its config needs no `docs` block at all. The older names `examQuestion` (= `question`) and `guide` (= `solution`) still work; setting both names of the same doc to different files is an error. Doc paths are relative to `config.yaml` and must stay inside the lab directory (absolute paths are rejected); students read them with [`astrona docs`](cli/astrona_docs.md).
 

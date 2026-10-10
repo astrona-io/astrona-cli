@@ -134,7 +134,7 @@ Optional tools, all at once: brew install git qemu oras cdrtools
 
 Each ⚠/✗ prints the command that fixes it, e.g. `podman machine stop && podman machine set --memory 8192 --cpus 4 && podman machine start`.
 
-**Your lab** — when a lab config is found (`-c`, default `./config.yaml`):
+**Your lab** — when a lab config is found (`-c`/`--git`, the lab picked with `astrona use`, else `./config.yaml`). No config in the current directory just means no lab section; a config that is there but can't be loaded (malformed YAML, a lab picked with `astrona use` that has moved) is a ✗ under `Lab`, with the error:
 
 ```sh
 astrona check -c ./labs/my-lab

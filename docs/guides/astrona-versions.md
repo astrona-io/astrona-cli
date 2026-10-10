@@ -50,7 +50,8 @@ $ astrona test ./labs/old-lab
 PROCTOR: PASS
 ```
 
-- The lab is passed on as `-c`/`-f`/`--git`/`--git-ref`, since an older version may not know [`astrona use`](../reference/cli/astrona_use.md) or a lab given as an argument. Flags the older version doesn't have make it fail with its own error.
+- The lab is passed on once, as the `-c`/`-f`/`--git`/`--git-ref` this astrona resolved — your own lab argument and lab flags are replaced, since an older version may not know [`astrona use`](../reference/cli/astrona_use.md) or a lab given as an argument, and what you typed may not be what was resolved (a catalog lab ignores `--git-ref`, for example). Your other flags are passed on unchanged.
+- **Flags the other version doesn't have stop it first.** Before handing over, astrona asks that version which flags the command takes (its `--help`); one it doesn't know — newer than it, like `run --keep-context` or `--yes` — ends the command here, naming the flag: ``this lab needs astrona <0.3.0, so it runs with astrona 0.2.4 — which has no --keep-context for `astrona run`; run it again without --keep-context``. If that version can't be asked, it is handed the command and its own flag parsing decides.
 - **None installed?** astrona never downloads anything just because a lab config says so — a config may come from someone else's repository. Instead:
     - **At a terminal it asks first:**
       ```
