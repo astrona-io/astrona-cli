@@ -28,7 +28,9 @@ echo "$*" >> "` + callsFile + `"
 case "$*" in
   "config current-context")
     if [ -s "` + stateFile + `" ]; then cat "` + stateFile + `"; echo; else echo "error: current-context is not set" >&2; exit 1; fi ;;
-  "config use-context "*) printf '%s' "$3" > "` + stateFile + `" ;;
+  "config use-context my-prod"|"config use-context kind-astro-x") printf '%s' "$3" > "` + stateFile + `" ;;
+  "config use-context "*) echo "error: no context exists with the name: \"$3\"" >&2; exit 1 ;;
+  "config set current-context "*) printf '%s' "$4" > "` + stateFile + `" ;;
   "config unset current-context") : > "` + stateFile + `" ;;
   "config get-contexts -o name") printf 'my-prod\nkind-astro-x\n' ;;
   *) echo "unexpected: $*" >&2; exit 2 ;;
@@ -59,6 +61,20 @@ func TestPreserveCurrentContextRestoresPrevious(t *testing.T) {
 	}
 }
 
+// A current-context naming a context that no longer exists (its lab was
+// destroyed) is put back as it was — kubectl's use-context refuses it.
+func TestPreserveCurrentContextRestoresMissingContext(t *testing.T) {
+	state, _ := fakeKubectl(t, "kind-astro-gone", true)
+
+	restore := PreserveCurrentContext(ui.Discard())
+	os.WriteFile(state, []byte("kind-astro-x"), 0600)
+	restore()
+
+	if got := readFile(t, state); got != "kind-astro-gone" {
+		t.Fatalf("current-context = %q, want kind-astro-gone back", got)
+	}
+}
+
 func TestPreserveCurrentContextUnsetsWhenNoneBefore(t *testing.T) {
 	state, _ := fakeKubectl(t, "", false)
 
@@ -78,7 +94,7 @@ func TestPreserveCurrentContextNoopWhenUnchanged(t *testing.T) {
 	restore()
 
 	for _, line := range strings.Split(readFile(t, calls), "\n") {
-		if strings.HasPrefix(line, "config use-context") || strings.HasPrefix(line, "config unset") {
+		if strings.HasPrefix(line, "config use-context") || strings.HasPrefix(line, "config set") || strings.HasPrefix(line, "config unset") {
 			t.Fatalf("kubeconfig written although context never changed: %q", line)
 		}
 	}
