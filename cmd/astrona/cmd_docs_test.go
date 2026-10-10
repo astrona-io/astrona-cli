@@ -21,6 +21,33 @@ func TestSanitizeTerminalText(t *testing.T) {
 	}
 }
 
+func TestStripFrontMatter(t *testing.T) {
+	for _, tc := range []struct {
+		name, in, title, body string
+	}{
+		{"none", "# Task\ntext\n", "", "# Task\ntext\n"},
+		{"ats015", "---\nestimated_duration: 20m\n---\n# Task\n", "", "# Task\n"},
+		{"title", "---\ntitle: \"Deploy\\nit\"\nestimated_duration: 20m\n---\n\nBody\n", "Deploy it", "Body\n"},
+		{"empty block", "---\n---\nBody\n", "", "Body\n"},
+		{"later rule stays", "# Task\n\n---\n\nmore\n---\n", "", "# Task\n\n---\n\nmore\n---\n"},
+		{"unclosed", "---\nestimated_duration: 20m\n# Task\n", "", "---\nestimated_duration: 20m\n# Task\n"},
+		{"not yaml", "---\n: [oops\n---\nBody\n", "", "---\n: [oops\n---\nBody\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			title, body := stripFrontMatter(tc.in)
+			if title != tc.title || body != tc.body {
+				t.Errorf("stripFrontMatter(%q) = %q, %q; want %q, %q", tc.in, title, body, tc.title, tc.body)
+			}
+		})
+	}
+}
+
+func TestSanitizeLine(t *testing.T) {
+	if got := sanitizeLine("a\x1b[1A\r\n\tb\x9b"); got != "a[1A  b" {
+		t.Errorf("sanitizeLine = %q", got)
+	}
+}
+
 func TestRenderMarkdown(t *testing.T) {
 	src := "# Title\n## Sub\nSome `code` and **bold** and [link](https://x.y).\n- item\n> quote\n---\n```\nkubectl get pods\n```\n"
 

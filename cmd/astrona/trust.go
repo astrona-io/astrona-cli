@@ -124,6 +124,12 @@ func labRiskSummary(cfg *config.LabConfig) []string {
 	if len(lines) == 0 {
 		lines = append(lines, "no scripts, checks or manifests that reach outside the cluster")
 	}
+	// Every line carries the lab's own strings (names, URLs, commands):
+	// shown before the user approves it, they mustn't be able to rewrite
+	// the prompt.
+	for i := range lines {
+		lines[i] = sanitizeLine(lines[i])
+	}
 	return lines
 }
 
@@ -219,9 +225,9 @@ func confirmTrust(in io.Reader, out io.Writer, src trust.Source, status trust.St
 	} else {
 		fmt.Fprintf(out, "\nFirst time running this lab:\n")
 	}
-	fmt.Fprintf(out, "  %s (%s)\n\nIt will:\n", src.Location, shortPin(src.Pin))
+	fmt.Fprintf(out, "  %s (%s)\n\nIt will:\n", sanitizeLine(src.Location), sanitizeLine(shortPin(src.Pin)))
 	for _, l := range summary {
-		fmt.Fprintf(out, "  • %s\n", l)
+		fmt.Fprintf(out, "  • %s\n", sanitizeLine(l))
 	}
 	fmt.Fprintf(out, "\nOnly continue if you trust its author. Run it? [y/N] ")
 	line, _ := bufio.NewReader(in).ReadString('\n')

@@ -181,7 +181,11 @@ func newDocsCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w)
 			}
 			color := os.Getenv("NO_COLOR") == "" && (paged || colorsEnabled())
-			fmt.Fprint(w, renderMarkdown(sanitizeTerminalText(text), color))
+			title, body := stripFrontMatter(sanitizeTerminalText(text))
+			if title != "" {
+				body = "# " + title + "\n\n" + body
+			}
+			fmt.Fprint(w, renderMarkdown(body, color))
 			return nil
 		},
 	}
@@ -217,7 +221,7 @@ func printDocResources(w io.Writer, cfg *config.LabConfig, configPath string) {
 		if desc == "" {
 			desc = r.File
 		}
-		fmt.Fprintf(w, "  %-28s %s\n", r.Name, desc)
+		fmt.Fprintf(w, "  %-28s %s\n", sanitizeLine(r.Name), sanitizeLine(desc))
 	}
 }
 
