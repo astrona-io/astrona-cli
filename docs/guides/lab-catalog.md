@@ -46,6 +46,8 @@ A module's playground has no lab page: its clock starts with the session, its ti
 
 A full `astrona reset ATS014/…` does the same: a fresh session and a new lab page (for a playground: a fresh clock and timer) once the lab is rebuilt. Starting over — `reset`, or `run` on a lab that's already running — first stops the old playground's clock and timer, so the old timer never removes the new lab. `reset --soft` and `reset --cluster` keep the current session and need no sign-in. `astrona run renew` skips (and forgets) a playground whose cluster no longer exists.
 
+Only labs of the published trainings (repositories owned by the `astrona-io` GitHub organization) work this way. A lab from a source you added yourself (`astrona labs add`, or an organization set with `ASTRONA_CATALOG_ORG`) runs like a `--git` lab: no sign-in, no lab session, no results sent — astrona says so when it resolves the name — so another repository can never start a session in your account.
+
 The session is remembered with the lab in `~/.astrona/labs/<lab>.json` (mode 0600: the site, the session id, the lab and its page — never a token). Then `astrona submit`:
 
 1. grades the lab exactly as always (the Proctor decides; the exit code is the grade's);
@@ -86,6 +88,10 @@ A training's `astrona.yaml` lists its labs (`content` entries of `type: lab`, in
 ```
 sections/section-050/module-01/labs/lab-01   →   ATS014/section-050/module-01/lab-01
 ```
+
+The training id (`training.id`, else the repository name) must be a plain name — letters, digits, `-` and `_` — and can't be an owner name (`astrona-io`, `astrona.io`): a name like `astrona.io/ATS014/…` always means the `astrona-io` repositories, never a training called `astrona.io`. A training with such an id is skipped, and listed among the catalog's errors.
+
+Training ids are unique (in any case). When two sources declare the same id, the one from the `astrona-io` organization wins (else the first by repository URL); the other is skipped, and the catalog's errors name both repositories — so a source you add can't take over the name of a published training.
 
 ## Safety
 

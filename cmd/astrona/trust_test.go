@@ -78,6 +78,42 @@ func TestLabRiskSummary(t *testing.T) {
 	}
 }
 
+// A lab's own strings must not be able to rewrite the trust prompt: no
+// escape sequences, and no newlines to fake a line of their own.
+func TestTrustPromptSanitized(t *testing.T) {
+	evil := "\x1b[1A\x1b[2K\r\n  • fake\x07\x9b"
+	cfg := &config.LabConfig{
+		Runtime: config.RuntimeConfig{
+			Kind:         &config.KindConfig{PreloadImages: []string{"nginx" + evil}, Clusters: []config.KindCluster{{Name: "idp" + evil}}},
+			PortForwards: []config.PortForward{{Resource: "svc/web" + evil, Cluster: "idp" + evil, HostPort: 8080}},
+		},
+		Bootstrap: config.BootstrapConfig{
+			Init: []config.ResourceItem{
+				{Name: "setup" + evil, Type: "file", Source: "setup.sh" + evil},
+				{Name: "remote", Type: "url", Source: "https://x/y.sh" + evil},
+			},
+		},
+		Validation: config.ValidationConfig{Checks: []config.ValidationCheck{{Type: "command", Command: "ls" + evil}}},
+	}
+	summary := labRiskSummary(cfg)
+	for _, l := range summary {
+		if hasControl(l) {
+			t.Errorf("summary line has control characters: %q", l)
+		}
+	}
+	var out bytes.Buffer
+	src := trust.Source{Kind: "url", Location: "https://labs.example/" + evil, Pin: "sha256:abc"}
+	confirmTrust(strings.NewReader("n\n"), &out, src, trust.New, "", summary)
+	for _, line := range strings.Split(strings.TrimRight(out.String(), "\n"), "\n") {
+		if hasControl(line) {
+			t.Errorf("prompt line has control characters: %q", line)
+		}
+		if strings.HasPrefix(strings.TrimSpace(line), "• fake") {
+			t.Errorf("a lab string faked a prompt line: %q", line)
+		}
+	}
+}
+
 func TestConfirmTrust(t *testing.T) {
 	src := trust.Source{Kind: "git", Location: "https://github.com/org/labs", Pin: "0123456789abcdef"}
 	var out bytes.Buffer

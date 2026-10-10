@@ -36,7 +36,7 @@ func printResources(w io.Writer, dir string, list []resources.Resource) {
 		if desc == "" {
 			desc = r.File
 		}
-		fmt.Fprintf(tw, "  %s\t%s\t%s\n", r.Name, desc, ui.Paint(w, how, ui.Dim))
+		fmt.Fprintf(tw, "  %s\t%s\t%s\n", sanitizeLine(r.Name), sanitizeLine(desc), ui.Paint(w, sanitizeLine(how), ui.Dim))
 	}
 	tw.Flush()
 }
@@ -46,7 +46,7 @@ func printResources(w io.Writer, dir string, list []resources.Resource) {
 func resourceRiskLines(cfg *config.LabConfig, baseDir string) []string {
 	list, err := resources.Collect(cfg, baseDir)
 	if err != nil {
-		return []string{"⚠ its resources can't be read: " + err.Error()}
+		return []string{sanitizeLine("⚠ its resources can't be read: " + err.Error())}
 	}
 	if len(list) == 0 {
 		return nil
@@ -63,6 +63,6 @@ func resourceRiskLines(cfg *config.LabConfig, baseDir string) []string {
 		}
 		parts[i] = r.Name + " (" + how + ")"
 	}
-	return []string{fmt.Sprintf("ships %d resource(s), copied to ~/.astrona/resources — each runs %s only when you ask (astrona res run): %s",
-		len(list), where, strings.Join(parts, ", "))}
+	return []string{sanitizeLine(fmt.Sprintf("ships %d resource(s), copied to ~/.astrona/resources — each runs %s only when you ask (astrona res run): %s",
+		len(list), where, strings.Join(parts, ", ")))}
 }

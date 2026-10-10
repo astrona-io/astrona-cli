@@ -177,7 +177,7 @@ astrona docs prerequisites   # docs.prerequisites (prerequisites.md)
 astrona docs solution        # docs.solution (solution.md) — shown with a "full solution" warning
 ```
 
-They're rendered for the terminal (headings, code blocks, lists, inline code, bold, links) and paged; `astrona run` ends with "Your task: astrona docs question" when the lab has a question. Write them as plain Markdown — tables and HTML are shown as-is. Doc paths can't point outside the lab directory, and control characters (terminal escape sequences) are stripped before anything is printed. Name the cluster context as `kind-astro-<metadata.name>` in your docs — or point students at `astrona shell <lab>`.
+They're rendered for the terminal (headings, code blocks, lists, inline code, bold, links) and paged; `astrona run` ends with "Your task: astrona docs question" when the lab has a question. Write them as plain Markdown — tables and HTML are shown as-is. A YAML front-matter block at the very top of a doc (a `---` line, YAML such as `estimated_duration: 20m`, a `---` line) is hidden; if it has a `title`, that's shown as the doc's heading. A `---` further down is still a horizontal rule. Doc paths can't point outside the lab directory, and control characters (terminal escape sequences) are stripped before anything is printed. Name the cluster context as `kind-astro-<metadata.name>` in your docs — or point students at `astrona shell <lab>`.
 
 ## 2. Pick a runtime
 

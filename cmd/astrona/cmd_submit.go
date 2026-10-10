@@ -58,8 +58,8 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			if err := checkOutput(output); err != nil {
 				return err
 			}
-			if watch && output == "json" {
-				return fmt.Errorf("--watch redraws a live view; -o json grades once")
+			if err := checkWatchFlags(watch, output, junitPath, history, keep); err != nil {
+				return err
 			}
 			// Status lines never go to stdout under -o json: it carries
 			// exactly one JSON document.
@@ -176,7 +176,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 				if output != "json" {
 					fmt.Printf("Time: %s\n", examState.Summary(now))
 				}
-				if examState.Over(now) && cfg.Exam.Strict && pass {
+				if strictOverTime(examState, cfg.Exam.Strict, pass, now) {
 					pass, overTime = false, true
 					if output != "json" {
 						fmt.Printf("Submitted after the time limit — not counted as a pass (exam.strict).\n")
@@ -249,6 +249,33 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 	addOutputFlag(cmd, &output)
 
 	return cmd
+}
+
+// checkWatchFlags refuses flags that --watch would otherwise silently
+// ignore: a watch never records an attempt, so nothing is written, listed
+// or sent.
+func checkWatchFlags(watch bool, output, junitPath string, history, keep bool) error {
+	if !watch {
+		return nil
+	}
+	switch {
+	case output != "":
+		return fmt.Errorf("--watch redraws a live view; -o %s grades once — drop one of them", output)
+	case junitPath != "":
+		return fmt.Errorf("--watch records nothing, so there is no --junit-xml report — run `astrona submit --junit-xml %s` without --watch", junitPath)
+	case history:
+		return fmt.Errorf("--watch and --history can't be combined: --history lists attempts, --watch re-grades")
+	case keep:
+		return fmt.Errorf("--keep only applies after a recorded submit; --watch never sends a result or deletes the lab")
+	}
+	return nil
+}
+
+// strictOverTime reports whether a passing grade doesn't count because the
+// exam's time limit has run out and the lab sets exam.strict — the one
+// rule both `submit` and `submit --watch` apply.
+func strictOverTime(examState *exam.State, strict, pass bool, now time.Time) bool {
+	return pass && strict && examState != nil && examState.Over(now)
 }
 
 // printProgress compares this attempt with the previous one: attempt

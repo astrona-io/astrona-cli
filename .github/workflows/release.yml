@@ -47,9 +47,14 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          # Passed through env, never interpolated into the script: a tag
+          # name is attacker-influenced text as far as the shell is concerned.
+          VERSION: ${{ github.ref_name }}
+          EXT: ${{ matrix.ext }}
+          PKG: ${{ matrix.pkg || './cmd/astrona' }}
         run: |
-          BINARY_NAME="astrona-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
-          go build -v -ldflags "-X main.Version=${{ github.ref_name }}" -o "$BINARY_NAME" ${{ matrix.pkg || './cmd/astrona' }}
+          BINARY_NAME="astrona-$GOOS-$GOARCH$EXT"
+          go build -v -ldflags "-X main.Version=$VERSION" -o "$BINARY_NAME" "$PKG"
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v4
@@ -83,10 +88,15 @@ jobs:
           (cd dist && sha256sum astrona-* > SHA256SUMS)
           ls -R dist/
 
+      # A tag with a "-" (v0.4.0-rc1) is a pre-release: GitHub never makes it
+      # "latest", so `astrona upgrade`, the update notice and the formula's
+      # livecheck keep pointing at the last stable release. Installing an
+      # RC stays possible on purpose: `astrona versions install 0.4.0-rc1`.
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:
           files: dist/*
+          prerelease: ${{ contains(github.ref_name, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

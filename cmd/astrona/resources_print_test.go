@@ -5,8 +5,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode"
+	"unicode/utf8"
 
 	"astrona/internal/config"
+	"astrona/internal/resources"
 )
 
 func TestResourceRiskLines(t *testing.T) {
@@ -58,5 +61,50 @@ func TestPrintDocResources(t *testing.T) {
 	printDocResources(&b, cfg, "https://example.com/lab/config.yaml")
 	if b.Len() != 0 {
 		t.Errorf("URL config printed:\n%s", b.String())
+	}
+}
+
+// hasControl reports whether s holds anything a terminal could act on:
+// a control character (newline and tab included) or an invalid UTF-8 byte.
+func hasControl(s string) bool {
+	return strings.ContainsFunc(s, func(r rune) bool { return unicode.IsControl(r) || r == utf8.RuneError })
+}
+
+func TestResourceListingsSanitized(t *testing.T) {
+	evil := "x\x1b[1A\x1b[2K\r\n  • fake\x9b"
+	lab := writeLabFiles(t, map[string]string{
+		"config.yaml":              "",
+		"resources/demo.go":        "package main",
+		"resources/notes.\x1b[2Jt": "x",
+	})
+	cfg := &config.LabConfig{Resources: []config.LabResource{
+		{File: "demo.go", Run: "go run ." + evil, Description: "Demo" + evil},
+		{File: "notes.\x1b[2Jt", Type: config.ResourceTypeFile},
+	}}
+	list, err := resources.Collect(cfg, lab)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	printResources(&b, "/tmp/res", list)
+	printDocResources(&b, cfg, filepath.Join(lab, "config.yaml"))
+	for _, line := range strings.Split(strings.TrimRight(b.String(), "\n"), "\n") {
+		if hasControl(line) {
+			t.Errorf("listing line has control characters: %q", line)
+		}
+		if strings.HasPrefix(strings.TrimSpace(line), "• fake") {
+			t.Errorf("a lab string broke onto its own line: %q", line)
+		}
+	}
+	for _, l := range resourceRiskLines(cfg, lab) {
+		if hasControl(l) {
+			t.Errorf("trust line has control characters: %q", l)
+		}
+	}
+	for _, c := range resourceCompletions(list) {
+		name, desc, _ := strings.Cut(string(c), "\t")
+		if hasControl(name) || hasControl(desc) {
+			t.Errorf("completion has control characters: %q", c)
+		}
 	}
 }

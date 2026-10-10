@@ -5,6 +5,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"gopkg.in/yaml.v3"
 )
 
 // sanitizeTerminalText removes every control character except newline and
@@ -23,6 +25,48 @@ func sanitizeTerminalText(s string) string {
 		}
 		return r
 	}, strings.ReplaceAll(s, "\r\n", "\n"))
+}
+
+// sanitizeLine is sanitizeTerminalText for a lab string printed inside one
+// line — a resource's run command or description, a script name, a URL:
+// newlines and tabs become spaces too, so the value can't fake or bury a
+// line around it (the trust prompt's above all).
+func sanitizeLine(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' {
+			return ' '
+		}
+		return r
+	}, sanitizeTerminalText(s))
+}
+
+// stripFrontMatter removes a YAML front-matter block — a "---" line, YAML,
+// a "---" line — from the very start of a doc, and returns its title, if
+// it has one. A "---" anywhere else is a horizontal rule and stays, as does
+// a leading block that isn't YAML. Input must be sanitized first.
+func stripFrontMatter(src string) (title, body string) {
+	lines := strings.Split(src, "\n")
+	if len(lines) < 2 || strings.TrimRight(lines[0], " ") != "---" {
+		return "", src
+	}
+	end := -1
+	for i := 1; i < len(lines); i++ {
+		if strings.TrimRight(lines[i], " ") == "---" {
+			end = i
+			break
+		}
+	}
+	if end < 0 {
+		return "", src
+	}
+	var meta map[string]any
+	if err := yaml.Unmarshal([]byte(strings.Join(lines[1:end], "\n")), &meta); err != nil {
+		return "", src
+	}
+	if t, ok := meta["title"].(string); ok {
+		title = sanitizeLine(strings.TrimSpace(t))
+	}
+	return title, strings.TrimLeft(strings.Join(lines[end+1:], "\n"), "\n")
 }
 
 var (
