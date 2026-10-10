@@ -54,3 +54,9 @@ go build -o astrona ./cmd/astrona
 ## Dependency updates
 
 [Renovate](https://docs.renovatebot.com/) — Mend's hosted GitHub App, configured by `.github/renovate.json5` — opens PRs for dependency updates; they get the full CI run like any other PR (jobs and logs: [developer.mend.io](https://developer.mend.io)). Go module **minor and patch** updates are set to auto-merge: GitHub merges them as soon as the required checks on `main` (Lint, Unit tests, E2E) pass, and never when they fail. Major updates, the `go`/`toolchain` directive and GitHub Actions updates wait for a human review. New releases are only proposed after they're 3 days old. The Dependency Dashboard issue lists everything pending.
+
+## Releases
+
+Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`: it builds the four binaries with build provenance, publishes the GitHub release as **latest**, updates the [Homebrew tap](https://github.com/astrona-io/homebrew-tap) and then installs from the tap on macOS and Linux to check it.
+
+A tag with a `-` — a release candidate like `v0.4.0-rc1` — is published as a **pre-release**: it never becomes "latest", so `astrona upgrade`, the update notice and Homebrew keep offering the last stable release, and the tap isn't touched. Testers install an RC on purpose with `astrona versions install 0.4.0-rc1`.
