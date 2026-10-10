@@ -43,7 +43,7 @@ func NewFetcher(clone func(string) ([]byte, error)) *Fetcher {
 // Fetch builds the catalog: org's repos with the training topic, plus
 // extra sources (git URLs). A source that fails is listed in Errors.
 func (f *Fetcher) Fetch(org string, extra []string) Catalog {
-	cat := Catalog{FetchedAt: time.Now()}
+	cat := Catalog{FetchedAt: time.Now(), Trainings: []Training{}}
 	var repos []string
 	if org != "" {
 		found, err := f.topicRepos(org)

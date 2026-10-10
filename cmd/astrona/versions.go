@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 
 	"astrona/internal/config"
 	"astrona/internal/ui"
@@ -168,8 +172,12 @@ func ensureLabVersion(constraint string, flags *rootFlags, approve func() error)
 		return belowFloorError(c)
 	}
 
+	args := handoverArgs(os.Args[1:], flags)
+	if err := checkHandoverFlags(target, c, args, flags); err != nil {
+		return err
+	}
 	ui.Infof("this lab needs astrona %s — running it with astrona %s (%s)", c, target.v, target.path)
-	argv := append([]string{target.path}, handoverArgs(os.Args[1:], flags)...)
+	argv := append([]string{target.path}, args...)
 	env := append(os.Environ(), dispatchedEnv+"="+cur.String())
 	return execHandover(target.path, argv, env)
 }
@@ -256,19 +264,36 @@ var installVersion = func(v version.V) (string, error) {
 	return dest, nil
 }
 
+// labSelectionFlags are the flags that pick the lab, by long name and
+// shorthand. A hand-over drops the user's own and passes the resolved ones.
+var labSelectionFlags = map[string]bool{"config": true, "c": true, "file": true, "f": true, "git": true, "git-ref": true}
+
 // handoverArgs is the command line for another astrona version: the same
-// command and flags, with the lab spelled out as -c/-f/--git/--git-ref — an
-// older version may not know `astrona use` or a lab given as an argument.
+// command and flags, with the lab spelled out once as the resolved
+// -c/-f/--git/--git-ref — an older version may not know `astrona use` or a
+// lab given as an argument, and the user's own lab flags may no longer be
+// what was resolved (a catalog lab resets --git-ref).
 func handoverArgs(args []string, flags *rootFlags) []string {
 	out := make([]string, 0, len(args)+8)
 	dropped := false
-	for _, a := range args {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if a == "--" { // the rest belongs to the command, untouched
+			out = append(out, args[i:]...)
+			break
+		}
 		if !dropped && flags.labArg != "" && a == flags.labArg {
 			dropped = true
 			continue
 		}
 		// Ours, not the other version's — it would reject an unknown flag.
 		if a == "--install-version" || strings.HasPrefix(a, "--install-version=") {
+			continue
+		}
+		if name, inline, ok := flagName(a); ok && labSelectionFlags[name] {
+			if !inline {
+				i++ // its value is the next argument
+			}
 			continue
 		}
 		out = append(out, a)
@@ -281,6 +306,86 @@ func handoverArgs(args []string, flags *rootFlags) []string {
 		}
 	}
 	return out
+}
+
+// flagName is the flag an argument sets — "--name", "--name=v", "-x",
+// "-x=v" or "-xv" — and whether its value is part of the argument; ok is
+// false for anything that isn't a flag. Of a shorthand cluster only the
+// first letter is named.
+func flagName(arg string) (name string, inline, ok bool) {
+	switch {
+	case arg == "-" || arg == "--" || !strings.HasPrefix(arg, "-"):
+		return "", false, false
+	case strings.HasPrefix(arg, "--"):
+		name, _, inline = strings.Cut(arg[2:], "=")
+		return name, inline, true
+	default:
+		return arg[1:2], len(arg) > 2, true
+	}
+}
+
+// unknownHandoverFlag is the first flag in args (up to "--") that the
+// other astrona's command doesn't have — known is what its --help lists.
+func unknownHandoverFlag(args []string, known map[string]bool) string {
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		if name, _, ok := flagName(a); ok && !known[name] {
+			return a
+		}
+	}
+	return ""
+}
+
+// helpFlagLine is a flag line of cobra's --help: "  -c, --config string"
+// or "      --git-ref string".
+var helpFlagLine = regexp.MustCompile(`^\s+(?:-([A-Za-z0-9]), )?--([A-Za-z0-9][A-Za-z0-9-]*)`)
+
+// parseHelpFlags lists the flags (long names and shorthands) in a --help.
+func parseHelpFlags(help string) map[string]bool {
+	known := map[string]bool{}
+	for _, line := range strings.Split(help, "\n") {
+		if m := helpFlagLine.FindStringSubmatch(line); m != nil {
+			known[m[2]] = true
+			if m[1] != "" {
+				known[m[1]] = true
+			}
+		}
+	}
+	return known
+}
+
+// targetFlags asks another astrona which flags its command takes (its
+// --help). A variable so tests needn't build one.
+var targetFlags = func(path string, cmdPath []string) (map[string]bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, path, append(append([]string{}, cmdPath...), "--help")...).Output()
+	if err != nil {
+		return nil, err
+	}
+	known := parseHelpFlags(string(out))
+	if len(known) == 0 {
+		return nil, errors.New("no flags in its --help")
+	}
+	return known, nil
+}
+
+// checkHandoverFlags fails before the hand-over when the command line has a
+// flag the other astrona doesn't know (one added since), instead of that
+// version failing on it after this one approved the lab. When the other
+// version can't be asked, its own flag parsing has the last word.
+func checkHandoverFlags(target installedVersion, c version.Constraint, args []string, flags *rootFlags) error {
+	known, err := targetFlags(target.path, flags.cmdPath)
+	if err != nil {
+		return nil
+	}
+	if bad := unknownHandoverFlag(args, known); bad != "" {
+		return fmt.Errorf("this lab needs astrona %s, so it runs with astrona %s — which has no %s for `astrona %s`; run it again without %s",
+			c, target.v, bad, strings.Join(flags.cmdPath, " "), bad)
+	}
+	return nil
 }
 
 // labVersionFromLoadError is the astronaVersion of a config this version

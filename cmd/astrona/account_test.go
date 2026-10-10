@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -159,10 +161,18 @@ func TestLoginWhoamiLogout(t *testing.T) {
 	client, store := withAccount(t, srv.URL)
 	ctx := context.Background()
 
-	if err := whoami(ctx, client, store, srv.URL); err == nil || !strings.Contains(err.Error(), "not signed in") || !strings.Contains(err.Error(), "astrona login") {
+	if err := whoami(ctx, client, store, srv.URL, false); err == nil || !strings.Contains(err.Error(), "not signed in") || !strings.Contains(err.Error(), "astrona login") {
 		t.Errorf("whoami signed out: %v", err)
 	}
 	out := captureStdout(t, func() {
+		if err := whoami(ctx, client, store, srv.URL, true); err == nil {
+			t.Error("whoami -o json signed out: want an error (exit 1)")
+		}
+	})
+	if want := `{"signedIn":false,"site":"` + srv.URL + `"}`; compactJSON(t, out) != want {
+		t.Errorf("whoami -o json signed out = %s, want %s", out, want)
+	}
+	out = captureStdout(t, func() {
 		if err := login(ctx, client, store, srv.URL, testDevice); err != nil {
 			t.Fatal(err)
 		}
@@ -185,14 +195,22 @@ func TestLoginWhoamiLogout(t *testing.T) {
 	}
 
 	out = captureStdout(t, func() {
-		if err := whoami(ctx, client, store, srv.URL); err != nil {
+		if err := whoami(ctx, client, store, srv.URL, false); err != nil {
 			t.Fatal(err)
 		}
 	})
 	if strings.TrimSpace(out) != "Signed in as student1 on "+srv.URL {
 		t.Errorf("whoami = %q", out)
 	}
-	if err := whoami(ctx, client, store, "https://astrona.io"); err == nil || !strings.Contains(err.Error(), "signed in to "+srv.URL) {
+	out = captureStdout(t, func() {
+		if err := whoami(ctx, client, store, srv.URL, true); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if want := `{"signedIn":true,"username":"student1","site":"` + srv.URL + `"}`; compactJSON(t, out) != want {
+		t.Errorf("whoami -o json = %s, want %s", out, want)
+	}
+	if err := whoami(ctx, client, store, "https://astrona.io", false); err == nil || !strings.Contains(err.Error(), "signed in to "+srv.URL) {
 		t.Errorf("whoami for another site: %v", err)
 	}
 
@@ -342,4 +360,14 @@ func TestLoginSiteWithoutSignIn(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "HTTP 404") || !strings.Contains(err.Error(), "astrona login --site http://localhost:3000") {
 		t.Errorf("err = %v", err)
 	}
+}
+
+// compactJSON is out (one JSON document) without whitespace.
+func compactJSON(t *testing.T, out string) string {
+	t.Helper()
+	var b bytes.Buffer
+	if err := json.Compact(&b, []byte(out)); err != nil {
+		t.Fatalf("not one JSON document: %v\n%s", err, out)
+	}
+	return b.String()
 }

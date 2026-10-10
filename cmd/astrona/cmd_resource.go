@@ -22,7 +22,7 @@ import (
 const resourceDirEnv = "ASTRONA_RESOURCE_DIR"
 
 func newResourceCmd(flags *rootFlags) *cobra.Command {
-	var labFlag string
+	var labFlag, output string
 	cmd := &cobra.Command{
 		Use:     "resource",
 		Aliases: []string{"res", "resources"},
@@ -52,9 +52,15 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
   astrona res run load-test --lab ats-014-lab-010-01 -- --rps 50`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkOutput(output); err != nil {
+				return err
+			}
 			lab, list, dir, err := resourceLab(cmd, flags, labFlag)
 			if err != nil {
 				return err
+			}
+			if output == "json" {
+				return printResourcesJSON(lab, dir, list)
 			}
 			if len(list) == 0 {
 				fmt.Printf("Lab %s has no resources.\n", lab)
@@ -99,13 +105,16 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 		}
 	}
 
-	cmd.AddCommand(&cobra.Command{
+	addOutputFlag(cmd, &output)
+	listCmd := &cobra.Command{
 		Use:          "list",
 		Short:        "List the lab's resources",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE:         cmd.RunE,
-	})
+	}
+	addOutputFlag(listCmd, &output)
+	cmd.AddCommand(listCmd)
 	cmd.AddCommand(withResource("show <name>", "Print a resource (a folder: the files in it)", cobra.ExactArgs(1),
 		func(_ *cobra.Command, _, dir string, r resources.Resource, _ []string) error {
 			p, err := r.Path(dir)
@@ -158,6 +167,19 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 	runCmd.Flags().StringVar(&vmFlag, "vm", "", "qemu labs: the VM to run it in (default: the resource's vm:, else the lab's only VM)")
 	cmd.AddCommand(runCmd)
 	return cmd
+}
+
+// printResourcesJSON is `astrona resource list -o json`: the lab, the
+// folder holding its copy of the resources, and the list ([] when none).
+func printResourcesJSON(lab, dir string, list []resources.Resource) error {
+	if list == nil {
+		list = []resources.Resource{}
+	}
+	return printJSON(struct {
+		Lab       string               `json:"lab"`
+		Dir       string               `json:"dir"`
+		Resources []resources.Resource `json:"resources"`
+	}{lab, dir, list})
 }
 
 // resourceLab finds the lab `astrona resource` works on (see the command's

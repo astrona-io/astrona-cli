@@ -210,7 +210,8 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 		Long: "Check that astrona's dependencies are installed, that the container engine is running " +
 			"with enough memory/CPUs (and, on Linux, sufficient inotify limits for multi-node kind), " +
 			"and — when a lab config is found via -c (default: ./config.yaml) — that the lab's " +
-			"estimated memory fits and its host ports are free.\n\n" +
+			"estimated memory fits and its host ports are free. A lab that is there but can't be " +
+			"loaded (malformed config, broken `astrona use` lab) is a ✗ under Lab.\n\n" +
 			"Exits non-zero on any ✗; ⚠ warnings don't fail.",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -268,7 +269,7 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 			cfg, baseDir, cleanup, err := loadLabForCheck(flags, explicit)
 			defer cleanup()
 			if err != nil {
-				return err
+				envFailed += printCheckResults("Lab", []checkResult{doctorLabError(err)})
 			}
 			if cfg != nil {
 				envFailed += printCheckResults("Lab "+config.NormalizeClusterName(cfg.Metadata.Name), checkLab(cfg, baseDir, engine))

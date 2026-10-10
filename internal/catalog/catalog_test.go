@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -241,5 +242,17 @@ func TestDuplicateTrainingIDsPreferDefaultOrg(t *testing.T) {
 	c.normalize()
 	if len(c.Trainings) != 1 || c.Trainings[0].Repo != "https://github.com/a/t1.git" {
 		t.Errorf("trainings = %+v", c.Trainings)
+	}
+}
+
+// An empty catalog is "trainings": [] in JSON, not null.
+func TestFetchEmptyIsEmptyList(t *testing.T) {
+	c := (&Fetcher{}).Fetch("", nil)
+	data, err := json.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"trainings":[]`) {
+		t.Errorf("empty catalog = %s", data)
 	}
 }
