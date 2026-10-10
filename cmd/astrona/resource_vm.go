@@ -151,7 +151,7 @@ func runResourceInVM(lab, dir string, r resources.Resource, args []string, vmFla
 		runArgs = append([]string{"-t"}, base...)
 	}
 	c := exec.Command(sshPath, append(runArgs, remoteCmd)...)
-	fmt.Fprintf(os.Stderr, "→ %s  (lab %s, VM %s, as %s, in ~/%s/%s)\n", strings.Join(append([]string{r.Command()}, args...), " "),
+	fmt.Fprintf(os.Stderr, "→ %s  (lab %s, VM %s, as %s, in ~/%s/%s)\n", sanitizeLine(strings.Join(append([]string{r.Command()}, args...), " ")),
 		strings.TrimPrefix(lab, "astro-"), strings.TrimPrefix(target, "astro-"), handle.SSHUser, vmResourceDir, r.Name)
 	return runAttached(c)
 }

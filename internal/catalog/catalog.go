@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -97,8 +98,8 @@ func ParseManifest(data []byte, repo, fallbackID string) (Training, error) {
 	if id == "" {
 		id = fallbackID
 	}
-	if !idPattern.MatchString(id) {
-		return Training{}, fmt.Errorf("astrona.yaml of %s: training id %q isn't a plain name", repo, id)
+	if err := checkTrainingID(id); err != nil {
+		return Training{}, fmt.Errorf("astrona.yaml of %s: %w", repo, err)
 	}
 	t := Training{ID: id, Title: strings.TrimSpace(m.Training.Title), Description: strings.TrimSpace(m.Training.Description), Repo: repo, Labs: []Lab{}}
 	for _, c := range m.content() {
@@ -112,6 +113,68 @@ func ParseManifest(data []byte, repo, fallbackID string) (Training, error) {
 		t.Labs = append(t.Labs, Lab{ID: LabID(id, p), Title: strings.TrimSpace(c.Title), Path: p})
 	}
 	return t, nil
+}
+
+// checkTrainingID accepts a plain name that can't be mistaken for the owner
+// a lab's catalog name may start with: no dots (astrona.io), not an owner
+// name or alias — else any source could name its labs astrona.io/ATS014/….
+func checkTrainingID(id string) error {
+	if !idPattern.MatchString(id) {
+		return fmt.Errorf("training id %q isn't a plain name", id)
+	}
+	if strings.Contains(id, ".") || isOwnerName(id) {
+		return fmt.Errorf("training id %q can't contain a dot or be an owner name like %s", id, DefaultOrg)
+	}
+	return nil
+}
+
+// isOwnerName reports whether s (any case) is DefaultOrg or an OwnerAliases
+// name or owner.
+func isOwnerName(s string) bool {
+	if strings.EqualFold(s, DefaultOrg) {
+		return true
+	}
+	for alias, owner := range OwnerAliases {
+		if strings.EqualFold(s, alias) || strings.EqualFold(s, owner) {
+			return true
+		}
+	}
+	return false
+}
+
+// Official reports whether t's repository is on GitHub under DefaultOrg —
+// the trainings whose labs start an Astrona lab session.
+func (t Training) Official() bool { return sameTraining(t, DefaultOrg) }
+
+// normalize drops trainings with an id checkTrainingID refuses (an older
+// cache may hold them) and keeps one training per id (any case): the
+// official one, else the first repository by URL. Every dropped training
+// is recorded in Errors. Trainings end up sorted by id.
+func (c *Catalog) normalize() {
+	sort.SliceStable(c.Trainings, func(i, j int) bool {
+		a, b := c.Trainings[i], c.Trainings[j]
+		if x, y := strings.ToLower(a.ID), strings.ToLower(b.ID); x != y {
+			return x < y
+		}
+		if a.Official() != b.Official() {
+			return a.Official()
+		}
+		return a.Repo < b.Repo
+	})
+	kept := make([]Training, 0, len(c.Trainings))
+	for _, t := range c.Trainings {
+		if err := checkTrainingID(t.ID); err != nil {
+			c.Errors = append(c.Errors, fmt.Sprintf("%s: %s — skipped", t.Repo, err))
+			continue
+		}
+		if n := len(kept); n > 0 && strings.EqualFold(kept[n-1].ID, t.ID) {
+			c.Errors = append(c.Errors, fmt.Sprintf("%s: training id %s is already used by %s — skipped", t.Repo, t.ID, kept[n-1].Repo))
+			continue
+		}
+		kept = append(kept, t)
+	}
+	c.Trainings = kept
+	sort.Strings(c.Errors)
 }
 
 // cleanLabPath accepts a relative path inside the repository.
@@ -144,19 +207,22 @@ var OwnerAliases = map[string]string{"astrona.io": "astrona-io"}
 // The name may start with the GitHub owner of the training's repository —
 // astrona-io/ATS014/section-010/module-01/lab-02, or astrona.io/ATS014/…
 // (OwnerAliases) — so it says where the code comes from; the owner must
-// match. A module's playground, which manifests do
+// match. A name led by a known owner (DefaultOrg, OwnerAliases) is only
+// ever looked up under that owner. A module's playground, which manifests do
 // not list, is found by convention:
 // ATS014/section-010/module-01/playground → sections/section-010/module-01/playground.
 // Any other unlisted name is not found, so a typo still gets the catalog's hint.
 // Whatever it resolves to is still fetched with git and trust-checked like
 // any remote lab, and must hold a config.yaml to run.
 func (c Catalog) Find(id string) (Training, Lab, bool) {
-	if t, l, ok := c.find(id); ok {
-		return t, l, true
-	}
 	owner, rest, ok := strings.Cut(id, "/")
 	if !ok {
 		return Training{}, Lab{}, false
+	}
+	if !isOwnerName(owner) {
+		if t, l, ok := c.find(id); ok {
+			return t, l, true
+		}
 	}
 	if alias, ok := OwnerAliases[strings.ToLower(owner)]; ok {
 		owner = alias

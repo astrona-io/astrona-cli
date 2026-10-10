@@ -132,6 +132,30 @@ func TestCatalogNameMarksTheLab(t *testing.T) {
 	}
 }
 
+// A lab from a source the user added resolves like a --git lab: it isn't a
+// catalog lab, so it never needs a sign-in or starts an Astrona session.
+func TestThirdPartyCatalogLabStartsNoSession(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Chdir(t.TempDir())
+	store := catalog.Store{Dir: filepath.Join(home, ".astrona")}
+	store.Save(catalog.Catalog{FetchedAt: time.Now(), Trainings: []catalog.Training{{
+		ID: "MYLABS", Repo: "https://github.com/someone/mylabs.git",
+		Labs: []catalog.Lab{{ID: "MYLABS/section-010/module-01/lab-01", Path: "sections/section-010/module-01/labs/lab-01"}},
+	}}})
+
+	f := &rootFlags{configPath: ".", fileName: "config.yaml", catalogLab: "ATS014/x/y/z"}
+	if err := labArg([]string{"MYLABS/section-010/module-01/lab-01"}, f); err != nil {
+		t.Fatal(err)
+	}
+	if f.catalogLab != "" || f.gitURL != "https://github.com/someone/mylabs.git" || f.configPath != "sections/section-010/module-01/labs/lab-01" {
+		t.Errorf("resolved to catalogLab %q git %q config %q", f.catalogLab, f.gitURL, f.configPath)
+	}
+	if acct, err := requireSignIn(context.Background(), f, "run"); acct != nil || err != nil {
+		t.Errorf("requireSignIn = %v, %v; want no account needed", acct, err)
+	}
+}
+
 func TestLoginWhoamiLogout(t *testing.T) {
 	srv := fakeAstrona(t, http.StatusCreated, nil)
 	client, store := withAccount(t, srv.URL)

@@ -177,6 +177,74 @@ sections:
 	}
 }
 
+// A third-party source can't pass its labs off as an owner's: a training id
+// that is (or looks like) an owner name is refused, and a name led by a
+// known owner is only ever matched against that owner's repositories.
+func TestFindRefusesOwnerSpoofing(t *testing.T) {
+	official, _ := ParseManifest([]byte(ats014), "https://github.com/astrona-io/ATS014.git", "ATS014")
+	for _, id := range []string{"astrona.io", "Astrona-IO", "astrona-io", "evil.io"} {
+		m := strings.Replace(ats014, "id: ATS014", "id: "+id, 1)
+		if _, err := ParseManifest([]byte(m), "https://github.com/evil/x.git", "x"); err == nil {
+			t.Errorf("training id %q accepted", id)
+		}
+	}
+	// Even a catalog that holds one (an old cache) doesn't resolve it.
+	for _, spoofID := range []string{"astrona.io", "astrona-io"} {
+		spoof := Training{ID: spoofID, Repo: "https://github.com/evil/x.git", Labs: []Lab{{
+			ID: spoofID + "/ATS014/section-010/module-01/lab-02", Path: "ATS014/section-010/module-01/lab-02",
+		}}}
+		for _, ts := range [][]Training{{spoof}, {spoof, official}} {
+			c := Catalog{Trainings: ts}
+			for _, id := range []string{spoof.Labs[0].ID, spoofID + "/ATS014/section-010/module-09/playground"} {
+				if tr, _, ok := c.Find(id); ok && tr.Repo == spoof.Repo {
+					t.Errorf("Find(%q) resolved to the spoofing repository", id)
+				}
+			}
+		}
+		// A cached catalog is cleaned the same way when it's read.
+		s := Store{Dir: t.TempDir()}
+		s.Save(Catalog{FetchedAt: time.Now(), Trainings: []Training{spoof, official}})
+		if c, ok := s.Cached(time.Now()); !ok || len(c.Trainings) != 1 || c.Trainings[0].Repo != official.Repo {
+			t.Errorf("cached catalog = %+v %v", c.Trainings, ok)
+		}
+	}
+}
+
+// Two sources with the same training id: the default org's wins, whatever
+// order they were read in, and the other is reported.
+func TestDuplicateTrainingIDsPreferDefaultOrg(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/search/repositories"):
+			w.Write([]byte(`{"items":[{"clone_url":"https://github.com/astrona-io/ATS014.git"}]}`))
+		case strings.HasSuffix(r.URL.Path, "/HEAD/astrona.yaml"):
+			w.Write([]byte(ats014))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	f := &Fetcher{Client: srv.Client(), API: srv.URL, Raw: srv.URL}
+	for range 20 {
+		c := f.Fetch("astrona-io", []string{"https://github.com/aaa/ATS014.git", "https://github.com/zzz/ats014.git"})
+		if len(c.Trainings) != 1 || c.Trainings[0].Repo != "https://github.com/astrona-io/ATS014.git" {
+			t.Fatalf("trainings = %+v", c.Trainings)
+		}
+		if len(c.Errors) != 2 || !strings.Contains(c.Errors[0], "https://github.com/astrona-io/ATS014.git") {
+			t.Fatalf("errors = %v", c.Errors)
+		}
+		if tr, _, ok := c.Find("ATS014/section-010/module-01/lab-02"); !ok || !tr.Official() {
+			t.Fatalf("Find = %+v %v", tr, ok)
+		}
+	}
+	// Without the default org, the first repository by URL wins.
+	c := Catalog{Trainings: []Training{{ID: "T1", Repo: "https://github.com/b/t1.git"}, {ID: "t1", Repo: "https://github.com/a/t1.git"}}}
+	c.normalize()
+	if len(c.Trainings) != 1 || c.Trainings[0].Repo != "https://github.com/a/t1.git" {
+		t.Errorf("trainings = %+v", c.Trainings)
+	}
+}
+
 // An empty catalog is "trainings": [] in JSON, not null.
 func TestFetchEmptyIsEmptyList(t *testing.T) {
 	c := (&Fetcher{}).Fetch("", nil)

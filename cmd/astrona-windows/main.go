@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode/utf16"
+
+	"astrona/internal/version"
 )
 
 // Version is set at build time: -ldflags "-X main.Version=v0.4.0".
@@ -31,22 +33,50 @@ var Version = "dev"
 
 const defaultDistro = "Ubuntu"
 
+// releasePath is the GitHub release download path for the Linux astrona
+// matching this launcher: its own tag when it was built from one, and
+// latest/download otherwise (a "dev" or unparseable version) — pinned is
+// false then, so setup can say so.
+func releasePath(v string) (path string, pinned bool) {
+	if _, err := version.Parse(v); err == nil && strings.HasPrefix(v, "v") && strings.TrimSpace(v) == v {
+		return "download/" + v, true
+	}
+	return "latest/download", false
+}
+
 // installInWSL installs the Linux astrona into ~/.local/bin inside the
 // distribution: the documented quick install, pinned to this launcher's
-// release when it has one. It runs as a fixed script — no user input is
-// interpolated into it.
-func installInWSL(version string) string {
-	release := "latest/download"
-	if strings.HasPrefix(version, "v") && !strings.ContainsAny(version, " '\"$`\\;&|") {
-		release = "download/" + version
-	}
-	return `set -e
+// release when it has one. The binary is checked against that release's
+// SHA256SUMS before it is made executable or run; a missing entry or a
+// mismatch stops the install with nothing put in place. It runs as a fixed
+// script — no user input is interpolated into it.
+func installInWSL(v string) string {
+	release, _ := releasePath(v)
+	return `set -eu
+ARCH=$(uname -m)
+case "$ARCH" in x86_64) ARCH=amd64;; aarch64|arm64) ARCH=arm64;; *) echo "astrona: unsupported CPU architecture $ARCH" >&2; exit 1;; esac
+BIN="astrona-linux-$ARCH"
+BASE="https://github.com/astrona-io/astrona-cli/releases/` + release + `"
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+curl -fsSL --proto '=https' --proto-redir '=https' -o "$TMP/$BIN" "$BASE/$BIN"
+curl -fsSL --proto '=https' --proto-redir '=https' -o "$TMP/SHA256SUMS" "$BASE/SHA256SUMS"
+SUM=$(awk -v f="$BIN" '$2 == f' "$TMP/SHA256SUMS")
+if [ -z "$SUM" ]; then echo "astrona: SHA256SUMS has no entry for $BIN — not installing it" >&2; exit 1; fi
+if ! (cd "$TMP" && printf '%s\n' "$SUM" | sha256sum --check --strict -); then echo "astrona: $BIN does not match the release's SHA256SUMS — not installing it" >&2; exit 1; fi
 mkdir -p "$HOME/.local/bin"
-ARCH=$(uname -m); case "$ARCH" in x86_64) ARCH=amd64;; aarch64|arm64) ARCH=arm64;; esac
-curl -fsSL -o "$HOME/.local/bin/astrona" "https://github.com/astrona-io/astrona-cli/releases/` + release + `/astrona-linux-$ARCH"
-chmod +x "$HOME/.local/bin/astrona"
+install -m 0755 "$TMP/$BIN" "$HOME/.local/bin/astrona"
 grep -q '.local/bin' "$HOME/.profile" 2>/dev/null || echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.profile"
 "$HOME/.local/bin/astrona" --version`
+}
+
+// inDistro is the wsl.exe argv that runs argv inside the distribution.
+// --exec runs the program directly; with "--" wsl.exe would instead hand the
+// rest of the command line to the distribution's default shell, which
+// re-parses it — expanding $… and $(…), splitting on ; and | — so every
+// argument could be lost or run as code.
+func inDistro(distro string, argv ...string) []string {
+	return append([]string{"-d", distro, "--exec"}, argv...)
 }
 
 // wsl is how the launcher talks to WSL; swapped out in tests.
@@ -121,9 +151,10 @@ func distroName() string {
 // forwardArgs is the wsl.exe argv that runs `astrona <args…>` inside the
 // distribution. A login shell picks up ~/.local/bin from ~/.profile; the
 // student's arguments travel as positional parameters ("$@"), never as part
-// of the script, so nothing they type is interpolated by bash.
+// of the script, and --exec (see inDistro) keeps any shell from re-parsing
+// them on the way in, so nothing they type is interpolated.
 func forwardArgs(distro string, args []string) []string {
-	return append([]string{"-d", distro, "--", "bash", "-lc", `exec astrona "$@"`, "astrona"}, args...)
+	return append(inDistro(distro, "bash", "-lc", `exec astrona "$@"`, "astrona"), args...)
 }
 
 func main() {
@@ -263,14 +294,14 @@ func setup(w wsl, in io.Reader, out io.Writer, args []string) error {
 		fmt.Fprintf(out, "\n   When %s has finished and you have chosen a username, run astrona setup again.\n", distro)
 		return nil
 	}
-	if _, err := w.output("-d", distro, "--", "true"); err != nil {
+	if _, err := w.output(inDistro(distro, "true")...); err != nil {
 		return fmt.Errorf("%s is installed but does not start. Open it once from the Start menu to finish its first-time setup, then run astrona setup again", distro)
 	}
 	fmt.Fprintln(out, "   ✓ installed")
 
 	// 3. Docker, through Docker Desktop's WSL integration.
 	step(3, "Docker", "kind runs each Kubernetes node as a container. Docker Desktop provides Docker inside "+distro+".")
-	if _, err := w.output("-d", distro, "--", "docker", "info", "--format", "{{.ServerVersion}}"); err != nil {
+	if _, err := w.output(inDistro(distro, "docker", "info", "--format", "{{.ServerVersion}}")...); err != nil {
 		fmt.Fprintf(out, "   → do this yourself: install Docker Desktop (https://www.docker.com/products/docker-desktop/), start it,\n"+
 			"     then Settings → Resources → WSL integration → turn on %s. Guide: https://docs.docker.com/desktop/features/wsl/\n", distro)
 		if opts.dryRun {
@@ -282,15 +313,18 @@ func setup(w wsl, in io.Reader, out io.Writer, args []string) error {
 
 	// 4. astrona inside the distribution.
 	step(4, "astrona inside "+distro, "The real astrona, which builds and grades your labs.")
-	if _, err := w.output("-d", distro, "--", "bash", "-lc", "command -v astrona"); err != nil {
-		fmt.Fprintln(out, "   downloads astrona for Linux into ~/.local/bin inside "+distro)
+	if _, err := w.output(inDistro(distro, "bash", "-lc", "command -v astrona")...); err != nil {
+		fmt.Fprintln(out, "   downloads astrona for Linux into ~/.local/bin inside "+distro+", checked against the release's SHA256SUMS")
+		if _, pinned := releasePath(Version); !pinned {
+			fmt.Fprintf(out, "   note: this astrona.exe has no release version (%q), so it installs the latest release instead of a matching one\n", Version)
+		}
 		if opts.dryRun {
 			return nil
 		}
 		if !ask("Install it now?") {
 			return errors.New("astrona inside " + distro + " is needed — run astrona setup again when you are ready")
 		}
-		if err := w.attach("-d", distro, "--", "bash", "-lc", installInWSL(Version)); err != nil {
+		if err := w.attach(inDistro(distro, "bash", "-lc", installInWSL(Version))...); err != nil {
 			return fmt.Errorf("installing astrona inside %s failed: %w", distro, err)
 		}
 	} else {

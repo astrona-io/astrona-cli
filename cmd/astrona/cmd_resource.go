@@ -273,7 +273,7 @@ func printResourceTree(root string) error {
 	}
 	sort.Strings(files)
 	for _, f := range files {
-		fmt.Println(f)
+		fmt.Println(sanitizeLine(f))
 	}
 	return nil
 }
@@ -341,7 +341,7 @@ func runResource(lab, dir string, r resources.Resource, args []string, vmFlag st
 	c := exec.Command(name, argv...)
 	c.Dir = workDir
 	c.Env = env
-	fmt.Fprintf(os.Stderr, "→ %s  (lab %s)\n", strings.Join(append([]string{r.Command()}, args...), " "), strings.TrimPrefix(lab, "astro-"))
+	fmt.Fprintf(os.Stderr, "→ %s  (lab %s)\n", sanitizeLine(strings.Join(append([]string{r.Command()}, args...), " ")), strings.TrimPrefix(lab, "astro-"))
 	return runAttached(c)
 }
 
@@ -357,7 +357,7 @@ func resourceCompletions(list []resources.Resource) []cobra.Completion {
 		if desc == "" {
 			desc = "file"
 		}
-		out[i] = cobra.CompletionWithDesc(r.Name, desc)
+		out[i] = cobra.CompletionWithDesc(sanitizeLine(r.Name), sanitizeLine(desc))
 	}
 	return out
 }

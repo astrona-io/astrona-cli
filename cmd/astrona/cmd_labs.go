@@ -95,7 +95,15 @@ func labArg(args []string, flags *rootFlags) error {
 			}
 			flags.labArg = args[0]
 			flags.fromCurrent = false
-			flags.catalogLab = l.ID
+			// Only an official training's lab is an Astrona catalog lab (sign-in,
+			// lab session, results sent): one from a source you added runs like
+			// a --git lab, so it can't start a session in your account.
+			flags.catalogLab = ""
+			if t.Official() {
+				flags.catalogLab = l.ID
+			} else {
+				ui.Infof("%s comes from %s, not %s — it runs like a --git lab, without an Astrona lab session", l.ID, t.Repo, catalog.DefaultOrg)
+			}
 			flags.gitURL, flags.gitRef, flags.configPath = t.Repo, "", l.Path
 			return nil
 		}

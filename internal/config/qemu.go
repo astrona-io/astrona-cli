@@ -59,11 +59,15 @@ type QEMUConfig struct {
 // QEMUHandle is what a running VM looks like to the rest of the CLI.
 type QEMUHandle struct {
 	ClusterName string `json:"clusterName"`
-	PID         int    `json:"pid"`
-	SSHHost     string `json:"sshHost"`
-	SSHPort     int    `json:"sshPort"`
-	SSHUser     string `json:"sshUser"`
-	SSHKeyPath  string `json:"sshKeyPath"`
+	// LabName is the lab the VM belongs to: ClusterName for a single-VM
+	// lab, the un-suffixed lab name for each VM of a multi-VM one ("" in
+	// handles written before it was recorded).
+	LabName    string `json:"labName,omitempty"`
+	PID        int    `json:"pid"`
+	SSHHost    string `json:"sshHost"`
+	SSHPort    int    `json:"sshPort"`
+	SSHUser    string `json:"sshUser"`
+	SSHKeyPath string `json:"sshKeyPath"`
 	// AdminUser/AdminKeyPath are a second, dedicated superuser identity the
 	// CLI uses to run init/bootstrap/testing/teardown scripts (see
 	// sshExecutorFor in internal/runtime/runtime.go), independent of

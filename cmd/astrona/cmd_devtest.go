@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"sync"
+	"syscall"
 
 	"astrona/internal/config"
 	"astrona/internal/junit"
@@ -37,6 +42,10 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 		SilenceUsage: true,
 		Long: "Run the full lab lifecycle for CI: bootstrap, apply the reference solution (testing), " +
 			"grade it, and always tear down — proving the lab's own solution passes its checks.\n\n" +
+			"Ctrl-C or SIGTERM (a cancelled CI job) stops the run after the current step, then " +
+			"still collects diagnostics (per --diagnostics) and tears the environment down. Steps " +
+			"astrona is waiting on are not cut short by SIGTERM; send SIGKILL to quit without " +
+			"tearing down.\n\n" +
 			"--repeat N runs the whole lifecycle N times on fresh environments and reports any check " +
 			"that doesn't pass every time (flaky), so race-prone checks are caught before students " +
 			"hit them.\n\n" +
@@ -94,8 +103,21 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("--repeat must be between 1 and %d", maxTestRepeat)
 			}
 
+			// Catch Ctrl-C / SIGTERM instead of dying on them: a killed
+			// process skips every deferred diagnostics and teardown below
+			// and leaves the test cluster behind. Each run stops at its
+			// next step and unwinds normally instead.
+			ctx, stopSignals := cancelOnSignal(func(sig os.Signal, first bool) {
+				if first {
+					ui.Warnf("received %s — stopping after the current step, then tearing down (SIGKILL quits without tearing down)", sig)
+					return
+				}
+				ui.Warnf("received %s — already stopping, teardown is still running", sig)
+			}, os.Interrupt, syscall.SIGTERM)
+			defer stopSignals()
+
 			var runs []testRun
-			for i := 1; i <= repeat; i++ {
+			for i := 1; i <= repeat && ctx.Err() == nil; i++ {
 				if repeat > 1 {
 					rep.Section("Run %d/%d", i, repeat)
 				}
@@ -103,8 +125,11 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				if dir != "" && repeat > 1 {
 					dir = filepath.Join(diagDir, fmt.Sprintf("run-%d", i))
 				}
-				results, pass, err := runTestOnce(cfg, baseDir, clusterName, diagMode, dir, flags, rep)
+				results, pass, err := runTestOnce(ctx, cfg, baseDir, clusterName, diagMode, dir, flags, rep)
 				runs = append(runs, testRun{results: results, pass: pass, err: err})
+			}
+			if ctx.Err() != nil {
+				return errTestInterrupted
 			}
 
 			final := runs[len(runs)-1].results
@@ -134,14 +159,53 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
+// errTestInterrupted is what `astrona test` returns when a signal stopped
+// it — after its deferred diagnostics and teardown have run.
+var errTestInterrupted = errors.New("astrona test was interrupted by a signal")
+
+// cancelOnSignal returns a context cancelled by the first of sigs. While
+// it's active those signals no longer kill the process — a later one only
+// calls onSignal again (first=false) — so a cancelled CI job, which often
+// sends SIGINT then SIGTERM, can't cut the teardown short. stop restores
+// the default handling.
+func cancelOnSignal(onSignal func(sig os.Signal, first bool), sigs ...os.Signal) (context.Context, func()) {
+	ctx, cancel := context.WithCancel(context.Background())
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, sigs...)
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case sig := <-ch:
+				first := ctx.Err() == nil
+				cancel()
+				if onSignal != nil {
+					onSignal(sig, first)
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
+	var once sync.Once
+	return ctx, func() {
+		once.Do(func() {
+			signal.Stop(ch)
+			close(done)
+			cancel()
+		})
+	}
+}
+
 // runTestOnce is one full `astrona test` lifecycle on a fresh environment:
 // clean slate, create, preload, addons, bootstrap, testing, grade, and —
-// always, via defer — diagnostics (per diagMode) and teardown.
-func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir string, flags *rootFlags, rep *ui.Reporter) (results []proctor.CheckResult, pass bool, retErr error) {
-	// Best-effort clean slate: a cancelled `astrona test` (Ctrl-C)
-	// skips the defer teardown below entirely — Go doesn't run
-	// deferred functions on a signal that kills the process — so a
-	// crashed run can leave clusterName's environment behind.
+// always, via defer — diagnostics (per diagMode) and teardown. A cancelled
+// ctx (Ctrl-C, SIGTERM) stops it at the next step; the defers still run.
+func runTestOnce(ctx context.Context, cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir string, flags *rootFlags, rep *ui.Reporter) (results []proctor.CheckResult, pass bool, retErr error) {
+	// Best-effort clean slate: Ctrl-C/SIGTERM are caught (see
+	// cancelOnSignal) so the deferred teardown below runs, but a SIGKILL
+	// or a crash still skips it and can leave clusterName's environment
+	// behind.
 	// DestroyEnvironment is already a documented no-op when nothing
 	// exists (DestroyQEMUVM/DeleteKindCluster both tolerate a
 	// missing target), so this makes every `astrona test` start
@@ -149,6 +213,9 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 	// actually exists.
 	if err := runtime.DestroyEnvironment(clusterName, cfg.Runtime, rep); err != nil {
 		rep.Warn("could not clean up a previous '%s' test environment, proceeding anyway: %s", clusterName, err)
+	}
+	if ctx.Err() != nil {
+		return nil, false, errTestInterrupted
 	}
 
 	// Linked clusters come up first; their teardown is deferred before this
@@ -164,6 +231,9 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 	links, err := lifecycle.StartLinkedClusters(cfg, baseDir, clusterName, true, flags.parallel, rep)
 	if err != nil {
 		return nil, false, err
+	}
+	if ctx.Err() != nil {
+		return nil, false, errTestInterrupted
 	}
 
 	// The same pipeline as `astrona run`, as a test copy (no host ports,
@@ -204,6 +274,9 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 	if upErr != nil {
 		return nil, false, upErr
 	}
+	if ctx.Err() != nil {
+		return nil, false, errTestInterrupted
+	}
 
 	// Each linked cluster's part of the reference solution first, in
 	// dependency order, then the lab's own — which may rely on them.
@@ -215,6 +288,9 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 		if isEmptyBlock(l.Testing) {
 			continue
 		}
+		if ctx.Err() != nil {
+			return nil, false, errTestInterrupted
+		}
 		name := config.LinkedClusterName(clusterName, l.Name)
 		linkEnv, err := runtime.LoadEnvironment(name, lifecycle.LinkedClusterConfig(cfg, l).Runtime)
 		if err != nil {
@@ -224,8 +300,14 @@ func runTestOnce(cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir 
 			return nil, false, fmt.Errorf("linked cluster '%s': %w", l.Name, err)
 		}
 	}
+	if ctx.Err() != nil {
+		return nil, false, errTestInterrupted
+	}
 	if err := applyTesting(cfg.Testing, baseDir, env, cfg.Runtime.QEMU, "Testing", rep); err != nil {
 		return nil, false, err
+	}
+	if ctx.Err() != nil {
+		return nil, false, errTestInterrupted
 	}
 
 	// Grading prints its own pytest-style report to stdout — pause

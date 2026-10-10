@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -77,8 +76,7 @@ func (f *Fetcher) Fetch(org string, extra []string) Catalog {
 		}(r)
 	}
 	wg.Wait()
-	sort.Slice(cat.Trainings, func(i, j int) bool { return cat.Trainings[i].ID < cat.Trainings[j].ID })
-	sort.Strings(cat.Errors)
+	cat.normalize()
 	return cat
 }
 
@@ -178,6 +176,7 @@ func (s Store) Cached(now time.Time) (Catalog, bool) {
 	if json.Unmarshal(data, &c) != nil || now.Sub(c.FetchedAt) > cacheFor {
 		return Catalog{}, false
 	}
+	c.normalize() // a cache written by an older astrona may hold what Fetch now drops
 	return c, true
 }
 
@@ -189,7 +188,11 @@ func (s Store) Any() (Catalog, bool) {
 		return Catalog{}, false
 	}
 	var c Catalog
-	return c, json.Unmarshal(data, &c) == nil
+	if json.Unmarshal(data, &c) != nil {
+		return Catalog{}, false
+	}
+	c.normalize()
+	return c, true
 }
 
 // Save caches c.

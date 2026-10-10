@@ -84,7 +84,7 @@ astrona reset -c ./labs/my-lab --yes    # no prompt (required in scripts/CI)
 - In a terminal it asks for confirmation; without a terminal it refuses unless `--yes` is passed.
 - A full reset of a [catalog lab](../guides/lab-catalog.md#your-astrona-account) needs `astrona login`, like `run`: it starts a fresh lab session and opens the new lab page once the lab is rebuilt. `--soft` and `--cluster` keep the current session and need no sign-in.
 
-**`astrona run` on a lab that's already running** asks the same question: *destroy it and start over?* — yes does what `reset` does, no keeps the lab as it is. `astrona run --yes` starts over without asking; without a terminal, `run` on a running lab stops and names `--yes`. If **other** labs are running, `run` also offers to destroy them first (handy when moving from one lab of a training to the next) — only when asked in a terminal; `--yes` never touches other labs.
+**`astrona run` on a lab that's already running** asks the same question: *destroy it and start over?* — yes does what `reset` does, no keeps the lab as it is. `astrona run --yes` starts over without asking; without a terminal, `run` on a running lab stops and names `--yes`. If **other** labs are running, `run` also offers to destroy them first (handy when moving from one lab of a training to the next) — a multi-VM qemu lab counts as one lab, all its VMs destroyed and the lab forgotten together, as `astrona destroy <lab>` does — only when asked in a terminal; `--yes` never touches other labs.
 
 To pause a lab instead of losing it, see [`astrona stop` / `astrona start`](runtimes.md#pausing-a-lab-astrona-stop-astrona-start).
 

@@ -64,6 +64,7 @@ Notes:
 - `astrona test --repeat 3` catches flaky checks before students do — each run uses a fresh environment, so it's slower; a nightly job is a good place for it.
 - `--diagnostics-dir` puts the [diagnostics bundle](#diagnostics-on-failure) inside the workspace so the `if: failure()` step can upload it.
 - `astrona test` always tears down its own environment on exit (even on failure or a cancelled step, best-effort), so a CI job doesn't need its own cleanup step.
+- A cancelled job is handled too: on Ctrl-C or SIGTERM (what most CI runners send when a job is cancelled or times out) `astrona test` stops after the current step, collects diagnostics (per `--diagnostics`) and tears down, then exits 1. Further signals while it's tearing down are ignored, so a runner that sends SIGINT and then SIGTERM doesn't cut the teardown short; only SIGKILL skips it (the next `astrona test` of the lab still starts by removing any leftover). A step astrona is waiting on (e.g. a long `waitFor`) isn't cut short by SIGTERM, so give the job a cancel grace period long enough for it plus teardown.
 
 ## Diagnostics on failure
 

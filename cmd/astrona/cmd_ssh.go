@@ -9,6 +9,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/hypervisor"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
 
@@ -30,6 +31,7 @@ import (
 func newSSHCmd() *cobra.Command {
 	var userFlag string
 	var passwordFlag string
+	var askPassword bool
 
 	cmd := &cobra.Command{
 		Use:               "ssh <lab-name>",
@@ -38,6 +40,12 @@ func newSSHCmd() *cobra.Command {
 		Args:              cobra.ExactArgs(1),
 		SilenceUsage:      true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// ssh prompts on the terminal; without one it would just fail
+			// authentication — say why up front.
+			if askPassword && !isatty.IsTerminal(os.Stdin.Fd()) {
+				return fmt.Errorf("--ask-password needs an interactive terminal to type the password into")
+			}
+
 			// Accept the lab name with or without the "astro-" prefix —
 			// `astrona list` prints the prefixed form, but a user typing
 			// the bare lab name should still connect.
@@ -64,7 +72,7 @@ func newSSHCmd() *cobra.Command {
 				"-o", "UserKnownHostsFile=" + handle.KnownHosts,
 			}
 
-			if passwordFlag != "" {
+			if passwordFlag != "" || askPassword {
 				sshArgs = append(sshArgs,
 					"-o", "PubkeyAuthentication=no",
 					"-o", "IdentitiesOnly=yes",
@@ -83,6 +91,15 @@ func newSSHCmd() *cobra.Command {
 			sshCmd.Stdout = os.Stdout
 			sshCmd.Stderr = os.Stderr
 
+			// Deprecated --password: ssh has no way to take a password
+			// non-interactively, so astrona answers its SSH_ASKPASS
+			// prompt itself (main re-enters as the askpass helper). The
+			// secret is set only on this ssh process's environment —
+			// never astrona's own, and ssh doesn't forward ASTRONA_* to
+			// the VM — but ssh's local children (the askpass helper, a
+			// ProxyCommand) inherit it, and it is already in argv and
+			// shell history. --ask-password avoids all of that: ssh
+			// prompts itself, with no echo, and astrona never sees it.
 			if passwordFlag != "" {
 				executablePath, err := os.Executable()
 				if err != nil {
@@ -101,7 +118,10 @@ func newSSHCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&userFlag, "user", "", "SSH username override")
-	cmd.Flags().StringVar(&passwordFlag, "password", "", "SSH password for authentication (disables public key authentication and local SSH keys)")
+	cmd.Flags().BoolVar(&askPassword, "ask-password", false, "Log in with a password instead of the lab's key: ssh prompts for it (no echo); local SSH keys aren't tried")
+	cmd.Flags().StringVar(&passwordFlag, "password", "", "SSH password for authentication (deprecated: visible in ps and shell history — use --ask-password)")
+	_ = cmd.Flags().MarkDeprecated("password", "it puts the password in the process list and your shell history; use --ask-password, where ssh prompts for it without echo")
+	cmd.MarkFlagsMutuallyExclusive("password", "ask-password")
 
 	return cmd
 }
