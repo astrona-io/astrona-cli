@@ -347,3 +347,127 @@ func copyFile(src, dst string, mode os.FileMode) (err error) {
 	_, err = io.Copy(out, io.LimitReader(in, maxFileBytes+1))
 	return err
 }
+
+// Load reads clusterName's copy: its resources and the folder they're in.
+// No copy (the lab has none, or never ran) is an empty list, not an error.
+func Load(clusterName string) ([]Resource, string, error) {
+	dir, err := Dir(clusterName)
+	if err != nil {
+		return nil, "", err
+	}
+	b, err := os.ReadFile(filepath.Join(dir, manifestFile))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, dir, nil
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	var list []Resource
+	if err := json.Unmarshal(b, &list); err != nil {
+		return nil, "", fmt.Errorf("the copy of %s's resources is damaged (%s) — `astrona reset` copies them again: %w", clusterName, manifestFile, err)
+	}
+	for _, r := range list {
+		if _, err := r.Path(dir); err != nil {
+			return nil, "", err
+		}
+	}
+	return list, dir, nil
+}
+
+// Find looks a resource up by name (case-insensitive).
+func Find(list []Resource, name string) (Resource, bool) {
+	for _, r := range list {
+		if strings.EqualFold(r.Name, name) {
+			return r, true
+		}
+	}
+	return Resource{}, false
+}
+
+// Path is where r is inside dir, its lab's copy — never outside it.
+func (r Resource) Path(dir string) (string, error) {
+	p, err := config.JoinStrictlyWithinBaseDir(dir, filepath.FromSlash(r.File))
+	if err != nil {
+		return "", fmt.Errorf("resource %s: %w", r.Name, err)
+	}
+	return p, nil
+}
+
+// Labs are the labs that have a copy of their resources (cluster names).
+func Labs() ([]string, error) {
+	base, err := Dir("astrona-lab")
+	if err != nil {
+		return nil, err
+	}
+	entries, err := os.ReadDir(filepath.Dir(base))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(filepath.Dir(base), e.Name(), manifestFile)); err == nil {
+			out = append(out, e.Name())
+		}
+	}
+	return out, nil
+}
+
+// CopyTo copies r out of its lab's copy (dir) to dest — a folder to copy it
+// into, or the path it should get — and returns where it went. An existing
+// file is only replaced with force; files are written 0644/0755 (they're
+// the student's now), links are never followed.
+func (r Resource) CopyTo(dir, dest string, force bool) (string, error) {
+	src, err := r.Path(dir)
+	if err != nil {
+		return "", err
+	}
+	if fi, err := os.Stat(dest); err == nil && fi.IsDir() {
+		dest = filepath.Join(dest, path.Base(r.File))
+	}
+	if _, err := os.Lstat(dest); err == nil {
+		if !force {
+			return "", fmt.Errorf("%s already exists — pass --force to replace it", dest)
+		}
+		if err := os.RemoveAll(dest); err != nil {
+			return "", err
+		}
+	}
+	var budget copyBudget
+	err = filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(src, p)
+		target := filepath.Join(dest, rel)
+		switch {
+		case d.Type()&fs.ModeSymlink != 0:
+			return fmt.Errorf("%s is a link", rel)
+		case d.IsDir():
+			return os.MkdirAll(target, 0o755)
+		case !d.Type().IsRegular():
+			return fmt.Errorf("%s isn't a regular file", rel)
+		}
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if budget.files++; budget.files > maxFiles {
+			return fmt.Errorf("more than %d files", maxFiles)
+		}
+		mode := os.FileMode(0o644)
+		if fi.Mode()&0o100 != 0 {
+			mode = 0o755
+		}
+		return copyFile(p, target, mode)
+	})
+	if err != nil {
+		return "", fmt.Errorf("copy %s: %w", r.Name, err)
+	}
+	return dest, nil
+}

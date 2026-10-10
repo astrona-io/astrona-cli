@@ -216,3 +216,27 @@ func TestSnapshotRefusesNestedLink(t *testing.T) {
 		t.Error("a failed snapshot left a copy behind")
 	}
 }
+
+// A copy whose manifest was edited to point outside it is refused.
+func TestLoadRefusesTamperedManifest(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if list, _, err := Load("astro-none"); err != nil || list != nil {
+		t.Errorf("no copy = %v, %v", list, err)
+	}
+	dir, _ := Dir("astro-lab")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range []string{"../../.ssh/id_ed25519", "/etc/passwd"} {
+		m, _ := json.Marshal([]Resource{{Name: "x", File: file, How: HowBash}})
+		if err := os.WriteFile(filepath.Join(dir, manifestFile), m, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := Load("astro-lab"); err == nil {
+			t.Errorf("manifest pointing at %s was accepted", file)
+		}
+	}
+	if labs, _ := Labs(); len(labs) != 1 || labs[0] != "astro-lab" {
+		t.Errorf("Labs = %v", labs)
+	}
+}

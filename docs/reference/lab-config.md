@@ -363,7 +363,7 @@ resources:
 
 A resource's name is its file name without the extension (`setup-db.sh` → `setup-db`); names must be unique and use letters, digits, `.`, `_`, `-`. Hidden files (`.DS_Store`, `.gitkeep`) are skipped; links are refused, as are more than 1000 files, a file over 50 MB or more than 200 MB in all.
 
-`astrona run` / `reset` copy the resources to `~/.astrona/resources/<lab>/` (owner-only) **before** the lab is built — nothing in them runs — and list them once the lab is ready. A new run replaces the copy; `astrona destroy` removes it (`--keep-resources` keeps it). A config fetched from a URL has no folder, so it can't have resources — use a local lab or `--git`. `astrona validate` checks them.
+`astrona run` / `reset` copy the resources to `~/.astrona/resources/<lab>/` (owner-only) **before** the lab is built — nothing in them runs — and list them once the lab is ready. A new run replaces the copy; `astrona destroy` removes it (`--keep-resources` keeps it). A config fetched from a URL has no folder, so it can't have resources — use a local lab or `--git`. `astrona validate` checks them. Students use them with [`astrona resource`](../guides/lab-resources.md).
 
 ## `ResourceItem`
 
