@@ -19,7 +19,7 @@ Catalog labs are tied to your Astrona account, so the lab page on astrona.io can
 
 ```sh
 astrona login      # opens astrona.io in your browser; click Authorize there
-astrona whoami     # who is signed in, and on which site
+astrona whoami     # who is signed in, and on which site (-o json: {signedIn, username, site})
 astrona logout     # revoke the sign-in and forget it
 ```
 
@@ -69,6 +69,29 @@ Signed in to any site other than astrona.io — a local or self-hosted Astrona �
 ```
 
 It is shown for the sign-in, a new lab session, `astrona submit`, `astrona run renew`, stopping a playground's clock and `astrona logout`; for astrona.io itself nothing extra is printed.
+
+## Playgrounds
+
+A module's playground (`astrona run ATS014/section-000/module-01/playground`) is a clean environment to try things in — nothing to submit, no lab page. Instead it is timed, and that time is recorded on your account as playground time:
+
+1. Like a lab, `run` checks the sign-in and asks Astrona for a session **before** anything is built, and says how long you have: `Playground time started for <you> on <site> — 120 minutes until it stops and is removed.` The clock starts here.
+2. The time limit is the playground's `metadata.timeLimit` in its `config.yaml` (`90m`, `2h`, `1h30m`; between 5 minutes and 24 hours — see the [lab config reference](../reference/lab-config.md#metadata)), else the site's default of 2 hours.
+3. Once the playground is built, run starts a **watchdog** — a detached `astrona` process in its own session, so closing the terminal doesn't stop it — and prints when it ends: `Playground ready. It stops and is removed at 16:40 (in 2h0m0s)`. The watchdog compares against the wall clock every minute (a laptop that slept still stops on time); at the deadline it stops the clock on the site as "time limit" and removes the cluster exactly like `astrona destroy`. Its output goes to `~/.astrona/labs/<lab>.watchdog.log`. If it can't be started, run warns and the playground stays until you `astrona destroy` it — the site still stops the clock at the deadline.
+4. `astrona destroy` ends it sooner: it stops the watchdog and the clock (as "destroyed") and removes the playground. It prints nothing extra when that works; if the site can't be reached it warns — the clock then stops by itself at the time limit.
+
+Still working when the limit is near? `astrona run renew` sends the time so far to your account (as destroy would) and starts a new timer with the full time limit, without touching the playground:
+
+```sh
+astrona run renew                                              # every running playground
+astrona run renew astrona.io/ATS014/section-000/module-01/playground
+```
+
+```text
+Renewed astro-…: 1h52m0s of playground time sent to your account, and a new timer started —
+it now stops and is removed at 18:35 (in 2h0m0s).
+```
+
+A playground that already stopped can't be renewed — run it again. `astrona reset` of a playground does what `run` does: a fresh playground session with a new clock and watchdog once it is rebuilt. If a playground fails to build, its session is stopped, so no time is counted for it.
 
 ## Where the catalog comes from
 

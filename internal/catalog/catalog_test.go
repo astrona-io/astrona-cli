@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -173,5 +174,17 @@ sections:
 	}
 	if len(tr.Labs) != 2 || tr.Labs[0].ID != "ATS015/section-010/module-01/lab-01" || tr.Labs[1].ID != "ATS015/section-010/capstone/lab-01" {
 		t.Errorf("labs = %+v", tr.Labs)
+	}
+}
+
+// An empty catalog is "trainings": [] in JSON, not null.
+func TestFetchEmptyIsEmptyList(t *testing.T) {
+	c := (&Fetcher{}).Fetch("", nil)
+	data, err := json.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"trainings":[]`) {
+		t.Errorf("empty catalog = %s", data)
 	}
 }

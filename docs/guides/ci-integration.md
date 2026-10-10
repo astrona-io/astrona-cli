@@ -109,7 +109,9 @@ Every command whose output is data takes `-o json` and then prints exactly one J
 | `astrona status -o json` | health, context, port forwards, linked clusters, exam clock, last attempt, suggested next step |
 | `astrona validate` / `check` / `doctor -o json` | `{ok, problems, results: [{section, name, status: ok\|warn\|fail, detail, fix}]}` — exit code still non-zero on any `fail` (a lab config that can't be found or loaded is a `fail` result in this report too, not an empty stdout) |
 | `astrona list` / `port-forward list` / `progress` / `logs list` / `images list` / `versions list -o json` | the listed items |
-| `astrona labs -o json` | the catalog: `{fetchedAt, trainings: [{id, title, description, repo, labs: [{id, title, path}]}], errors}`; `labs <TRAINING> -o json` that one training; `labs --search <words> -o json` `[{training, lab: {id, title, path}}]` |
+| `astrona resource list -o json` (or `astrona res -o json`) | `{lab, dir, resources: [{name, file, description, how, run, vm, dir}]}` — `dir` is the folder holding the lab's copy; `resources` is `[]` when it has none |
+| `astrona whoami -o json` | `{signedIn, username, site}` — signed out it is `{signedIn: false, site}` and still exits 1 |
+| `astrona labs -o json` | the catalog: `{fetchedAt, trainings: [{id, title, description, repo, labs: [{id, title, path}]}], errors}` (`trainings` is `[]`, never `null`, when nothing was found); `labs <TRAINING> -o json` that one training; `labs --search <words> -o json` `[{training, lab: {id, title, path}}]` |
 | `astrona use -o json` | the current lab, or `null` — also after picking one (`use <lab> -o json`) or forgetting it (`use --clear -o json`, always `null`) |
 
 ```sh

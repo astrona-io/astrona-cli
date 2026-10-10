@@ -219,6 +219,9 @@ func newLabsCmd() *cobra.Command {
 				fmt.Printf("\nRun one: astrona run <LAB>   (or pick it for every command: astrona use <LAB>)\n")
 			default:
 				if output == "json" {
+					if c.Trainings == nil { // an older cache stored null
+						c.Trainings = []catalog.Training{}
+					}
 					return printJSON(c)
 				}
 				if len(c.Trainings) == 0 {

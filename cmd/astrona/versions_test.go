@@ -77,6 +77,88 @@ func TestHandoverArgs(t *testing.T) {
 	if got != "submit -c labs/net -f config.yaml --git https://github.com/org/labs --git-ref v2" {
 		t.Errorf("git lab = %s", got)
 	}
+	// The user's own lab flags are replaced by the resolved ones — a stale
+	// --git-ref (a catalog lab resets it) doesn't survive.
+	h := &rootFlags{configPath: "sections/x/lab-01", fileName: "config.yaml", gitURL: "https://github.com/astrona-io/ATS014.git", labArg: "ATS014/x/lab-01"}
+	got = strings.Join(handoverArgs([]string{"run", "--git-ref", "old", "ATS014/x/lab-01", "-c=elsewhere", "-fother.yaml", "--git=https://example.com/r", "--config", "y", "--yes"}, h), " ")
+	if got != "run --yes -c sections/x/lab-01 -f config.yaml --git https://github.com/astrona-io/ATS014.git" {
+		t.Errorf("user lab flags = %s", got)
+	}
+	// After "--" everything is the command's own.
+	got = strings.Join(handoverArgs([]string{"res", "run", "x", "--", "-c", "1"}, &rootFlags{configPath: ".", fileName: "config.yaml"}), " ")
+	if got != "res run x -- -c 1 -c . -f config.yaml" {
+		t.Errorf("after -- = %s", got)
+	}
+}
+
+// targetFlags really asks the other binary for its command's --help.
+func TestTargetFlagsRunsHelp(t *testing.T) {
+	bin := filepath.Join(t.TempDir(), "astrona-0.2.0")
+	script := "#!/bin/sh\n[ \"$1 $2\" = \"run --help\" ] || exit 3\nprintf 'Flags:\\n  -h, --help   help\\n      --parallel int   x\\n'\n"
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	known, err := targetFlags(bin, []string{"run"})
+	if err != nil || !known["parallel"] || !known["h"] || known["keep-context"] {
+		t.Errorf("known = %v, %v", known, err)
+	}
+	if _, err := targetFlags(bin, []string{"submit"}); err == nil {
+		t.Error("a failing --help should be an error")
+	}
+}
+
+// A flag the handed-to version doesn't have fails before the hand-over,
+// naming it and the version.
+func TestCheckHandoverFlags(t *testing.T) {
+	help := `Start a lab
+
+Usage:
+  astrona run [lab] [flags]
+
+Flags:
+  -h, --help              help for run
+      --parallel int      linked clusters at once
+
+Global Flags:
+  -c, --config string     Path or URL
+  -f, --file string       Configuration file name override (default "config.yaml")
+      --git string        Git repository URL
+      --git-ref string    Git branch
+`
+	known := parseHelpFlags(help)
+	for _, f := range []string{"help", "h", "parallel", "config", "c", "file", "f", "git", "git-ref"} {
+		if !known[f] {
+			t.Errorf("%s not found in help", f)
+		}
+	}
+	defer func(old func(string, []string) (map[string]bool, error)) { targetFlags = old }(targetFlags)
+	var asked []string
+	targetFlags = func(_ string, cmdPath []string) (map[string]bool, error) { asked = cmdPath; return known, nil }
+	v020, _ := version.Parse("0.2.0")
+	target := installedVersion{v: v020, path: "/bin/astrona-0.2.0"}
+	c, _ := version.ParseConstraint("<0.3.0")
+	flags := &rootFlags{cmdPath: []string{"run"}}
+
+	if err := checkHandoverFlags(target, c, []string{"run", "--parallel=2", "-c", "x", "-f", "config.yaml"}, flags); err != nil {
+		t.Errorf("known flags: %v", err)
+	}
+	if strings.Join(asked, " ") != "run" {
+		t.Errorf("asked about %v", asked)
+	}
+	for _, bad := range []string{"--keep-context", "-y", "--yes"} {
+		err := checkHandoverFlags(target, c, []string{"run", bad, "-c", "x"}, flags)
+		if err == nil || !strings.Contains(err.Error(), "astrona 0.2.0") || !strings.Contains(err.Error(), "no "+bad) || !strings.Contains(err.Error(), "<0.3.0") {
+			t.Errorf("%s: %v", bad, err)
+		}
+	}
+	if err := checkHandoverFlags(target, c, []string{"res", "run", "x", "--", "--anything"}, flags); err != nil {
+		t.Errorf("after --: %v", err)
+	}
+	// A version that can't be asked decides itself.
+	targetFlags = func(string, []string) (map[string]bool, error) { return nil, errors.New("no") }
+	if err := checkHandoverFlags(target, c, []string{"run", "--keep-context"}, flags); err != nil {
+		t.Errorf("unaskable: %v", err)
+	}
 }
 
 // allow is a trust check that approves.

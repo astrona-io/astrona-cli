@@ -18,7 +18,7 @@ Resources (3) — copied to ~/.astrona/resources/astro-ats-014-lab-010-01, nothi
 ## Using them
 
 ```sh
-astrona res                         # list the lab's resources
+astrona res                         # list the lab's resources (-o json for scripts)
 astrona res run setup-db            # run one
 astrona res show broken-deployment  # print it
 astrona res copy broken-deployment  # copy it into this folder to edit (--force replaces)

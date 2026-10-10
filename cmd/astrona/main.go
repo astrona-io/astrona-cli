@@ -53,6 +53,9 @@ type rootFlags struct {
 	// keepContext is --keep-context on run and reset: leave the user's
 	// kubectl current-context alone instead of switching to the lab.
 	keepContext bool
+	// cmdPath is the running command below the root ("run", "res list"),
+	// so a hand-over can ask the other version which flags it takes.
+	cmdPath []string
 }
 
 // Version is the current version of the astrona-cli binary, burnt in at build
@@ -144,6 +147,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 			// The lab picked with `astrona use`, unless this command
 			// names one or runs inside a lab directory.
 			flags.gitExplicit = cmd.Flags().Changed("git")
+			flags.cmdPath = strings.Fields(cmd.CommandPath())[1:]
 			if cmd.Name() != "use" {
 				applyCurrentLab(cmd, flags)
 			}

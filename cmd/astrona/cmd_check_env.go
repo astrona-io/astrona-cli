@@ -356,8 +356,9 @@ func printCheckResults(title string, res []checkResult) int {
 }
 
 // loadLabForCheck loads the lab config for lab-specific checks. With the
-// default -c ".", a directory without a config is simply "no lab" — only
-// an explicitly given -c/--file/--git that fails to load is an error.
+// default -c ".", a directory without a config is simply "no lab"; any
+// other failure — a malformed ./config.yaml, a broken `astrona use` lab, or
+// an explicitly given -c/--file/--git — is an error the caller reports.
 func loadLabForCheck(flags *rootFlags, explicit bool) (*config.LabConfig, string, func(), error) {
 	cfg, baseDir, cleanup, err := LoadLabForCommand(flags)
 	if err == nil {
@@ -366,10 +367,7 @@ func loadLabForCheck(flags *rootFlags, explicit bool) (*config.LabConfig, string
 		}
 		return cfg, baseDir, cleanup, nil
 	}
-	if !explicit {
-		return nil, "", func() {}, nil
-	}
-	return nil, "", func() {}, err
+	return nil, "", func() {}, noLabOr(err, explicit || flags.fromCurrent)
 }
 
 func firstLineOf(s string) string {

@@ -220,6 +220,38 @@ func TestRestoreWhenPreviousIsGone(t *testing.T) {
 	}
 }
 
+// Two labs started on top of each other get the user back to their own
+// context whichever is destroyed first.
+func TestOverlappingLabsRestoreTheOriginalContext(t *testing.T) {
+	for _, order := range [][]string{{"astro-a", "astro-b"}, {"astro-b", "astro-a"}} {
+		t.Run(strings.Join(order, " then "), func(t *testing.T) {
+			withHome(t)
+			kc := newFake("prod", "kind-astro-a", "kind-astro-b")
+			for _, lab := range []string{"astro-a", "astro-b"} {
+				if _, err := SwitchContext(kc, lab, "kind-"+lab); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, lab := range order {
+				if _, err := RestoreContext(kc, lab); err != nil {
+					t.Fatal(err)
+				}
+				// destroy: kind deletes the context (unsetting it when current), then the state goes.
+				delete(kc.contexts, "kind-"+lab)
+				if kc.current == "kind-"+lab {
+					kc.current = ""
+				}
+				if err := Remove(lab); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if kc.current != "prod" {
+				t.Errorf("current = %q, want prod", kc.current)
+			}
+		})
+	}
+}
+
 func TestStartOverKeepsTheFirstRecord(t *testing.T) {
 	withHome(t)
 	kc := newFake("prod", "kind-astro-x")

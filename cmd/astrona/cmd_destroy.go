@@ -352,7 +352,12 @@ func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir strin
 func destroyLab(info teardownInfo, baseDir string, rep *ui.Reporter) error {
 	clusterName := config.NormalizeClusterName(info.clusterName)
 	if !info.teardown.KeepCluster {
-		releaseLab(os.Stdout, clusterName) // before the delete unsets the lab's context
+		// Before the delete unsets the lab's context. The record is dropped
+		// here even though the delete may still fail: by then it has done
+		// its job (the context is back, or the user had moved on, or the
+		// previous one is gone), and a kept record would only make the
+		// retry report "moved on" for the context it just restored.
+		releaseLab(os.Stdout, clusterName)
 	}
 	if err := tearDownLabEnvironment(clusterName, info, baseDir, true, rep); err != nil {
 		return err
