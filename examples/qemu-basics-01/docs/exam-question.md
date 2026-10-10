@@ -1,6 +1,6 @@
 # Exam Question: qemu-basics-01
 
-> Declared in [`../config.yaml`](../config.yaml) under `metadata.docs.examQuestion`. Make sure you meet the [prerequisites](./prerequisites.md) first.
+> Declared in [`../config.yaml`](../config.yaml) under `metadata.docs.question`. Make sure you meet the [prerequisites](./prerequisites.md) first.
 
 **Task weight: 100%** (this lab has a single scored task)
 

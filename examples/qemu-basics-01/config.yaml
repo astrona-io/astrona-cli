@@ -4,9 +4,9 @@ metadata:
   name: "qemu-basics-01"
   docs:
     prerequisites: "docs/prerequisites.md"
-    examQuestion: "docs/exam-question.md"
+    question: "docs/exam-question.md"
     caseStudy: "docs/case-study.md"
-    guide: "docs/step-by-step-guide.md"
+    solution: "docs/step-by-step-guide.md"
 
 runtime:
   type: "qemu"

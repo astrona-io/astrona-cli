@@ -24,11 +24,57 @@ const maxConfigDownloadBytes = 10 * 1024 * 1024
 // DocsConfig points at the markdown files that explain a lab: what you need
 // to know before starting, the formal task, a softer version of the same
 // task, and the full walkthrough.
+// DocsConfig is metadata.docs: the lab's documents, paths relative to
+// config.yaml. A doc that isn't listed is found by its usual file name
+// next to config.yaml (DocFileNames) — so a lab may leave docs out.
 type DocsConfig struct {
+	Question      string `yaml:"question"`
+	Solution      string `yaml:"solution"`
 	Prerequisites string `yaml:"prerequisites"`
-	ExamQuestion  string `yaml:"examQuestion"`
 	CaseStudy     string `yaml:"caseStudy"`
-	Guide         string `yaml:"guide"`
+	// ExamQuestion and Guide are the older names of Question and
+	// Solution; still read, folded into them by LoadLabConfig.
+	ExamQuestion string `yaml:"examQuestion"`
+	Guide        string `yaml:"guide"`
+}
+
+// DocFileNames are the file names a doc is found by when metadata.docs
+// doesn't list it.
+var DocFileNames = map[string]string{
+	"question":      "question.md",
+	"solution":      "solution.md",
+	"prerequisites": "prerequisites.md",
+	"caseStudy":     "case-study.md",
+}
+
+// resolve folds the older names into Question/Solution, then fills each
+// doc not listed from its usual file in dir (the config's folder; "" for a
+// config fetched from a URL, which has no folder to look in).
+func (d *DocsConfig) resolve(dir string) error {
+	for _, p := range []struct {
+		name, old  string
+		cur, older *string
+	}{{"question", "examQuestion", &d.Question, &d.ExamQuestion}, {"solution", "guide", &d.Solution, &d.Guide}} {
+		if *p.cur != "" && *p.older != "" && *p.cur != *p.older {
+			return fmt.Errorf("metadata.docs: %s and %s are the same doc — keep %s", p.name, p.old, p.name)
+		}
+		if *p.cur == "" {
+			*p.cur = *p.older
+		}
+		*p.older = ""
+	}
+	if dir == "" {
+		return nil
+	}
+	for key, field := range map[string]*string{"question": &d.Question, "solution": &d.Solution, "prerequisites": &d.Prerequisites, "caseStudy": &d.CaseStudy} {
+		if *field != "" {
+			continue
+		}
+		if fi, err := os.Lstat(filepath.Join(dir, DocFileNames[key])); err == nil && fi.Mode().IsRegular() {
+			*field = DocFileNames[key]
+		}
+	}
+	return nil
 }
 
 type MetadataConfig struct {
@@ -414,6 +460,13 @@ func LoadLabConfig(configPath string) (*LabConfig, func(), error) {
 	}
 	config.UnknownFields = unknown
 	config.moveDeprecatedLabs()
+	docsDir := ""
+	if !strings.HasPrefix(configPath, "https://") {
+		docsDir = filepath.Dir(configPath)
+	}
+	if err := config.Metadata.Docs.resolve(docsDir); err != nil {
+		return nil, cleanup, fmt.Errorf("lab config %s: %w", configPath, err)
+	}
 	if err := config.ValidateNames(); err != nil {
 		return nil, cleanup, fmt.Errorf("lab config %s: %w", configPath, err)
 	}

@@ -48,7 +48,7 @@ func TestPrintLabStatus(t *testing.T) {
 
 func TestNextStep(t *testing.T) {
 	now := time.Now()
-	withTask := &config.LabConfig{Metadata: config.MetadataConfig{Docs: config.DocsConfig{ExamQuestion: "q.md"}}}
+	withTask := &config.LabConfig{Metadata: config.MetadataConfig{Docs: config.DocsConfig{Question: "q.md"}}}
 	cases := []struct {
 		st   labStatus
 		want string

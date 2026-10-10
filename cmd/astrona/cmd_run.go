@@ -289,7 +289,7 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 		fmt.Printf("\nExam started — you have %s. `astrona submit` shows the time left.\n", exam.Round(cfg.Exam.Limit()))
 	}
 	printResources(os.Stdout, resDir, res)
-	if cfg.Metadata.Docs.ExamQuestion != "" {
+	if cfg.Metadata.Docs.Question != "" {
 		fmt.Printf("\nYour task: astrona docs question%s   (all docs: astrona docs)\n", configFlagHint(baseDir))
 	}
 	fmt.Printf("Full log: %s\n", rep.LogPath())
