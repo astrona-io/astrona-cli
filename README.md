@@ -34,9 +34,9 @@ metadata:
   name: "k8s-basics-01"
   docs:
     prerequisites: "docs/prerequisites.md"    # knowledge/tooling needed before attempting
-    examQuestion: "docs/exam-question.md"     # formal, self-contained task statement
+    question: "docs/exam-question.md"     # formal, self-contained task statement
     caseStudy: "docs/case-study.md"           # softer, hint-driven version of the same task
-    guide: "docs/step-by-step-guide.md"       # full walkthrough with the answer
+    solution: "docs/step-by-step-guide.md"       # full walkthrough with the answer
 
 bootstrap:
   init:

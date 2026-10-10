@@ -129,9 +129,9 @@ func docRefs(cfg *config.LabConfig) map[string]string {
 	d := cfg.Metadata.Docs
 	for where, path := range map[string]string{
 		"metadata.docs.prerequisites": d.Prerequisites,
-		"metadata.docs.examQuestion":  d.ExamQuestion,
+		"metadata.docs.question":      d.Question,
 		"metadata.docs.caseStudy":     d.CaseStudy,
-		"metadata.docs.guide":         d.Guide,
+		"metadata.docs.solution":      d.Solution,
 	} {
 		if path != "" {
 			refs[where] = path
