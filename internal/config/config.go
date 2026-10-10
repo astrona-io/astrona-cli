@@ -283,6 +283,10 @@ type LabConfig struct {
 	Teardown       TeardownConfig   `yaml:"teardown"`
 	// Exam turns the lab into a timed exam — see ExamConfig (exam.go).
 	Exam ExamConfig `yaml:"exam"`
+	// Resources describes files in the lab's resources/ folder, which a
+	// student shows, copies or runs with `astrona resource` — see
+	// LabResource (resources.go).
+	Resources []LabResource `yaml:"resources"`
 
 	// UnknownFields are keys no field reads (typos) — found by
 	// LoadLabConfig, not part of the YAML. Lifecycle commands warn about

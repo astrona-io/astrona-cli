@@ -15,6 +15,7 @@ import (
 	"astrona/internal/exam"
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
+	"astrona/internal/resources"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
 
@@ -242,6 +243,16 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 	if len(cfg.KindClusters()) > 0 && kindClusterExists(clusterName) {
 		return fmt.Errorf("lab %s is already running — `astrona reset` starts it over", clusterName)
 	}
+	// Resources are collected and copied before anything is built, so a
+	// broken resources/ folder costs no cluster. Nothing in them runs.
+	res, err := resources.Collect(cfg, baseDir)
+	if err != nil {
+		return err
+	}
+	resDir, err := resources.Snapshot(clusterName, baseDir, res)
+	if err != nil {
+		return fmt.Errorf("could not copy the lab's resources: %w", err)
+	}
 	if err := lifecycle.PrepareSharedCA(cfg, clusterName); err != nil {
 		return err
 	}
@@ -277,6 +288,7 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 	if cfg.Exam.Enabled() {
 		fmt.Printf("\nExam started — you have %s. `astrona submit` shows the time left.\n", exam.Round(cfg.Exam.Limit()))
 	}
+	printResources(os.Stdout, resDir, res)
 	if cfg.Metadata.Docs.ExamQuestion != "" {
 		fmt.Printf("\nYour task: astrona docs question%s   (all docs: astrona docs)\n", configFlagHint(baseDir))
 	}

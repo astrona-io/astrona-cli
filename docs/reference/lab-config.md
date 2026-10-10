@@ -40,6 +40,7 @@ bootstrap: {}    # BootstrapConfig
 testing: {}      # BootstrapConfig (same shape, CI-only)
 validation: {}   # ValidationConfig
 teardown: {}     # TeardownConfig
+resources: []    # LabResource — optional; everything in resources/ counts without it
 ```
 
 ## `metadata`
@@ -335,6 +336,34 @@ See [Grading → Exam mode](../concepts/grading.md#exam-mode).
 |---|---|---|
 | `init` | list of [ResourceItem](#resourceitem) | Best-effort scripts run before the environment is destroyed |
 | `keepCluster` | bool | Skip destroying the environment (linked clusters included) after teardown scripts run |
+
+## `resources`
+
+Files and folders a student shows, copies or runs with `astrona resource` instead of copying commands or file contents out of the lab's docs. They live in a **`resources/` folder next to `config.yaml`**; every file or folder directly in it is a resource even without an entry here. An entry adds a description and says how it runs:
+
+```yaml
+resources:
+  - file: setup-db.sh              # resources/setup-db.sh — runs with bash (from .sh)
+    description: Creates the demo database the task starts from
+  - file: broken-deployment.yaml
+    description: The Deployment you'll fix in step 2
+    type: file                     # only shown or copied, never applied
+  - file: load-test                # a folder
+    description: Generates traffic so you can watch the HPA
+    run: go run .                  # run in the folder
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `file` | string | **Required.** Path inside `resources/` (a file or folder; may be nested, e.g. `tools/check.sh`). Absolute paths and `..` are refused |
+| `description` | string | One line shown when the lab starts and in `astrona resource` |
+| `run` | string | Command `astrona resource run` starts, in the resource's folder. Without it: `.sh` → `bash`, `.yaml`/`.yml` → `kubectl apply -f` against the lab (kind labs), an executable with `#!` → itself, anything else (and folders) → a file |
+| `type` | `file` | Never run — only shown or copied (`run` must be empty) |
+| `vm` | string | qemu labs: the VM it runs in (a `runtime.qemu[].name`) |
+
+A resource's name is its file name without the extension (`setup-db.sh` → `setup-db`); names must be unique and use letters, digits, `.`, `_`, `-`. Hidden files (`.DS_Store`, `.gitkeep`) are skipped; links are refused, as are more than 1000 files, a file over 50 MB or more than 200 MB in all.
+
+`astrona run` / `reset` copy the resources to `~/.astrona/resources/<lab>/` (owner-only) **before** the lab is built — nothing in them runs — and list them once the lab is ready. A new run replaces the copy; `astrona destroy` removes it (`--keep-resources` keeps it). A config fetched from a URL has no folder, so it can't have resources — use a local lab or `--git`. `astrona validate` checks them.
 
 ## `ResourceItem`
 

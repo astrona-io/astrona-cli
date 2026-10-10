@@ -38,6 +38,9 @@ func Validate(cfg *config.LabConfig) error {
 	if err := config.ValidateExam(cfg); err != nil {
 		return err
 	}
+	if err := config.ValidateResources(cfg); err != nil {
+		return err
+	}
 	if err := config.ValidateChecks(cfg); err != nil {
 		return err
 	}

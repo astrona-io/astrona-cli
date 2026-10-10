@@ -285,6 +285,12 @@
         "metadata": {
           "$ref": "#/$defs/MetadataConfig"
         },
+        "resources": {
+          "items": {
+            "$ref": "#/$defs/LabResource"
+          },
+          "type": "array"
+        },
         "runtime": {
           "$ref": "#/$defs/RuntimeConfig"
         },
@@ -296,6 +302,30 @@
         },
         "validation": {
           "$ref": "#/$defs/ValidationConfig"
+        }
+      },
+      "type": "object"
+    },
+    "LabResource": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "run": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "file"
+          ],
+          "type": "string"
+        },
+        "vm": {
+          "type": "string"
         }
       },
       "type": "object"
