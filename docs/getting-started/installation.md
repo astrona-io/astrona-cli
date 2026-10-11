@@ -80,6 +80,51 @@ Two things to know:
 - An older `astrona` earlier on your `PATH` (e.g. `~/.local/bin/astrona` from the quick install) hides the Homebrew one — `which -a astrona` shows the order; remove the old one.
 - `brew uninstall astrona` removes the program, not `~/.astrona` (lab state, results, approvals, installed versions). Destroy running labs first (`astrona destroy <lab>`); delete `~/.astrona` yourself if you want it gone.
 
+## APT (Debian & Ubuntu)
+
+Download the `.deb` for your CPU from [GitHub Releases](https://github.com/astrona-io/astrona-cli/releases). Packages are built for `amd64` (Intel/AMD) and `arm64` (ARM). Replace `<version>` and `<arch>` with the downloaded filename:
+
+```sh
+sudo apt-get install ./astrona-<version>-linux-<arch>.deb
+astrona --version
+```
+
+APT installs Git and CA certificates automatically. The package includes pinned, checksum-verified **Kind, kubectl and ORAS**, installed privately under `/usr/lib/astrona/tools`. Astrona and its lab scripts use those tools without replacing tools you already have on your shell's PATH. `astrona shell` also inherits them.
+
+Install and start **Docker or Podman** separately. For optional VM labs on Debian/Ubuntu:
+
+```sh
+sudo apt-get install qemu-system-x86 qemu-system-arm qemu-utils genisoimage openssh-client
+```
+
+## DNF (Fedora & Red Hat compatible distributions)
+
+Download the `.rpm` for `amd64` or `arm64` from [GitHub Releases](https://github.com/astrona-io/astrona-cli/releases), then:
+
+```sh
+sudo dnf install ./astrona-<version>-linux-<arch>.rpm
+astrona --version
+```
+
+DNF resolves Git and CA certificate dependencies. The RPM includes the same private Kind, kubectl and ORAS tools as the DEB. Install and start Docker or Podman separately. QEMU, SSH and an ISO builder are optional VM dependencies; their package names and availability depend on your distribution and enabled repositories. CI checks installation on Fedora and AlmaLinux 9; a Red Hat subscription and enabled repositories may be needed on RHEL.
+
+These are local release packages. A hosted APT/DNF repository has not been configured, so `apt-get install astrona` or `dnf install astrona` without the downloaded file will not find Astrona. Install a newer release file with the same command to upgrade. Remove with `sudo apt-get remove astrona` or `sudo dnf remove astrona`.
+
+## Snap (Ubuntu)
+
+Download the `.snap` for `amd64` or `arm64` from [GitHub Releases](https://github.com/astrona-io/astrona-cli/releases):
+
+```sh
+sudo snap install --dangerous --classic ./astrona-<version>-linux-<arch>.snap
+/snap/bin/astrona --version
+```
+
+The Snap bundles Kind, kubectl, ORAS, Git and CA certificates. Classic confinement lets lab scripts use your host files, kubeconfig and Docker/Podman sockets. Install and start a host container engine separately; optional VM tools also come from the host.
+
+`--dangerous` is Snap's option for installing a local file without a Store assertion. Check the downloaded package against the release's `SHA256SUMS` first. This builds a local-installable Snap; publishing `snap install astrona --classic` requires registration of the Store name and approval for classic confinement. Locally installed Snaps do not update automatically. Installing a newer local file with the command above updates it. Remove with `sudo snap remove astrona`.
+
+All three formats preserve `~/.astrona` on removal. Destroy running labs before uninstalling. CI builds packages for both architectures, installs and reinstalls them with real package managers, checks bundled tool discovery and upgrade protection, then verifies removal preserves user data.
+
 ## Quick install (macOS & Linux)
 
 ```sh
@@ -207,6 +252,8 @@ astrona upgrade
 ```
 
 `astrona upgrade` checks GitHub for the latest release, downloads the binary for your OS/architecture, verifies it against the SHA-256 digest GitHub records for it (and its [build provenance](../guides/astrona-versions.md#build-provenance) when the GitHub CLI is installed), and atomically replaces the currently running executable — only when the release is newer than yours. On a [Homebrew](#homebrew-macos-linux) install it runs `brew upgrade astrona` instead (`brew reinstall astrona` with `--force`), so Homebrew keeps track of the install.
+
+On DEB, RPM and Snap installs, `astrona upgrade` prints the package installation command and exits without modifying package-owned files, including with `--force`. Download and install the newer package using the instructions above.
 
 astrona tells you when a newer release exists — `[INFO] astrona v0.2.3 is available (you have v0.2.2) — astrona upgrade · what's new: <release notes>` — at most **once a day**. It asks GitHub at most once a day too (cached in `~/.astrona/update-check.json`), so commands don't wait on the network. It never checks in CI (`CI`/`GITHUB_ACTIONS`/… set) or when stderr isn't a terminal; `ASTRONA_NO_UPDATE_CHECK=1` turns it off everywhere.
 

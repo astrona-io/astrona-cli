@@ -95,6 +95,18 @@ Upgrade with `brew upgrade astrona` — or `astrona upgrade`, which runs it for 
 
 Or download a pre-compiled binary of `astrona-cli` directly from GitHub Releases:
 
+### Linux packages (APT, DNF & Snap)
+
+Download the matching `.deb`, `.rpm` or `.snap` for `amd64`/`arm64` from [Releases](https://github.com/astrona-io/astrona-cli/releases):
+
+```sh
+sudo apt-get install ./astrona-<version>-linux-<arch>.deb  # Debian / Ubuntu
+sudo dnf install ./astrona-<version>-linux-<arch>.rpm      # Fedora / RHEL-compatible
+sudo snap install --dangerous --classic ./astrona-<version>-linux-<arch>.snap
+```
+
+Packages include Kind, kubectl and ORAS; Git and certificates are installed as dependencies or bundled in the Snap. Install and start Docker or Podman separately. These are local release packages; hosted APT/DNF repositories and Snap Store publication are separate setup steps. See [installation details](https://cli.astrona.io/getting-started/installation/) for upgrades and optional VM dependencies.
+
 ### Quick Install (macOS & Linux)
 
 Run the following command in your terminal to automatically detect your OS and architecture, download the latest binary, and install it to `~/.local/bin/astrona`:
