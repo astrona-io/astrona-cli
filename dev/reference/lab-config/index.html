@@ -716,6 +716,8 @@
       
         
       
+        
+      
     
     
     
@@ -804,6 +806,34 @@
     
   
     CI Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/macos-kind-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    macOS Kind Regression
   
 
     
@@ -4362,6 +4392,11 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <td><code>image</code></td>
 <td>string</td>
 <td>Full node image reference. Pin by digest for reproducible labs: <code>kindest/node:v1.31.2@sha256:…</code></td>
+</tr>
+<tr>
+<td><code>dnsTimeout</code></td>
+<td>string</td>
+<td>CoreDNS readiness timeout before bootstrap; default <code>3m</code>, allowed <code>1s</code>–<code>30m</code>. Also supported on linked clusters. A longer timeout helps slow startup but cannot repair an unhealthy control plane</td>
 </tr>
 <tr>
 <td><code>nodes.controlPlanes</code></td>

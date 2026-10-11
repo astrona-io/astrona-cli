@@ -716,6 +716,8 @@
       
         
       
+        
+      
     
     
     
@@ -804,6 +806,34 @@
     
   
     CI Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/macos-kind-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    macOS Kind Regression
   
 
     
@@ -3702,6 +3732,7 @@
 <p>Start a lab: create its cluster(s) or VM(s) and set it up</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Spin up a lab environment: create the kind cluster or qemu VM(s), run bootstrap init scripts, and apply bootstrap manifests.</p>
+<p>Before creating Kind clusters, check the engine, resources and host ports. Memory estimates include running Kind clusters created outside Astrona. Estimates warn; definite environment failures block startup. On startup failure, collect diagnostics under ~/.astrona/diagnostics. Failed Kind creation exports retained node logs before cleaning up that new cluster; later failures leave the lab available for diagnosis. CoreDNS readiness defaults to 3m; runtime.kind.dnsTimeout can override it.</p>
 <p>Once a kind lab is ready, kubectl points at it: its context (kind-<lab>) becomes the current-context of your kubeconfig ($KUBECONFIG is respected), and <code>astrona destroy</code> switches back to the context you had before — unless you've switched elsewhere meanwhile. --keep-context leaves your current-context alone. qemu labs are reached with <code>astrona ssh</code>.</p>
 <p>For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) and their URLs and status are printed when the lab is ready — see <code>astrona port-forward</code>.</p>
 <p>A lab from the catalog (<code>astrona run astrona.io/ATS014/section-010/module-01/lab-02</code>, see <code>astrona labs</code>) asks for confirmation when you are not signed in: progress and results will not be tracked on Astrona. Use --without-login to confirm in automation. If you sign in with <code>astrona login</code>, before anything is built astrona starts a lab session on Astrona; once the lab is ready it prints the lab page URL and opens it in your browser, which starts the clock there — setup time never counts. Labs from your own files or repositories (-c / --git) run without signing in.</p>

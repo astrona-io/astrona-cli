@@ -829,6 +829,8 @@
       
         
       
+        
+      
     
     
     
@@ -917,6 +919,34 @@
     
   
     CI Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/macos-kind-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    macOS Kind Regression
   
 
     
@@ -3641,7 +3671,7 @@
 
 <h1 id="run-logs">Run Logs<a class="headerlink" href="#run-logs" title="Permanent link">&para;</a></h1>
 <p>Every lifecycle command — <code>astrona run</code>, <code>test</code>, <code>submit</code>, <code>destroy</code> — tees its <strong>full</strong> output to a per-run log file, no matter which display mode you used. The compact step view (or <code>--verbose</code> stream) is what you see live; the log file is the complete record, including every line of subprocess output the step view collapses.</p>
-<p>For a cluster-level picture (pods, events, node and container logs) rather than astrona's own output, see <a href="../../guides/ci-integration/#diagnostics-on-failure">diagnostics</a> — collected automatically when <code>astrona test</code> fails, or on demand with <code>astrona diagnose</code>.</p>
+<p>For a cluster-level picture (pods, events, node and container logs) rather than astrona's own output, see <a href="../../guides/ci-integration/#diagnostics-on-failure">diagnostics</a> — collected automatically when <code>astrona run</code> fails after creation or <code>astrona test</code> fails, or on demand with <code>astrona diagnose</code>. If Kind creation itself fails, Astrona retains the failed nodes temporarily, exports their logs to a private directory under <code>~/.astrona/diagnostics/</code>, then deletes only that new cluster. A pre-existing cluster with the same name is refused and left alone. Diagnostics are best effort and commands have time limits; the original startup error still determines the exit status.</p>
 <h2 id="where-they-live">Where they live<a class="headerlink" href="#where-they-live" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>~/.astrona/logs/&lt;command&gt;-&lt;lab&gt;-&lt;UTC timestamp&gt;.log
 </code></pre></div>
