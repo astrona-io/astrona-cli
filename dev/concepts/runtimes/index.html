@@ -689,6 +689,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#image-preloading-on-linux-and-wsl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image preloading on Linux and WSL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pausing-a-lab-astrona-stop-astrona-start" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3671,6 +3682,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#image-preloading-on-linux-and-wsl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Image preloading on Linux and WSL
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#pausing-a-lab-astrona-stop-astrona-start" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3860,6 +3882,11 @@
 </ol>
 <p>Why: faster lab start (no per-node pulls), no Docker Hub rate limits in CI, and labs that work offline once the host has the images. Pod events show <code>Container image "…" already present on machine</code>.</p>
 <p>Rules: every image needs an explicit tag or digest, never <code>:latest</code> or untagged — Kubernetes always re-pulls those (<code>imagePullPolicy: Always</code> by default), which would make preloading pointless. At most 30 images. Images are pulled for the host's architecture, which is the nodes' architecture too.</p>
+<p>Astrona honors <code>KIND_EXPERIMENTAL_PROVIDER=docker</code> or <code>podman</code> for engine detection as well as Kind commands. An explicitly selected engine must be installed and running; astrona will not silently switch to the other engine. With no provider set, it prefers a running Docker daemon, then Podman.</p>
+<h3 id="image-preloading-on-linux-and-wsl">Image preloading on Linux and WSL<a class="headerlink" href="#image-preloading-on-linux-and-wsl" title="Permanent link">&para;</a></h3>
+<p>For Docker versions that support <code>save --platform</code> (daemon API 1.48+), astrona exports preloaded images for the Docker daemon's Linux architecture only. This avoids Kind's <code>content digest ... not found</code> import failure with Docker's containerd image store and multi-platform images such as <code>nginx:1.27-alpine</code>. Older Docker versions and Podman retain their existing archive export behavior.</p>
+<p>The ATS000 first lab deliberately starts with a mistyped image tag. Its initial <code>ImagePullBackOff</code> is the exercise; the correct <code>nginx:1.27-alpine</code> image is preloaded. After repairing the Deployment, its two replicas should become ready without another registry pull.</p>
+<p>For Podman, astrona expands Docker Hub shorthand (<code>nginx:1.27-alpine</code> → <code>docker.io/library/nginx:1.27-alpine</code>, <code>team/app:1</code> → <code>docker.io/team/app:1</code>) before inspecting, pulling and saving images. Explicit registries remain as written. This works on Ubuntu without configuring Podman's unqualified search registries or answering a registry prompt.</p>
 <h3 id="pausing-a-lab-astrona-stop-astrona-start">Pausing a lab (<code>astrona stop</code> / <code>astrona start</code>)<a class="headerlink" href="#pausing-a-lab-astrona-stop-astrona-start" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>astrona<span class="w"> </span>stop<span class="w"> </span>my-lab<span class="w">     </span><span class="c1"># stops the node containers, pauses port forwards</span>
 <a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>astrona<span class="w"> </span>start<span class="w"> </span>my-lab<span class="w">    </span><span class="c1"># starts them again, waits for the API, restarts port forwards</span>
