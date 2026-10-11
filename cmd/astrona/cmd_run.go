@@ -34,6 +34,11 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 		Short: "Start a lab: create its cluster(s) or VM(s) and set it up",
 		Long: "Spin up a lab environment: create the kind cluster or qemu VM(s), run bootstrap init scripts, " +
 			"and apply bootstrap manifests.\n\n" +
+			"Before creating Kind clusters, check the engine, resources and host ports. Memory estimates include " +
+			"running Kind clusters created outside Astrona. Estimates warn; definite environment failures block startup. " +
+			"On startup failure, collect diagnostics under ~/.astrona/diagnostics. Failed Kind creation exports " +
+			"retained node logs before cleaning up that new cluster; later failures leave the lab available for diagnosis. " +
+			"CoreDNS readiness defaults to 3m; runtime.kind.dnsTimeout can override it.\n\n" +
 			"Once a kind lab is ready, kubectl points at it: its context (kind-<lab>) becomes the " +
 			"current-context of your kubeconfig ($KUBECONFIG is respected), and `astrona destroy` " +
 			"switches back to the context you had before — unless you've switched elsewhere " +
@@ -235,6 +240,9 @@ func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clust
 // destroy. Shared by run and reset.
 func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui.Reporter, sess *labstate.Session) error {
 	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
+	if err := checkRunEnvironment(cfg, baseDir, rep); err != nil {
+		return err
+	}
 	// Checked before linked clusters are (re)created — they'd otherwise be
 	// replaced under a lab that's still using them.
 	if len(cfg.KindClusters()) > 0 && kindClusterExists(clusterName) {
@@ -255,10 +263,14 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 	}
 	links, err := lifecycle.StartLinkedClusters(cfg, baseDir, clusterName, false, flags.parallel, rep)
 	if err != nil {
+		collectRunLinkedFailure(cfg, clusterName, rep)
 		return err
 	}
 	env, forwards, err := lifecycle.Up(cfg, baseDir, clusterName, links, false, rep)
 	if err != nil {
+		if env != nil {
+			collectDiagnostics(env, cfg, clusterName, "", rep)
+		}
 		return err
 	}
 

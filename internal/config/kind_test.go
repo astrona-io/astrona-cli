@@ -15,6 +15,12 @@ func TestValidateKindConfig(t *testing.T) {
 	}{
 		{"no block", RuntimeConfig{}, ""},
 		{"empty block on qemu is ignored", RuntimeConfig{Type: "qemu", Kind: &KindConfig{}}, ""},
+		{"DNS timeout", RuntimeConfig{Kind: &KindConfig{DNSTimeout: "5m"}}, ""},
+		{"invalid DNS timeout", RuntimeConfig{Kind: &KindConfig{DNSTimeout: "no"}}, "dnsTimeout"},
+		{"zero DNS timeout", RuntimeConfig{Kind: &KindConfig{DNSTimeout: "0s"}}, "dnsTimeout"},
+		{"short DNS timeout", RuntimeConfig{Kind: &KindConfig{DNSTimeout: "500ms"}}, "dnsTimeout"},
+		{"long DNS timeout", RuntimeConfig{Kind: &KindConfig{DNSTimeout: "31m"}}, "dnsTimeout"},
+		{"DNS timeout on qemu", RuntimeConfig{Type: "qemu", Kind: &KindConfig{DNSTimeout: "5m"}}, "only valid"},
 		{"version", RuntimeConfig{Kind: &KindConfig{Version: "v1.31.2"}}, ""},
 		{"image pinned by digest", RuntimeConfig{Type: "kind", Kind: &KindConfig{Image: digest}}, ""},
 		{"image on private registry", RuntimeConfig{Kind: &KindConfig{Image: "localhost:5000/kind/node:v1.31.2"}}, ""},

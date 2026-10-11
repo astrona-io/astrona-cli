@@ -84,6 +84,9 @@ type linkedDiagnostics struct {
 func collectLinkedDiagnostics(lab string, labs []config.KindCluster, dir string, rep *ui.Reporter) []linkedDiagnostics {
 	var out []linkedDiagnostics
 	for _, c := range lifecycle.OwnedClusters(lab, labs) {
+		if !cluster.Exists(c) {
+			continue
+		}
 		sum, err := diagnostics.CollectKind(diagnostics.Kind{
 			Name: c, KubeContext: "kind-" + c, Kubeconfig: cluster.ExistingKubeconfig(c),
 		}, filepath.Join(dir, "clusters", c), rep)
@@ -94,6 +97,18 @@ func collectLinkedDiagnostics(lab string, labs []config.KindCluster, dir string,
 		out = append(out, linkedDiagnostics{cluster: c, sum: sum})
 	}
 	return out
+}
+
+func collectRunLinkedFailure(cfg *config.LabConfig, lab string, rep *ui.Reporter) {
+	if len(cfg.KindClusters()) == 0 {
+		return
+	}
+	dir, err := diagnostics.DefaultDir(lab)
+	if err != nil {
+		rep.Warn("could not collect linked-cluster diagnostics: %v", err)
+		return
+	}
+	printLinkedDiagnostics(os.Stderr, collectLinkedDiagnostics(lab, cfg.KindClusters(), dir, rep))
 }
 
 func printLinkedDiagnostics(w io.Writer, linked []linkedDiagnostics) {
@@ -135,6 +150,9 @@ func qemuConsoleLogs(cfg *config.LabConfig, clusterName string) []diagnostics.QE
 
 func printDiagnosticsSummary(w io.Writer, sum diagnostics.Summary) {
 	fmt.Fprintf(w, "\nDiagnostics bundle: %s\n", sum.Dir)
+	for _, hint := range sum.Hints {
+		fmt.Fprintf(w, "  Suggested check: %s\n", hint)
+	}
 	if len(sum.Problems) == 0 {
 		fmt.Fprintf(w, "  No unhealthy pods. %d warning event(s) — see summary.md.\n", sum.Warnings)
 		return

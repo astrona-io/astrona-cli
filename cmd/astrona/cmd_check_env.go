@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
@@ -134,9 +136,11 @@ func evaluateEngine(engine string, info engineInfo) []checkResult {
 func checkEngine() ([]checkResult, *engineInfo) {
 	engine, err := cluster.DetectContainerEngine()
 	if err != nil {
-		return []checkResult{{status: checkFail, name: "container engine", detail: "neither docker nor podman found", hint: "install Docker or Podman"}}, nil
+		return []checkResult{{status: checkFail, name: "container engine", detail: err.Error(), hint: "check your Docker or Podman connection"}}, nil
 	}
-	out, err := exec.Command(engine.Path, "info", "--format", engineInfoFormat(engine.Name)).CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, engine.Path, "info", "--format", engineInfoFormat(engine.Name)).CombinedOutput()
 	if err != nil {
 		hint := "start the Docker daemon / Docker Desktop"
 		if engine.Name == "podman" {
@@ -149,7 +153,56 @@ func checkEngine() ([]checkResult, *engineInfo) {
 		return []checkResult{{status: checkWarn, name: engine.Name + " info", detail: err.Error()}}, nil
 	}
 	res := []checkResult{{name: engine.Name + " reachable", detail: engine.Path}}
-	return append(res, evaluateEngine(engine.Name, info)...), &info
+	res = append(res, evaluateEngine(engine.Name, info)...)
+	res = append(res, checkKindKeyringQuota(engine)...)
+	return res, &info
+}
+
+// Read through an existing node so macOS checks the engine's Linux VM,
+// not unrelated host sysctls. No helper container or privileged exec needed.
+func checkKindKeyringQuota(engine cluster.ContainerEngine) []checkResult {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, engine.Path, "ps", "--filter", "label=io.x-k8s.kind.role=control-plane", "--format", "{{.Names}}").Output()
+	if err != nil || len(strings.Fields(string(out))) == 0 {
+		return nil
+	}
+	node := strings.Fields(string(out))[0]
+	out, err = exec.CommandContext(ctx, engine.Path, "exec", "--", node, "cat", "/proc/key-users").Output()
+	if err != nil {
+		return []checkResult{{status: checkWarn, name: "Kind keyring quota", detail: "could not read kernel key quota from " + node, hint: "if pod startup reports 'session key: disk quota exceeded', inspect kernel.keys limits in the engine's Linux VM/host"}}
+	}
+	return evaluateKeyringQuota(string(out))
+}
+
+func evaluateKeyringQuota(out string) []checkResult {
+	for _, line := range strings.Split(out, "\n") {
+		parts := strings.Fields(line)
+		// UID 0 as seen by the node can be an unprivileged VM UID under
+		// rootless Podman: use the reported quota, not root_maxkeys.
+		if len(parts) != 5 || parts[0] != "0:" {
+			continue
+		}
+		used, keyMax, ok := strings.Cut(parts[3], "/")
+		bytesUsed, bytesMax, bytesOK := strings.Cut(parts[4], "/")
+		if !ok || !bytesOK {
+			continue
+		}
+		limit, err := strconv.Atoi(keyMax)
+		usage, usageErr := strconv.Atoi(used)
+		byteLimit, byteErr := strconv.Atoi(bytesMax)
+		byteUsage, byteUsageErr := strconv.Atoi(bytesUsed)
+		if err != nil || usageErr != nil || byteErr != nil || byteUsageErr != nil || limit <= 0 || byteLimit <= 0 {
+			continue
+		}
+		r := checkResult{name: "Kind keyring quota", detail: used + "/" + keyMax + " keys, " + bytesUsed + "/" + bytesMax + " bytes (shared across clusters)"}
+		if limit < 20000 || byteLimit < 500000 || float64(usage)/float64(limit) >= 0.8 || float64(byteUsage)/float64(byteLimit) >= 0.8 {
+			r.status = checkWarn
+			r.hint = "multiple Kind clusters can exhaust this quota and prevent CoreDNS pods from starting; inspect kernel.keys.maxkeys/maxbytes inside the engine's Linux VM/host — https://github.com/kubernetes-sigs/kind/issues/3806"
+		}
+		return []checkResult{r}
+	}
+	return nil
 }
 
 // Minimums kind's known-issues page recommends for multi-node clusters;
@@ -223,20 +276,28 @@ func estimateLabMemory(k *config.KindConfig) int64 {
 // create, and labs already running at a default-lab estimate each) with the
 // engine's memory.
 func evaluateLabMemory(k *config.KindConfig, linked []*config.KindConfig, othersRunning int, engineMem int64) checkResult {
+	return evaluateLabMemoryWithOthers(k, linked, kindMemory{clusters: othersRunning, bytes: int64(othersRunning) * estimateLabMemory(nil)}, engineMem)
+}
+
+type kindMemory struct {
+	clusters int
+	bytes    int64
+}
+
+func evaluateLabMemoryWithOthers(k *config.KindConfig, linked []*config.KindConfig, others kindMemory, engineMem int64) checkResult {
 	lab := estimateLabMemory(k)
 	var links int64
 	for _, lk := range linked {
 		links += estimateLabMemory(lk)
 	}
-	others := int64(othersRunning) * estimateLabMemory(nil)
-	total := lab + links + others
+	total := lab + links + others.bytes
 
 	detail := fmt.Sprintf("~%.1f GiB for this lab", inGiB(lab))
 	if len(linked) > 0 {
 		detail += fmt.Sprintf(" + ~%.1f GiB for %d linked cluster(s)", inGiB(links), len(linked))
 	}
-	if othersRunning > 0 {
-		detail += fmt.Sprintf(" + ~%.1f GiB for %d running lab(s)", inGiB(others), othersRunning)
+	if others.clusters > 0 {
+		detail += fmt.Sprintf(" + ~%.1f GiB for %d running Kind cluster(s)", inGiB(others.bytes), others.clusters)
 	}
 	detail += fmt.Sprintf(" of %.1f GiB", inGiB(engineMem))
 
@@ -246,6 +307,51 @@ func evaluateLabMemory(k *config.KindConfig, linked []*config.KindConfig, others
 		r.hint = "likely too tight — stop other labs (`astrona list`, `astrona destroy <lab>`), use fewer workers/addons, or give the engine more memory"
 	}
 	return r
+}
+
+// Include every running Kind node, even clusters created outside Astrona.
+// Stopped containers consume no working memory. Existing addons are unknown;
+// this remains a rough estimate, not a measurement of free RAM.
+func otherKindMemory(cfg *config.LabConfig, name string) (kindMemory, error) {
+	engine, err := cluster.DetectContainerEngine()
+	if err != nil {
+		return kindMemory{}, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, engine.Path, "ps", "--filter", "label=io.x-k8s.kind.cluster", "--format",
+		`{{.Label "io.x-k8s.kind.cluster"}}|{{.Label "io.x-k8s.kind.role"}}`).Output()
+	if err != nil {
+		return kindMemory{}, fmt.Errorf("list Kind nodes: %w", err)
+	}
+	exclude := map[string]bool{name: true}
+	for _, c := range cfg.KindClusters() {
+		exclude[config.LinkedClusterName(name, c.Name)] = true
+	}
+	return parseOtherKindMemory(string(out), exclude), nil
+}
+
+func parseOtherKindMemory(out string, exclude map[string]bool) kindMemory {
+	nodes := map[string]*config.KindConfig{}
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		name, role, ok := strings.Cut(strings.TrimSpace(line), "|")
+		if !ok || name == "" || exclude[name] || (role != "control-plane" && role != "worker") {
+			continue
+		}
+		if nodes[name] == nil {
+			nodes[name] = &config.KindConfig{}
+		}
+		if role == "control-plane" {
+			nodes[name].Nodes.ControlPlanes++
+		} else {
+			nodes[name].Nodes.Workers++
+		}
+	}
+	res := kindMemory{clusters: len(nodes)}
+	for _, k := range nodes {
+		res.bytes += estimateLabMemory(k)
+	}
+	return res
 }
 
 // labHostPorts lists the host ports a lab binds on 127.0.0.1, with what
@@ -312,16 +418,11 @@ func checkLab(cfg *config.LabConfig, baseDir string, engine *engineInfo) []check
 	ports := labHostPorts(cfg.Runtime)
 
 	if engine != nil {
-		others := 0
-		owners := linkedClusterOwners()
-		for _, r := range collectKindRows() {
-			// The lab's own linked clusters are counted in linked (or, when
-			// it's running, simply not — like the lab itself).
-			if r.name != name && owners[r.name] != name {
-				others++
-			}
+		others, err := otherKindMemory(cfg, name)
+		if err != nil {
+			res = append(res, checkResult{status: checkWarn, name: "existing Kind clusters", detail: err.Error(), hint: "memory estimate excludes other clusters"})
 		}
-		res = append(res, evaluateLabMemory(cfg.Runtime.Kind, linked, others, engine.MemBytes))
+		res = append(res, evaluateLabMemoryWithOthers(cfg.Runtime.Kind, linked, others, engine.MemBytes))
 	}
 
 	if len(ports) > 0 {
@@ -332,6 +433,30 @@ func checkLab(cfg *config.LabConfig, baseDir string, engine *engineInfo) []check
 		}
 	}
 	return res
+}
+
+// checkRunEnvironment runs before creating the lab or its linked clusters.
+// Estimates warn; only definite failures (engine, cgroups, ports) block.
+func checkRunEnvironment(cfg *config.LabConfig, baseDir string, rep *ui.Reporter) error {
+	if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" {
+		return nil
+	}
+	results, engine := checkEngine()
+	results = append(results, checkLab(cfg, baseDir, engine)...)
+	if goruntime.GOOS == "linux" {
+		results = append(results, checkInotify("/proc")...)
+	}
+	failed := false
+	for _, r := range results {
+		if r.status != checkOK {
+			rep.Warn("%s: %s — %s", r.name, r.detail, r.hint)
+		}
+		failed = failed || r.status == checkFail
+	}
+	if failed {
+		return fmt.Errorf("environment checks failed; run `astrona check` for details")
+	}
+	return nil
 }
 
 // printCheckResults prints results and returns how many failed.

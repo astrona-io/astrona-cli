@@ -122,19 +122,17 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.R
 			return nil, err
 		}
 		kubeconfig, err := cluster.WriteLabKubeconfig(name, rep)
+		env := &LabEnvironment{
+			Type: RuntimeKind, Name: name, KubeContext: "kind-" + name,
+			Kubeconfig: kubeconfig, Executor: executor.LocalExecutor{Kubeconfig: kubeconfig},
+		}
 		if err != nil {
-			return nil, err
+			return env, err
 		}
 		if err := cluster.WaitForDefaultServiceAccount("kind-"+name, kubeconfig, 2*time.Minute, rep); err != nil {
-			return nil, err
+			return env, err
 		}
-		return &LabEnvironment{
-			Type:        RuntimeKind,
-			Name:        name,
-			KubeContext: "kind-" + name,
-			Kubeconfig:  kubeconfig,
-			Executor:    executor.LocalExecutor{Kubeconfig: kubeconfig},
-		}, nil
+		return env, nil
 	case RuntimeQEMU:
 		if err := config.ValidateKindConfig(cfg); err != nil {
 			return nil, err

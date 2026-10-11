@@ -10,6 +10,7 @@ package diagnostics
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -47,6 +48,7 @@ type Summary struct {
 	Dir      string
 	Problems []string // one line per unhealthy pod, e.g. "default/web-1: ImagePullBackOff (…)"
 	Warnings int      // number of Warning events
+	Hints    []string
 }
 
 // Kind identifies a kind cluster to collect from. Kubeconfig may be "" (lab
@@ -95,7 +97,14 @@ func (c *collector) write(name string, data []byte) {
 // run executes name+args and returns combined output; a failing command's
 // output is still returned (it's often the useful part).
 func (c *collector) run(env []string, name string, args ...string) ([]byte, error) {
-	cmd := exec.Command(name, args...)
+	timeout := 20 * time.Second
+	if name == "kind" {
+		timeout = 2 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.WaitDelay = 2 * time.Second
 	cmd.Env = env
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
@@ -105,7 +114,7 @@ func (c *collector) run(env []string, name string, args ...string) ([]byte, erro
 }
 
 func (c *collector) kubectl(args ...string) ([]byte, error) {
-	return c.run(c.kubeEnv, "kubectl", append([]string{"--context", c.kind.KubeContext}, args...)...)
+	return c.run(c.kubeEnv, "kubectl", append([]string{"--context", c.kind.KubeContext, "--request-timeout=10s"}, args...)...)
 }
 
 // kubectlTo runs kubectl and saves its output to file, whatever the
@@ -136,6 +145,7 @@ func CollectKind(k Kind, dir string, rep *ui.Reporter) (Summary, error) {
 	sum := Summary{Dir: dir}
 
 	c.write("versions.txt", c.versions())
+	c.kubectlTo("cluster/apiserver-readyz.txt", "get", "--raw=/readyz?verbose")
 
 	c.kubectlTo("cluster/nodes.txt", "get", "nodes", "-o", "wide")
 	c.kubectlTo("cluster/describe-nodes.txt", "describe", "nodes")
@@ -149,6 +159,7 @@ func CollectKind(k Kind, dir string, rep *ui.Reporter) (Summary, error) {
 
 	warnings := c.warningEvents()
 	sum.Warnings = len(warnings)
+	sum.Hints = diagnosticHints(warnings)
 
 	problems := c.problemPods()
 	for i, p := range problems {
@@ -387,6 +398,13 @@ var collapseSpaces = regexp.MustCompile(`\s{2,}`)
 func renderSummary(lab string, sum Summary, warnings []string, truncated bool) []byte {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Diagnostics: %s\n\nCollected %s by astrona.\n\n", lab, time.Now().UTC().Format(time.RFC3339))
+	if len(sum.Hints) > 0 {
+		b.WriteString("## Suggested checks\n\n")
+		for _, hint := range sum.Hints {
+			fmt.Fprintf(&b, "- %s\n", hint)
+		}
+		b.WriteString("\n")
+	}
 
 	fmt.Fprintf(&b, "## Unhealthy pods (%d)\n\n", len(sum.Problems))
 	if len(sum.Problems) == 0 {
@@ -420,6 +438,15 @@ func renderSummary(lab string, sum Summary, warnings []string, truncated bool) [
 - versions.txt, errors.txt (anything that couldn't be collected)
 `)
 	return []byte(b.String())
+}
+
+func diagnosticHints(warnings []string) []string {
+	for _, event := range warnings {
+		if strings.Contains(event, "session key") && strings.Contains(event, "quota exceeded") {
+			return []string{"Linux kernel keyring quota exhausted: this 'disk quota exceeded' message is about kernel keys, not filesystem storage. With Docker Desktop or Podman machine, inspect kernel.keys.maxkeys/maxbytes inside the Linux VM; on Linux inspect the engine host. Use fewer concurrent clusters or ask the VM/host administrator to raise keyring limits. macOS host admin membership and a longer DNS timeout do not repair this quota. See https://github.com/kubernetes-sigs/kind/issues/3806"}
+		}
+	}
+	return nil
 }
 
 func firstLine(s string) string {

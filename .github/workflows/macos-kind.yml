@@ -1,0 +1,35 @@
+name: macOS Kind coexistence
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-kind-standard-user
+  cancel-in-progress: false
+
+jobs:
+  docker-desktop:
+    # Opt-in runner: Docker Desktop already running under a non-admin account.
+    # Never run untrusted PR code automatically on this machine.
+    runs-on: [self-hosted, macOS, ARM64, astrona-kind-standard-user]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Build CLI
+        run: go build -o "$RUNNER_TEMP/astrona" ./cmd/astrona
+      - name: Run ICA playground alongside existing Kind clusters
+        env:
+          ASTRONA_REQUIRE_MACOS_STANDARD_USER: '1'
+        run: bash .github/scripts/test-kind-coexistence.sh "$RUNNER_TEMP/astrona" "$RUNNER_TEMP/macos-kind-diagnostics" docker
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-kind-diagnostics
+          path: ${{ runner.temp }}/macos-kind-diagnostics

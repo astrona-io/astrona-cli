@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
 
 // KindConfig is runtime.kind: the shape of the kind cluster a lab gets.
@@ -25,7 +26,9 @@ type KindConfig struct {
 	Version string `yaml:"version"`
 	// Image overrides the node image completely — use it to pin by digest
 	// (kindest/node:v1.31.2@sha256:…) for reproducible labs.
-	Image      string         `yaml:"image"`
+	Image string `yaml:"image"`
+	// DNSTimeout bounds CoreDNS readiness before bootstrap (default 3m).
+	DNSTimeout string         `yaml:"dnsTimeout"`
 	Nodes      KindNodes      `yaml:"nodes"`
 	Networking KindNetworking `yaml:"networking"`
 	// FeatureGates are Kubernetes feature gates enabled/disabled cluster-wide.
@@ -105,7 +108,7 @@ func (k *KindConfig) IsZero() bool {
 	return k == nil ||
 		(k.Version == "" && k.Image == "" && k.Nodes == KindNodes{} && k.Networking == KindNetworking{} &&
 			len(k.FeatureGates) == 0 && len(k.RuntimeConfig) == 0 && k.Addons.IsZero() && len(k.PreloadImages) == 0 &&
-			len(k.Clusters) == 0 && len(k.Labs) == 0 && !k.SharedCA)
+			len(k.Clusters) == 0 && len(k.Labs) == 0 && !k.SharedCA && k.DNSTimeout == "")
 }
 
 // NodeImage is the image to boot every node from, or "" for kind's default.
@@ -156,6 +159,12 @@ func ValidateKindConfig(rt RuntimeConfig) error {
 	}
 	if k.Image != "" && !imageRefPattern.MatchString(k.Image) {
 		return fmt.Errorf("runtime.kind.image '%s' is not a valid image reference", k.Image)
+	}
+	if k.DNSTimeout != "" {
+		d, err := time.ParseDuration(k.DNSTimeout)
+		if err != nil || d < time.Second || d > maxWaitTimeout {
+			return fmt.Errorf("runtime.kind.dnsTimeout must be a duration between 1s and 30m (got %q)", k.DNSTimeout)
+		}
 	}
 
 	if n := k.Nodes.ControlPlanes; n < 0 || n > maxKindControlPlanes {

@@ -27,6 +27,7 @@ type KindCluster struct {
 	Name          string            `yaml:"name"`
 	Version       string            `yaml:"version"`
 	Image         string            `yaml:"image"`
+	DNSTimeout    string            `yaml:"dnsTimeout"`
 	Nodes         KindNodes         `yaml:"nodes"`
 	Networking    KindNetworking    `yaml:"networking"`
 	FeatureGates  map[string]bool   `yaml:"featureGates"`
@@ -64,7 +65,7 @@ type KindClusterTeardown struct {
 // skipped: they'd clash with the lab's own.
 func (l KindCluster) Cluster() *KindConfig {
 	k := &KindConfig{
-		Version: l.Version, Image: l.Image, Nodes: l.Nodes, Networking: l.Networking,
+		Version: l.Version, Image: l.Image, DNSTimeout: l.DNSTimeout, Nodes: l.Nodes, Networking: l.Networking,
 		FeatureGates: l.FeatureGates, RuntimeConfig: l.RuntimeConfig, Addons: l.Addons,
 		PreloadImages: l.PreloadImages,
 	}

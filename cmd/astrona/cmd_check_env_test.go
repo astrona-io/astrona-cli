@@ -109,7 +109,7 @@ func TestLabMemory(t *testing.T) {
 		t.Errorf("linked labs not counted: %s", r.detail)
 	}
 	r := evaluateLabMemory(nil, nil, 4, 6*gib) // 5 × 1.2 GiB on 6 GiB
-	if r.status != checkWarn || !strings.Contains(r.detail, "4 running lab(s)") {
+	if r.status != checkWarn || !strings.Contains(r.detail, "4 running Kind cluster(s)") {
 		t.Errorf("crowded engine = %d (%s)", r.status, r.detail)
 	}
 }
