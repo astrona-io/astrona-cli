@@ -87,7 +87,7 @@ func Up(cfg *config.LabConfig, baseDir, clusterName string, links []cluster.Link
 
 	env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime, rep)
 	if err != nil {
-		return nil, nil, fmt.Errorf("lab setup failed: %w", err)
+		return env, nil, fmt.Errorf("lab setup failed: %w", err)
 	}
 	if err := AttachLinks(env, clusterName, links, rep); err != nil {
 		return env, nil, err

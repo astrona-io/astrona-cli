@@ -3,8 +3,10 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	goruntime "runtime"
 	"strings"
 	"sync"
@@ -195,7 +197,7 @@ func BuildKindConfig(k *config.KindConfig) ([]byte, error) {
 // kindCreateArgs builds `kind create cluster`'s argument slice.
 // configPath is "" when no config file is used.
 func kindCreateArgs(clusterName, configPath, nodeImage string) []string {
-	args := []string{"create", "cluster", "--name", clusterName}
+	args := []string{"create", "cluster", "--name", clusterName, "--retain"}
 	if configPath != "" {
 		args = append(args, "--config", configPath)
 	}
@@ -232,6 +234,9 @@ func writeKindConfig(data []byte) (string, func(), error) {
 // CreateKindCluster creates clusterName, shaped by k (runtime.kind; nil
 // for kind's defaults).
 func CreateKindCluster(clusterName string, k *config.KindConfig, rep *ui.Reporter) error {
+	if err := config.ValidateName(clusterName); err != nil {
+		return err
+	}
 	t := rep.Step("Detect container engine")
 	engine, err := DetectContainerEngine()
 	if err != nil {
@@ -241,6 +246,21 @@ func CreateKindCluster(clusterName string, k *config.KindConfig, rep *ui.Reporte
 	kindPath, err := exec.LookPath("kind")
 	if err != nil {
 		return t.Fail(fmt.Errorf("kind not found in PATH: %w", err))
+	}
+	// Never collect/delete a pre-existing cluster after a name-collision
+	// failure. Only a new cluster created by this attempt is ours to clean.
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	list := exec.CommandContext(ctx, kindPath, "get", "clusters")
+	list.Env = kindEnv()
+	existing, err := list.Output()
+	cancel()
+	if err != nil {
+		return t.Fail(fmt.Errorf("list existing Kind clusters: %w", err))
+	}
+	for _, name := range strings.Fields(string(existing)) {
+		if name == clusterName {
+			return t.Fail(fmt.Errorf("kind cluster %q already exists", clusterName))
+		}
 	}
 	t.Done()
 
@@ -266,8 +286,10 @@ func CreateKindCluster(clusterName string, k *config.KindConfig, rep *ui.Reporte
 	}
 
 	cmd := exec.Command(kindPath, kindCreateArgs(clusterName, configPath, k.NodeImage())...)
-	cmd.Stdout = out
-	cmd.Stderr = out
+	collision := &kindCollisionOutput{}
+	creationOutput := io.MultiWriter(out, collision)
+	cmd.Stdout = creationOutput
+	cmd.Stderr = creationOutput
 
 	cmd.Env = os.Environ()
 	if engine.Name == "podman" {
@@ -275,6 +297,11 @@ func CreateKindCluster(clusterName string, k *config.KindConfig, rep *ui.Reporte
 	}
 
 	if err := cmd.Run(); err != nil {
+		// --retain keeps bootstrap evidence that Kind otherwise deletes.
+		// Export it before restoring Kind's usual failure cleanup behavior.
+		if !collision.exists {
+			collectFailedKindCreation(kindPath, clusterName, cmd.Env, rep)
+		}
 		if img := k.NodeImage(); img != "" {
 			return t.Fail(fmt.Errorf("%w (node image '%s' — check it exists and matches your kind version: https://github.com/kubernetes-sigs/kind/releases)", err, img))
 		}
@@ -282,6 +309,61 @@ func CreateKindCluster(clusterName string, k *config.KindConfig, rep *ui.Reporte
 	}
 	t.Done()
 	return nil
+}
+
+// Kind checks names again just before creation. Another process may create
+// the cluster after our preflight; its collision error must not trigger cleanup.
+// Retain only enough output to recognize a marker split across writes.
+type kindCollisionOutput struct {
+	tail   string
+	exists bool
+}
+
+func (c *kindCollisionOutput) Write(p []byte) (int, error) {
+	const marker = "node(s) already exist for a cluster with the name"
+	joined := c.tail + string(p)
+	c.exists = c.exists || strings.Contains(joined, marker)
+	if len(joined) > len(marker) {
+		joined = joined[len(joined)-len(marker):]
+	}
+	c.tail = joined
+	return len(p), nil
+}
+
+func collectFailedKindCreation(kindPath, name string, env []string, rep *ui.Reporter) {
+	home, err := os.UserHomeDir()
+	if err == nil {
+		parent := filepath.Join(home, ".astrona", "diagnostics")
+		dirErr := os.MkdirAll(parent, 0700)
+		var dir string
+		if dirErr == nil {
+			dir, dirErr = os.MkdirTemp(parent, name+"-creation-*")
+		}
+		if dirErr == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+			cmd := exec.CommandContext(ctx, kindPath, "export", "logs", filepath.Join(dir, "kind-logs"), "--name", name)
+			cmd.WaitDelay = 2 * time.Second
+			cmd.Env = env
+			output, exportErr := cmd.CombinedOutput()
+			cancel()
+			if exportErr != nil {
+				rep.Warn("could not export failed Kind startup logs: %v: %s", exportErr, strings.TrimSpace(string(output)))
+			}
+			rep.Warn("Kind startup diagnostics: %s", dir)
+		} else {
+			rep.Warn("could not create Kind diagnostics directory: %v", dirErr)
+		}
+	} else {
+		rep.Warn("could not resolve diagnostics directory: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, kindPath, "delete", "cluster", "--name", name)
+	cmd.WaitDelay = 2 * time.Second
+	cmd.Env = env
+	if output, err := cmd.CombinedOutput(); err != nil {
+		rep.Warn("could not clean failed Kind cluster %s: %v: %s — run `astrona destroy %s`", name, err, strings.TrimSpace(string(output)), name)
+	}
 }
 
 func DeleteKindCluster(clusterName string, rep *ui.Reporter) error {

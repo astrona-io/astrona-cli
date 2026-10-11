@@ -117,6 +117,9 @@
           },
           "type": "array"
         },
+        "dnsTimeout": {
+          "type": "string"
+        },
         "featureGates": {
           "additionalProperties": {
             "type": "boolean"
@@ -185,6 +188,9 @@
             "$ref": "#/$defs/KindCluster"
           },
           "type": "array"
+        },
+        "dnsTimeout": {
+          "type": "string"
         },
         "featureGates": {
           "additionalProperties": {

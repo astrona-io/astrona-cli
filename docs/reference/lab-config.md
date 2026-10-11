@@ -153,6 +153,7 @@ kind only (rejected for `type: qemu`). Omit it and the lab gets a plain `kind cr
 |---|---|---|
 | `version` | string | Kubernetes version, e.g. `v1.31.2` — boots `kindest/node:<version>`. Mutually exclusive with `image` |
 | `image` | string | Full node image reference. Pin by digest for reproducible labs: `kindest/node:v1.31.2@sha256:…` |
+| `dnsTimeout` | string | CoreDNS readiness timeout before bootstrap; default `3m`, allowed `1s`–`30m`. Also supported on linked clusters. A longer timeout helps slow startup but cannot repair an unhealthy control plane |
 | `nodes.controlPlanes` | int | `1`–`3` (default `1`). More than one adds kind's load balancer container |
 | `nodes.workers` | int | `0`–`6` (default `0`) |
 | `networking.disableDefaultCNI` | bool | Don't install kindnet — the lab installs its own CNI (Calico, Cilium, …) in `bootstrap`. Nodes stay `NotReady` until it does |

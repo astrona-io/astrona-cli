@@ -87,9 +87,9 @@ func TestKindCreateArgs(t *testing.T) {
 		configPath, image string
 		want              []string
 	}{
-		{"", "", []string{"create", "cluster", "--name", "astro-x"}},
-		{"/tmp/c.yaml", "", []string{"create", "cluster", "--name", "astro-x", "--config", "/tmp/c.yaml"}},
-		{"/tmp/c.yaml", "kindest/node:v1.31.2", []string{"create", "cluster", "--name", "astro-x", "--config", "/tmp/c.yaml", "--image", "kindest/node:v1.31.2"}},
+		{"", "", []string{"create", "cluster", "--name", "astro-x", "--retain"}},
+		{"/tmp/c.yaml", "", []string{"create", "cluster", "--name", "astro-x", "--retain", "--config", "/tmp/c.yaml"}},
+		{"/tmp/c.yaml", "kindest/node:v1.31.2", []string{"create", "cluster", "--name", "astro-x", "--retain", "--config", "/tmp/c.yaml", "--image", "kindest/node:v1.31.2"}},
 	}
 	for _, c := range cases {
 		if got := kindCreateArgs("astro-x", c.configPath, c.image); !reflect.DeepEqual(got, c.want) {

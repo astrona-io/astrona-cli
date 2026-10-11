@@ -73,6 +73,7 @@ nav:
   - Guides:
       - Authoring a Lab: guides/authoring-a-lab.md
       - CI Integration: guides/ci-integration.md
+      - macOS Kind Regression: guides/macos-kind-testing.md
       - Remote Config Sources: guides/remote-config.md
       - Offline Bundles: guides/offline-bundles.md
       - Linked Labs: guides/linked-labs.md

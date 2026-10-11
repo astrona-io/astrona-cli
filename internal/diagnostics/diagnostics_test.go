@@ -91,3 +91,17 @@ func TestFirstLine(t *testing.T) {
 		t.Errorf("firstLine not truncated: %d bytes", len(got))
 	}
 }
+
+func TestKeyringQuotaHint(t *testing.T) {
+	message := "FailedCreatePodSandBox: unable to join session keyring: unable to create session key: disk quota exceeded"
+	hints := diagnosticHints([]string{message})
+	if len(hints) != 1 || !strings.Contains(hints[0], "not filesystem storage") {
+		t.Fatalf("missing actionable keyring diagnosis: %v", hints)
+	}
+	if hints := diagnosticHints([]string{"persistent volume: disk quota exceeded"}); len(hints) != 0 {
+		t.Fatalf("filesystem quota misclassified as keyring failure: %v", hints)
+	}
+	if out := string(renderSummary("lab", Summary{Hints: hints}, nil, false)); !strings.Contains(out, hints[0]) {
+		t.Fatal("diagnostic summary lost the hint")
+	}
+}

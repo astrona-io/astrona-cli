@@ -192,8 +192,12 @@ func WaitForClusterDNS(cfg *config.LabConfig, env *runtime.LabEnvironment, rep *
 	if k := cfg.Runtime.Kind; k != nil && k.Networking.DisableDefaultCNI && k.Addons.CNI == "" {
 		return nil
 	}
+	timeout := "3m"
+	if k := cfg.Runtime.Kind; k != nil && k.DNSTimeout != "" {
+		timeout = k.DNSTimeout
+	}
 	return manifests.WaitFor([]config.WaitFor{
-		{Name: "cluster DNS (CoreDNS)", Resource: "deploy/coredns", Namespace: "kube-system", Timeout: "3m"},
+		{Name: "cluster DNS (CoreDNS)", Resource: "deploy/coredns", Namespace: "kube-system", Timeout: timeout},
 	}, env.KubeContext, rep)
 }
 
