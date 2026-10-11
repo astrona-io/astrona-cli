@@ -266,7 +266,7 @@ func TestStartSession(t *testing.T) {
 		}
 		page = p
 	})
-	if page.String() != srv.URL+"/labs/L?t=abc" {
+	if page.String() != srv.URL+"/labs/L" {
 		t.Errorf("page = %s", page)
 	}
 
