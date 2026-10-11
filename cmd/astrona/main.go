@@ -217,6 +217,10 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 }
 
 func main() {
+	if err := configurePackageTools(); err != nil {
+		ui.PrintError(err)
+		os.Exit(1)
+	}
 	if askpassPass := os.Getenv("ASTRONA_INTERNAL_ASKPASS"); askpassPass != "" {
 		fmt.Println(askpassPass)
 		os.Exit(0)

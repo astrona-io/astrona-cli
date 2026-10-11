@@ -1,0 +1,27 @@
+name: astrona
+arch: ${PACKAGE_ARCH}
+platform: linux
+version: ${PACKAGE_VERSION}
+release: 1
+section: admin
+priority: optional
+maintainer: Astrona <support@astrona.io>
+description: Local Kubernetes and virtual machine lab environments
+vendor: Astrona
+homepage: https://cli.astrona.io
+license: Apache-2.0
+depends:
+  - ca-certificates
+  - git
+contents:
+  - src: astrona
+    dst: /usr/lib/astrona/astrona
+  - src: tools/
+    dst: /usr/lib/astrona/tools
+    type: tree
+  - src: /usr/lib/astrona/astrona
+    dst: /usr/bin/astrona
+    type: symlink
+  - src: licenses/
+    dst: /usr/share/doc/astrona
+    type: tree

@@ -1,0 +1,39 @@
+# build-linux-package.sh copies this into a prepared Snapcraft project.
+name: astrona
+version: 'VERSION_PLACEHOLDER'
+summary: Local Kubernetes and virtual machine labs
+description: |
+  Create, grade and destroy local Astrona labs using Docker or Podman.
+  Includes Kind, kubectl and ORAS. Install and start a container engine
+  separately. Host filesystem, runtime sockets and lab scripts require
+  classic confinement.
+license: Apache-2.0
+base: core24
+grade: stable
+confinement: classic
+platforms:
+  ARCH_PLACEHOLDER:
+apps:
+  astrona:
+    command: bin/astrona
+    environment:
+      PATH: $SNAP/usr/bin:$SNAP/bin:$PATH
+      GIT_EXEC_PATH: $SNAP/usr/lib/git-core
+      GIT_SSL_CAINFO: $SNAP/etc/ssl/certs/ca-certificates.crt
+parts:
+  astrona:
+    plugin: nil
+    source: payload
+    override-build: |
+      cp -a "$CRAFT_PART_SRC/." "$CRAFT_PART_INSTALL/"
+      # Stage packages do not run post-install hooks. Create the CA bundle
+      # Git needs for HTTPS rather than referencing an absent generated file.
+      mkdir -p "$CRAFT_PART_INSTALL/etc/ssl/certs"
+      find "$CRAFT_PART_INSTALL/usr/share/ca-certificates" -name '*.crt' -type f \
+        -exec cat {} + > "$CRAFT_PART_INSTALL/etc/ssl/certs/ca-certificates.crt"
+      test -s "$CRAFT_PART_INSTALL/etc/ssl/certs/ca-certificates.crt"
+    build-attributes:
+      - enable-patchelf
+    stage-packages:
+      - git
+      - ca-certificates

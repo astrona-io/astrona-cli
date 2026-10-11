@@ -25,9 +25,13 @@ func newUpgradeCmd() *cobra.Command {
 		Long: "Download the latest release for this OS and architecture, verified against GitHub's SHA-256 " +
 			"digest, and replace the running astrona with it — only when it's newer (--force reinstalls).\n\n" +
 			"Installed with Homebrew? Then this runs `brew upgrade astrona` (`brew reinstall astrona` with " +
-			"--force) instead of downloading the binary itself, so Homebrew keeps track of the install.",
+			"--force) instead of downloading the binary itself, so Homebrew keeps track of the install.\n\n" +
+			"DEB, RPM and Snap installs print package installation instructions; their files are managed by the package manager.",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if packageUpgradeInstruction(PackageFormat) != "" {
+				return packageUpgradeError(PackageFormat)
+			}
 			if exe, err := currentExecutable(); err == nil && isHomebrewInstall(exe) {
 				return brewUpgrade(exe, force)
 			}

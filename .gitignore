@@ -22,6 +22,7 @@ profile.cov
 
 # local build output (`go build -o astrona .`, per CLAUDE.md)
 /astrona
+/dist/
 
 # Go workspace file
 go.work
