@@ -71,13 +71,15 @@ if [[ "$format" == snap ]]; then
     "$SNAPCRAFT_CONTAINER_ENGINE" run --rm --entrypoint /bin/sh \
       -v "$work/snap:/input:ro" -v "$work/snap:/output" \
       ghcr.io/canonical/snapcraft:8_core24 -c \
-      'mkdir -p /project && cp -R /input/. /project/ && cd /project && exec /bin/run-snapcraft.sh pack --destructive-mode --output /output/astrona.snap'
-    cp "$work/snap/astrona.snap" "$output/$asset"
+      'mkdir -p /project && cp -R /input/. /project/ && cd /project && /bin/run-snapcraft.sh pack --destructive-mode --output astrona.snap && cp astrona.snap /output/astrona.snap'
   else
     # Native destructive builds belong on disposable Ubuntu 24.04 runners.
     # Developers should use the container engine option above.
-    (cd "$work/snap" && snapcraft --destructive-mode --output "$output/$asset")
+    (cd "$work/snap" && snapcraft pack --destructive-mode --output astrona.snap)
   fi
+  # Snapcraft requires its output to stay within the project tree. Copy
+  # the completed package to the release directory only after packing.
+  cp "$work/snap/astrona.snap" "$output/$asset"
 else
   export PACKAGE_ARCH="$arch" PACKAGE_VERSION="${tag#v}"
   (cd "$stage" && nfpm package --config "$root/packaging/nfpm.yaml" --packager "$format" --target "$output/$asset")
