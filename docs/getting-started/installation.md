@@ -70,7 +70,7 @@ The [tap](https://github.com/astrona-io/homebrew-tap) is updated by every releas
 
 What the Homebrew install gives you on top of the binary:
 
-- **`kind` and `kubectl`** (`kubernetes-cli`) are installed as dependencies. Docker or Podman you install yourself — e.g. `brew install podman && podman machine init && podman machine start`, or Docker Desktop.
+- **Lab tools are installed automatically**: `kind`, `kubectl` (`kubernetes-cli`), `git` for catalog/repository labs, `oras` for OCI VM images, `qemu` for VM labs, and `cdrtools` (`mkisofs`) for cloud-init seed images. Homebrew resolves and installs their dependencies too. Docker or Podman you install and start yourself — e.g. `brew install podman && podman machine init && podman machine start`, or Docker Desktop.
 - **Shell completion** for bash, zsh and fish is set up — no `astrona completion` step (see [Shell completion](#shell-completion)).
 - **Man pages**: `man astrona`, `man astrona-run`, … one per command.
 - **No Gatekeeper prompt** on macOS: a binary downloaded in a browser gets the quarantine flag and macOS may refuse to run it; one installed by Homebrew doesn't.

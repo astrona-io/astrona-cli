@@ -57,6 +57,13 @@ echo "==> brew style / brew audit --strict"
 cp "$work/astrona.rb" "$tapdir/Formula/astrona.rb"
 brew style "${tap}/astrona"
 brew audit --strict --formula "${tap}/astrona"
+dependencies="$(brew deps --direct "${tap}/astrona")"
+for dependency in cdrtools git kind kubernetes-cli oras qemu; do
+  if ! grep -Fxq "$dependency" <<< "$dependencies"; then
+    echo "Formula is missing runtime dependency: $dependency" >&2
+    exit 1
+  fi
+done
 rm "$tapdir/Formula/astrona.rb"
 
 echo "==> brew install + brew test (local binary)"
@@ -66,12 +73,14 @@ URL="$url" LOCAL="file://${work}/dist/${asset}" VERSION="$version" perl -pe '
   s/\Q$ENV{URL}\E/$ENV{LOCAL}/;
   s/^class Astrona < Formula/class AstronaFormulaCi < Formula/;
   s/^  license "Apache-2.0"/  version "$ENV{VERSION}"\n  license "Apache-2.0"/;
-  s/^  depends_on "kind"/  keg_only "formula test copy, must not shadow a real astrona"\n\n  depends_on "kind"/;
+  s/^  depends_on "cdrtools"/  keg_only "formula test copy, must not shadow a real astrona"\n\n  depends_on "cdrtools"/;
 ' "$work/astrona.rb" > "$tapdir/Formula/astrona-formula-ci.rb"
 grep -q "file://${work}/dist/${asset}" "$tapdir/Formula/astrona-formula-ci.rb"
 
 brew install "${tap}/astrona-formula-ci"
 brew test "${tap}/astrona-formula-ci"
+brew list --formula --versions cdrtools git kind kubernetes-cli oras qemu
+test -z "$(brew missing "${tap}/astrona-formula-ci")"
 
 prefix="$(brew --prefix "${tap}/astrona-formula-ci")"
 "$prefix/bin/astrona" --version | grep -q "$tag"

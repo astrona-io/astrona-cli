@@ -59,7 +59,7 @@ func confirmYes(in io.Reader, out io.Writer, question string) bool {
 }
 
 func newResetCmd(flags *rootFlags) *cobra.Command {
-	var yes, soft bool
+	var yes, soft, withoutLogin bool
 	var clusterFlag string
 
 	cmd := &cobra.Command{
@@ -76,8 +76,9 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			"its teardown scripts, destroy, then create and bootstrap it again (with the addresses of " +
 			"the clusters it dependsOn). The lab and its other clusters are left alone; port forwards " +
 			"into the rebuilt cluster are restarted.\n\n" +
-			"A full reset of a catalog lab starts a fresh lab session on Astrona, like `astrona run`: " +
-			"it needs `astrona login`, and the new lab page opens once the lab is ready. --soft and " +
+			"A full reset of a catalog lab asks for confirmation when signed out, like `astrona run` " +
+			"(--without-login confirms without prompting). When signed in, " +
+			"it starts a fresh session and opens the new lab page once the lab is ready. --soft and " +
 			"--cluster keep the current session and need no sign-in.\n\n" +
 			"Like `astrona run`, a full reset points kubectl at the lab (the context to go back to " +
 			"is still the one from before the lab first ran); --keep-context leaves it alone.\n\n" +
@@ -147,13 +148,22 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			if clusterFlag != "" {
 				return resetLinkedCluster(cfg, baseDir, clusterName, clusterFlag, yes, flags)
 			}
-			// A full reset of a catalog lab starts a fresh lab session, like
-			// `astrona run`: checked before anything is destroyed.
+			// A signed-in catalog reset starts a fresh session, like run.
+			// Check the optional account before anything is destroyed.
 			ctx := context.Background()
-			acct, err := requireSignIn(ctx, flags, "reset")
+			acct, err := accountForLab(ctx, flags)
 			if err != nil {
 				return err
 			}
+			approved, err := approveUntrackedLab(os.Stdin, promptOut, isatty.IsTerminal(os.Stdin.Fd()), withoutLogin, flags.catalogLab, acct)
+			if err != nil {
+				return err
+			}
+			if !approved {
+				fmt.Println("Cancelled — sign in with `astrona login` to track your progress, then try again.")
+				return nil
+			}
+
 			exists := labExists(cfg, clusterName)
 
 			if exists && !yes {
@@ -200,7 +210,8 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Don't ask for confirmation")
+	cmd.Flags().BoolVar(&withoutLogin, "without-login", false, "Confirm running a catalog lab without signing in or tracking progress on Astrona")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Skip confirmation before deleting and recreating the lab")
 	addParallelFlag(cmd, flags)
 	addKeepContextFlag(cmd, flags)
 	cmd.Flags().StringVar(&clusterFlag, "cluster", "", "Rebuild only this linked cluster (its runtime.kind.clusters name)")

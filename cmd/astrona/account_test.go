@@ -68,7 +68,7 @@ func withAccount(t *testing.T, site string) (*account.Client, account.Store) {
 	return client, store
 }
 
-func TestRequireSignInOnlyForCatalogLabs(t *testing.T) {
+func TestAccountForLabIsOptional(t *testing.T) {
 	accountDepsCalled := false
 	prev := accountDeps
 	accountDeps = func() (*account.Client, account.Store, string, error) {
@@ -77,7 +77,7 @@ func TestRequireSignInOnlyForCatalogLabs(t *testing.T) {
 	}
 	defer func() { accountDeps = prev }()
 	// -c / --git labs: no sign-in, no network, no credentials read.
-	acct, err := requireSignIn(context.Background(), &rootFlags{configPath: "./labs/x"}, "run")
+	acct, err := accountForLab(context.Background(), &rootFlags{configPath: "./labs/x"})
 	if acct != nil || err != nil || accountDepsCalled {
 		t.Errorf("-c lab: %v, %v (deps called %v)", acct, err, accountDepsCalled)
 	}
@@ -85,14 +85,24 @@ func TestRequireSignInOnlyForCatalogLabs(t *testing.T) {
 	srv := fakeAstrona(t, http.StatusCreated, nil)
 	withAccount(t, srv.URL)
 	lab := "ATS014/section-010/module-01/lab-02"
-	_, err = requireSignIn(context.Background(), &rootFlags{catalogLab: lab}, "run")
-	if err == nil {
-		t.Fatal("catalog lab without credentials was allowed")
+	acct, err = accountForLab(context.Background(), &rootFlags{catalogLab: lab})
+	if acct != nil || err != nil {
+		t.Fatalf("signed-out catalog lab: %v, %v", acct, err)
 	}
-	for _, want := range []string{"You're not signed in to Astrona.", `run "astrona login" first`, `"astrona run ` + lab + `" again`, "-c / --git"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("message lacks %q:\n%s", want, err)
-		}
+}
+
+func TestAccountForLabReportsCredentialErrors(t *testing.T) {
+	srv := fakeAstrona(t, http.StatusCreated, nil)
+	_, store := withAccount(t, srv.URL)
+	if err := os.MkdirAll(filepath.Dir(store.Path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(store.Path, []byte("broken json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	acct, err := accountForLab(context.Background(), &rootFlags{catalogLab: "L"})
+	if acct != nil || err == nil || !strings.Contains(err.Error(), "damaged") {
+		t.Fatalf("damaged credentials: %v, %v", acct, err)
 	}
 }
 
@@ -151,8 +161,8 @@ func TestThirdPartyCatalogLabStartsNoSession(t *testing.T) {
 	if f.catalogLab != "" || f.gitURL != "https://github.com/someone/mylabs.git" || f.configPath != "sections/section-010/module-01/labs/lab-01" {
 		t.Errorf("resolved to catalogLab %q git %q config %q", f.catalogLab, f.gitURL, f.configPath)
 	}
-	if acct, err := requireSignIn(context.Background(), f, "run"); acct != nil || err != nil {
-		t.Errorf("requireSignIn = %v, %v; want no account needed", acct, err)
+	if acct, err := accountForLab(context.Background(), f); acct != nil || err != nil {
+		t.Errorf("accountForLab = %v, %v; want no account needed", acct, err)
 	}
 }
 
@@ -239,9 +249,9 @@ func TestStartSession(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
-		acct, err := requireSignIn(context.Background(), &rootFlags{catalogLab: "L"}, "run")
+		acct, err := accountForLab(context.Background(), &rootFlags{catalogLab: "L"})
 		if err != nil || acct == nil {
-			t.Fatalf("requireSignIn = %v, %v", acct, err)
+			t.Fatalf("accountForLab = %v, %v", acct, err)
 		}
 		return acct
 	}
@@ -328,12 +338,12 @@ func TestLoginDeclinedAndOldCredentials(t *testing.T) {
 		t.Error("credentials saved after a declined sign-in")
 	}
 
-	// A credentials file from the Keycloak-era astrona: signed out, told to log in.
+	// Old credentials are treated as signed out, so the lab can run locally.
 	os.MkdirAll(filepath.Dir(store.Path), 0o700)
 	os.WriteFile(store.Path, []byte(`{"site":"`+srv.URL+`","issuer":"x","client_id":"astrona-cli","access_token":"a"}`), 0o600)
-	_, err := requireSignIn(context.Background(), &rootFlags{catalogLab: "L"}, "run")
-	if err == nil || !strings.Contains(err.Error(), "older version of astrona") || !strings.Contains(err.Error(), `run "astrona login" first`) {
-		t.Errorf("old credentials: %v", err)
+	acct, err := accountForLab(context.Background(), &rootFlags{catalogLab: "L"})
+	if acct != nil || err != nil {
+		t.Errorf("old credentials: %v, %v", acct, err)
 	}
 	os.WriteFile(store.Path, []byte(`{"site":"`+srv.URL+`","issuer":"x","client_id":"astrona-cli","access_token":"a"}`), 0o600)
 	out := captureStdout(t, func() { _ = logout(client, store) })

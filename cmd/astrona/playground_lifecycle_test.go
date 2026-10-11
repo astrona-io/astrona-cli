@@ -92,7 +92,7 @@ func (p *playgroundSite) signIn(t *testing.T) *labAccount {
 			t.Fatal(err)
 		}
 	})
-	acct, err := requireSignIn(context.Background(), &rootFlags{catalogLab: "L"}, "run")
+	acct, err := accountForLab(context.Background(), &rootFlags{catalogLab: "L"})
 	if err != nil {
 		t.Fatal(err)
 	}

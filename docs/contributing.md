@@ -51,6 +51,16 @@ go build -o astrona ./cmd/astrona
 ./astrona test -c examples/k8s-basics-01 --junit-xml=report.xml   # e2e against a real kind cluster
 ```
 
+The Ubuntu catalog integration test runs the first published lab without logging in:
+
+```sh
+bash .github/scripts/test-catalog-lab.sh ./astrona /tmp/astrona-catalog-diagnostics
+```
+
+For Podman, pass `podman` as the third argument and run with rootful Podman (for example, `sudo env "PATH=$PATH" bash .github/scripts/test-catalog-lab.sh ./astrona /tmp/astrona-catalog-diagnostics podman`). The script explicitly selects the requested engine using `KIND_EXPERIMENTAL_PROVIDER`.
+
+It needs Linux, Docker or Podman, Kind and kubectl, plus network access to GitHub and Docker Hub. It isolates credentials and kubeconfig, explicitly accepts running without account tracking via `--without-login`, verifies node readiness, repairs the first lab's intentional image typo with `imagePullPolicy: Never` to confirm the Alpine preload, then destroys the lab and checks that its cluster, containers, context and saved state are gone. Failures retain logs and diagnostics and trigger cleanup. CI runs it on Ubuntu 24.04 with Docker's classic and containerd image stores and with rootful Podman.
+
 ## Dependency updates
 
 [Renovate](https://docs.renovatebot.com/) — Mend's hosted GitHub App, configured by `.github/renovate.json5` — opens PRs for dependency updates; they get the full CI run like any other PR (jobs and logs: [developer.mend.io](https://developer.mend.io)). Go module **minor and patch** updates are set to auto-merge: GitHub merges them as soon as the required checks on `main` (Lint, Unit tests, E2E) pass, and never when they fail. Major updates, the `go`/`toolchain` directive and GitHub Actions updates wait for a human review. New releases are only proposed after they're 3 days old. The Dependency Dashboard issue lists everything pending.

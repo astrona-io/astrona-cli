@@ -46,10 +46,14 @@ class Astrona < Formula
     strategy :github_latest
   end
 
-  # Required for every kind lab; Docker or Podman (also required) is left to
-  # the user — see caveats. qemu, oras and git are only needed by some labs.
+  # Include the tools for both kind and QEMU labs. The user chooses and
+  # starts the container engine (Docker or Podman) — see caveats.
+  depends_on "cdrtools"
+  depends_on "git"
   depends_on "kind"
   depends_on "kubernetes-cli"
+  depends_on "oras"
+  depends_on "qemu"
 
   on_macos do
     on_arm do

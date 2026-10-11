@@ -170,3 +170,94 @@ jobs:
         with:
           name: e2e-linked-diagnostics
           path: e2e-diagnostics/
+
+  e2e-catalog:
+    name: Anonymous ATS000 (${{ matrix.engine }} ${{ matrix.image-store }})
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - engine: docker
+            image-store: classic
+          - engine: docker
+            image-store: containerd
+          - engine: podman
+            image-store: native
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Configure Docker image store
+        if: matrix.engine == 'docker'
+        env:
+          IMAGE_STORE: ${{ matrix.image-store }}
+        run: |
+          docker version
+          sudo mkdir -p /etc/docker
+          sudo python3 - "$IMAGE_STORE" <<'PYTHON'
+          import json, pathlib, sys
+          path = pathlib.Path('/etc/docker/daemon.json')
+          config = json.loads(path.read_text()) if path.exists() else {}
+          config.setdefault('features', {})['containerd-snapshotter'] = sys.argv[1] == 'containerd'
+          path.write_text(json.dumps(config))
+          PYTHON
+          sudo systemctl restart docker
+          docker info
+
+      - name: Build astrona
+        run: go build -o astrona ./cmd/astrona
+
+      - name: Install kubectl
+        run: |
+          version="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"
+          curl -fsSLO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl"
+          curl -fsSLO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+      - name: Install Kind
+        run: go install sigs.k8s.io/kind@v0.32.0
+
+      - name: Install Podman
+        if: matrix.engine == 'podman'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+          sudo podman info
+          # Ensure engine detection uses Podman even when Docker is installed.
+          sudo systemctl stop docker.service docker.socket
+
+      - name: Run and destroy first catalog lab without login
+        env:
+          CONTAINER_ENGINE: ${{ matrix.engine }}
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          if [ "$CONTAINER_ENGINE" = podman ]; then
+            # Rootful Podman gives Kind the cgroup delegation it needs.
+            sudo env "PATH=$PATH" bash .github/scripts/test-catalog-lab.sh ./astrona catalog-e2e-diagnostics podman
+          else
+            bash .github/scripts/test-catalog-lab.sh ./astrona catalog-e2e-diagnostics docker
+          fi
+
+      - name: Make Podman diagnostics readable by artifact uploader
+        if: always() && matrix.engine == 'podman'
+        run: |
+          if [ -d catalog-e2e-diagnostics ]; then
+            sudo chown -R "$(id -u):$(id -g)" catalog-e2e-diagnostics
+          fi
+
+      - name: Upload lifecycle logs and failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: catalog-e2e-${{ matrix.engine }}-${{ matrix.image-store }}
+          path: catalog-e2e-diagnostics/
