@@ -101,6 +101,8 @@ Why: faster lab start (no per-node pulls), no Docker Hub rate limits in CI, and 
 
 Rules: every image needs an explicit tag or digest, never `:latest` or untagged — Kubernetes always re-pulls those (`imagePullPolicy: Always` by default), which would make preloading pointless. At most 30 images. Images are pulled for the host's architecture, which is the nodes' architecture too.
 
+Astrona honors `KIND_EXPERIMENTAL_PROVIDER=docker` or `podman` for engine detection as well as Kind commands. An explicitly selected engine must be installed and running; astrona will not silently switch to the other engine. With no provider set, it prefers a running Docker daemon, then Podman.
+
 ### Image preloading on Linux and WSL
 
 For Docker versions that support `save --platform` (daemon API 1.48+), astrona exports preloaded images for the Docker daemon's Linux architecture only. This avoids Kind's `content digest ... not found` import failure with Docker's containerd image store and multi-platform images such as `nginx:1.27-alpine`. Older Docker versions and Podman retain their existing archive export behavior.

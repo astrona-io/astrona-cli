@@ -167,8 +167,10 @@ func TestDetectContainerEngine(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\n"+body+"\n"), 0700)
 	}
 	t.Setenv("PATH", dir)
+	t.Setenv("KIND_EXPERIMENTAL_PROVIDER", "")
 
-	write("docker", "exit 1") // installed, daemon down
+	// Docker info --format may report success while the daemon is down.
+	write("docker", "case \"$*\" in 'info --format '*) exit 0 ;; *) exit 1 ;; esac")
 	write("podman", "exit 0")
 	e, err := DetectContainerEngine()
 	if err != nil || e.Name != "podman" {
@@ -184,5 +186,32 @@ func TestDetectContainerEngine(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	if _, err := DetectContainerEngine(); err == nil || !strings.Contains(err.Error(), "neither Docker nor Podman is installed") {
 		t.Errorf("none installed = %v", err)
+	}
+}
+
+func TestDetectContainerEngineHonorsKindProvider(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"docker", "podman"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\nexit 0\n"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", dir)
+	// Changing the provider must invalidate the cached choice even with
+	// the same PATH, and Podman must win when Docker is also available.
+	for _, name := range []string{"docker", "podman", "docker"} {
+		t.Setenv("KIND_EXPERIMENTAL_PROVIDER", name)
+		e, err := DetectContainerEngine()
+		if err != nil || e.Name != name {
+			t.Fatalf("provider %s: %+v, %v", name, e, err)
+		}
+	}
+	t.Setenv("KIND_EXPERIMENTAL_PROVIDER", "podman")
+	if err := os.Remove(filepath.Join(dir, "podman")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator))
+	if _, err := DetectContainerEngine(); err == nil || !strings.Contains(err.Error(), "selected container engine podman") {
+		t.Fatalf("missing explicit provider should not fall back to Docker: %v", err)
 	}
 }

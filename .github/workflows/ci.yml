@@ -248,6 +248,13 @@ jobs:
             bash .github/scripts/test-catalog-lab.sh ./astrona catalog-e2e-diagnostics docker
           fi
 
+      - name: Make Podman diagnostics readable by artifact uploader
+        if: always() && matrix.engine == 'podman'
+        run: |
+          if [ -d catalog-e2e-diagnostics ]; then
+            sudo chown -R "$(id -u):$(id -g)" catalog-e2e-diagnostics
+          fi
+
       - name: Upload lifecycle logs and failure diagnostics
         if: always()
         uses: actions/upload-artifact@v7

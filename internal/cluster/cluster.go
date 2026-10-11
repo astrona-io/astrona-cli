@@ -24,46 +24,60 @@ type ContainerEngine struct {
 }
 
 // DetectContainerEngine picks Docker or Podman — the first one installed
-// that actually answers, so an installed-but-stopped Docker Desktop doesn't
-// hide a running Podman. Checked once per run (per PATH). When none
+// that actually answers, unless KIND_EXPERIMENTAL_PROVIDER selects one.
+// An installed-but-stopped Docker Desktop doesn't
+// hide a running Podman. Cached per PATH and provider. When none
 // answers, the error says how to start one.
 func DetectContainerEngine() (ContainerEngine, error) {
 	engineCache.Lock()
 	defer engineCache.Unlock()
 	path := os.Getenv("PATH")
-	if engineCache.done && engineCache.path == path {
+	provider := os.Getenv("KIND_EXPERIMENTAL_PROVIDER")
+	if engineCache.done && engineCache.path == path && engineCache.provider == provider {
 		return engineCache.engine, engineCache.err
 	}
 	engineCache.engine, engineCache.err = detectContainerEngine()
 	engineCache.path, engineCache.done = path, true
+	engineCache.provider = provider
 	return engineCache.engine, engineCache.err
 }
 
 var engineCache struct {
 	sync.Mutex
-	done   bool
-	path   string
-	engine ContainerEngine
-	err    error
+	done     bool
+	path     string
+	provider string
+	engine   ContainerEngine
+	err      error
 }
 
-// engineInfoFormats is a cheap `info` per engine: it fails when the
-// daemon (Docker) or machine (Podman on macOS/Windows) isn't running.
-var engineInfoFormats = map[string]string{"docker": "{{.ServerVersion}}", "podman": "{{.Version.Version}}"}
-
 func detectContainerEngine() (ContainerEngine, error) {
+	names := []string{"docker", "podman"}
+	if provider := os.Getenv("KIND_EXPERIMENTAL_PROVIDER"); provider != "" {
+		switch provider {
+		case "docker", "podman":
+			names = []string{provider}
+		default:
+			return ContainerEngine{}, fmt.Errorf("unsupported KIND_EXPERIMENTAL_PROVIDER %q — use docker or podman", provider)
+		}
+	}
 	var installed []ContainerEngine
-	for _, name := range []string{"docker", "podman"} {
+	for _, name := range names {
 		if p, err := exec.LookPath(name); err == nil {
 			installed = append(installed, ContainerEngine{Name: name, Path: p})
 		}
 	}
 	if len(installed) == 0 {
+		if len(names) == 1 {
+			return ContainerEngine{}, fmt.Errorf("selected container engine %s is not installed — check KIND_EXPERIMENTAL_PROVIDER and PATH", names[0])
+		}
 		return ContainerEngine{}, fmt.Errorf("neither Docker nor Podman is installed — install one (https://docs.docker.com/get-docker/ or https://podman.io/docs/installation), then run `astrona check`")
 	}
 	for _, e := range installed {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		err := exec.CommandContext(ctx, e.Path, "info", "--format", engineInfoFormats[e.Name]).Run()
+		// Formatted Docker info can exit successfully even with no daemon.
+		// The unformatted health check returns a failure in that case.
+		err := exec.CommandContext(ctx, e.Path, "info").Run()
 		cancel()
 		if err == nil {
 			return e, nil

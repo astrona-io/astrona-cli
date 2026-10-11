@@ -45,7 +45,18 @@ fi
 
 test ! -e "$HOME/.astrona/credentials.json"
 started=true
-"$astrona" run "$lab" --trust --verbose 2>&1 | tee "$artifacts/run.log"
+# Headless runs must explicitly accept the lack of account tracking.
+if "$astrona" run "$lab" --trust --verbose < /dev/null > "$artifacts/unconfirmed.log" 2>&1; then
+  echo "Signed-out run proceeded without confirmation" >&2
+  exit 1
+fi
+grep -F -- '--without-login' "$artifacts/unconfirmed.log"
+clusters="$(kind get clusters)"
+if grep -Fxq "$cluster" <<< "$clusters"; then
+  echo "Unconfirmed run created a cluster" >&2
+  exit 1
+fi
+"$astrona" run "$lab" --without-login --trust --verbose 2>&1 | tee "$artifacts/run.log"
 clusters="$(kind get clusters)"
 grep -Fx "$cluster" <<< "$clusters"
 kubectl --context "kind-$cluster" wait --for=condition=Ready nodes --all --timeout=120s
