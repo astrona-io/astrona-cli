@@ -15,7 +15,7 @@ A catalog name works wherever a command takes a lab: `astrona use astrona.io/ATS
 
 ## Your Astrona account
 
-Catalog labs are tied to your Astrona account, so the lab page on astrona.io can track your time. Sign in once per computer:
+Catalog labs run locally without a login, including `astrona run ATS000/section-010/module-01/lab-01` and full resets. When signed out, no account session is created and no lab page is opened. Sign in optionally to track your time and results on astrona.io:
 
 ```sh
 astrona login      # opens astrona.io in your browser; click Authorize there
@@ -37,10 +37,10 @@ The sign-in is kept in `~/.astrona/credentials.json` (mode 0600; astrona refuses
 
 Then `astrona run ATS014/…`:
 
-1. checks the sign-in **before** anything is fetched or built — signed out (or the sign-in expired), it stops and tells you to run `astrona login`;
-2. asks Astrona for a lab session (too many open sessions or an unknown lab stop it here, with nothing built);
+1. checks for an active sign-in **before** anything is fetched or built — signed out (or the sign-in expired), it runs locally without a session;
+2. when signed in, asks Astrona for a lab session (too many open sessions or an unknown lab stop it here, with nothing built);
 3. builds the lab;
-4. prints the lab page URL and opens it in your browser — the clock starts there, so setup time never counts. Without a browser (a headless box), open the printed URL yourself. If the build fails, nothing is opened. When Astrona sets a time limit for the attempt, run says so: `You have 60 minutes once the lab page opens.`
+4. when signed in, prints the lab page URL and opens it in your browser — the clock starts there, so setup time never counts. Without a browser (a headless box), open the printed URL yourself. If the build fails, nothing is opened. When Astrona sets a time limit for the attempt, run says so: `You have 60 minutes once the lab page opens.`
 
 A module's playground has no lab page: its clock starts with the session, its timer (which removes it at the time limit) starts once it's ready, and if the build fails its clock is stopped again. The time limit is what astrona asked for (`metadata.timeLimit`): a deadline from the site outside it, or less than 5 minutes away, is moved into range.
 

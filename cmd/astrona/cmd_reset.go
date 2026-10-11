@@ -76,8 +76,8 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			"its teardown scripts, destroy, then create and bootstrap it again (with the addresses of " +
 			"the clusters it dependsOn). The lab and its other clusters are left alone; port forwards " +
 			"into the rebuilt cluster are restarted.\n\n" +
-			"A full reset of a catalog lab starts a fresh lab session on Astrona, like `astrona run`: " +
-			"it needs `astrona login`, and the new lab page opens once the lab is ready. --soft and " +
+			"A full reset of a catalog lab runs without signing in, like `astrona run`. When signed in, " +
+			"it starts a fresh session and opens the new lab page once the lab is ready. --soft and " +
 			"--cluster keep the current session and need no sign-in.\n\n" +
 			"Like `astrona run`, a full reset points kubectl at the lab (the context to go back to " +
 			"is still the one from before the lab first ran); --keep-context leaves it alone.\n\n" +
@@ -147,10 +147,10 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			if clusterFlag != "" {
 				return resetLinkedCluster(cfg, baseDir, clusterName, clusterFlag, yes, flags)
 			}
-			// A full reset of a catalog lab starts a fresh lab session, like
-			// `astrona run`: checked before anything is destroyed.
+			// A signed-in catalog reset starts a fresh session, like run.
+			// Check the optional account before anything is destroyed.
 			ctx := context.Background()
-			acct, err := requireSignIn(ctx, flags, "reset")
+			acct, err := accountForLab(ctx, flags)
 			if err != nil {
 				return err
 			}

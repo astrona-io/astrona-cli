@@ -22,7 +22,7 @@ type labAccount struct {
 	creds  *account.Credentials
 }
 
-// accountDeps are what the sign-in gate needs (replaced in tests). The
+// accountDeps provide optional account tracking (replaced in tests). The
 // site is ASTRONA_URL, else the one this computer signed in to, else
 // account.DefaultSite.
 var accountDeps = func() (*account.Client, account.Store, string, error) {
@@ -41,11 +41,10 @@ var accountDeps = func() (*account.Client, account.Store, string, error) {
 	return account.NewClient(), store, site, nil
 }
 
-// requireSignIn is the gate in front of a catalog lab: nil when the lab
-// isn't from the catalog (-c / --git labs never need an account), else the
-// signed-in account — or, before anything is fetched or built, an error
-// saying how to sign in.
-func requireSignIn(ctx context.Context, flags *rootFlags, command string) (*labAccount, error) {
+// accountForLab returns the active account for optional catalog session tracking.
+// Local labs and signed-out catalog labs run without a session. Credential
+// storage and renewal failures are still reported rather than hidden.
+func accountForLab(ctx context.Context, flags *rootFlags) (*labAccount, error) {
 	if flags.catalogLab == "" {
 		return nil, nil
 	}
@@ -55,7 +54,7 @@ func requireSignIn(ctx context.Context, flags *rootFlags, command string) (*labA
 	}
 	creds, err := client.Active(ctx, store, site)
 	if errors.Is(err, account.ErrSignedOut) {
-		return nil, notSignedInError(err, command, flags.catalogLab)
+		return nil, nil
 	}
 	if err != nil {
 		return nil, err

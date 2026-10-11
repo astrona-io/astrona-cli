@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,8 @@ func fakeEngineAndKind(t *testing.T) (calls string) {
 	docker := `#!/bin/sh
 echo "docker $*" >> "` + calls + `"
 case "$1 $2" in
+  "save --help") echo "${ASTRONA_TEST_SAVE_HELP:-save -o}" ;;
+  "version --format") echo "${ASTRONA_TEST_SERVER_PLATFORM:-1.48 linux/amd64}" ;;
   "image inspect") case "$5" in cached:*) exit 0 ;; *) exit 1 ;; esac ;;
   "pull "*) exit 0 ;;
   "save -o") echo archive > "$3" ;;
@@ -35,6 +38,37 @@ echo "kind $*" >> "` + calls + `"
 	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	return calls
+}
+
+func TestPodmanSaveQualifiesDockerHubImages(t *testing.T) {
+	for _, tc := range []struct{ image, want string }{
+		{"nginx:1.27-alpine", "docker.io/library/nginx:1.27-alpine"},
+		{"team/app:1", "docker.io/team/app:1"},
+		{"nginx@sha256:abc", "docker.io/library/nginx@sha256:abc"},
+		{"docker.io/library/nginx:1.27-alpine", "docker.io/library/nginx:1.27-alpine"},
+		{"quay.io/team/app:1", "quay.io/team/app:1"},
+		{"localhost:5000/app:1", "localhost:5000/app:1"},
+		{"localhost/app:1", "localhost/app:1"},
+	} {
+		t.Run(tc.image, func(t *testing.T) {
+			dir := t.TempDir()
+			calls := filepath.Join(dir, "calls")
+			path := filepath.Join(dir, "podman")
+			body := "#!/bin/sh\necho \"$*\" >> \"" + calls + "\"\n[ \"$1\" != image ]\n"
+			if err := os.WriteFile(path, []byte(body), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := saveImage(ContainerEngine{Name: "podman", Path: path}, tc.image, "archive.tar", io.Discard); err != nil {
+				t.Fatal(err)
+			}
+			log := readFile(t, calls) + "\n"
+			for _, want := range []string{"image inspect --format {{.Id}} " + tc.want, "pull " + tc.want, "save -o archive.tar " + tc.want} {
+				if !strings.Contains(log, want+"\n") {
+					t.Errorf("missing %q in calls:\n%s", want, log)
+				}
+			}
+		})
+	}
 }
 
 func TestPreloadImages(t *testing.T) {
@@ -73,5 +107,33 @@ func TestPreloadImages(t *testing.T) {
 func TestPreloadImagesNothingToDo(t *testing.T) {
 	if err := PreloadImages("astro-x", nil, ui.Discard()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDockerSavePlatform(t *testing.T) {
+	for _, tc := range []struct {
+		name, server, want string
+	}{
+		{"amd64", "1.48 linux/amd64", "--platform linux/amd64"},
+		{"arm64", "1.52 linux/arm64", "--platform linux/arm64"},
+		{"older daemon", "1.47 linux/amd64", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := fakeEngineAndKind(t)
+			t.Setenv("ASTRONA_TEST_SAVE_HELP", "save --platform API 1.48+")
+			t.Setenv("ASTRONA_TEST_SERVER_PLATFORM", tc.server)
+			if err := PreloadImages("astro-x", []string{"nginx:1.27-alpine"}, ui.Discard()); err != nil {
+				t.Fatal(err)
+			}
+			log := readFile(t, calls)
+			for _, line := range strings.Split(log, "\n") {
+				if !strings.HasPrefix(line, "docker save -o ") {
+					continue
+				}
+				if tc.want == "" && strings.Contains(line, "--platform") || tc.want != "" && !strings.Contains(line, tc.want) {
+					t.Errorf("save call = %q, want platform %q", line, tc.want)
+				}
+			}
+		})
 	}
 }

@@ -101,6 +101,15 @@ Why: faster lab start (no per-node pulls), no Docker Hub rate limits in CI, and 
 
 Rules: every image needs an explicit tag or digest, never `:latest` or untagged — Kubernetes always re-pulls those (`imagePullPolicy: Always` by default), which would make preloading pointless. At most 30 images. Images are pulled for the host's architecture, which is the nodes' architecture too.
 
+### Image preloading on Linux and WSL
+
+For Docker versions that support `save --platform` (daemon API 1.48+), astrona exports preloaded images for the Docker daemon's Linux architecture only. This avoids Kind's `content digest ... not found` import failure with Docker's containerd image store and multi-platform images such as `nginx:1.27-alpine`. Older Docker versions and Podman retain their existing archive export behavior.
+
+The ATS000 first lab deliberately starts with a mistyped image tag. Its initial `ImagePullBackOff` is the exercise; the correct `nginx:1.27-alpine` image is preloaded. After repairing the Deployment, its two replicas should become ready without another registry pull.
+
+For Podman, astrona expands Docker Hub shorthand (`nginx:1.27-alpine` → `docker.io/library/nginx:1.27-alpine`, `team/app:1` → `docker.io/team/app:1`) before inspecting, pulling and saving images. Explicit registries remain as written. This works on Ubuntu without configuring Podman's unqualified search registries or answering a registry prompt.
+
+
 ### Pausing a lab (`astrona stop` / `astrona start`)
 
 ```sh

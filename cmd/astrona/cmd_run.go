@@ -42,7 +42,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) " +
 			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.\n\n" +
 			"A lab from the catalog (`astrona run astrona.io/ATS014/section-010/module-01/lab-02`, see `astrona labs`) " +
-			"is tied to your Astrona account: sign in first with `astrona login`. Before anything is built, " +
+			"runs without signing in. If you sign in with `astrona login`, before anything is built " +
 			"astrona starts a lab session on Astrona; once the lab is ready it prints the lab page URL and " +
 			"opens it in your browser, which starts the clock there — setup time never counts. Labs from " +
 			"your own files or repositories (-c / --git) run without signing in.\n\n" +
@@ -50,7 +50,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"it is); --yes starts over without asking and is required when not in a terminal. If other " +
 			"labs are running, it also offers to destroy them first — only when asked in a terminal; " +
 			"--yes never touches other labs.",
-		Example: `  astrona run astrona.io/ATS014/section-010/module-01/lab-02   # catalog lab: needs astrona login
+		Example: `  astrona run astrona.io/ATS014/section-010/module-01/lab-02   # catalog lab: no login needed
   astrona run ./labs/my-lab
   astrona run --git https://github.com/org/labs -c labs/net-01
   astrona run renew                                  # a running playground: its full time limit again`,
@@ -63,8 +63,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
 			}
 			ctx := context.Background()
-			// A catalog lab needs a sign-in: checked before the lab is even fetched.
-			acct, err := requireSignIn(ctx, flags, "run")
+			// Account tracking is optional: signed-out catalog labs run locally.
+			acct, err := accountForLab(ctx, flags)
 			if err != nil {
 				return err
 			}
