@@ -97,13 +97,31 @@ Or download a pre-compiled binary of `astrona-cli` directly from GitHub Releases
 
 ### Linux packages (APT, DNF & Snap)
 
-Download the matching `.deb`, `.rpm` or `.snap` for `amd64`/`arm64` from [Releases](https://github.com/astrona-io/astrona-cli/releases):
+For Debian/Ubuntu, download and verify the latest stable package before installing:
 
 ```sh
-sudo apt-get install ./astrona-<version>-linux-<arch>.deb  # Debian / Ubuntu
-sudo dnf install ./astrona-<version>-linux-<arch>.rpm      # Fedora / RHEL-compatible
-sudo snap install --dangerous --classic ./astrona-<version>-linux-<arch>.snap
+(
+  set -eu
+  case "$(uname -m)" in
+    x86_64) arch=amd64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) echo "Unsupported CPU architecture" >&2; exit 1 ;;
+  esac
+  release_url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/astrona-io/astrona-cli/releases/latest)"
+  tag="${release_url##*/}"
+  package="astrona-${tag#v}-linux-$arch.deb"
+  base="https://github.com/astrona-io/astrona-cli/releases/download/$tag"
+  download_dir="$(mktemp -d)"
+  cd "$download_dir"
+  curl -fSL "$base/$package" -o "$package"
+  curl -fsSL "$base/SHA256SUMS" -o SHA256SUMS
+  awk -v file="$package" '$2 == file { print }' SHA256SUMS | sha256sum -c -
+  sudo apt-get install "./$package"
+  astrona --version
+)
 ```
+
+See the [APT, DNF and Snap installation instructions](https://cli.astrona.io/getting-started/installation/#apt-debian-ubuntu) for complete download-and-install commands for each format. Packages are available once a release includes this feature.
 
 Packages include Kind, kubectl and ORAS; Git and certificates are installed as dependencies or bundled in the Snap. Install and start Docker or Podman separately. These are local release packages; hosted APT/DNF repositories and Snap Store publication are separate setup steps. See [installation details](https://cli.astrona.io/getting-started/installation/) for upgrades and optional VM dependencies.
 

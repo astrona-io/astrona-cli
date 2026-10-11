@@ -82,12 +82,31 @@ Two things to know:
 
 ## APT (Debian & Ubuntu)
 
-Download the `.deb` for your CPU from [GitHub Releases](https://github.com/astrona-io/astrona-cli/releases). Packages are built for `amd64` (Intel/AMD) and `arm64` (ARM). Replace `<version>` and `<arch>` with the downloaded filename:
+Download the latest stable `.deb`, verify its SHA-256 checksum, and install it. This detects `amd64` (Intel/AMD) or `arm64` (ARM) automatically. You need `curl`, `sha256sum`, and permission to use `sudo`.
 
 ```sh
-sudo apt-get install ./astrona-<version>-linux-<arch>.deb
-astrona --version
+(
+  set -eu
+  case "$(uname -m)" in
+    x86_64) arch=amd64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) echo "Unsupported CPU architecture" >&2; exit 1 ;;
+  esac
+  release_url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/astrona-io/astrona-cli/releases/latest)"
+  tag="${release_url##*/}"
+  package="astrona-${tag#v}-linux-$arch.deb"
+  base="https://github.com/astrona-io/astrona-cli/releases/download/$tag"
+  download_dir="$(mktemp -d)"
+  cd "$download_dir"
+  curl -fSL "$base/$package" -o "$package"
+  curl -fsSL "$base/SHA256SUMS" -o SHA256SUMS
+  awk -v file="$package" '$2 == file { print }' SHA256SUMS | sha256sum -c -
+  sudo apt-get install "./$package"
+  astrona --version
+)
 ```
+
+The commands below for DNF and Snap use the same download and verification process. Each resolves a single release tag so the package and its checksums come from the same release. These packages become available after the first release containing the Linux packaging feature; a missing asset stops the commands before installation. Downloaded files remain in the temporary directory; the subshell keeps your current directory unchanged.
 
 APT installs Git and CA certificates automatically. The package includes pinned, checksum-verified **Kind, kubectl and ORAS**, installed privately under `/usr/lib/astrona/tools`. Astrona and its lab scripts use those tools without replacing tools you already have on your shell's PATH. `astrona shell` also inherits them.
 
@@ -99,24 +118,58 @@ sudo apt-get install qemu-system-x86 qemu-system-arm qemu-utils genisoimage open
 
 ## DNF (Fedora & Red Hat compatible distributions)
 
-Download the `.rpm` for `amd64` or `arm64` from [GitHub Releases](https://github.com/astrona-io/astrona-cli/releases), then:
+Download, verify and install the latest stable `.rpm` for your CPU:
 
 ```sh
-sudo dnf install ./astrona-<version>-linux-<arch>.rpm
-astrona --version
+(
+  set -eu
+  case "$(uname -m)" in
+    x86_64) arch=amd64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) echo "Unsupported CPU architecture" >&2; exit 1 ;;
+  esac
+  release_url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/astrona-io/astrona-cli/releases/latest)"
+  tag="${release_url##*/}"
+  package="astrona-${tag#v}-linux-$arch.rpm"
+  base="https://github.com/astrona-io/astrona-cli/releases/download/$tag"
+  download_dir="$(mktemp -d)"
+  cd "$download_dir"
+  curl -fSL "$base/$package" -o "$package"
+  curl -fsSL "$base/SHA256SUMS" -o SHA256SUMS
+  awk -v file="$package" '$2 == file { print }' SHA256SUMS | sha256sum -c -
+  sudo dnf install "./$package"
+  astrona --version
+)
 ```
 
 DNF resolves Git and CA certificate dependencies. The RPM includes the same private Kind, kubectl and ORAS tools as the DEB. Install and start Docker or Podman separately. QEMU, SSH and an ISO builder are optional VM dependencies; their package names and availability depend on your distribution and enabled repositories. CI checks installation on Fedora and AlmaLinux 9; a Red Hat subscription and enabled repositories may be needed on RHEL.
 
-These are local release packages. A hosted APT/DNF repository has not been configured, so `apt-get install astrona` or `dnf install astrona` without the downloaded file will not find Astrona. Install a newer release file with the same command to upgrade. Remove with `sudo apt-get remove astrona` or `sudo dnf remove astrona`.
+These are local release packages. A hosted APT/DNF repository has not been configured, so `apt-get install astrona` or `dnf install astrona` without the downloaded file will not find Astrona. Run the download-and-install block again to install the latest stable release, or install a newer release file manually. Remove with `sudo apt-get remove astrona` or `sudo dnf remove astrona`.
 
 ## Snap (Ubuntu)
 
-Download the `.snap` for `amd64` or `arm64` from [GitHub Releases](https://github.com/astrona-io/astrona-cli/releases):
+Download, verify and install the latest stable `.snap` for your CPU. Snap must already be installed on your system:
 
 ```sh
-sudo snap install --dangerous --classic ./astrona-<version>-linux-<arch>.snap
-/snap/bin/astrona --version
+(
+  set -eu
+  case "$(uname -m)" in
+    x86_64) arch=amd64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) echo "Unsupported CPU architecture" >&2; exit 1 ;;
+  esac
+  release_url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/astrona-io/astrona-cli/releases/latest)"
+  tag="${release_url##*/}"
+  package="astrona-${tag#v}-linux-$arch.snap"
+  base="https://github.com/astrona-io/astrona-cli/releases/download/$tag"
+  download_dir="$(mktemp -d)"
+  cd "$download_dir"
+  curl -fSL "$base/$package" -o "$package"
+  curl -fsSL "$base/SHA256SUMS" -o SHA256SUMS
+  awk -v file="$package" '$2 == file { print }' SHA256SUMS | sha256sum -c -
+  sudo snap install --dangerous --classic "./$package"
+  /snap/bin/astrona --version
+)
 ```
 
 The Snap bundles Kind, kubectl, ORAS, Git and CA certificates. Classic confinement lets lab scripts use your host files, kubeconfig and Docker/Podman sockets. Install and start a host container engine separately; optional VM tools also come from the host.
