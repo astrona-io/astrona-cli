@@ -261,6 +261,26 @@
          <lastmod>2026-10-12</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_settings/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_settings_get/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_settings_path/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_settings_set/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_settings_unset/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_setup/</loc>
          <lastmod>2026-10-12</lastmod>
     </url>

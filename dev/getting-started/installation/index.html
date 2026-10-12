@@ -663,6 +663,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#persistent-cli-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Persistent CLI settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#shell-completion" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3410,6 +3421,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3454,6 +3475,146 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_settings_get/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings get
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_settings_set/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings set
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_settings_unset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings unset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_settings_path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3844,6 +4005,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#persistent-cli-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Persistent CLI settings
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#shell-completion" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4207,6 +4379,69 @@ and signing in does not repair a container connection.</p>
 <a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>Error: 1 problem(s) found — the ✗ lines above say how to fix each
 </code></pre></div>
 <p>It checks this machine (tools, container engine, inotify), the lab (its config, whether this astrona may run it, memory and free ports when it isn't running) and the running lab (nodes, linked clusters, port forwards, unhealthy pods, exam clock). It only reads — nothing is started or changed — and exits non-zero on any ✗ — including a lab you named (argument, <code>-c</code>, <code>--file</code>, <code>--git</code>, <code>astrona use</code> — <code>astrona doctor .</code> counts) that isn't there or whose config doesn't parse; only when no lab is named and the current directory has none does it check the machine alone. <code>--bundle</code> also writes the full <a href="../../guides/ci-integration/#diagnostics-on-failure">diagnostics bundle</a>. Unhealthy pods are ⚠, not ✗: in a lab they may be the exercise.</p>
+<h2 id="persistent-cli-settings">Persistent CLI settings<a class="headerlink" href="#persistent-cli-settings" title="Permanent link">&para;</a></h2>
+<p><code>astrona settings</code> lists your preferences and shows whether each value is saved
+or comes from the default. Preferences live in <code>~/.astrona/settings.json</code>,
+separate from credentials, lab state, and remote-code approvals.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>astrona<span class="w"> </span>settings
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>keep-context<span class="w"> </span><span class="nb">true</span>
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parallel<span class="w"> </span><span class="m">2</span>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>astrona<span class="w"> </span>settings<span class="w"> </span>get<span class="w"> </span>keep-context
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>keep-context
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>astrona<span class="w"> </span>settings<span class="w"> </span>path
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>astrona<span class="w"> </span>settings<span class="w"> </span>-o<span class="w"> </span>json
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>verbose</code></td>
+<td><code>false</code></td>
+<td>Stream full command output instead of the compact step view</td>
+</tr>
+<tr>
+<td><code>keep-context</code></td>
+<td><code>false</code></td>
+<td>Leave kubectl's current-context unchanged on commands with <code>--keep-context</code></td>
+</tr>
+<tr>
+<td><code>parallel</code></td>
+<td><code>1</code></td>
+<td>Start up to 1–5 linked clusters at once on commands with <code>--parallel</code></td>
+</tr>
+<tr>
+<td><code>update-check</code></td>
+<td><code>true</code></td>
+<td>Check for new CLI releases and show update notices</td>
+</tr>
+</tbody>
+</table>
+<p>Explicit flags override saved values, including <code>--verbose=false</code>,
+<code>--keep-context=false</code>, and <code>--parallel=1</code>. <code>--update-check=false</code> disables
+update checks for one command; save it with
+<code>astrona settings set update-check false</code> to keep that preference. The existing
+<code>ASTRONA_NO_UPDATE_CHECK</code> environment variable, CI detection, and non-terminal
+output still suppress update checks even when the setting is true.</p>
+<p>Only saved overrides are written to the JSON file. <code>unset</code> removes one override
+without changing the others; omitted keys use the built-in defaults. Listing
+or reading settings does not create a file. The JSON output contains configured
+values plus defaults, before flags or environment-based suppression are applied.</p>
+<p>Writes are atomic, with file permissions <code>0600</code> and a <code>0700</code> directory when
+created. A lock prevents simultaneous CLI edits from overwriting each other;
+retry if another command is changing settings. Settings commands do not contact
+the network, fetch a lab, or change your sign-in.</p>
+<p>You can also edit the JSON file directly. Values must be JSON booleans or, for
+<code>parallel</code>, an integer from 1 to 5. Unknown keys and invalid values are rejected
+before a normal command runs. A damaged file is never silently overwritten:
+use <code>astrona settings path</code> to find and repair it. Settings and lock files must
+not be symlinks. Remote-code trust and automatic confirmation cannot be enabled
+through settings.</p>
 <h2 id="shell-completion">Shell completion<a class="headerlink" href="#shell-completion" title="Permanent link">&para;</a></h2>
 <p>Installed with Homebrew? Completion for bash, zsh and fish is already set up — skip the steps below (Homebrew's shell setup must be loaded, see <code>brew info astrona</code>).</p>
 <p><code>astrona completion &lt;shell&gt;</code> prints a completion script for bash, zsh, fish or PowerShell. Besides commands and flags, it completes <strong>lab names</strong> from what's actually on your machine — <code>astrona destroy &lt;TAB&gt;</code>, <code>stop</code>, <code>start</code>, <code>shell</code>, <code>kubeconfig</code>, <code>diagnose</code>, <code>ssh</code>, <code>port-forward list|stop</code> — filtered to what makes sense (<code>start</code> offers stopped labs, <code>ssh</code> qemu VMs), each with its runtime and status. Type part of the name without <code>astro-</code> and the short form is completed.</p>
@@ -4219,21 +4454,21 @@ and signing in does not repair a container connection.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">zsh</label><label for="__tabbed_1_2">bash</label><label for="__tabbed_1_3">fish</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
 </code></pre></div>
 </div>
 </div>
 </div>
 <h2 id="staying-up-to-date">Staying up to date<a class="headerlink" href="#staying-up-to-date" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>astrona<span class="w"> </span>upgrade
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>astrona<span class="w"> </span>upgrade
 </code></pre></div>
 <p><code>astrona upgrade</code> checks GitHub for the latest release, downloads the binary for your OS/architecture, verifies it against the SHA-256 digest GitHub records for it (and its <a href="../../guides/astrona-versions/#build-provenance">build provenance</a> when the GitHub CLI is installed), and atomically replaces the currently running executable — only when the release is newer than yours. On a <a href="#homebrew-macos-linux">Homebrew</a> install it runs <code>brew upgrade astrona</code> instead (<code>brew reinstall astrona</code> with <code>--force</code>), so Homebrew keeps track of the install.</p>
 <p>On DEB, RPM and Snap installs, <code>astrona upgrade</code> prints the package installation command and exits without modifying package-owned files, including with <code>--force</code>. Download and install the newer package using the instructions above.</p>
