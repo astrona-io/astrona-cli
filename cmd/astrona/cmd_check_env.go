@@ -131,8 +131,7 @@ func evaluateEngine(engine string, info engineInfo) []checkResult {
 	return res
 }
 
-// checkEngine runs `<engine> info` — failure here means the daemon / podman
-// machine isn't running, the most common cause of baffling kind errors.
+// checkEngine runs `<engine> info` to verify connectivity and resources.
 func checkEngine() ([]checkResult, *engineInfo) {
 	engine, err := cluster.DetectContainerEngine()
 	if err != nil {

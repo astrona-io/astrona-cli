@@ -68,6 +68,29 @@ func TestPlanSetupStoppedDockerDesktop(t *testing.T) {
 	}
 }
 
+func TestWaitForEngineAfterStartup(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("PATH", dir)
+	t.Setenv("KIND_EXPERIMENTAL_PROVIDER", "podman")
+	enginePath := filepath.Join(dir, "podman")
+	if err := os.WriteFile(enginePath, []byte("#!/bin/sh\nexit 125\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	results, _ := checkEngine()
+	if len(results) == 0 || results[0].status != checkFail {
+		t.Fatalf("expected an unreachable engine before startup: %+v", results)
+	}
+
+	// Starting the engine does not change PATH or the selected provider.
+	script := "#!/bin/sh\ncase \"$*\" in\n'info --format '*) echo '8589934592|4|v2|false' ;;\nesac\nexit 0\n"
+	if err := os.WriteFile(enginePath, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if !waitForEngine(time.Second) {
+		t.Fatal("setup did not notice the engine starting")
+	}
+}
+
 func TestPlanSetupLinuxWithoutBrewDownloadsAndAsksForEngine(t *testing.T) {
 	env := setupEnv{goos: "linux", goarch: "amd64", missing: map[string]bool{"kind": true, "kubectl": true, "docker or podman": true}, localBin: "/home/s/.local/bin"}
 	steps := planSetup(env)

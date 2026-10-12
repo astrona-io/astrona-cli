@@ -27,9 +27,9 @@ type ContainerEngine struct {
 
 // DetectContainerEngine picks Docker or Podman — the first one installed
 // that actually answers, unless KIND_EXPERIMENTAL_PROVIDER selects one.
-// An installed-but-stopped Docker Desktop doesn't
-// hide a running Podman. Cached per PATH and provider. When none
-// answers, the error says how to start one.
+// An installed-but-stopped Docker Desktop doesn't hide a running Podman.
+// Successful detection is cached per PATH and provider. Failures are retried
+// so setup can detect an engine it has just installed or started.
 func DetectContainerEngine() (ContainerEngine, error) {
 	engineCache.Lock()
 	defer engineCache.Unlock()
@@ -39,7 +39,7 @@ func DetectContainerEngine() (ContainerEngine, error) {
 		return engineCache.engine, engineCache.err
 	}
 	engineCache.engine, engineCache.err = detectContainerEngine()
-	engineCache.path, engineCache.done = path, true
+	engineCache.path, engineCache.done = path, engineCache.err == nil
 	engineCache.provider = provider
 	return engineCache.engine, engineCache.err
 }
@@ -75,33 +75,38 @@ func detectContainerEngine() (ContainerEngine, error) {
 		}
 		return ContainerEngine{}, fmt.Errorf("neither Docker nor Podman is installed — install one (https://docs.docker.com/get-docker/ or https://podman.io/docs/installation), then run `astrona check`")
 	}
+	var failures []string
 	for _, e := range installed {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		// Formatted Docker info can exit successfully even with no daemon.
 		// The unformatted health check returns a failure in that case.
 		err := exec.CommandContext(ctx, e.Path, "info").Run()
+		if ctx.Err() != nil {
+			err = ctx.Err()
+		}
 		cancel()
 		if err == nil {
 			return e, nil
 		}
+		failures = append(failures, fmt.Sprintf("%s info: %v", e.Name, err))
 	}
-	return installed[0], fmt.Errorf("%s", engineNotRunning(installed))
+	return installed[0], fmt.Errorf("%s (%s)", engineUnavailable(installed), strings.Join(failures, "; "))
 }
 
-// engineNotRunning says how to start the installed engine(s).
-func engineNotRunning(installed []ContainerEngine) string {
+// A failed health check may mean a stopped engine or a broken connection.
+func engineUnavailable(installed []ContainerEngine) string {
 	how := map[string]string{
-		"docker": "start Docker Desktop (or the docker service)",
-		"podman": "start it: podman machine start",
+		"docker": "run `docker info` for details; check Docker Desktop or the Docker service",
+		"podman": "run `podman info` for details; if its machine is stopped, run `podman machine start`; for first-time setup, run `astrona setup`",
 	}
 	if goruntime.GOOS == "linux" {
-		how["podman"] = "check `podman info`"
+		how["podman"] = "run `podman info` for details"
 	}
 	if len(installed) == 1 {
 		name := map[string]string{"docker": "Docker", "podman": "Podman"}[installed[0].Name]
-		return fmt.Sprintf("%s isn't running — %s", name, how[installed[0].Name])
+		return fmt.Sprintf("%s is not reachable; %s", name, how[installed[0].Name])
 	}
-	return fmt.Sprintf("neither Docker nor Podman is running — %s, or %s", how["docker"], strings.TrimPrefix(how["podman"], "start it: "))
+	return fmt.Sprintf("neither Docker nor Podman is reachable; %s; %s", how["docker"], how["podman"])
 }
 
 // kindClusterConfig is the subset of kind's own Cluster config

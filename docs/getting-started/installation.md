@@ -36,6 +36,30 @@ It looks at what [`astrona check`](#verify) would report and fixes what it can:
 
 It ends by running `astrona check`. Without a terminal to ask on, setup refuses to change anything unless you pass `--yes`.
 
+### Podman is installed but a lab will not start on macOS
+
+Kind labs, including playgrounds, need a reachable container engine. A failed
+`podman info` check can mean the Podman machine is stopped, but it can also mean
+the connection is misconfigured. Run these commands to see which:
+
+```sh
+podman machine list
+podman info
+```
+
+If your machine is stopped, start it with `podman machine start` (add its name
+if you use a non-default machine). If no machine exists, run `astrona setup` to
+review and approve the initialization steps. Setup retries failed health checks
+while waiting for the engine to start.
+
+If the machine is already running, inspect the error from `podman info` and
+your connections with `podman system connection list`. Do not delete or recreate
+the machine to troubleshoot: it may contain other containers and volumes.
+
+Once `podman info` succeeds, run `astrona check` and retry your lab command.
+The signed-out warning is separate: guest runs still need a working engine,
+and signing in does not repair a container connection.
+
 ## Windows (preview)
 
 Labs need Linux, so on Windows astrona runs inside [WSL 2](https://learn.microsoft.com/windows/wsl/) (Linux inside Windows). `astrona.exe` is a small launcher that sets that up and then forwards every command into it — you keep typing `astrona …` in PowerShell.
