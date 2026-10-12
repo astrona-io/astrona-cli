@@ -536,8 +536,12 @@ You can also start it with `astrona settings review`.
 For each pending setting, the prompt shows its default and current choice.
 Enter a value, press Enter to keep an ordinary preference, or type `q` to cancel.
 Network-sensitive choices require a typed value: `update-check` asks you to type
-`true` or `false` and explains that release checks contact GitHub. A final `[y/N]`
-confirms the review. Cancellation, EOF or invalid input leaves choices unchanged.
+`true` or `false` and explains that release checks contact GitHub. A blank or
+invalid answer at an explicit-choice prompt shows the valid input and asks again,
+keeping your earlier answers. It never accepts the default on your behalf.
+A final `[y/N]` confirms the review. Nothing is saved before that confirmation;
+`q` or EOF cancels without saving. Invalid input for an ordinary preference still
+ends the review without saving.
 Saved overrides stay selected unless you change them. Reviewed settings that
 have been removed are deleted from preferences only after confirmation; unknown
 keys not found in the previous review still require manual repair.
