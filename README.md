@@ -36,30 +36,30 @@ Flat, podman-`run`-style verbs at the root — no noun to namespace under. `--co
 On first use, Astrona asks you to accept its CLI usage terms and data-loss risk
 notice. Read them with `astrona terms`. A changed notice in a later CLI release
 requires acceptance again. CI commands need an explicit `--accept-terms` flag;
-`--yes` and `--trust` do not accept terms. See [terms acceptance](docs/getting-started/installation.md#cli-usage-terms).
+`--yes` and `--trust` do not accept terms. See [terms acceptance](docs/guides/cli-terms.md#cli-usage-terms).
 
 `astrona data` shows local file counts and sizes. `astrona data clean` previews
 cache cleanup; `astrona data reset` previews resetting saved preferences and the
 selected lab. Both require `--yes` to delete anything. Sign-in details, lab state,
-results and student files are kept. See [local data management](docs/getting-started/installation.md#local-data-and-cache-cleanup).
+results and student files are kept. See [local data management](docs/guides/local-data.md#local-data-and-cache-cleanup).
 
 Save CLI preferences with `astrona settings set keep-context true` or
 `astrona settings set parallel 2`. `astrona settings` lists supported keys;
 explicit command-line flags override saved values. Preferences are stored in
-`~/.astrona/settings.json`. See [persistent settings](docs/getting-started/installation.md#persistent-cli-settings).
+`~/.astrona/settings.json`. See [persistent settings](docs/guides/settings.md#persistent-cli-settings).
 
 `astrona settings view` explains current values, defaults and pending changes.
 The first operational command asks you to review settings, and asks again when
 a release changes their definitions. Use `astrona settings review` to choose
 values explicitly. CI needs a matching, reviewed settings ID; accepting usage
-terms does not approve settings. See [settings review](docs/getting-started/installation.md#review-settings-after-an-upgrade).
+terms does not approve settings. See [settings review](docs/guides/settings.md#review-settings-after-an-upgrade).
 
 Disposable caches default to 30 days and 50 GB combined. Change the limits with
 `astrona settings set cache-retention-days 60` and
 `astrona settings set cache-max-size-gb 100`; size `0` means unlimited.
 Preview policy cleanup with `astrona data clean --policy`. Automatic cleanup
 runs after operational commands and defers while saved labs or another CLI
-command may need the files. See [cache limits](docs/getting-started/installation.md#automatic-cache-limits).
+command may need the files. See [cache limits](docs/guides/local-data.md#automatic-cache-limits).
 
 `astrona submit` and `astrona test` exit 2 when the lab was graded and didn't pass, 1 on any other error. `astrona check` exits non-zero on any ✗ — a missing required dependency (`kind`, `docker`/`podman`, `kubectl`), a container engine that isn't running or is too small, or a lab (from `-c`/`--git`, `astrona use`, or `./config.yaml`) that can't be loaded or won't fit; ⚠ warnings — such as the optional qemu toolchain or `git` missing — don't fail it.
 
@@ -155,7 +155,7 @@ For Debian/Ubuntu, download and verify the latest stable package before installi
 )
 ```
 
-See the [APT, DNF and Snap installation instructions](https://cli.astrona.io/getting-started/installation/#apt-debian-ubuntu) for complete download-and-install commands for each format. Packages are available once a release includes this feature.
+See the [APT, DNF and Snap installation instructions](https://cli.astrona.io/getting-started/installation/) for complete download-and-install commands for each format. Packages are available once a release includes this feature.
 
 Packages include Kind, kubectl and ORAS; Git and certificates are installed as dependencies or bundled in the Snap. Install and start Docker or Podman separately. These are local release packages; hosted APT/DNF repositories and Snap Store publication are separate setup steps. See [installation details](https://cli.astrona.io/getting-started/installation/) for upgrades and optional VM dependencies.
 

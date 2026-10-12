@@ -68,7 +68,18 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting Started:
-      - Installation: getting-started/installation.md
+      - Installation:
+          - getting-started/installation.md
+          - Homebrew (macOS & Linux): getting-started/installation/homebrew.md
+          - APT (Debian & Ubuntu): getting-started/installation/apt.md
+          - DNF (Fedora & Red Hat): getting-started/installation/dnf.md
+          - Snap (Ubuntu): getting-started/installation/snap.md
+          - Windows and WSL 2: getting-started/installation/windows.md
+          - Quick Install: getting-started/installation/quick-install.md
+          - Manual Install: getting-started/installation/manual.md
+          - Setup and Verification: getting-started/installation/setup.md
+          - Shell Completion: getting-started/installation/shell-completion.md
+          - Upgrading: getting-started/installation/updates.md
       - Quickstart: getting-started/quickstart.md
   - Concepts:
       - Runtimes (kind vs qemu): concepts/runtimes.md
@@ -77,6 +88,9 @@ nav:
       - Run Logs: concepts/logs.md
   - Guides:
       - UI Home and Workspace: guides/ui-home.md
+      - CLI Settings: guides/settings.md
+      - Local Data and Caches: guides/local-data.md
+      - CLI Usage Terms: guides/cli-terms.md
       - Authoring a Lab: guides/authoring-a-lab.md
       - CI Integration: guides/ci-integration.md
       - macOS Kind Regression: guides/macos-kind-testing.md
