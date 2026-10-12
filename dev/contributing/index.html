@@ -53,6 +53,11 @@
 
     
     
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+
   </head>
   
   
@@ -61,7 +66,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="amber">
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="deep-orange">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -84,6 +89,8 @@
       </div>
     
     
+  <div class="astro-sky" aria-hidden="true"><span class="astro-sky__planet"></span></div>
+  
       
 
 <header class="md-header" data-md-component="header">
@@ -178,9 +185,11 @@
   
 </header>
     
+
     <div class="md-container" data-md-component="container">
       
       
+  
         
           
             
@@ -322,6 +331,11 @@
           
         
       
+  <div class="astro-context md-grid">
+    <a class="astro-context__home" href="https://astrona.io">↗ Astrona.io <span>Cloud Native learning, open to everyone.</span></a>
+    <button class="astro-motion" type="button" aria-pressed="false" hidden>Pause animations</button>
+  </div>
+
       <main class="md-main" data-md-component="main">
         <div class="md-main__inner md-grid">
           
@@ -3752,6 +3766,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Working on the docs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#theme-and-browser-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme and browser checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3862,6 +3893,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Working on the docs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#theme-and-browser-checks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theme and browser checks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -4004,16 +4052,42 @@
 </code></pre></div>
 <p>opens a live-reloading local copy. The CLI reference under <code>docs/reference/cli/</code> is <strong>generated</strong> (via <code>astrona docgen</code>, a hidden command wired into <code>just docs</code>/<code>just build-docs</code>) — don't hand-edit it, edit the command's <code>Short</code>/<code>Long</code>/flag descriptions in <code>cmd/astrona/cmd_*.go</code> instead.</p>
 <p><strong>Adding a command:</strong> put it in a help group in <code>cmd/astrona/groups.go</code> (<code>astrona --help</code> lists commands by group, in workflow order) and add its generated page(s) to the matching group of the CLI Reference in <code>mkdocs.yml</code>. Unit tests fail if either is missing.</p>
+<h3 id="theme-and-browser-checks">Theme and browser checks<a class="headerlink" href="#theme-and-browser-checks" title="Permanent link">&para;</a></h3>
+<p>The docs use the frontend's Mission Control palette and typography. The matching
+tokens live in <code>docs/stylesheets/extra.css</code>; their source is
+<code>astrona-web/app/assets/css/_tokens.scss</code>. <code>docs/overrides/main.html</code> adds the
+shared background and motion control. <code>home.html</code> contains the homepage hero;
+the guide links and feature descriptions stay in <code>docs/index.md</code>.</p>
+<p>Material still owns search, code copying, mobile navigation and mike version
+selection. Keep overrides small and use the <code>url</code> template filter for internal
+links so release-specific paths work. Do not hand-edit generated command pages.
+Space Grotesk and JetBrains Mono are requested from Google Fonts, as on the
+frontend; system fonts remain available when those requests are blocked.</p>
+<p>Decorative SVGs are hidden from assistive technology. Content is visible without
+JavaScript. Motion must respect <code>prefers-reduced-motion</code> and the saved pause
+choice in <code>docs/javascripts/motion.js</code>; do not make animation part of navigation
+or hide content until an animation runs.</p>
+<p>Build the site, then check it in Chromium:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>just<span class="w"> </span>build-docs
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>uv<span class="w"> </span>run<span class="w"> </span>--with<span class="w"> </span>playwright<span class="w"> </span>playwright<span class="w"> </span>install<span class="w"> </span>chromium
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>uv<span class="w"> </span>run<span class="w"> </span>--with<span class="w"> </span>playwright<span class="w"> </span>python<span class="w"> </span>.github/scripts/check-docs-theme.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span>--site-dir<span class="w"> </span>site<span class="w"> </span>--screenshots<span class="w"> </span>/tmp/astrona-docs-screenshots
+</code></pre></div>
+<p>Use <code>--browser /path/to/chromium</code> to reuse an installed browser. The check starts
+a temporary localhost server under <code>/dev/</code> and checks desktop/375px layouts,
+navigation, search, copy controls, reduced motion and a no-JavaScript page.
+It does not run labs or contact Astrona's services. Screenshots stay outside the
+repository. Also check the deployed mike version selector after a release.</p>
 <p>Versioning and deployment (on push to <code>main</code> and on release tags) are handled by <a href="https://github.com/astrona-io/astrona-cli/blob/main/.github/workflows/docs.yml"><code>.github/workflows/docs.yml</code></a> — see that file for the exact <code>mike deploy</code> invocations.</p>
 <h2 id="security-sensitive-areas">Security-sensitive areas<a class="headerlink" href="#security-sensitive-areas" title="Permanent link">&para;</a></h2>
 <p>If your change touches remote script execution, QEMU base image handling, remote config fetching, git config sources, or path resolution, read the "Security-sensitive areas" section of <a href="https://github.com/astrona-io/astrona-cli/blob/main/CLAUDE.md"><code>CLAUDE.md</code></a> first — these are explicit trust boundaries with existing conventions (HTTPS-only, size caps, path containment) that new code should follow.</p>
 <h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>just<span class="w"> </span>check<span class="w">                                          </span><span class="c1"># fmt + vet + unit tests</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span>astrona<span class="w"> </span>./cmd/astrona
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>./astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml<span class="w">   </span><span class="c1"># e2e against a real kind cluster</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>just<span class="w"> </span>check<span class="w">                                          </span><span class="c1"># fmt + vet + unit tests</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span>astrona<span class="w"> </span>./cmd/astrona
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>./astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml<span class="w">   </span><span class="c1"># e2e against a real kind cluster</span>
 </code></pre></div>
 <p>The Ubuntu catalog integration test runs the first published lab without logging in:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>bash<span class="w"> </span>.github/scripts/test-catalog-lab.sh<span class="w"> </span>./astrona<span class="w"> </span>/tmp/astrona-catalog-diagnostics
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>bash<span class="w"> </span>.github/scripts/test-catalog-lab.sh<span class="w"> </span>./astrona<span class="w"> </span>/tmp/astrona-catalog-diagnostics
 </code></pre></div>
 <p>For Podman, pass <code>podman</code> as the third argument and run with rootful Podman (for example, <code>sudo env "PATH=$PATH" bash .github/scripts/test-catalog-lab.sh ./astrona /tmp/astrona-catalog-diagnostics podman</code>). The script explicitly selects the requested engine using <code>KIND_EXPERIMENTAL_PROVIDER</code>.</p>
 <p>It needs Linux, Docker or Podman, Kind and kubectl, plus network access to GitHub and Docker Hub. It isolates credentials and kubeconfig, explicitly accepts running without account tracking via <code>--without-login</code>, verifies node readiness, repairs the first lab's intentional image typo with <code>imagePullPolicy: Never</code> to confirm the Alpine preload, then destroys the lab and checks that its cluster, containers, context and saved state are gone. Failures retain logs and diagnostics and trigger cleanup. CI runs it on Ubuntu 24.04 with Docker's classic and containerd image stores and with rootful Podman.</p>
@@ -4138,6 +4212,8 @@
     
     
       <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../javascripts/motion.js"></script>
       
     
   </body>

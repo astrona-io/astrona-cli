@@ -55,6 +55,11 @@
 
     
     
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+
   </head>
   
   
@@ -63,7 +68,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="amber">
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="deep-orange">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -86,6 +91,8 @@
       </div>
     
     
+  <div class="astro-sky" aria-hidden="true"><span class="astro-sky__planet"></span></div>
+  
       
 
 <header class="md-header" data-md-component="header">
@@ -180,9 +187,11 @@
   
 </header>
     
+
     <div class="md-container" data-md-component="container">
       
       
+  
         
           
             
@@ -324,6 +333,11 @@
           
         
       
+  <div class="astro-context md-grid">
+    <a class="astro-context__home" href="https://astrona.io">↗ Astrona.io <span>Cloud Native learning, open to everyone.</span></a>
+    <button class="astro-motion" type="button" aria-pressed="false" hidden>Pause animations</button>
+  </div>
+
       <main class="md-main" data-md-component="main">
         <div class="md-main__inner md-grid">
           
@@ -4043,6 +4057,8 @@
     
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../javascripts/motion.js"></script>
       
     
   </body>

@@ -53,6 +53,11 @@
 
     
     
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+
   </head>
   
   
@@ -61,7 +66,7 @@
     
     
     
-    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="amber">
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="deep-orange">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -70,7 +75,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#astrona-cli" class="md-skip">
+        <a href="#where-to-go-next" class="md-skip">
           Skip to content
         </a>
       
@@ -84,6 +89,8 @@
       </div>
     
     
+  <div class="astro-sky" aria-hidden="true"><span class="astro-sky__planet"></span></div>
+  
       
 
 <header class="md-header" data-md-component="header">
@@ -178,9 +185,11 @@
   
 </header>
     
+
     <div class="md-container" data-md-component="container">
       
       
+  
         
           
             
@@ -322,12 +331,19 @@
           
         
       
+  <div class="astro-context md-grid">
+    <a class="astro-context__home" href="https://astrona.io">↗ Astrona.io <span>Cloud Native learning, open to everyone.</span></a>
+    <button class="astro-motion" type="button" aria-pressed="false" hidden>Pause animations</button>
+  </div>
+
       <main class="md-main" data-md-component="main">
         <div class="md-main__inner md-grid">
           
             
               
-              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" hidden>
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
                     
@@ -373,8 +389,6 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
-        
-      
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
           
@@ -417,8 +431,6 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -427,10 +439,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-it-does" class="md-nav__link">
+  <a href="#where-to-go-next" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What it does
+        Where to go next
       
     </span>
   </a>
@@ -438,10 +450,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#where-to-go-next" class="md-nav__link">
+  <a href="#what-it-does" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Where to go next
+        What it does
       
     </span>
   </a>
@@ -3770,7 +3782,9 @@
             
             
               
-              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" hidden>
                 <div class="md-sidebar__scrollwrap">
                   <div class="md-sidebar__inner">
                     
@@ -3778,8 +3792,6 @@
 <nav class="md-nav md-nav--secondary" aria-label="Table of contents">
   
   
-  
-    
   
   
     <label class="md-nav__title" for="__toc">
@@ -3789,10 +3801,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-it-does" class="md-nav__link">
+  <a href="#where-to-go-next" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What it does
+        Where to go next
       
     </span>
   </a>
@@ -3800,10 +3812,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#where-to-go-next" class="md-nav__link">
+  <a href="#what-it-does" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Where to go next
+        What it does
       
     </span>
   </a>
@@ -3834,22 +3846,60 @@
               
               <article class="md-content__inner md-typeset">
                 
-                  
-
-
-  
-    <a href="https://github.com/astrona-io/astrona-cli/edit/main/docs/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
-      
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
-    </a>
-  
-  
-
-
-<h1 id="astrona-cli">Astrona CLI<a class="headerlink" href="#astrona-cli" title="Permanent link">&para;</a></h1>
-<p>Astrona spins up local Kubernetes labs with <a href="https://kind.sigs.k8s.io/">kind</a>, backed by whichever container runtime you have — Docker or Podman — or as a QEMU virtual machine when a lab needs a full OS instead of a container. Everything about a lab — its cluster, its bootstrap steps, its grading rules — is driven by a single YAML config file.</p>
+<section class="astro-hero" aria-labelledby="astrona-cli">
+  <div class="astro-hero__copy">
+    <p class="astro-eyebrow">Cloud Native learning · CLI documentation</p>
+    <h1 id="astrona-cli">Astrona <span>CLI</span></h1>
+    <p>Astrona spins up local Kubernetes labs with kind, backed by Docker or Podman, or as a QEMU virtual machine when a lab needs a full OS. Its cluster, bootstrap steps, and grading rules are driven by a single YAML config file.</p>
+    <div class="astro-actions">
+      <a class="md-button md-button--primary" href="getting-started/installation/">Install the CLI ↗</a>
+      <a class="md-button" href="getting-started/quickstart/">Run your first lab →</a>
+    </div>
+  </div>
+  <div class="astro-console" aria-hidden="true">
+    <div class="astro-console__bar"><i></i><i></i><i></i><span>LOCAL LAB ENVIRONMENT</span></div>
+    <svg class="astro-console__map" viewBox="0 0 400 210" fill="none">
+      <g stroke="var(--astro-violet)" opacity=".2">
+        <circle cx="200" cy="105" r="83"/><circle cx="200" cy="105" r="58"/>
+        <path d="M0 105H400M200 0V210" stroke-dasharray="2 10"/>
+      </g>
+      <g class="astro-orbit"><circle cx="200" cy="22" r="4" fill="var(--astro-orange)"/><circle cx="200" cy="188" r="3" fill="var(--astro-pink)"/></g>
+      <g class="astro-signal" stroke="var(--astro-cyan)" opacity=".6"><path d="M80 105H165M235 105H320M200 65V40M200 145V173"/></g>
+      <path d="M200 64L236 85V125L200 146L164 125V85Z" fill="var(--astro-panel-2)" stroke="var(--astro-cyan)"/>
+      <g stroke="var(--astro-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M183 95L193 105L183 115M204 116H218"/></g>
+      <g fill="var(--astro-panel)" stroke="var(--astro-violet)"><rect x="50" y="88" width="30" height="34" rx="7"/><rect x="320" y="88" width="30" height="34" rx="7"/></g>
+      <g fill="var(--astro-green)"><circle class="astro-beacon" cx="65" cy="105" r="3"/><circle class="astro-beacon" cx="335" cy="105" r="3"/><circle cx="200" cy="40" r="3"/><circle cx="200" cy="173" r="3"/></g>
+      <g fill="var(--astro-muted)" font-family="monospace" font-size="9" text-anchor="middle"><text x="65" y="142">KIND</text><text x="335" y="142">QEMU</text></g>
+    </svg>
+    <div class="astro-console__commands"><div><span>$</span> astrona setup</div><div><span>$</span> astrona labs</div><div><span>$</span> astrona check</div></div>
+  </div>
+</section>
+<div class="astro-home-intro">
 <p>Astrona is the CLI behind <a href="https://astrona.io">astrona.io</a>'s hands-on labs, and it works the same way whether a lab config comes from a local directory, a URL, or a git repository — so anyone can author and run their own labs without the platform.</p>
+</div>
+<h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
+<div class="grid cards">
+<ul>
+<li>
+<p><svg class="astro-card-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M24 5C15 13 15 22 17 30H31C33 22 33 13 24 5Z"/><circle cx="24" cy="19" r="4"/><path d="M17 23L10 33L17 31M31 23L38 33L31 31M20 36L24 43L28 36"/></svg></p>
+<p><strong>New to Astrona?</strong> Start with <a href="getting-started/installation/">Installation</a>, then run through the <a href="getting-started/quickstart/">Quickstart</a>.</p>
+</li>
+<li>
+<p><svg class="astro-card-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M24 7L39 15V33L24 41L9 33V15Z M9 15L24 24L39 15 M24 24V41"/><circle cx="24" cy="7" r="3"/><circle cx="9" cy="33" r="3"/><circle cx="39" cy="33" r="3"/></svg></p>
+<p><strong>Building a lab?</strong> <a href="guides/authoring-a-lab/">Authoring a Lab</a> walks through the full <code>config.yaml</code> shape with a worked example.</p>
+</li>
+<li>
+<p><svg class="astro-card-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="24" cy="24" r="16"/><ellipse cx="24" cy="24" rx="23" ry="8" transform="rotate(-35 24 24)"/><path d="M17 21L21 24L17 27M26 28H32"/></svg></p>
+<p><strong>Looking up a flag or a YAML field?</strong> <a href="reference/cli/astrona/">CLI Reference</a> and <a href="reference/lab-config/">Lab Config Schema</a> are generated straight from the source.</p>
+</li>
+<li>
+<p><svg class="astro-card-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5" y="16" width="12" height="16" rx="3"/><rect x="31" y="16" width="12" height="16" rx="3"/><path d="M17 24H31M22 19L27 24L22 29M11 10V5H37V10M11 38V43H37V38"/></svg></p>
+<p><strong>Wiring astrona into CI?</strong> <a href="guides/ci-integration/">CI Integration</a> covers <code>astrona test</code> and JUnit reporting.</p>
+</li>
+</ul>
+</div>
 <h2 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
+<div class="astro-capabilities">
 <ul>
 <li><strong>Local kind clusters</strong> — auto-detects Docker or Podman on your <code>PATH</code> and creates/deletes the kind cluster accordingly, no manual provider flags needed.</li>
 <li><strong>QEMU VM labs</strong> — for labs that need a real OS (not just a container), <code>runtime.type: qemu</code> boots one or more VMs from a base image, with SSH wired up automatically.</li>
@@ -3859,14 +3909,6 @@
 <li><strong>Proctor grading</strong> — a student never grades their own work: <code>astrona submit</code> hands the environment to the <a href="concepts/grading/">Proctor</a>, which runs declarative checks and/or custom scripts and returns a PASS/FAIL verdict.</li>
 <li><strong>CI-friendly</strong> — <code>astrona test</code> runs the whole bootstrap → testing → submit → teardown pipeline in one command, with <code>--junit-xml</code> output for any CI system that understands JUnit.</li>
 </ul>
-<h2 id="where-to-go-next">Where to go next<a class="headerlink" href="#where-to-go-next" title="Permanent link">&para;</a></h2>
-<div class="grid cards">
-<ul>
-<li><strong>New to Astrona?</strong> Start with <a href="getting-started/installation/">Installation</a>, then run through the <a href="getting-started/quickstart/">Quickstart</a>.</li>
-<li><strong>Building a lab?</strong> <a href="guides/authoring-a-lab/">Authoring a Lab</a> walks through the full <code>config.yaml</code> shape with a worked example.</li>
-<li><strong>Looking up a flag or a YAML field?</strong> <a href="reference/cli/astrona/">CLI Reference</a> and <a href="reference/lab-config/">Lab Config Schema</a> are generated straight from the source.</li>
-<li><strong>Wiring astrona into CI?</strong> <a href="guides/ci-integration/">CI Integration</a> covers <code>astrona test</code> and JUnit reporting.</li>
-</ul>
 </div>
 <h2 id="project-links">Project links<a class="headerlink" href="#project-links" title="Permanent link">&para;</a></h2>
 <ul>
@@ -3875,21 +3917,6 @@
 <li>License: Apache License 2.0</li>
 </ul>
 
-
-
-
-
-
-
-  
-  
-
-
-
-
-
-
-                
               </article>
             </div>
           
@@ -3910,6 +3937,8 @@
         <footer class="md-footer">
   
     
+      
+        
       
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
@@ -3993,6 +4022,8 @@
     
     
       <script src="assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="javascripts/motion.js"></script>
       
     
   </body>
