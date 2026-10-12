@@ -292,6 +292,53 @@ Error: 1 problem(s) found — the ✗ lines above say how to fix each
 
 It checks this machine (tools, container engine, inotify), the lab (its config, whether this astrona may run it, memory and free ports when it isn't running) and the running lab (nodes, linked clusters, port forwards, unhealthy pods, exam clock). It only reads — nothing is started or changed — and exits non-zero on any ✗ — including a lab you named (argument, `-c`, `--file`, `--git`, `astrona use` — `astrona doctor .` counts) that isn't there or whose config doesn't parse; only when no lab is named and the current directory has none does it check the machine alone. `--bundle` also writes the full [diagnostics bundle](../guides/ci-integration.md#diagnostics-on-failure). Unhealthy pods are ⚠, not ✗: in a lab they may be the exercise.
 
+## Persistent CLI settings
+
+`astrona settings` lists your preferences and shows whether each value is saved
+or comes from the default. Preferences live in `~/.astrona/settings.json`,
+separate from credentials, lab state, and remote-code approvals.
+
+```sh
+astrona settings
+astrona settings set keep-context true
+astrona settings set parallel 2
+astrona settings get keep-context
+astrona settings unset keep-context
+astrona settings path
+astrona settings -o json
+```
+
+| Setting | Default | Effect |
+|---|---|---|
+| `verbose` | `false` | Stream full command output instead of the compact step view |
+| `keep-context` | `false` | Leave kubectl's current-context unchanged on commands with `--keep-context` |
+| `parallel` | `1` | Start up to 1–5 linked clusters at once on commands with `--parallel` |
+| `update-check` | `true` | Check for new CLI releases and show update notices |
+
+Explicit flags override saved values, including `--verbose=false`,
+`--keep-context=false`, and `--parallel=1`. `--update-check=false` disables
+update checks for one command; save it with
+`astrona settings set update-check false` to keep that preference. The existing
+`ASTRONA_NO_UPDATE_CHECK` environment variable, CI detection, and non-terminal
+output still suppress update checks even when the setting is true.
+
+Only saved overrides are written to the JSON file. `unset` removes one override
+without changing the others; omitted keys use the built-in defaults. Listing
+or reading settings does not create a file. The JSON output contains configured
+values plus defaults, before flags or environment-based suppression are applied.
+
+Writes are atomic, with file permissions `0600` and a `0700` directory when
+created. A lock prevents simultaneous CLI edits from overwriting each other;
+retry if another command is changing settings. Settings commands do not contact
+the network, fetch a lab, or change your sign-in.
+
+You can also edit the JSON file directly. Values must be JSON booleans or, for
+`parallel`, an integer from 1 to 5. Unknown keys and invalid values are rejected
+before a normal command runs. A damaged file is never silently overwritten:
+use `astrona settings path` to find and repair it. Settings and lock files must
+not be symlinks. Remote-code trust and automatic confirmation cannot be enabled
+through settings.
+
 ## Shell completion
 
 Installed with Homebrew? Completion for bash, zsh and fish is already set up — skip the steps below (Homebrew's shell setup must be loaded, see `brew info astrona`).

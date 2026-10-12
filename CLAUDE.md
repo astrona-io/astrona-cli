@@ -23,6 +23,7 @@ The codebase is organized in a standard, logical Go folder structure:
 - **`cmd/astrona/`** — CLI commands and entrypoints (`package main`):
   - `main.go` — Entrypoint: builds the root Cobra command, owns shared persistent flags (`rootFlags` struct), and registers all subcommands.
   - `config_helper.go` — Extracts CLI flag loading logic for commands to avoid circular packages.
+  - `cmd_settings.go`, `settings_store.go` — Validated user preferences in `~/.astrona/settings.json`; explicit flags override saved values. Writes use a file lock and atomic replacement. Credentials and trust remain separate.
   - `banner.go` — Prints the beautiful startup ASCII banner.
   - `cmd_*.go` — One file per top-level command (`run`, `destroy`, `submit`, `ssh`, `test` (as `cmd_devtest.go`), `check`, `list`, `images`, `upgrade`).
 - **`internal/`** — Modular business logic packages:

@@ -274,7 +274,8 @@ var labSelectionFlags = map[string]bool{"config": true, "c": true, "file": true,
 // lab given as an argument, and the user's own lab flags may no longer be
 // what was resolved (a catalog lab resets --git-ref).
 func handoverArgs(args []string, flags *rootFlags) []string {
-	out := make([]string, 0, len(args)+8)
+	// Put saved flags before any "--" separator in the original arguments.
+	out := append([]string{}, flags.settingsArgs...)
 	dropped := false
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -287,7 +288,8 @@ func handoverArgs(args []string, flags *rootFlags) []string {
 			continue
 		}
 		// Ours, not the other version's — it would reject an unknown flag.
-		if a == "--install-version" || strings.HasPrefix(a, "--install-version=") {
+		if a == "--install-version" || strings.HasPrefix(a, "--install-version=") ||
+			a == "--update-check" || strings.HasPrefix(a, "--update-check=") {
 			continue
 		}
 		if name, inline, ok := flagName(a); ok && labSelectionFlags[name] {
