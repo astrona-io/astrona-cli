@@ -294,6 +294,52 @@ It checks this machine (tools, container engine, inotify), the lab (its config, 
 
 ## Local data and cache cleanup
 
+### Automatic cache limits
+
+Disposable caches have a default retention of **30 days** and a combined maximum
+size of **50 GB**. Change them with:
+
+```sh
+astrona settings set cache-retention-days 30
+astrona settings set cache-max-size-gb 50
+astrona settings set cache-max-size-gb 0  # unlimited size; age limit still applies
+```
+
+Astrona checks the limits when operational commands finish, including commands
+that fail after setup. It deletes expired entries first, then the oldest remaining
+entries until their combined size fits the budget. Age uses filesystem modification
+times; for a Git checkout, the newest entry within it determines its age. Reading
+a cache file alone does not reset its age. Images and their metadata are removed
+together. GB means 1,000,000,000 bytes, measured as logical file sizes.
+
+The limits cover downloaded images/addons, cached Git checkouts, catalog metadata
+and update-check metadata. They do not cover lab disks, student resources, results,
+logs, bundles, installed tools, credentials, or Docker/Podman storage.
+
+This is cleanup between commands, not a background service or a download quota.
+Nothing expires while the CLI is not running. If any saved lab state exists,
+including a stopped VM, **all cache eviction is deferred** to protect dependencies.
+Cleanup also defers if another CLI command holds the maintenance lock. Usage can
+therefore exceed the limits while downloads or labs need it. A notice on stderr
+explains deferrals and reports removed entries without changing JSON stdout or
+the original command's exit code. Help, completions, settings, data inspection and
+internal background commands do not trigger automatic deletion.
+
+Preview or explicitly apply just the configured policy:
+
+```sh
+astrona data clean --policy
+astrona data clean --policy --yes
+astrona data clean --policy --yes --dry-run  # preview only
+```
+
+Settings changes take effect on the next operational command or policy cleanup;
+changing a setting does not itself delete anything. Policy cleanup needs valid
+settings. Ordinary `data clean` and `data reset` remain usable for repair when
+settings are malformed. `--policy` cannot be combined with `--temp-only`.
+
+### Inspect and clean manually
+
 Inspect local files without connecting to Astrona or starting a container engine:
 
 ```sh
@@ -369,6 +415,8 @@ separate from credentials, lab state, and remote-code approvals.
 astrona settings
 astrona settings set keep-context true
 astrona settings set parallel 2
+astrona settings set cache-retention-days 30
+astrona settings set cache-max-size-gb 50
 astrona settings get keep-context
 astrona settings unset keep-context
 astrona settings path
@@ -381,6 +429,8 @@ astrona settings -o json
 | `keep-context` | `false` | Leave kubectl's current-context unchanged on commands with `--keep-context` |
 | `parallel` | `1` | Start up to 1–5 linked clusters at once on commands with `--parallel` |
 | `update-check` | `true` | Check for new CLI releases and show update notices |
+| `cache-retention-days` | `30` | Maximum disposable-cache age; whole days from 1 to 36500 |
+| `cache-max-size-gb` | `50` | Combined disposable-cache limit in decimal GB; `0` means unlimited size |
 
 Explicit flags override saved values, including `--verbose=false`,
 `--keep-context=false`, and `--parallel=1`. `--update-check=false` disables
@@ -399,12 +449,18 @@ created. A lock prevents simultaneous CLI edits from overwriting each other;
 retry if another command is changing settings. Settings commands do not contact
 the network, fetch a lab, or change your sign-in.
 
-You can also edit the JSON file directly. Values must be JSON booleans or, for
-`parallel`, an integer from 1 to 5. Unknown keys and invalid values are rejected
+You can also edit the JSON file directly. Values must be JSON booleans or whole
+numbers for `parallel` and the cache settings. `parallel` accepts 1 to 5;
+`cache-max-size-gb` accepts 0 to 9223372036 without overflowing the byte count.
+Unknown keys and invalid values are rejected
 before a normal command runs. A damaged file is never silently overwritten:
 use `astrona settings path` to find and repair it. Settings and lock files must
 not be symlinks. Remote-code trust and automatic confirmation cannot be enabled
 through settings.
+
+Cache limits are local preferences, not lab flags, and are not forwarded during
+version handover. Older CLI releases that validate settings may reject these new
+keys; remove the overrides or upgrade that binary before using it.
 
 ## Shell completion
 

@@ -5,11 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
+
+	"astrona/internal/localdata"
 )
 
 type settingDefinition struct {
@@ -22,6 +26,8 @@ func settingsDefinitions() []settingDefinition {
 		{"keep-context", "false", "Leave your kubectl current-context unchanged"},
 		{"parallel", "1", "Maximum linked clusters to start at once"},
 		{"update-check", "true", "Check for new CLI releases and show update notices"},
+		{"cache-retention-days", strconv.Itoa(localdata.DefaultRetentionDays), "Maximum disposable-cache age in days (1–36500)"},
+		{"cache-max-size-gb", strconv.Itoa(localdata.DefaultMaxSizeGB), "Combined disposable-cache size in GB; 0 means unlimited"},
 	}
 }
 
@@ -54,10 +60,38 @@ func parseSetting(key, value string) (json.RawMessage, error) {
 			return nil, err
 		}
 		value = strconv.Itoa(n)
+	case "cache-retention-days", "cache-max-size-gb":
+		n, err := strconv.ParseInt(value, 10, 64)
+		minValue, maxValue := int64(0), int64(math.MaxInt64/localdata.BytesPerGB)
+		if key == "cache-retention-days" {
+			minValue, maxValue = 1, 36500
+		}
+		if err != nil || n < minValue || n > maxValue {
+			return nil, fmt.Errorf("%s must be a whole number between %d and %d", key, minValue, maxValue)
+		}
+		value = strconv.FormatInt(n, 10)
 	default:
 		return nil, fmt.Errorf("unknown setting %q; run `astrona settings` to list supported settings", key)
 	}
 	return json.RawMessage(value), nil
+}
+
+func loadCachePolicy(path string) (localdata.CachePolicy, error) {
+	saved, err := loadSettings(path)
+	if err != nil {
+		return localdata.CachePolicy{}, err
+	}
+	age, _ := saved.value("cache-retention-days") // known keys with validated integers
+	size, _ := saved.value("cache-max-size-gb")
+	days, err := strconv.ParseInt(string(age), 10, 64)
+	if err != nil {
+		return localdata.CachePolicy{}, err
+	}
+	gb, err := strconv.ParseInt(string(size), 10, 64)
+	if err != nil {
+		return localdata.CachePolicy{}, err
+	}
+	return localdata.CachePolicy{MaxAge: time.Duration(days) * 24 * time.Hour, MaxBytes: gb * localdata.BytesPerGB}, nil
 }
 
 func (s userSettings) value(key string) (json.RawMessage, error) {
