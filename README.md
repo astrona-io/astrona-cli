@@ -25,7 +25,12 @@ Flat, podman-`run`-style verbs at the root — no noun to namespace under. `--co
 - **Manage running labs** — `list`, `stop`, `start`, `port-forward`, `net`, `kubeconfig`
 - **Write labs** — `init`, `content`, `validate`, `test`, `bundle`
 - **Troubleshoot** — `doctor`, `check`, `diagnose`, `logs`, `images`
-- **astrona itself** — `settings`, `data`, `versions`, `upgrade`
+- **astrona itself** — `terms`, `settings`, `data`, `versions`, `upgrade`
+
+On first use, Astrona asks you to accept its CLI usage terms and data-loss risk
+notice. Read them with `astrona terms`. A changed notice in a later CLI release
+requires acceptance again. CI commands need an explicit `--accept-terms` flag;
+`--yes` and `--trust` do not accept terms. See [terms acceptance](docs/getting-started/installation.md#cli-usage-terms).
 
 `astrona data` shows local file counts and sizes. `astrona data clean` previews
 cache cleanup; `astrona data reset` previews resetting saved preferences and the

@@ -34,6 +34,7 @@ type rootFlags struct {
 	verbose     bool
 	trust       bool
 	updateCheck bool
+	acceptTerms bool
 	// settingsFile is an optional path override for isolated command tests.
 	settingsFile string
 	settingsArgs []string
@@ -208,6 +209,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	// No -v shorthand: Cobra reserves it for the auto-generated --version flag.
 	rootCmd.PersistentFlags().BoolVar(&flags.installVersion, "install-version", false, "If the lab needs another astrona release (astronaVersion) that isn't installed, install it without asking — for CI")
 	rootCmd.PersistentFlags().BoolVar(&flags.trust, "trust", false, "Approve running a remote (--git / URL) lab without asking — for CI; review the lab first")
+	rootCmd.PersistentFlags().BoolVar(&flags.acceptTerms, "accept-terms", false, "Accept this CLI's usage terms and data-loss risk notice; required on each operational CI command (read: astrona terms)")
 	rootCmd.PersistentFlags().BoolVar(&flags.verbose, "verbose", false, "Stream the full output of every underlying command instead of the compact step view")
 	rootCmd.PersistentFlags().BoolVar(&flags.updateCheck, "update-check", true, "Check for new CLI releases (disabled in CI, without a terminal, or by ASTRONA_NO_UPDATE_CHECK)")
 
@@ -238,7 +240,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	rootCmd := newRootCmd(&rootFlags{})
+	flags := &rootFlags{}
+	rootCmd := newRootCmd(flags)
+	installTermsGate(rootCmd, flags, checkTerms)
 
 	if err := executeWithDataLock(rootCmd, localdata.DefaultStore); err != nil {
 		ui.PrintError(err)

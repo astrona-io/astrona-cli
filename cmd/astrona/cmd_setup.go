@@ -297,7 +297,11 @@ func newSetupCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			check := exec.Command(self, "check")
+			checkArgs := []string{"check"}
+			if accept, _ := cmd.Flags().GetBool("accept-terms"); accept {
+				checkArgs = append(checkArgs, "--accept-terms")
+			}
+			check := exec.Command(self, checkArgs...)
 			check.Stdout, check.Stderr = os.Stdout, os.Stderr
 			if err := check.Run(); err != nil {
 				return fmt.Errorf("astrona check still reports problems — see above, or the troubleshooting guide: https://astrona.io/labs/troubleshooting")

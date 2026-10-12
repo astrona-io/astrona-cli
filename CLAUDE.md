@@ -25,9 +25,11 @@ The codebase is organized in a standard, logical Go folder structure:
   - `config_helper.go` — Extracts CLI flag loading logic for commands to avoid circular packages.
   - `cmd_data.go`, `data_lock.go` — Local file usage and preview-first cleanup/reset. The entrypoint holds a shared maintenance lock during command setup and execution; confirmed maintenance takes an exclusive lock. Keep the `data` command independent of settings, lab selection and network hooks so it can repair broken local preferences.
   - `cmd_settings.go`, `settings_store.go` — Validated user preferences in `~/.astrona/settings.json`; explicit flags override saved values. Writes use a file lock and atomic replacement. Credentials and trust remain separate.
+  - `cmd_terms.go` — Entrypoint terms gate, wrapped around every command's persistent setup hook. Acceptance is separate from remote-code trust and `--yes`; never add a saved auto-accept setting. Keep the explicit cleanup/help exemptions narrow.
   - `banner.go` — Prints the beautiful startup ASCII banner.
   - `cmd_*.go` — One file per top-level command (`run`, `destroy`, `submit`, `ssh`, `test` (as `cmd_devtest.go`), `check`, `list`, `images`, `upgrade`).
 - **`internal/`** — Modular business logic packages:
+  - `terms` — Bundled CLI usage notice and a private, atomically replaced `~/.astrona/terms.json` receipt. Match both revision and content digest. CI requires `--accept-terms` on every operational invocation, even with a receipt; missing noninteractive consent must fail without reading stdin. Notice updates require a CLI release. Update `notice.txt` and `Revision` together after legal review; this acknowledgement does not change Apache-2.0 or provide a server audit. Native Windows setup and WSL use separate receipts.
   - `localdata` — Read-only file inventory and allowlisted deletion plans. Cache cleanup is blocked by saved lab state, including stopped VMs. Never treat VM disks, results, credentials, resources or bundles as disposable cache. Use bounded `os.Root` operations and preserve maintenance/settings lock inodes.
   - `config` — Lab config models and parsing (`config.go`), unverified base image downloading/caching utility (`download.go`), and directory/path guards (`path.go`).
   - `runtime` — Dispatches runtime creation and environment state (`runtime.go`).

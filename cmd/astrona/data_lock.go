@@ -7,6 +7,7 @@ import (
 
 // executeWithDataLock holds a shared lock before command setup until Execute
 // returns. Data commands acquire their own exclusive lock only when applying.
+// Terms use an independent atomic receipt and can be read without any writes.
 // Installing this at the entrypoint keeps command construction side-effect free.
 func executeWithDataLock(root *cobra.Command, store func() (localdata.Store, error)) error {
 	var release func()
@@ -17,7 +18,7 @@ func executeWithDataLock(root *cobra.Command, store func() (localdata.Store, err
 	}()
 	var wrap func(*cobra.Command, func(*cobra.Command, []string) error)
 	wrap = func(cmd *cobra.Command, inherited func(*cobra.Command, []string) error) {
-		if cmd.Name() == "data" {
+		if cmd.Name() == "data" || cmd.Name() == "terms" {
 			return
 		}
 		before := inherited

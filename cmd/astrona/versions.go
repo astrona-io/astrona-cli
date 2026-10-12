@@ -289,6 +289,7 @@ func handoverArgs(args []string, flags *rootFlags) []string {
 		}
 		// Ours, not the other version's — it would reject an unknown flag.
 		if a == "--install-version" || strings.HasPrefix(a, "--install-version=") ||
+			a == "--accept-terms" || strings.HasPrefix(a, "--accept-terms=") ||
 			a == "--update-check" || strings.HasPrefix(a, "--update-check=") {
 			continue
 		}
