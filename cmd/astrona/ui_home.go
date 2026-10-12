@@ -25,6 +25,8 @@ type uiHomeRun struct {
 	name, kind, status, runID string
 	started                   time.Time
 	openable                  bool
+	activeTime                time.Duration
+	activityTracked           bool
 }
 
 type uiHomeHistory struct {
@@ -109,6 +111,10 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 		}
 		run := uiHomeRun{name: name, kind: "Lab", status: "Unavailable", runID: workspaceRunID(st)}
 		run.started, _ = time.Parse(time.RFC3339, st.StartedAt)
+		run.activeTime, run.activityTracked, err = labstate.ActiveTime(name, st.StartedAt)
+		if err != nil {
+			warn(err)
+		}
 		if st.Session.IsPlayground() || isPlaygroundName(st.Source.Catalog) {
 			run.kind = "Playground"
 		}
@@ -162,6 +168,11 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 	for _, run := range runs {
 		label := fmt.Sprintf("%s  %s finished", run.Lab, run.Kind)
 		details := fmt.Sprintf("%s\n%s\nStarted: %s\nFinished: %s\nElapsed: %s", label, run.Catalog, run.StartedAt.Local().Format(time.RFC1123), run.FinishedAt.Local().Format(time.RFC1123), max(time.Duration(0), run.FinishedAt.Sub(run.StartedAt)).Round(time.Second))
+		if spent, tracked, err := labstate.ActiveTime(run.Lab, run.StartedAt.UTC().Format(time.RFC3339)); err != nil {
+			warn(err)
+		} else if tracked {
+			details += "\nTime spent (excluding idle): " + formatUptime(spent)
+		}
 		data.history = append(data.history, uiHomeHistory{label: label, details: details, at: run.FinishedAt})
 	}
 	slices.SortFunc(data.history, func(a, b uiHomeHistory) int { return b.at.Compare(a.at) })
@@ -353,7 +364,7 @@ func (m uiHomeModel) View() string {
 			var rows []string
 			page := max(1, h-2)
 			if m.tab == 0 {
-				rows = append(rows, workspaceMuted.Bold(true).Render("  "+uiRunColumns("LAB", "TYPE", "STATUS", "AGE", w-6)))
+				rows = append(rows, workspaceMuted.Bold(true).Render("  "+uiRunColumns("LAB", "TYPE", "STATUS", "ACTIVE", w-6)))
 				page = max(1, page-1)
 			}
 			start := max(0, m.selected-page+1)
@@ -362,8 +373,8 @@ func (m uiHomeModel) View() string {
 				if m.tab == 0 {
 					r := m.data.runs[i]
 					age := "—"
-					if !r.started.IsZero() {
-						age = formatUptime(max(time.Duration(0), time.Since(r.started)))
+					if r.activityTracked {
+						age = formatUptime(r.activeTime)
 					}
 					label = uiRunColumns(r.name, r.kind, r.status, age, w-6)
 				} else {

@@ -175,6 +175,9 @@ func (m workspaceModel) labView() string {
 	if !m.snapshot.started.IsZero() {
 		clock = "Elapsed: " + max(time.Duration(0), m.now.Sub(m.snapshot.started)).Round(time.Second).String()
 	}
+	if m.snapshot.activityTracked {
+		clock = "Time spent: " + formatUptime(m.snapshot.activeTime)
+	}
 	if !m.snapshot.deadline.IsZero() {
 		remaining := max(time.Duration(0), m.snapshot.deadline.Sub(m.now)).Round(time.Second)
 		clock += "  Left: " + remaining.String()
@@ -187,6 +190,9 @@ func (m workspaceModel) labView() string {
 		context += "  |  " + m.snapshot.tracking
 	}
 	message := m.notice
+	if message == "" {
+		message = m.snapshot.activityError
+	}
 	if m.snapshot.blocked != "" {
 		message = m.snapshot.blocked
 	}

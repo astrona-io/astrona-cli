@@ -120,6 +120,7 @@ func TestUIPaneResizesChildTerminal(t *testing.T) {
 	defer master.Close()
 	defer slave.Close()
 	m := newUIPaneModel(master, nil, 80, 24)
+	m.title = "WORKSPACE / lab"
 	defer m.emulator.Close()
 	for _, size := range [][2]int{{120, 40}, {52, 18}, {80, 24}} {
 		m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})

@@ -50,12 +50,32 @@ notice. After startup, select the run and press Enter to open
 its workspace. Press `p` to edit Preferences, even with no active runs. Boolean
 settings use `yes` / `no`; blank input keeps the current value.
 
-Home shows a full-width table with Lab, Type, Status and Age columns. Narrow
+Home shows a full-width table with Lab, Type, Status and Active time columns. Narrow
 terminals retain Lab and Status. Long names are truncated within their column
 so the status remains visible. The current row has a contrasting background.
 The content has a single border, with centered titles and section tabs below.
 Errors appear in an alert panel: F1 opens the full message,
 Page Up/Down scrolls it, and Esc returns. Save confirmations use status panels.
+
+## Time spent and idle pauses
+
+Opening a lab workspace starts a local time spent counter. Keyboard input in
+the workspace or its embedded shell counts as activity. After five minutes
+without input, an idle dialog pauses the counter and excludes the idle interval
+back to your last input. Press Enter on **Continue** to resume; that keypress is
+consumed by the dialog. Output, polling and background commands do not count
+as activity. The lab and commands keep running while the counter is paused.
+
+The footer shows active time and whether it is paused. Home's Active column
+and finished-run history retain the recorded time. Checkpoints are saved every
+five seconds and on pause, resume and exit. Time with the UI closed is not
+counted, and overlapping UI sessions are counted once. Older runs show a dash
+until tracked; activity before opening the workspace is not reconstructed.
+
+This tracks work in the terminal, so reading outside it will eventually pause
+the counter. It does not extend exam limits or playground expiry deadlines,
+and it does not send activity data to the API. Closing the UI abruptly may lose
+up to five seconds since the last checkpoint.
 
 ## Work on a lab
 
@@ -71,8 +91,10 @@ downloads for this invocation, and continues with setup. Saved preferences
 are kept. Catalog labs use your account when signed in; otherwise they run
 without account progress tracking. Other labs stay running.
 
-The UI stays open after Yes. Repository downloads, setup progress, later
-confirmations, grading and teardown run inside its terminal pane. Startup
+The UI stays open after Yes, with the dashboard behind a setup dialog.
+Repository downloads, setup progress, later confirmations, grading and teardown
+stay inside the dialog. A spinner and moving bar indicate work in progress;
+the bar does not claim a percentage when the command cannot report one. Startup
 errors stay visible until you press Enter or Esc to close the UI. The command's
 exit code is preserved.
 

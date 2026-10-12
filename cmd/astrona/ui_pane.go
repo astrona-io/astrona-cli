@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -74,7 +75,17 @@ func runUIPane(ctx context.Context, args []string) (int, error) {
 // A real PTY keeps shell job control, terminal editors, passwords and resize
 // handling intact. Only the outer program owns the physical alternate screen.
 func runUIPaneCommand(ctx context.Context, cmd *exec.Cmd, width, height int, options ...tea.ProgramOption) (int, error) {
-	w, h := uiPaneSize(width, height)
+	activityDir, err := os.MkdirTemp("", "astrona-ui-activity-")
+	if err != nil {
+		return 1, err
+	}
+	defer os.RemoveAll(activityDir)
+	activityPath := filepath.Join(activityDir, "current.json")
+	if cmd.Env == nil {
+		cmd.Env = os.Environ()
+	}
+	cmd.Env = append(cmd.Env, uiActivityEnv+"="+activityPath)
+	w, h := uiPaneContentSize(width, height, "STARTUP")
 	terminal, err := pty.StartWithSize(cmd, uiPaneWinsize(w, h))
 	if err != nil {
 		return 1, fmt.Errorf("open UI terminal: %w", err)
@@ -98,6 +109,14 @@ func runUIPaneCommand(ctx context.Context, cmd *exec.Cmd, width, height int, opt
 	}()
 
 	m := newUIPaneModel(terminal, exited, width, height)
+	m.activityPath = activityPath
+	dashboardCtx, stopDashboard := context.WithCancel(ctx)
+	defer stopDashboard()
+	m.loadDashboard = func() tea.Msg {
+		readCtx, cancel := context.WithTimeout(dashboardCtx, 5*time.Second)
+		defer cancel()
+		return readUIHome(readCtx)
+	}
 	inputDone := make(chan struct{})
 	go func() {
 		// Drain terminal replies as well as keyboard input. Keep draining if
@@ -124,6 +143,10 @@ func runUIPaneCommand(ctx context.Context, cmd *exec.Cmd, width, height int, opt
 	}()
 	options = append([]tea.ProgramOption{tea.WithAltScreen(), tea.WithContext(ctx)}, options...)
 	_, err = tea.NewProgram(m, options...).Run()
+	m.saveActivity(time.Now())
+	if m.activityError != "" {
+		err = errors.Join(err, errors.New(m.activityError))
+	}
 	return m.code, err
 }
 
@@ -135,13 +158,20 @@ type uiPaneExit struct{ err error }
 type uiPaneDrainTimeout struct{}
 
 type uiPaneModel struct {
-	emulator                      *vt.Emulator
-	terminal                      *os.File
-	exited                        <-chan error
-	width, height, scroll, code   int
-	title, failure                string
-	controls, closing, ended, eof bool
-	account                       uiAccountStatus
+	emulator                        *vt.Emulator
+	terminal                        *os.File
+	exited                          <-chan error
+	width, height, scroll, code     int
+	title, failure                  string
+	controls, closing, ended, eof   bool
+	account                         uiAccountStatus
+	activity                        uiActivityClock
+	activityPath, activityError     string
+	activityTotal, activitySavedOwn time.Duration
+	dashboard                       uiHomeSnapshot
+	loadDashboard                   tea.Cmd
+	background                      string
+	animation                       int
 }
 
 func uiPaneSize(width, height int) (int, int) {
@@ -156,7 +186,7 @@ func uiPaneWinsize(width, height int) *pty.Winsize {
 }
 
 func newUIPaneModel(terminal *os.File, exited <-chan error, width, height int) *uiPaneModel {
-	w, h := uiPaneSize(width, height)
+	w, h := uiPaneContentSize(width, height, "STARTUP")
 	m := &uiPaneModel{terminal: terminal, exited: exited, width: width, height: height, title: "STARTUP"}
 	m.emulator = vt.NewEmulator(w, h)
 	m.emulator.SetScrollbackSize(2000)
@@ -171,23 +201,44 @@ func (m *uiPaneModel) read() tea.Msg {
 }
 
 func (m *uiPaneModel) Init() tea.Cmd {
-	return tea.Batch(m.read, readUIAccountStatus, func() tea.Msg { return uiPaneExit{<-m.exited} })
+	return tea.Batch(m.read, readUIAccountStatus, uiActivityTickCmd(), uiLoadingTickCmd(), m.loadDashboard, func() tea.Msg { return uiPaneExit{<-m.exited} })
+}
+
+func (m *uiPaneModel) resizeContent() {
+	w, h := uiPaneContentSize(m.width, m.height, m.title)
+	if m.emulator.Width() == w && m.emulator.Height() == h {
+		return
+	}
+	m.emulator.Resize(w, h)
+	if m.terminal != nil {
+		if err := pty.Setsize(m.terminal, uiPaneWinsize(w, h)); err != nil && !m.ended {
+			m.failure = "Could not resize terminal: " + err.Error()
+		}
+	}
 }
 
 func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case uiLoadingTick:
+		m.animation++
+		return m, uiLoadingTickCmd()
+	case uiHomeSnapshot:
+		m.dashboard = msg
+	case uiActivityTick:
+		m.activityTick(time.Time(msg))
+		return m, uiActivityTickCmd()
 	case uiAccountStatus:
 		m.account = msg
 		return m, uiAccountTick()
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		w, h := uiPaneSize(msg.Width, msg.Height)
-		m.emulator.Resize(w, h)
-		if err := pty.Setsize(m.terminal, uiPaneWinsize(w, h)); err != nil && !m.ended {
-			m.failure = "Could not resize terminal: " + err.Error()
-		}
+		m.resizeContent()
 	case uiPaneOutput:
 		_, _ = m.emulator.Write(msg.data)
+		m.resizeContent()
+		if m.title == "HOME" {
+			m.background = m.screen()
+		}
 		if msg.err != nil {
 			m.eof = true
 			if !errors.Is(msg.err, io.EOF) && !errors.Is(msg.err, syscall.EIO) && !errors.Is(msg.err, os.ErrClosed) {
@@ -198,13 +249,15 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case uiPaneExit:
 		m.ended = true
+		m.saveActivity(time.Now())
+		m.activity.paused = true
 		if msg.err != nil {
 			m.code = 1
 			var exit *exec.ExitError
 			if errors.As(msg.err, &exit) && exit.ExitCode() > 0 {
 				m.code = exit.ExitCode()
 			}
-			m.failure = fmt.Sprintf("Command ended (exit %d). Review the output above.", m.code)
+			m.failure = fmt.Sprintf("Command ended (exit %d). Review the command output.", m.code)
 			if m.code == uiRunDeclinedExitCode {
 				m.failure = "Lab startup cancelled. No lab was started or changed."
 			}
@@ -224,6 +277,18 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *uiPaneModel) key(key tea.KeyMsg) tea.Cmd {
+	now := time.Now()
+	m.activity.update(now)
+	if m.activity.paused && !m.controls && !m.closing && !m.ended && key.Type != tea.KeyCtrlCloseBracket {
+		if key.Type == tea.KeyEnter && !key.Paste {
+			m.activity.input(now)
+			m.saveActivity(now)
+		}
+		return nil
+	}
+	if !m.activity.paused {
+		m.activity.input(now)
+	}
 	if m.closing {
 		switch key.String() {
 		case "y", "Y":
@@ -269,6 +334,11 @@ func (m *uiPaneModel) key(key tea.KeyMsg) tea.Cmd {
 
 func (m *uiPaneModel) View() string {
 	content := m.screen()
+	if uiLoadingPhase(m.title) {
+		content = m.loadingView(content)
+	} else if m.title == "START LAB" || m.title == "RESTART LAB" {
+		content = m.confirmationView(content)
+	}
 	header := m.header()
 	footer := "Ctrl+] pane controls / scrollback"
 	if strings.HasPrefix(m.title, "SHELL /") {
@@ -283,10 +353,24 @@ func (m *uiPaneModel) View() string {
 	if m.failure != "" {
 		header = workspaceFit(header, m.width, uiHeaderHeight(m.width, m.height)-1) + "\n" + workspaceDanger.Render(m.failure)
 	}
+	if m.activity.paused && !m.controls && !m.ended {
+		content = m.idleView(content)
+		footer = "Enter: continue · Ctrl+] pane controls"
+	}
+	if m.activityError != "" {
+		footer = m.activityError
+	} else if m.activity.target.Lab != "" {
+		state := "Active"
+		if m.activity.paused {
+			state = "Paused"
+		}
+		footer = "Time spent: " + formatUptime(m.timeSpent()) + " · " + state + " · " + footer
+	}
 	if m.closing {
 		content = workspaceDialog(content, "CLOSE UI", "Close the UI and stop its active command?\nAny lab already created stays on this machine.\n\ny close / Enter or Esc return", m.width, m.emulator.Height(), false)
 	}
-	return workspaceFit(header+"\n"+workspaceFit(content, m.width, m.emulator.Height())+"\n"+workspaceMuted.Render(footer), m.width, m.height)
+	_, contentHeight := uiPaneSize(m.width, m.height)
+	return workspaceFit(header+"\n"+workspaceFit(content, m.width, contentHeight)+"\n"+workspaceMuted.Render(footer), m.width, m.height)
 }
 
 func (m *uiPaneModel) screen() string {

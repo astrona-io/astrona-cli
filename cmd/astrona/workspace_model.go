@@ -31,6 +31,9 @@ type workspaceSnapshot struct {
 	clusters                        []workspaceCluster
 	started, deadline               time.Time
 	kind, tracking, result, blocked string
+	activeTime                      time.Duration
+	activityTracked                 bool
+	activityError                   string
 }
 
 type workspaceTick time.Time
