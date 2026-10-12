@@ -19,9 +19,10 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 			"Explicit command-line flags override saved preferences. Settings never store " +
 			"credentials or approve remote code. Viewing settings does not create a file.\n\n" +
 			"Use view for a detailed overview, review to approve settings changes, " +
-			"set to save a value, unset to restore its default, and path to locate the file.",
+			"set to save a value, unset to restore its default, and path to locate the file. " +
+			"Boolean settings use yes/no; true/false are also accepted.",
 		Example: `  astrona settings
-  astrona settings set keep-context true
+  astrona settings set keep-context yes
   astrona settings set parallel 2
   astrona settings set cache-retention-days 30
   astrona settings set cache-max-size-gb 50
@@ -61,7 +62,7 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 				if _, ok := saved[def.key]; ok {
 					source = "saved"
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", def.key, value, source, def.description)
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", def.key, settingValueText(string(value)), source, def.description)
 			}
 			return w.Flush()
 		},
@@ -104,7 +105,7 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 					if err != nil {
 						return err
 					}
-					_, err = fmt.Fprintln(cmd.OutOrStdout(), string(value))
+					_, err = fmt.Fprintln(cmd.OutOrStdout(), settingValueText(string(value)))
 					return err
 				}
 				var value *string
@@ -117,7 +118,7 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 				if value == nil {
 					fmt.Fprintf(cmd.OutOrStdout(), "%s restored to its default\n", args[0])
 				} else {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s = %s\n", args[0], *value)
+					fmt.Fprintf(cmd.OutOrStdout(), "%s = %s\n", args[0], settingValueText(*value))
 				}
 				return nil
 			},
@@ -135,7 +136,7 @@ func completeSetting(cmd *cobra.Command, args []string, toComplete string) ([]st
 	} else if len(args) == 1 && cmd.Name() == "set" {
 		switch args[0] {
 		case "verbose", "keep-context", "update-check":
-			values = []string{"true", "false"}
+			values = []string{"yes", "no"}
 		}
 	}
 	return values, cobra.ShellCompDirectiveNoFileComp

@@ -36,10 +36,7 @@ func reviewDefinitions() map[string]reviewedSetting {
 	defs := make(map[string]reviewedSetting)
 	for _, d := range settingsDefinitions() {
 		r := reviewedSetting{Revision: 1, Default: d.defaultValue, Description: d.description}
-		// Network/privacy options need a typed choice, even when their default
-		// is enabled. Future tracking settings must opt into this rule too.
 		if d.key == "update-check" {
-			r.ExplicitChoice = true
 			r.Description += ". Contacts GitHub for release information; GitHub receives your IP address. Disabled in CI and non-terminal sessions."
 		}
 		defs[d.key] = r
@@ -98,7 +95,7 @@ func settingsReviewReason(old, current reviewedSetting, known bool) string {
 	}
 	var reasons []string
 	if old.Default != current.Default {
-		reasons = append(reasons, fmt.Sprintf("The built-in default changed from %s to %s. Saved values are not replaced by the new default.", old.Default, current.Default))
+		reasons = append(reasons, fmt.Sprintf("The built-in default changed from %s to %s. Saved values are not replaced by the new default.", settingValueText(old.Default), settingValueText(current.Default)))
 	}
 	if old.Description != current.Description {
 		reasons = append(reasons, "The setting's explanation changed. Previous explanation: "+sanitizeLine(old.Description))
@@ -210,7 +207,7 @@ func ensureSettingsReview(cmd *cobra.Command, path string, defs map[string]revie
 			def, exists := defs[key]
 			old, known := receipt.Definitions[key]
 			if !exists {
-				if _, err := fmt.Fprintf(out, "\n%s was removed (previous default: %s).\n  Why: This CLI no longer supports this setting. Its saved override will be removed only if you approve this review.\n", key, old.Default); err != nil {
+				if _, err := fmt.Fprintf(out, "\n%s was removed (previous default: %s).\n  Why: This CLI no longer supports this setting. Its saved override will be removed only if you approve this review.\n", key, settingValueText(old.Default)); err != nil {
 					return err
 				}
 				delete(saved, key)
@@ -222,9 +219,9 @@ func ensureSettingsReview(cmd *cobra.Command, path string, defs map[string]revie
 			}
 			previous := "new setting"
 			if known {
-				previous = "previous default: " + old.Default
+				previous = "previous default: " + settingValueText(old.Default)
 			}
-			if _, err := fmt.Fprintf(out, "\n%s (%s)\n  %s\n  Default: %s; current choice: %s\n", key, previous, def.Description, def.Default, value); err != nil {
+			if _, err := fmt.Fprintf(out, "\n%s (%s)\n  %s\n  Default: %s; current choice: %s\n", key, previous, def.Description, settingValueText(def.Default), settingValueText(value)); err != nil {
 				return err
 			}
 			if _, err := fmt.Fprintf(out, "  Why review: %s\n", settingsReviewReason(old, def, known)); err != nil {
@@ -236,11 +233,14 @@ func ensureSettingsReview(cmd *cobra.Command, path string, defs map[string]revie
 					return fmt.Errorf("%s needs an explicit choice: astrona settings set %s <value>; then obtain a new review ID", key, key)
 				}
 			} else {
-				prompt := fmt.Sprintf("  Value [%s] (enter to keep, q to cancel): ", value)
+				prompt := fmt.Sprintf("  Value [%s] (enter to keep, q to cancel): ", settingValueText(value))
+				if def.Default == "true" || def.Default == "false" {
+					prompt = fmt.Sprintf("  Value [%s] (yes/no, enter to keep, q to cancel): ", settingValueText(value))
+				}
 				if def.ExplicitChoice {
 					prompt = "  Type your value explicitly (q to cancel): "
 					if def.Default == "true" || def.Default == "false" {
-						prompt = "  Type your value explicitly (true/false, q to cancel): "
+						prompt = "  Type your value explicitly (yes/no, q to cancel): "
 					}
 				}
 				for {
@@ -254,9 +254,7 @@ func ensureSettingsReview(cmd *cobra.Command, path string, defs map[string]revie
 					if answer == "q" {
 						return fmt.Errorf("settings review cancelled; no choices saved")
 					}
-					if def.ExplicitChoice {
-						// Blank input must not accept a sensitive default or discard
-						// earlier answers. Validate this answer before moving on.
+					if answer != "" || def.ExplicitChoice {
 						if _, err := parseSetting(key, answer); err != nil {
 							if _, err := fmt.Fprintf(out, "  %s. Please try again, or type q to cancel.\n", err); err != nil {
 								return err
@@ -274,7 +272,7 @@ func ensureSettingsReview(cmd *cobra.Command, path string, defs map[string]revie
 			if err != nil {
 				return err
 			}
-			if _, err := fmt.Fprintf(out, "  Proposed: %s -> %s (saved only after approval)\n", currentValue, parsed); err != nil {
+			if _, err := fmt.Fprintf(out, "  Proposed: %s -> %s (saved only after approval)\n", settingValueText(currentValue), settingValueText(string(parsed))); err != nil {
 				return err
 			}
 			saved[key] = parsed

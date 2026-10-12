@@ -55,11 +55,11 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 		Short: "Open the UI home with active runs and history",
 		Long: "Open Home to browse saved runs, submission history and completed labs/playgrounds, even when no lab or engine is running. " +
 			"Enter opens a running Kind lab; name one to open its workspace directly. " +
-			"Opening the workspace never restarts a lab or its timer. Use astrona run <lab> --ui to start one.\n\n" +
+			"Press n to start a lab by catalog ID or local path, or p for preferences. Opening the workspace never restarts a lab or its timer.\n\n" +
 			"Arrow keys select a cluster; s or Enter opens a local shell with that lab's isolated kubeconfigs. " +
 			"Exit the shell to return. Tab switches between the task and submission results; Page Up/Down scroll. " +
 			"p opens saved preferences: select a setting, Enter to edit and review, then y to save. " +
-			"Esc cancels. Defaults and descriptions are shown, and update-check requires an explicit true/false choice. " +
+			"Esc cancels. Boolean settings use yes/no, and blank input keeps the current value. F1 opens alert details. " +
 			"Saved options apply to future commands; cache policy is checked after the UI closes. " +
 			"g submits a graded lab through the Proctor and returns Home, keeping the lab running, even after a pass. " +
 			"q or Ctrl-C opens an exit menu: return Home with the lab running, submit (graded labs), or explicitly confirm destruction and return Home. " +
@@ -110,6 +110,9 @@ func workspaceLabNames() ([]string, error) {
 	known, err := labstate.Names()
 	if err != nil {
 		return nil, err
+	}
+	if len(known) == 0 {
+		return nil, nil
 	}
 	owners := linkedClusterOwners()
 	var names []string
@@ -268,28 +271,7 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 		// Preferences do not act on the lab and remain usable if it expires.
 		// File access happens here, after Bubble Tea releases the terminal.
 		if m.action == workspaceLoadPreferences || m.action == workspaceSavePreference {
-			m.showPreferences = true
-			selected := m.preferences.selected
-			if m.action == workspaceSavePreference {
-				if selected < 0 || selected >= len(m.preferences.rows) {
-					m.preferences.notice = "No setting selected; press r to reload."
-					continue
-				}
-				err = d.savePreference(m.preferences.rows[selected], m.preferences.draft)
-				if err != nil {
-					m.preferences.editing, m.preferences.confirming = true, false
-					m.preferences.notice = "Not saved: " + err.Error()
-					continue
-				}
-			}
-			m.preferences, err = d.preferences()
-			m.preferences.selected = min(selected, max(0, len(m.preferences.rows)-1))
-			if m.action == workspaceSavePreference {
-				m.preferences.notice = "Saved. The running lab was not changed."
-			}
-			if err != nil {
-				m.preferences.notice += " Could not load preferences: " + err.Error()
-			}
+			applyWorkspacePreference(&m, d.preferences, d.savePreference)
 			continue
 		}
 		if err = d.guard(); err != nil {
@@ -493,4 +475,33 @@ func (b *workspaceOutput) Write(p []byte) (int, error) {
 		return 0, io.ErrShortBuffer
 	}
 	return b.buffer.Write(p)
+}
+
+func applyWorkspacePreference(m *workspaceModel, load func() (workspacePreferences, error), save func(workspaceSetting, string) error) {
+	var err error
+	m.showPreferences = true
+	selected := m.preferences.selected
+	if m.action == workspaceSavePreference {
+		if selected < 0 || selected >= len(m.preferences.rows) {
+			m.preferences.notice = "No setting selected; press r to reload."
+			m.preferences.noticeError = true
+			return
+		}
+		err = save(m.preferences.rows[selected], m.preferences.draft)
+		if err != nil {
+			m.preferences.editing, m.preferences.confirming = true, false
+			m.preferences.notice = "Not saved: " + err.Error()
+			m.preferences.noticeError = true
+			return
+		}
+	}
+	m.preferences, err = load()
+	m.preferences.selected = min(selected, max(0, len(m.preferences.rows)-1))
+	if m.action == workspaceSavePreference {
+		m.preferences.notice = "Saved. Applies to future commands."
+	}
+	if err != nil {
+		m.preferences.notice += " Could not load preferences: " + err.Error()
+		m.preferences.noticeError = true
+	}
 }

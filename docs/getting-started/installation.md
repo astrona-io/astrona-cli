@@ -471,7 +471,7 @@ astrona settings
 astrona settings view
 astrona settings view -o json
 astrona settings review
-astrona settings set keep-context true
+astrona settings set keep-context yes
 astrona settings set parallel 2
 astrona settings set cache-retention-days 30
 astrona settings set cache-max-size-gb 50
@@ -483,19 +483,22 @@ astrona settings -o json
 
 | Setting | Default | Effect |
 |---|---|---|
-| `verbose` | `false` | Stream full command output instead of the compact step view |
-| `keep-context` | `false` | Leave kubectl's current-context unchanged on commands with `--keep-context` |
+| `verbose` | `no` | Stream full command output instead of the compact step view |
+| `keep-context` | `no` | Leave kubectl's current-context unchanged on commands with `--keep-context` |
 | `parallel` | `1` | Start up to 1–5 linked clusters at once on commands with `--parallel` |
-| `update-check` | `true` | Check for new CLI releases and show update notices |
+| `update-check` | `yes` | Check for new CLI releases and show update notices |
 | `cache-retention-days` | `30` | Maximum disposable-cache age; whole days from 1 to 36500 |
 | `cache-max-size-gb` | `50` | Combined disposable-cache limit in decimal GB; `0` means unlimited size |
+
+`settings`, `settings get` and `settings view` display booleans as `yes` / `no`.
+JSON output and saved files retain `true` / `false`.
 
 Explicit flags override saved values, including `--verbose=false`,
 `--keep-context=false`, and `--parallel=1`. `--update-check=false` disables
 update checks for one command; save it with
-`astrona settings set update-check false` to keep that preference. The existing
+`astrona settings set update-check no` to keep that preference. The existing
 `ASTRONA_NO_UPDATE_CHECK` environment variable, CI detection, and non-terminal
-output still suppress update checks even when the setting is true.
+output still suppress update checks even when the setting is yes.
 
 Only saved choices are written to the JSON file. Review saves each chosen value,
 including a default you choose to keep, so later releases cannot silently replace
@@ -521,6 +524,18 @@ through settings.
 ### Change settings inside the lab workspace
 
 In `astrona ui` or a lab started with `--ui`, press `p` to open Preferences.
+With no running labs, `astrona ui` opens a home screen. Press `n` or Enter to
+start a Kind lab by catalog ID or local path, `p` for Preferences, or `r` to
+find labs started from another terminal. Select a running lab and press Enter
+to open it. Press `q` to close the home screen. Starting a lab uses the usual
+startup and trust prompts; cancelling or failing returns to the home screen.
+After startup, select the run and press Enter to open its workspace.
+
+The workspace keeps its header and keyboard hints visible around bordered panels.
+Starting a lab, editing a preference and confirming destruction use dialogs.
+Errors appear in an alert panel; press F1 to read the full message, Page Up/Down
+to scroll it, and Esc to return. Save confirmations appear as status messages.
+
 Use the arrow keys to select a setting. The editor shows its current value,
 whether it is saved or a default, its built-in default and an explanation.
 Press Enter, type a value, then Enter to review the current and proposed values,
@@ -532,9 +547,9 @@ long descriptions. Press `r` in the list to reload choices saved by another comm
 
 The editor uses the same file as `astrona settings path`. It validates values
 before saving and refuses to overwrite a setting changed elsewhere while you
-were editing it. `update-check` requires an explicit `true` or `false`; a blank
-answer never accepts network access. Editing preferences does not approve new
-settings definitions or usage terms.
+were editing it. Boolean settings use `yes` / `no`. A blank answer keeps the
+current value, including the default `yes` for `update-check` when no value is
+saved. Editing preferences does not approve new settings definitions or usage terms.
 
 Saved options apply to future CLI commands, not the current workspace's options
 or running lab. Cache policy is checked after the workspace closes; saving a
@@ -544,7 +559,7 @@ through `--ui` or `astrona ui`, not a persistent setting.
 ### Review settings after an upgrade
 
 `astrona settings view` gives each setting a readable block with its current
-value, source, built-in default and explanation. Booleans appear as On/Off;
+value, source, built-in default and explanation. Booleans appear as yes/no;
 cache settings use days or GB when supported by your CLI version. It also lists
 pending changes and a review ID. `-o json` includes the same information;
 the existing `astrona settings -o json` remains a flat values object. Both are
@@ -562,14 +577,13 @@ behavior revision or explicit-choice requirement. A new default does not replace
 a saved value. Each chosen value is shown as current → proposed before the final
 approval prompt. Declining leaves both preferences and the review receipt unchanged;
 commands that require review stay blocked until it is approved.
-Enter a value, press Enter to keep an ordinary preference, or type `q` to cancel.
-Network-sensitive choices require a typed value: `update-check` asks you to type
-`true` or `false` and explains that release checks contact GitHub. A blank or
-invalid answer at an explicit-choice prompt shows the valid input and asks again,
-keeping your earlier answers. It never accepts the default on your behalf.
+Enter a value, press Enter to keep the current choice, or type `q` to cancel.
+Boolean settings use `yes` / `no`; `y` / `n` and `true` / `false` also work.
+`update-check` defaults to `yes` when no value is saved; a saved `no` stays selected.
+Its explanation states that release checks contact GitHub.
+Invalid answers show an error and ask again, keeping your earlier answers.
 A final `[y/N]` confirms the review. Nothing is saved before that confirmation;
-`q` or EOF cancels without saving. Invalid input for an ordinary preference still
-ends the review without saving.
+`q` or EOF cancels without saving.
 Saved overrides stay selected unless you change them. Reviewed settings that
 have been removed are deleted from preferences only after confirmation; unknown
 keys not found in the previous review still require manual repair.
@@ -578,8 +592,8 @@ The receipt lives in `~/.astrona/settings-review.json`, separate from preference
 and usage-term acceptance. It records the reviewed definitions and CLI version,
 not a server identity or tracking token. Writes share the settings lock and use
 private atomic files. If interrupted between saving choices and the receipt,
-the next command asks again. `data reset --yes` clears both files. Unsetting an
-explicit network choice requires another review before normal use.
+the next command asks again. `data reset --yes` clears both files. Unsetting
+`update-check` restores its default `yes` without requiring another review.
 
 Help, completion, settings, local data maintenance, terms display, internal
 background helpers, stop/destroy and logout remain available without review.
@@ -588,11 +602,11 @@ is enabled by this feature; existing signed-in lab progress tracking is separate
 
 Without an interactive terminal (including CI), a pending review stops the
 command instead of assuming agreement. `--yes`, `--trust` and `--accept-terms`
-do not approve settings. Set network-sensitive choices explicitly, inspect the
-view, then acknowledge its exact ID:
+do not approve settings. Set any overrides, inspect the view, then acknowledge
+its exact ID:
 
 ```sh
-astrona settings set update-check false
+astrona settings set update-check no
 astrona settings view
 astrona settings review --accept <review-id-you-inspected>
 ```

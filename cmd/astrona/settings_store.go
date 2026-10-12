@@ -49,8 +49,13 @@ func settingsPath(flags *rootFlags) (string, error) {
 func parseSetting(key, value string) (json.RawMessage, error) {
 	switch key {
 	case "verbose", "keep-context", "update-check":
-		if value != "true" && value != "false" {
-			return nil, fmt.Errorf("%s must be true or false", key)
+		switch strings.ToLower(strings.TrimSpace(value)) {
+		case "yes", "y", "true":
+			value = "true"
+		case "no", "n", "false":
+			value = "false"
+		default:
+			return nil, fmt.Errorf("%s must be yes or no", key)
 		}
 	case "parallel":
 		n, err := strconv.Atoi(value)
@@ -75,6 +80,17 @@ func parseSetting(key, value string) (json.RawMessage, error) {
 		return nil, fmt.Errorf("unknown setting %q; run `astrona settings` to list supported settings", key)
 	}
 	return json.RawMessage(value), nil
+}
+
+func settingValueText(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "yes", "y":
+		return "yes"
+	case "false", "no", "n":
+		return "no"
+	default:
+		return value
+	}
 }
 
 func loadCachePolicy(path string) (localdata.CachePolicy, error) {

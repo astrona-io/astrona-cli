@@ -16,6 +16,7 @@ import (
 	"astrona/internal/proctor"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -175,6 +176,8 @@ type uiHomeModel struct {
 	scroll                       int
 	nextRefresh                  time.Time
 	refresh                      func() tea.Msg
+	editor                       workspaceModel
+	noticeError                  bool
 }
 
 func (m uiHomeModel) Init() tea.Cmd { return tea.Batch(workspaceTickCmd(), m.refresh) }
@@ -200,6 +203,7 @@ func (m uiHomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		m.editor.width, m.editor.height = msg.Width, msg.Height
 	case uiHomeSnapshot:
 		// Keep the selected run stable if a refresh inserts/removes rows.
 		selectedName := ""
@@ -232,7 +236,28 @@ func (m uiHomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, workspaceTickCmd()
 	case tea.KeyMsg:
+		m.editor.home, m.editor.width, m.editor.height = true, m.width, m.height
+		if m.editor.showPreferences || m.editor.enteringLab || m.editor.showAlert {
+			next, command := m.editor.Update(msg)
+			m.editor = next.(workspaceModel)
+			return m, command
+		}
 		switch msg.String() {
+		case "p":
+			m.editor.action = workspaceLoadPreferences
+			return m, tea.Quit
+		case "n":
+			if m.width >= 48 && m.height >= 14 {
+				m.editor.enteringLab, m.editor.notice = true, ""
+			}
+		case "f1", "!":
+			message := m.data.warning
+			if m.noticeError {
+				message = m.notice + "\n" + message
+			}
+			if strings.TrimSpace(message) != "" {
+				m.editor.notice, m.editor.showAlert, m.editor.alertScroll = message, true, 0
+			}
 		case "q", "ctrl+c", "ctrl+d":
 			m.quit = true
 			return m, tea.Quit
@@ -257,12 +282,17 @@ func (m uiHomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.refresh
 			}
 		case "enter":
+			if m.tab == 0 && m.count() == 0 && m.width >= 48 && m.height >= 14 {
+				m.editor.enteringLab, m.editor.notice = true, ""
+				return m, nil
+			}
 			if m.tab == 0 && m.selected < len(m.data.runs) {
 				if m.data.runs[m.selected].openable {
 					m.open = true
 					return m, tea.Quit
 				}
 				m.notice = "This saved run cannot be opened now. Check the engine, or use astrona start / doctor for a stopped or missing run."
+				m.noticeError = true
 			} else if m.tab == 1 && m.count() > 0 {
 				m.detail, m.scroll = true, 0
 			}
@@ -272,65 +302,95 @@ func (m uiHomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m uiHomeModel) View() string {
-	w, h := max(1, m.width), max(3, m.height)
-	clip := func(s string) string { return ansi.Truncate(sanitizeLine(s), w, "…") }
+	editor := m.editor
+	editor.home, editor.width, editor.height = true, m.width, m.height
+	if m.width < 48 || m.height < 14 || editor.showPreferences {
+		return editor.View()
+	}
+	w, h := m.width, editor.bodyHeight()
+	message := m.notice
+	isError := m.noticeError
+	if m.data.warning != "" {
+		message, isError = strings.TrimSpace(m.data.warning), true
+	}
+	if editor.enteringLab && editor.notice != "" {
+		message, isError = editor.notice, true
+	}
+	if message != "" {
+		h -= 4
+	}
 	tabs := []string{"Active runs", "History", "Help"}
 	tabs[m.tab] = "[" + tabs[m.tab] + "]"
-	lines := []string{clip("ASTRONA / HOME"), clip(strings.Join(tabs, "  ")), clip(fmt.Sprintf("%d saved runs  •  %d recent history entries", len(m.data.runs), len(m.data.history)))}
-	body := []string{}
-	if m.notice != "" {
-		body = append(body, clip(strings.Split(m.notice, "\n")[0]), "")
-	}
-	if m.data.warning != "" {
-		body = append(body, clip("Some information is unavailable; see Help for details."))
-	}
+	editor.navigation = " " + strings.Join(tabs, "  ") + " "
+	title, content := "ACTIVE RUNS", ""
 	if m.tab == 2 {
-		text := "Start a lab: astrona run <lab> --ui\nOpen a saved run: select it in Active runs and press Enter.\nSubmit from the workspace with g, then return home; the lab stays running.\nDestroy from the workspace exit menu, with explicit confirmation.\nHistory includes submission attempts and completed labs/playgrounds.\nOnly the latest 100 persistent history entries are shown here; astrona progress summarizes all graded attempts.\nNo actions run when you leave Home.\nLocal profile: ~/" + apphome.Name() + "\n" + m.data.warning
-		body = append(body, strings.Split(ansi.Wrap(sanitizeTerminalText(text), w, ""), "\n")...)
+		title = "HELP"
+		content = "n starts a lab by catalog ID or local path.\np opens Preferences.\nSelect a running Kind lab and press Enter to open its workspace.\nSubmit with g, or leave through the exit menu, to return Home.\nHistory includes submission attempts and completed labs/playgrounds.\nOnly the latest 100 persistent entries are shown; astrona progress summarizes all graded attempts.\nF1 opens alert details. Esc closes dialogs.\nLocal profile: ~/" + apphome.Name() + "\n" + m.data.warning
+		content = workspacePage(content, w-4, h-2, m.scroll)
 	} else if m.tab == 1 && m.detail && m.count() > 0 {
-		body = append(body, strings.Split(ansi.Wrap(sanitizeTerminalText(m.history()[m.selected].details), w, ""), "\n")...)
+		title = "HISTORY / DETAILS"
+		content = workspacePage(m.history()[m.selected].details, w-4, h-2, m.scroll)
 	} else {
+		if m.tab == 1 {
+			title = "HISTORY"
+		}
+		title += fmt.Sprintf(" [%d]", m.count())
 		if m.count() == 0 {
-			if m.tab == 0 {
-				body = append(body, "No active runs. Start one with astrona run <lab> --ui.")
-			} else {
-				body = append(body, "No history yet. Submit or finish a lab/playground to see it here.")
+			content = "No active runs.\n\nPress n to start a lab or p for preferences."
+			if m.tab == 1 {
+				content = "No history yet.\nSubmit or finish a lab to see it here."
 			}
-		}
-		page := max(1, h-7)
-		start := max(0, m.selected-page+1)
-		for i := start; i < min(m.count(), start+page); i++ {
-			prefix := "  "
-			if i == m.selected {
-				prefix = "> "
-			}
-			label := ""
-			if m.tab == 0 {
-				r := m.data.runs[i]
-				label = fmt.Sprintf("%s  %s  %s", r.name, r.kind, r.status)
-				if !r.started.IsZero() {
-					label += "  " + max(time.Duration(0), time.Since(r.started)).Round(time.Second).String()
+			content = lipgloss.Place(w-4, h-2, lipgloss.Center, lipgloss.Center, content)
+		} else {
+			var rows []string
+			page := max(1, h-2)
+			start := max(0, m.selected-page+1)
+			for i := start; i < min(m.count(), start+page); i++ {
+				label := ""
+				if m.tab == 0 {
+					r := m.data.runs[i]
+					label = fmt.Sprintf("%s  %s  %s", r.name, r.kind, r.status)
+					if !r.started.IsZero() {
+						label += "  " + max(time.Duration(0), time.Since(r.started)).Round(time.Second).String()
+					}
+				} else {
+					item := m.history()[i]
+					label = item.label
+					if !item.at.IsZero() {
+						label += "  " + humanAgo(time.Since(item.at))
+					}
 				}
-			} else {
-				item := m.history()[i]
-				label = item.label
-				if !item.at.IsZero() {
-					label += "  " + humanAgo(time.Since(item.at))
+				if i == m.selected {
+					rows = append(rows, workspaceSelected(label, w-4))
+				} else {
+					rows = append(rows, "  "+sanitizeLine(label))
 				}
 			}
-			body = append(body, clip(prefix+label))
+			content = strings.Join(rows, "\n")
 		}
 	}
-	space := max(0, h-len(lines)-2)
-	offset := 0
+	body := workspacePanel(title, content, w, h, workspaceFocus)
+	footer := []string{"n start  p preferences  tab sections  q quit", "↑/↓ select  enter open/details  r refresh  ? help"}
 	if m.detail || m.tab == 2 {
-		offset = min(m.scroll, max(0, len(body)-space))
+		footer[1] = "pgup/pgdn scroll  Esc back  tab sections"
 	}
-	for _, line := range body[offset:min(len(body), offset+space)] {
-		lines = append(lines, clip(line))
+	if editor.enteringLab {
+		input := ansi.TruncateLeft(sanitizeLine(editor.labDraft), min(76, w-6)-11, "…")
+		body = workspaceDialog(body, "START LAB", "Catalog lab ID or local path\nExample: ./labs/my-lab\n\nLab: "+input+"_", w, h, false)
+		footer = []string{"enter start   Ctrl+u clear   Esc cancel", "Select the run after startup to open its workspace."}
 	}
-	lines = append(lines, "", clip("q quit  tab sections  ↑/↓ select  enter open/details  esc back  r refresh  ? help"))
-	return strings.Join(lines[:min(h, len(lines))], "\n")
+	if message != "" {
+		if isError {
+			body += "\n" + workspaceAlert(message, w)
+		} else {
+			body += "\n" + workspacePanel("STATUS", workspacePage(message, w-4, 2, 0), w, 4, workspaceMuted)
+		}
+	}
+	view := editor.frame("HOME", fmt.Sprintf("%d saved runs  |  %d recent history entries", len(m.data.runs), len(m.data.history)), body, footer)
+	if editor.showAlert {
+		return editor.alertView(view)
+	}
+	return view
 }
 
 func runUIHomeScreen(ctx context.Context, m uiHomeModel) (uiHomeModel, error) {
@@ -338,6 +398,7 @@ func runUIHomeScreen(ctx context.Context, m uiHomeModel) (uiHomeModel, error) {
 	defer cancel()
 	m.refresh = func() tea.Msg { return readUIHome(screenCtx) }
 	m.polling, m.open, m.quit = true, false, false
+	m.editor.action = workspaceNone
 	final, err := tea.NewProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen()).Run()
 	if err != nil {
 		return m, fmt.Errorf("UI home: %w", err)
@@ -346,8 +407,11 @@ func runUIHomeScreen(ctx context.Context, m uiHomeModel) (uiHomeModel, error) {
 }
 
 type uiHomeDriver struct {
-	screen func(context.Context, uiHomeModel) (uiHomeModel, error)
-	open   func(uiHomeRun) (string, error)
+	screen         func(context.Context, uiHomeModel) (uiHomeModel, error)
+	open           func(uiHomeRun) (string, error)
+	start          func(string) error
+	preferences    func() (workspacePreferences, error)
+	savePreference func(workspaceSetting, string) error
 }
 
 func driveUIHome(ctx context.Context, m uiHomeModel, d uiHomeDriver) error {
@@ -357,14 +421,31 @@ func driveUIHome(ctx context.Context, m uiHomeModel, d uiHomeDriver) error {
 		if err != nil {
 			return err
 		}
+		switch m.editor.action {
+		case workspaceLoadPreferences, workspaceSavePreference:
+			applyWorkspacePreference(&m.editor, d.preferences, d.savePreference)
+			m.editor.action = workspaceNone
+			continue
+		case workspaceStart:
+			err = d.start(m.editor.labDraft)
+			m.notice, m.noticeError = "Lab startup finished. Select the run and press Enter to open it.", err != nil
+			if err != nil {
+				m.notice = err.Error()
+			}
+			m.editor.action = workspaceNone
+			m.tab, m.selected, m.detail = 0, 0, false
+			continue
+		}
 		if m.quit || !m.open {
 			return nil
 		}
 		if m.selected >= len(m.data.runs) || !m.data.runs[m.selected].openable {
 			m.notice = "That run is no longer available."
+			m.noticeError = true
 			continue
 		}
 		m.notice, err = d.open(m.data.runs[m.selected])
+		m.noticeError = err != nil
 		if err != nil {
 			m.notice = err.Error()
 		}
@@ -375,6 +456,21 @@ func driveUIHome(ctx context.Context, m uiHomeModel, d uiHomeDriver) error {
 func runUIHome(ctx context.Context, flags *rootFlags, notice string) error {
 	return driveUIHome(ctx, uiHomeModel{notice: notice}, uiHomeDriver{
 		screen: runUIHomeScreen,
+		start:  func(lab string) error { return runWorkspaceChild(ctx, "run", lab) },
+		preferences: func() (workspacePreferences, error) {
+			path, err := settingsPath(flags)
+			if err != nil {
+				return workspacePreferences{}, err
+			}
+			return loadWorkspacePreferences(path)
+		},
+		savePreference: func(row workspaceSetting, value string) error {
+			path, err := settingsPath(flags)
+			if err != nil {
+				return err
+			}
+			return saveWorkspacePreference(ctx, path, row, value)
+		},
 		open: func(run uiHomeRun) (string, error) {
 			if err := workspaceGuard(run.name, run.runID); err != nil {
 				return "", err

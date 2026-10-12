@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -115,6 +116,67 @@ func TestHomeReturnsAfterWorkspaceAndHandlesErrors(t *testing.T) {
 		if err := driveUIHome(context.Background(), uiHomeModel{}, d); err != nil || screens != 2 || opens != 1 {
 			t.Fatalf("did not return Home: %d %d %v", screens, opens, err)
 		}
+	}
+}
+
+func TestHomePreferencesAndStartup(t *testing.T) {
+	for _, failure := range []bool{false, true} {
+		t.Run(fmt.Sprint(failure), func(t *testing.T) {
+			prefs := preferencesFixture(t, "update-check").preferences
+			screens, saves, starts := 0, 0, 0
+			d := uiHomeDriver{
+				screen: func(_ context.Context, m uiHomeModel) (uiHomeModel, error) {
+					screens++
+					m.width, m.height = 80, 24
+					switch screens {
+					case 1:
+						m = homeKey(m, "p")
+					case 2:
+						if !m.editor.showPreferences {
+							t.Fatal("preferences did not open")
+						}
+						for range prefs.selected {
+							m = homeKey(m, "down")
+						}
+						m = homeKey(homeKey(homeKey(homeKey(m, "enter"), "no"), "enter"), "y")
+					case 3:
+						if !strings.Contains(m.editor.preferences.notice, "Saved.") {
+							t.Fatal("save result missing")
+						}
+						m = homeKey(homeKey(homeKey(homeKey(m, "esc"), "n"), "./labs/demo"), "enter")
+					case 4:
+						if m.editor.enteringLab || m.editor.showPreferences || m.notice == "" || m.noticeError != failure {
+							t.Fatal("startup did not return Home")
+						}
+						m = homeKey(m, "q")
+					default:
+						t.Fatal("unexpected extra screen")
+					}
+					return m, nil
+				},
+				preferences: func() (workspacePreferences, error) { return prefs, nil },
+				savePreference: func(row workspaceSetting, value string) error {
+					saves++
+					if row.key != "update-check" || value != "false" {
+						t.Fatal("wrong preference saved")
+					}
+					return nil
+				},
+				start: func(lab string) error {
+					starts++
+					if lab != "./labs/demo" {
+						t.Fatal(lab)
+					}
+					if failure {
+						return errors.New("startup failed")
+					}
+					return nil
+				},
+			}
+			if err := driveUIHome(t.Context(), uiHomeModel{}, d); err != nil || saves != 1 || starts != 1 {
+				t.Fatalf("save=%d start=%d err=%v", saves, starts, err)
+			}
+		})
 	}
 }
 

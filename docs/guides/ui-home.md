@@ -24,6 +24,15 @@ Tab changes sections, arrow keys select entries, Page Up/Down scroll details,
 `r` refreshes, `?` opens Help, and `q` or Ctrl-C closes Home. The screen refreshes
 every five seconds. Closing Home leaves labs running.
 
+Press `n` to enter a catalog lab ID or local path and start a lab through the
+normal startup prompts. After startup, select the run and press Enter to open
+its workspace. Press `p` to edit Preferences, even with no active runs. Boolean
+settings use `yes` / `no`; blank input keeps the current value.
+
+Home and the workspace use bordered panels, highlighted selections and fixed
+keyboard hints. Errors appear in an alert panel: F1 opens the full message,
+Page Up/Down scrolls it, and Esc returns. Save confirmations use status panels.
+
 ## Work on a lab
 
 Start a new lab and enter its workspace:
