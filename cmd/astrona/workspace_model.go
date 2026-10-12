@@ -109,7 +109,7 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		if (key == "f1" || (key == "!" && !m.preferences.editing)) && m.alertMessage() != "" {
+		if !msg.Paste && (key == "ctrl+g" || (key == "!" && !m.preferences.editing)) && m.alertMessage() != "" {
 			m.showAlert, m.alertScroll = true, 0
 			return m, nil
 		}

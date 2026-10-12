@@ -54,11 +54,11 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			"Enter opens a running lab; name one to open its workspace directly. " +
 			"Press p for preferences. Start labs from the command line with astrona run <lab> --ui. Opening the workspace never restarts a lab or its timer.\n\n" +
 			"Downloads, setup, grading, teardown and errors stay inside the UI's terminal pane. Ctrl+] opens pane controls and scrollback. " +
-			"Enter opens the task on the left and an isolated lab terminal on the right. Ctrl-T names a new terminal and selects a VM for QEMU labs; mouse clicks or Ctrl-N/P switch tabs. F4 toggles mouse text selection for copying. " +
-			"F2 focuses the task for scrolling. Drag the divider to resize it; ui-task-width in Preferences sets the default percentage. F3 opens lab details, cluster selection and submission results. " +
+			"Enter opens the task on the left and an isolated lab terminal on the right. Ctrl-T names a new terminal and selects a VM for QEMU labs; mouse clicks or Ctrl-N/P switch tabs. Ctrl+Y toggles mouse text selection for copying. " +
+			"Ctrl+O focuses the task for scrolling. Drag the divider to resize it; ui-task-width in Preferences sets the default percentage. Ctrl+G opens lab details, cluster selection and submission results. " +
 			"Ctrl-C returns Home and pauses time spent; terminal tabs keep running until the UI closes. Alt-C interrupts a terminal command. " +
 			"p opens saved preferences: select a setting, Enter to edit and review, then y to save. " +
-			"Esc cancels. Boolean settings use yes/no, and blank input keeps the current value. F1 opens alert details. " +
+			"Esc cancels. Boolean settings use yes/no, and blank input keeps the current value. Ctrl+G opens alert details. " +
 			"Saved options apply to future commands; cache policy is checked after the UI closes. " +
 			"g submits a graded lab through the Proctor and returns Home, keeping the lab running, even after a pass. " +
 			"Ctrl-D on Home opens a red force-delete confirmation. Select Yes and press Enter to discard the selected run without saving or submitting it. " +

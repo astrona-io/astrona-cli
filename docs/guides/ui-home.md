@@ -61,7 +61,7 @@ Home shows a full-width table with Lab, Type, Status and Active time columns. Na
 terminals retain Lab and Status. Long names are truncated within their column
 so the status remains visible. The current row has a contrasting background.
 The content has a single border, with centered titles and section tabs below.
-Errors appear in an alert panel: F1 opens the full message,
+Errors appear in an alert panel: Ctrl+G opens the full message,
 Page Up/Down scrolls it, and Esc returns. Save confirmations use status panels.
 
 ## Time spent and idle pauses
@@ -175,13 +175,15 @@ Commands and editors stay inside the terminal pane.
 | Ctrl+N / Ctrl+P | Switch to the next / previous terminal tab. |
 | Ctrl+C | Return to Home and pause time spent. Tabs keep running. |
 | Alt+C | Interrupt the active terminal command. |
-| F2 | Switch focus between the task and terminal. |
+| Ctrl+O | Switch focus between the task and terminal. |
 | Page Up/Down, arrows | Scroll the task when it has focus. |
 | Shift+Page Up/Down | Scroll the active terminal's output. |
-| F3 | Open lab details, cluster or VM selection, results and submission controls. |
-| F4 | Toggle mouse text selection for copying. |
+| Ctrl+G | Open lab details, cluster or VM selection, results and submission controls. |
+| Ctrl+Y | Toggle mouse text selection for copying. |
 
-On terminals narrower than 64 columns, F2 switches between the task and
+Function keys pass through to programs in the terminal; Astrona does not bind them.
+
+On terminals narrower than 64 columns, Ctrl+O switches between the task and
 terminal views. The task pane formats Markdown headings, lists, code blocks,
 links and emphasis. Up to 12 terminal tabs are available per lab in one UI session.
 Ctrl+T opens a name dialog. Type a name (up to 24 characters), then press Enter.
@@ -193,7 +195,7 @@ The task pane defaults to 30% of the lab view. Change **ui-task-width** in
 Preferences (20–60%), or run `astrona settings set ui-task-width 25`. Drag the
 vertical divider left or right to resize it for the current UI session. The
 saved setting supplies the default when you open a new UI. Small terminals
-keep enough space for the terminal, and F2 switches panes below 64 columns.
+keep enough space for the terminal, and Ctrl+O switches panes below 64 columns.
 
 Embedded terminals show `astrona-cli >` in light blue with white input text.
 Set `NO_COLOR=1` before starting Astrona to keep the prompt uncolored.
@@ -206,8 +208,8 @@ If reconnection fails repeatedly, a Retry tab stays visible; press Enter to retr
 Closing other tabs frees slots for new terminals. Returning to Home
 preserves shells and their environment until the UI closes or the run is deleted.
 
-Press F4 to select text with the mouse, then use your terminal’s usual Copy
-shortcut (Cmd+C on macOS, often Ctrl+Shift+C on Linux). Press F4 again to
+Press Ctrl+Y to select text with the mouse, then use your terminal’s usual Copy
+shortcut (Cmd+C on macOS, often Ctrl+Shift+C on Linux). Press Ctrl+Y again to
 restore tab clicks and divider dragging.
 
 In lab details, arrow keys select a cluster or VM. Enter or `s` returns to the task

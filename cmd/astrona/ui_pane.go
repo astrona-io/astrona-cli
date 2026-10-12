@@ -330,7 +330,7 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *uiPaneModel) key(key tea.KeyMsg) tea.Cmd {
-	if !key.Paste && key.Type == tea.KeyF4 {
+	if !key.Paste && key.Type == tea.KeyCtrlY {
 		m.selectText, m.mouseDown = !m.selectText, false
 		if m.selectText {
 			return tea.DisableMouse
@@ -437,7 +437,7 @@ func (m *uiPaneModel) View() string {
 		content = workspaceDialog(content, "CLOSE UI", "Close the UI and stop its active command?\nAny lab already created stays on this machine.\n\ny close / Enter or Esc return", m.width, m.emulator.Height(), false)
 	}
 	if m.selectText {
-		footer = "Select text with the mouse; use your terminal's Copy shortcut · F4 restores mouse controls"
+		footer = "Select text with the mouse; use your terminal's Copy shortcut · Ctrl+Y restores mouse controls"
 	}
 	_, contentHeight := uiPaneSize(m.width, m.height)
 	return workspaceFit(header+"\n"+workspaceFit(content, m.width, contentHeight)+"\n"+workspaceMuted.Render(footer), m.width, m.height)

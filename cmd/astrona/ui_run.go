@@ -204,7 +204,7 @@ func (m uiRunModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "n", "N", "esc", "q", "ctrl+c", "ctrl+d":
 			return m, tea.Quit
-		case "tab", "shift+tab", "f1":
+		case "tab", "shift+tab":
 			m.details, m.scroll = !m.details, 0
 		case "up", "k":
 			m.scroll = max(0, m.scroll-1)

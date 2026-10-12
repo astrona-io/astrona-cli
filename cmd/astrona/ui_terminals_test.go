@@ -114,7 +114,7 @@ func TestUITaskLayoutAndFocus(t *testing.T) {
 			if size[0] >= 64 && (!strings.Contains(view, "QUESTION / TASK") || !strings.Contains(view, "TERMINALS")) {
 				t.Fatal("missing split panels")
 			}
-			m.Update(tea.KeyMsg{Type: tea.KeyF2})
+			m.Update(tea.KeyMsg{Type: tea.KeyCtrlO})
 			m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
 			if !m.taskFocus || m.workspace.scroll == 0 {
 				t.Fatal("task cannot be scrolled")
