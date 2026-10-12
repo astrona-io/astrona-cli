@@ -11,7 +11,6 @@ import (
 
 	"astrona/internal/apphome"
 	"astrona/internal/cluster"
-	"astrona/internal/config"
 	"astrona/internal/labstate"
 	"astrona/internal/proctor"
 
@@ -590,19 +589,12 @@ func runUIHome(ctx context.Context, flags *rootFlags, notice string) error {
 			if err != nil {
 				return "", err
 			}
-			if st == nil || st.Source == nil {
-				return "", fmt.Errorf("run %s has no saved source", run.name)
-			}
 			localFlags := *flags
-			applySource(&localFlags, st.Source)
-			cfg, baseDir, cleanup, err := LoadLabForCommand(&localFlags)
+			cfg, baseDir, cleanup, err := loadUILab(run.name, st, &localFlags)
 			if err != nil {
 				return "", err
 			}
 			defer cleanup()
-			if config.NormalizeClusterName(cfg.Metadata.Name) != run.name {
-				return "", fmt.Errorf("saved config now names a different lab; refusing to open %s", run.name)
-			}
 			return openLabWorkspace(ctx, cfg, baseDir, &localFlags, run.runID)
 		},
 	})

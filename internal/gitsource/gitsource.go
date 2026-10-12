@@ -23,6 +23,19 @@ import (
 // path-safety concern as joinWithinBaseDir in scripts.go, different
 // mechanism — here we don't need the directory name to be human-readable).
 func gitCacheDir(url, ref string) (string, error) {
+	dir, err := CachedGitConfigSource(url, ref)
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create git cache dir '%s': %w", dir, err)
+	}
+	return dir, nil
+}
+
+// CachedGitConfigSource returns the existing checkout's location without
+// creating directories, contacting the remote, or changing working files.
+func CachedGitConfigSource(url, ref string) (string, error) {
 	cacheDir, err := apphome.ReposDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user cache dir: %w", err)
@@ -31,12 +44,7 @@ func gitCacheDir(url, ref string) (string, error) {
 	sum := sha256.Sum256([]byte(url + "@" + ref))
 	key := hex.EncodeToString(sum[:])[:16]
 
-	dir := filepath.Join(cacheDir, key)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create git cache dir '%s': %w", dir, err)
-	}
-
-	return dir, nil
+	return filepath.Join(cacheDir, key), nil
 }
 
 // runGit runs a git subcommand, optionally scoped to repoDir (git -C

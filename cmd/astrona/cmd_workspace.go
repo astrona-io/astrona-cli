@@ -52,7 +52,7 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 		Short: "Open the UI home with active runs and history",
 		Long: "Open Home to browse saved runs, submission history and completed labs/playgrounds, even when no lab or engine is running. " +
 			"Enter opens a running lab; name one to open its workspace directly. " +
-			"Press p for preferences. Start labs from the command line with astrona run <lab> --ui. Opening the workspace never restarts a lab or its timer.\n\n" +
+			"Press p for preferences. Start labs from the command line with astrona run <lab> --ui. Opening the workspace uses the saved local files without checking GitHub, updating the repository, or restarting the lab or its timer.\n\n" +
 			"Downloads, setup, grading, teardown and errors stay inside the UI's terminal pane. Ctrl+] opens pane controls and scrollback. " +
 			"Enter opens the task on the left and an isolated lab terminal on the right. Ctrl-T names a new terminal and selects a VM for QEMU labs; mouse clicks or Ctrl-N/P switch tabs. Ctrl+Y toggles mouse text selection for copying. " +
 			"Ctrl+O focuses the task for scrolling. Drag the divider to resize it; ui-task-width in Preferences sets the default percentage. Ctrl+G opens lab details, cluster selection and submission results. " +
@@ -97,18 +97,11 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if st == nil || st.Source == nil {
-				return fmt.Errorf("lab %s has no saved config source; use astrona run <config> --ui to attach", name)
-			}
-			applySource(flags, st.Source)
-			cfg, baseDir, cleanup, err := LoadLabForCommand(flags)
+			cfg, baseDir, cleanup, err := loadUILab(name, st, flags)
 			if err != nil {
 				return err
 			}
 			defer cleanup()
-			if config.NormalizeClusterName(cfg.Metadata.Name) != name {
-				return fmt.Errorf("saved config now names a different lab; refusing to operate on %s", name)
-			}
 			return runLabWorkspace(cmd.Context(), cfg, baseDir, flags)
 		},
 	}

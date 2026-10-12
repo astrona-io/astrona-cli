@@ -166,6 +166,14 @@ astrona ui astro-my-lab
 Development builds use `astrodev-` names and separate local data. Use the name
 displayed by Home or `astrona list`.
 
+Reopening from Home or `astrona ui <lab-name>` reads the saved local config and
+cached repository. It does not check GitHub, update or reset the checkout,
+rerun setup, rebuild the lab, or reset its session and time spent. CLI update
+checks are also skipped for `astrona ui`. New runs still check their sources.
+If the local config is missing, restore those files; the UI reports the problem
+and leaves the running lab untouched. Runs saved with only a remote config URL
+cannot be reopened this way because they have no local config copy.
+
 Enter from Home opens the question/task on the left and one terminal tab on
 the right. Kind shells use the lab's isolated kubeconfigs. QEMU terminals connect
 to the VM over SSH as its student user and open an interactive POSIX shell.
