@@ -1,0 +1,25 @@
+Astrona CLI usage terms and risk notice
+Revision: 2026-10-12
+
+Astrona runs lab software on your machine. It can execute downloaded scripts,
+change Kubernetes contexts and networks, and create or delete containers, virtual
+machines and lab files. Bugs, unsafe lab content or mistakes can cause data loss,
+service disruption or damage to your environment. Setup can install tools and
+prepare WSL on Windows.
+
+Use a disposable learning environment. Keep backups of important data, keep
+production credentials out of labs, and review lab content before running it.
+You are responsible for deciding whether a lab is safe for your environment.
+
+Astrona CLI is licensed under the Apache License, Version 2.0. Its warranty
+disclaimer and limitation of liability apply, subject to the exceptions in that
+license and applicable law. Astrona does not promise that the CLI or a lab is
+error-free or that your data will be preserved. This notice does not replace the
+license or remove rights that cannot lawfully be excluded.
+
+License: https://www.apache.org/licenses/LICENSE-2.0
+The LICENSE file in the source repository contains the full license.
+
+By accepting, you acknowledge these risks and the license terms. Acceptance is
+stored only on this machine; it is not sent to Astrona or linked to your account.
+It does not approve remote lab code: that remains a separate trust decision.

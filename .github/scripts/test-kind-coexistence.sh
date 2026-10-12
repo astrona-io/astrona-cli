@@ -19,7 +19,7 @@ engine_config="${DOCKER_CONFIG:-$HOME/.docker}"
 engine_xdg="${XDG_CONFIG_HOME:-$HOME/.config}"
 run_astrona() {
   env HOME="$state_home" DOCKER_CONFIG="$engine_config" XDG_CONFIG_HOME="$engine_xdg" \
-    ASTRONA_URL=https://astrona.io "$astrona" "$@"
+    ASTRONA_URL=https://astrona.io "$astrona" --accept-terms "$@"
 }
 
 lab=ATS013/section-010/module-01/playground

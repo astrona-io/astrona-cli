@@ -167,7 +167,7 @@ func TestTempOnlyOldKnownPartialFiles(t *testing.T) {
 
 func TestResetMalformedSettingsPreservesUserData(t *testing.T) {
 	s := testStore(t)
-	for _, name := range []string{"settings.json", "current.json", "update-check.json", "catalog.json", "credentials.json", "trust.json", "catalog-sources.json", "results/lab.jsonl", "labs/active.json"} {
+	for _, name := range []string{"settings.json", "current.json", "update-check.json", "catalog.json", "credentials.json", "trust.json", "terms.json", "catalog-sources.json", "results/lab.jsonl", "labs/active.json"} {
 		put(t, filepath.Join(s.Data, name))
 	}
 	p, err := s.PlanReset(t.Context())
@@ -178,7 +178,7 @@ func TestResetMalformedSettingsPreservesUserData(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertExists(t, filepath.Join(s.Data, "settings.json"), false)
-	for _, name := range []string{"credentials.json", "trust.json", "catalog-sources.json", "results/lab.jsonl", "labs/active.json"} {
+	for _, name := range []string{"credentials.json", "trust.json", "terms.json", "catalog-sources.json", "results/lab.jsonl", "labs/active.json"} {
 		assertExists(t, filepath.Join(s.Data, name), true)
 	}
 }
