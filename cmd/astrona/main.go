@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -28,14 +29,15 @@ const helpTemplateBody = `{{with (or .Long .Short)}}{{. | trimTrailingWhitespace
 // after newXCmd is called but before RunE runs, so they're read through
 // this shared pointer rather than passed by value.
 type rootFlags struct {
-	configPath  string
-	fileName    string
-	gitURL      string
-	gitRef      string
-	verbose     bool
-	trust       bool
-	updateCheck bool
-	acceptTerms bool
+	configPath        string
+	fileName          string
+	gitURL            string
+	gitRef            string
+	verbose           bool
+	trust             bool
+	updateCheck       bool
+	acceptTerms       bool
+	uiStartupApproved bool
 	// settingsFile is an optional path override for isolated command tests.
 	settingsFile string
 	settingsArgs []string
@@ -246,8 +248,13 @@ func main() {
 	rootCmd := newRootCmd(flags)
 	installCommandGate(rootCmd, func(cmd *cobra.Command) error { return checkSettingsReview(cmd, flags) })
 	installTermsGate(rootCmd, flags, checkTerms)
+	installUIRunGate(rootCmd, flags, confirmUIRun)
 
 	if err := executeWithDataLock(rootCmd, localdata.DefaultStore); err != nil {
+		if errors.Is(err, errUIRunDeclined) {
+			fmt.Fprintln(os.Stdout, "Lab startup cancelled. No lab was started or changed.")
+			os.Exit(uiRunDeclinedExitCode)
+		}
 		ui.PrintError(err)
 		os.Exit(exitCodeFor(err))
 	}

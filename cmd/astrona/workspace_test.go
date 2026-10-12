@@ -59,7 +59,7 @@ func TestWorkspaceActions(t *testing.T) {
 		{"shell", []string{"s"}, true, false, workspaceShell},
 		{"preferences", []string{"p"}, true, false, workspaceLoadPreferences},
 		{"stale can edit preferences", []string{"p"}, true, true, workspaceLoadPreferences},
-		{"enter shell", []string{"enter"}, true, false, workspaceShell},
+		{"enter keeps workspace", []string{"enter"}, true, false, workspaceNone},
 		{"submit", []string{"g"}, true, false, workspaceSubmit},
 		{"playground ignores grade", []string{"g"}, false, false, workspaceNone},
 		{"q only opens menu", []string{"q"}, true, false, workspaceNone},
@@ -540,8 +540,8 @@ func TestWorkspaceDriverSafety(t *testing.T) {
 			if submit != tt.wantSubmit || destroy != tt.wantDestroy || shell != tt.wantShell {
 				t.Fatalf("submit=%d destroy=%d shell=%d", submit, destroy, shell)
 			}
-			if tt.action == workspaceSubmit && screens != 2 {
-				t.Fatal("submission closed workspace")
+			if (tt.action == workspaceSubmit || tt.action == workspaceShell) && screens != 2 {
+				t.Fatal("action did not return to workspace")
 			}
 		})
 	}

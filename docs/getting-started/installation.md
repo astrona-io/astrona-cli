@@ -527,9 +527,12 @@ In `astrona ui` or a lab started with `--ui`, press `p` to open Preferences.
 With no running labs, `astrona ui` opens a home screen. Press `n` or Enter to
 start a Kind lab by catalog ID or local path, `p` for Preferences, or `r` to
 find labs started from another terminal. Select a running lab and press Enter
-to open it. Press `q` to close the home screen. Starting a lab uses the usual
-startup and trust prompts; cancelling or failing returns to the home screen.
+to open it. Press `q` to close the home screen. Starting a lab shows one Yes/No
+notice covering terms, settings, lab code and downloads. Tab opens the details.
+Yes starts setup; No cancels with a message. Cancelling or failing returns to Home.
 After startup, select the run and press Enter to open its workspace.
+Inside the workspace, Enter shows the task; `s` explicitly opens a shell.
+Type `exit` in the shell to return to the UI.
 
 The workspace keeps its header and keyboard hints visible around bordered panels.
 Starting a lab, editing a preference and confirming destruction use dialogs.

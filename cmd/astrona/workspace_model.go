@@ -171,7 +171,9 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.scroll = max(0, m.scroll-max(1, m.height/2))
 		case "home":
 			m.scroll = 0
-		case "enter", "s":
+		case "enter":
+			m.results, m.scroll = false, 0
+		case "s":
 			if m.snapshot.blocked == "" && len(m.snapshot.clusters) > 0 {
 				m.action = workspaceShell
 				return m, tea.Quit

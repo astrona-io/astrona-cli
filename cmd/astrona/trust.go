@@ -156,6 +156,9 @@ var errNotTrusted = errors.New("not trusted — nothing was run")
 // has approved this exact version of it — once per version. --trust
 // approves without asking (CI); without a terminal it refuses.
 func requireTrust(flags *rootFlags, cfg *config.LabConfig, baseDir string) error {
+	if flags.uiStartupApproved {
+		return nil // The startup notice grants code execution for this invocation only.
+	}
 	src, err := labSource(flags, cfg, baseDir)
 	if err != nil || src == nil {
 		return err
@@ -186,6 +189,9 @@ func requireTrust(flags *rootFlags, cfg *config.LabConfig, baseDir string) error
 // With no config to show what the lab does, there is no prompt: it goes
 // ahead only when this exact version is already approved, or with --trust.
 func requireTrustUnparsed(flags *rootFlags, pe *config.ParseError, baseDir string) error {
+	if flags.uiStartupApproved {
+		return nil
+	}
 	src, err := labSource(flags, &config.LabConfig{SourcePath: pe.Path, SourceSHA256: pe.SHA256}, baseDir)
 	if err != nil || src == nil {
 		return err

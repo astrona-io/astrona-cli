@@ -120,7 +120,7 @@ func TestHomeReturnsAfterWorkspaceAndHandlesErrors(t *testing.T) {
 }
 
 func TestHomePreferencesAndStartup(t *testing.T) {
-	for _, failure := range []bool{false, true} {
+	for _, failure := range []error{nil, errors.New("startup failed"), errUIRunDeclined} {
 		t.Run(fmt.Sprint(failure), func(t *testing.T) {
 			prefs := preferencesFixture(t, "update-check").preferences
 			screens, saves, starts := 0, 0, 0
@@ -145,8 +145,12 @@ func TestHomePreferencesAndStartup(t *testing.T) {
 						}
 						m = homeKey(homeKey(homeKey(homeKey(m, "esc"), "n"), "./labs/demo"), "enter")
 					case 4:
-						if m.editor.enteringLab || m.editor.showPreferences || m.notice == "" || m.noticeError != failure {
+						wantError := failure != nil && !errors.Is(failure, errUIRunDeclined)
+						if m.editor.enteringLab || m.editor.showPreferences || m.notice == "" || m.noticeError != wantError {
 							t.Fatal("startup did not return Home")
+						}
+						if errors.Is(failure, errUIRunDeclined) && !strings.Contains(m.notice, "cancelled") {
+							t.Fatal("declined startup reported success")
 						}
 						m = homeKey(m, "q")
 					default:
@@ -167,10 +171,7 @@ func TestHomePreferencesAndStartup(t *testing.T) {
 					if lab != "./labs/demo" {
 						t.Fatal(lab)
 					}
-					if failure {
-						return errors.New("startup failed")
-					}
-					return nil
+					return failure
 				},
 			}
 			if err := driveUIHome(t.Context(), uiHomeModel{}, d); err != nil || saves != 1 || starts != 1 {

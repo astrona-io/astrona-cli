@@ -56,7 +56,7 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 		Long: "Open Home to browse saved runs, submission history and completed labs/playgrounds, even when no lab or engine is running. " +
 			"Enter opens a running Kind lab; name one to open its workspace directly. " +
 			"Press n to start a lab by catalog ID or local path, or p for preferences. Opening the workspace never restarts a lab or its timer.\n\n" +
-			"Arrow keys select a cluster; s or Enter opens a local shell with that lab's isolated kubeconfigs. " +
+			"Arrow keys select a cluster; Enter shows its task. Press s to open a local shell with that lab's isolated kubeconfigs. " +
 			"Exit the shell to return. Tab switches between the task and submission results; Page Up/Down scroll. " +
 			"p opens saved preferences: select a setting, Enter to edit and review, then y to save. " +
 			"Esc cancels. Boolean settings use yes/no, and blank input keeps the current value. F1 opens alert details. " +

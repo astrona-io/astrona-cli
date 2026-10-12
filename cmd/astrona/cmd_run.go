@@ -29,7 +29,7 @@ import (
 // is bound to the root command's persistent --config/--file/--git/--git-ref
 // flags.
 func newRunCmd(flags *rootFlags) *cobra.Command {
-	var yes, withoutLogin, workspace bool
+	var yes, withoutLogin, workspace, uiStartup bool
 	cmd := &cobra.Command{
 		Use:   "run [lab]",
 		Short: "Start a lab: create its cluster(s) or VM(s) and set it up",
@@ -57,7 +57,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"it is); --yes starts over without asking and is required when not in a terminal. If other " +
 			"labs are running, it also offers to destroy them first — only when asked in a terminal; " +
 			"--yes never touches other labs.\n\n" +
-			"--ui opens a Kind lab's terminal workspace once it is ready. If already running, --ui " +
+			"--ui shows one startup notice with Yes/No choices, then opens a Kind lab's terminal workspace once it is ready. " +
+			"Yes accepts the displayed terms and settings and permits the lab's downloads and code for this invocation. No cancels startup. If already running, --ui " +
 			"attaches without restarting it unless --yes is also given. Reopen later with astrona ui. " +
 			"The UI is opt-in per invocation, requires a terminal outside CI, and has no saved setting.",
 		Example: `  astrona run astrona.io/ATS014/section-010/module-01/lab-02   # catalog lab: no login needed
@@ -67,7 +68,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
   astrona run renew                                  # a running playground: its full time limit again`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if workspace {
+			if workspace || uiStartup {
 				if err := requireWorkspaceTerminal(); err != nil {
 					return err
 				}
@@ -83,7 +84,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer configCleanup()
-			if workspace {
+			if workspace || uiStartup {
 				if err := workspaceRuntime(cfg); err != nil {
 					return err
 				}
@@ -98,8 +99,14 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if len(args) > 0 && catalog.LooksLikeLabID(args[0]) {
 				label = args[0] + " (" + clusterName + ")"
 			}
-			choice, err := chooseRun(os.Stdin, promptOut, isatty.IsTerminal(os.Stdin.Fd()), yes,
-				labExists(cfg, clusterName), label, otherRunningLabNames(clusterName))
+			var choice runChoice
+			if flags.uiStartupApproved {
+				choice.startOver = yes && labExists(cfg, clusterName)
+				choice.keep = !yes && labExists(cfg, clusterName)
+			} else {
+				choice, err = chooseRun(os.Stdin, promptOut, isatty.IsTerminal(os.Stdin.Fd()), yes,
+					labExists(cfg, clusterName), label, otherRunningLabNames(clusterName))
+			}
 			if err != nil {
 				return err
 			}
@@ -116,7 +123,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			approved, err := approveUntrackedLab(os.Stdin, promptOut, isatty.IsTerminal(os.Stdin.Fd()), withoutLogin, flags.catalogLab, acct)
+			approved, err := approveUntrackedLab(os.Stdin, promptOut, isatty.IsTerminal(os.Stdin.Fd()), withoutLogin || flags.uiStartupApproved, flags.catalogLab, acct)
 			if err != nil {
 				return err
 			}
@@ -182,6 +189,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	addParallelFlag(cmd, flags)
 	addKeepContextFlag(cmd, flags)
 	cmd.Flags().BoolVar(&workspace, "ui", false, "Open the terminal workspace (kind labs); attach if already running unless --yes restarts it")
+	cmd.Flags().BoolVar(&uiStartup, "ui-startup", false, "Confirm startup in the UI and return to Home")
+	cmd.Flags().Lookup("ui-startup").Hidden = true
 	cmd.Flags().BoolVar(&withoutLogin, "without-login", false, "Confirm running a catalog lab without signing in or tracking progress on Astrona")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "If the lab is already running, destroy it and start over without asking")
 	cmd.AddCommand(newRunRenewCmd())

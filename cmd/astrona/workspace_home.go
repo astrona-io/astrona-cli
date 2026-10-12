@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -21,10 +22,17 @@ func runWorkspaceChild(ctx context.Context, command, lab string) error {
 		return fmt.Errorf("find Astrona executable: %w", err)
 	}
 	args := []string{command}
+	if command == "run" {
+		args = append(args, "--ui-startup")
+	}
 	args = append(args, "--", lab)
 	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := cmd.Run(); err != nil {
+		var exit *exec.ExitError
+		if errors.As(err, &exit) && exit.ExitCode() == uiRunDeclinedExitCode {
+			return errUIRunDeclined
+		}
 		return fmt.Errorf("could not open lab %s; retry with astrona %s %s: %w", lab, command, lab, err)
 	}
 	return nil

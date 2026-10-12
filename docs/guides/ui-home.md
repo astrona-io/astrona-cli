@@ -24,8 +24,8 @@ Tab changes sections, arrow keys select entries, Page Up/Down scroll details,
 `r` refreshes, `?` opens Help, and `q` or Ctrl-C closes Home. The screen refreshes
 every five seconds. Closing Home leaves labs running.
 
-Press `n` to enter a catalog lab ID or local path and start a lab through the
-normal startup prompts. After startup, select the run and press Enter to open
+Press `n` to enter a catalog lab ID or local path and review the startup
+notice. After startup, select the run and press Enter to open
 its workspace. Press `p` to edit Preferences, even with no active runs. Boolean
 settings use `yes` / `no`; blank input keeps the current value.
 
@@ -41,6 +41,19 @@ Start a new lab and enter its workspace:
 astrona run ./labs/my-lab --ui
 ```
 
+Startup shows one Yes/No box before downloads or lab changes. Yes accepts the
+displayed settings and CLI terms, authorizes the lab's code and required
+downloads for this invocation, and continues with setup. Saved preferences
+are kept. Catalog labs use your account when signed in; otherwise they run
+without account progress tracking. Other labs stay running.
+
+Use Tab to read the terms and setting explanations, arrow keys or Page Up/Down
+to scroll, and left/right to select Yes or No. Enter confirms the selection;
+`y` accepts directly. No, `n`, Esc or Ctrl-C cancels startup and prints a message.
+Cancellation exits with code 3; when starting from Home, it returns there with
+a cancellation notice. Existing labs are left as they are. `--yes --ui`
+explicitly requests a restart, which is shown in the notice.
+
 Or open an existing lab directly:
 
 ```sh
@@ -52,8 +65,9 @@ displayed by Home or `astrona list`.
 
 Within the workspace:
 
-- Arrow keys select a cluster. `s` or Enter opens a shell with that lab's
-  isolated kubeconfigs; exiting the shell returns to the workspace.
+- Arrow keys select a cluster. Enter shows the task and keeps the UI open.
+  `s` opens a shell with that lab's isolated kubeconfigs. The shell temporarily
+  replaces the UI; type `exit` to return to the workspace.
 - Tab changes between the task and results; Page Up/Down scrolls.
 - `p` opens saved preferences. Select a setting, press Enter to edit and
   review, then `y` to save; Esc cancels. Settings apply to future commands,
