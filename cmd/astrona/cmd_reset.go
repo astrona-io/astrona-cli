@@ -78,7 +78,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			"into the rebuilt cluster are restarted.\n\n" +
 			"A full reset of a catalog lab asks for confirmation when signed out, like `astrona run` " +
 			"(--without-login confirms without prompting). When signed in, " +
-			"it starts a fresh session and opens the new lab page once the lab is ready. --soft and " +
+			"it starts a fresh session and reports when the rebuilt lab is ready for its course page. --soft and " +
 			"--cluster keep the current session and need no sign-in.\n\n" +
 			"Like `astrona run`, a full reset points kubectl at the lab (the context to go back to " +
 			"is still the one from before the lab first ran); --keep-context leaves it alone.\n\n" +

@@ -199,6 +199,29 @@ func (c *Client) postLabResult(ctx context.Context, cr *Credentials, sessionID s
 	return &lr, nil
 }
 
+// UpdateLabSessionProgress records a short, safe lifecycle milestone for the
+// learner's course page. Detailed local diagnostics never leave the machine.
+func (c *Client) UpdateLabSessionProgress(ctx context.Context, cr *Credentials, sessionID, phase, message string) error {
+	if sessionID == "" || strings.ContainsAny(sessionID, "/?#") {
+		return fmt.Errorf("invalid lab session id %q", sessionID)
+	}
+	body, err := json.Marshal(map[string]string{"phase": phase, "message": message})
+	if err != nil {
+		return err
+	}
+	endpoint := cr.Site + "/api/cli/lab-sessions/" + url.PathEscape(sessionID) + "/progress"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+cr.AccessToken)
+	if _, err := do(c.HTTP, req, nil); err != nil {
+		return err
+	}
+	return nil
+}
+
 // StopLabSession stops a playground's clock: reason is "destroyed"
 // (astrona destroy) or "time_limit" (the watchdog at the limit). The site
 // keeps the first stop, so a second one is harmless. A rejected access

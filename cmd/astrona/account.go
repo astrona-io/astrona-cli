@@ -83,8 +83,8 @@ func capitalize(s string) string {
 
 // startSession asks Astrona for a session for the catalog lab and checks
 // the lab page URL it returns — all before the lab is built, so a refusal
-// costs nothing. The URL must be on the signed-in site. The session comes
-// back as it is remembered for the lab (labstate) — without its token.
+// costs nothing. The session token is removed before this URL is retained or
+// printed; an authenticated course page reconnects by the attempt ID.
 func (a *labAccount) startSession(ctx context.Context, command, lab string, opts ...account.SessionOptions) (*url.URL, *labstate.Session, error) {
 	noticeOtherSite(a.creds.Site, "this lab session (your account, the lab and its timing)")
 	ls, err := a.client.CreateLabSession(ctx, a.store, a.creds, lab, opts...)
@@ -98,6 +98,9 @@ func (a *labAccount) startSession(ctx context.Context, command, lab string, opts
 	if !account.SameSite(page, a.creds.Site) {
 		return nil, nil, fmt.Errorf("%s returned a lab page on another site (%s) — refusing to open it; nothing was built", a.creds.Site, page.Host)
 	}
+	page.RawQuery = ""
+	page.ForceQuery = false
+	page.Fragment = ""
 	who := a.creds.Username
 	if who == "" {
 		who = "your account"

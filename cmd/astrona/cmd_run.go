@@ -49,8 +49,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"A lab from the catalog (`astrona run astrona.io/ATS014/section-010/module-01/lab-02`, see `astrona labs`) " +
 			"asks for confirmation when you are not signed in: progress and results will not be tracked on Astrona. " +
 			"Use --without-login to confirm in automation. If you sign in with `astrona login`, before anything is built " +
-			"astrona starts a lab session on Astrona; once the lab is ready it prints the lab page URL and " +
-			"opens it in your browser, which starts the clock there — setup time never counts. Labs from " +
+			"astrona starts a lab session on Astrona; once the lab is ready it prints the lab page URL. " +
+			"Your matching course page connects to it without a redirect, and setup time never counts. Labs from " +
 			"your own files or repositories (-c / --git) run without signing in.\n\n" +
 			"If the lab is already running, run asks whether to destroy it and start over (or keep it as " +
 			"it is); --yes starts over without asking and is required when not in a terminal. If other " +
@@ -123,6 +123,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer start.abandon()
+			start.progress("preparing", "Preparing your lab environment")
 
 			rep, err := ui.NewReporter("run", cfg.Metadata.Name, flags.verbose)
 			if err != nil {
@@ -335,26 +336,46 @@ func startLabSession(ctx context.Context, acct *labAccount, command string, cfg 
 // abandon stops a playground's clock when the playground never became
 // ready (deferred right after startLabSession) — it started with the
 // session and would otherwise run on to the deadline with nothing to show
-// for it. A lab's clock only starts when its page opens: nothing to stop.
+// for it. A Lab has no timer until its course page connects.
 func (ls *labStart) abandon() {
-	if ls.ready || !ls.sess.IsPlayground() {
+	if ls.ready {
+		return
+	}
+	ls.progress("failed", "Lab setup stopped before it was ready")
+	if !ls.sess.IsPlayground() {
 		return
 	}
 	stopPlaygroundClock(context.Background(), ls.sess, "destroyed")
 }
 
 // done follows a lab that is ready: a playground's watchdog starts (its
-// clock is already running), a lab's page is opened.
+// clock is already running), and a Lab reports that the course page may connect.
 func (ls *labStart) done(clusterName string) {
 	ls.ready = true
+	ls.progress("ready", "Lab environment is ready")
 	if ls.sess.IsPlayground() {
 		startPlaygroundWatchdog(clusterName, ls.sess)
 		return
 	}
 	if ls.page != nil {
-		printAndOpen(ls.page)
+		fmt.Printf("\nLab ready. Continue in your course page, or open: %s\n", ls.page)
 		printTimeLimit(ls.sess)
 	}
+}
+
+func (ls *labStart) progress(phase, message string) {
+	if ls == nil || ls.sess == nil || ls.sess.IsPlayground() {
+		return
+	}
+	client, store, _, err := accountDeps()
+	if err != nil {
+		return
+	}
+	creds, err := client.Active(context.Background(), store, ls.sess.Site)
+	if err != nil || creds == nil {
+		return
+	}
+	_ = client.UpdateLabSessionProgress(context.Background(), creds, ls.sess.ID, phase, message)
 }
 
 // configFlagHint is the " -c <dir>" to append to a suggested command so it
