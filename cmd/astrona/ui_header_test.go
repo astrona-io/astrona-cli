@@ -69,14 +69,14 @@ func TestUIAccountStatus(t *testing.T) {
 }
 
 func TestUIHeaderKeepsLoginVisible(t *testing.T) {
-	for _, width := range []int{32, 48, 80, 120} {
-		m := &uiPaneModel{width: width, account: uiAccountStatus{label: "Logged in", signedIn: true, username: strings.Repeat("界", 40) + "\x1b[2J", site: "astrona.example"}}
+	for _, width := range []int{32, 48, 80, 120, 160} {
+		m := &uiPaneModel{width: width, height: 30, account: uiAccountStatus{label: "Logged in", signedIn: true, username: strings.Repeat("界", 40) + "\x1b[2J", site: "astrona.example"}}
 		view := m.header()
 		if strings.Contains(view, "\x1b[2J") || !strings.Contains(ansi.Strip(view), "Logged in") {
 			t.Fatalf("unsafe or missing login: %q", view)
 		}
 		lines := strings.Split(view, "\n")
-		if len(lines) != 2 {
+		if len(lines) != uiHeaderHeight(width, m.height) {
 			t.Fatal("header changed the child terminal height")
 		}
 		for _, line := range lines {
@@ -99,5 +99,38 @@ func TestUIHomeNavigationShortcuts(t *testing.T) {
 	m = homeKey(m, "2")
 	if m.tab != 0 || m.editor.labDraft != "2" {
 		t.Fatal("navigation consumed the lab ID input")
+	}
+}
+
+func TestUIOverviewLayout(t *testing.T) {
+	t.Setenv(uiPaneEnv, "1")
+	for _, size := range [][2]int{{80, 24}, {100, 30}, {160, 35}} {
+		pane := newUIPaneModel(nil, nil, size[0], size[1])
+		pane.title = "HOME"
+		pane.account = uiAccountStatus{label: "Not logged in", site: "astrona.example"}
+		home := uiHomeModel{width: pane.emulator.Width(), height: pane.emulator.Height(), data: uiHomeSnapshot{runs: []uiHomeRun{
+			{name: strings.Repeat("long-lab-name-", 10), kind: "Lab", status: "Running", openable: true},
+			{name: "astro-storage", kind: "Lab", status: "Stopped"},
+		}}}
+		_, _ = pane.emulator.WriteString("\x1b[?25l" + strings.ReplaceAll(home.View(), "\n", "\r\n"))
+		view := ansi.Strip(pane.View())
+		for _, want := range []string{"Not logged in", "LAB", "TYPE", "STATUS", "AGE", "Running", "Stopped", "<1>"} {
+			if !strings.Contains(view, want) {
+				t.Fatalf("%dx%d: missing %q", size[0], size[1], want)
+			}
+		}
+		if strings.Count(view, "┌") != 1 {
+			t.Fatal("overview should have a single table border")
+		}
+		lines := strings.Split(view, "\n")
+		if len(lines) != size[1] {
+			t.Fatal("overview overflowed terminal height")
+		}
+		for _, line := range lines {
+			if ansi.StringWidth(line) != size[0] {
+				t.Fatal("overview overflowed terminal width")
+			}
+		}
+		_ = pane.emulator.Close()
 	}
 }

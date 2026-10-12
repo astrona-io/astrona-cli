@@ -38,16 +38,17 @@ func workspacePanel(title, content string, width, height int, border lipgloss.St
 		return workspaceFit(content, width, height)
 	}
 	label := ansi.Truncate(" "+sanitizeLine(title)+" ", width-4, "…")
-	lines := []string{border.Render("╭─" + label + strings.Repeat("─", max(0, width-3-ansi.StringWidth(label))) + "╮")}
+	space := max(0, width-2-ansi.StringWidth(label))
+	lines := []string{border.Render("┌" + strings.Repeat("─", space/2) + label + strings.Repeat("─", space-space/2) + "┐")}
 	for _, line := range strings.Split(workspaceFit(content, width-4, height-2), "\n") {
 		lines = append(lines, border.Render("│")+" "+line+" "+border.Render("│"))
 	}
-	lines = append(lines, border.Render("╰"+strings.Repeat("─", width-2)+"╯"))
+	lines = append(lines, border.Render("└"+strings.Repeat("─", width-2)+"┘"))
 	return strings.Join(lines, "\n")
 }
 
 func workspaceSelected(text string, width int) string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color("230")).Background(lipgloss.Color("24")).Bold(true).
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("16")).Background(lipgloss.Color("117")).Bold(true).
 		Render(workspaceFit("> "+sanitizeLine(text), width, 1))
 }
 
@@ -82,17 +83,29 @@ func (m workspaceModel) frame(title, context, body string, footer []string) stri
 		active = m.navigation
 	}
 	header := brand + "\n" + workspaceMuted.Render(" "+sanitizeLine(context)) + "\n" + active
-	if os.Getenv(uiPaneEnv) == "1" {
-		header = active + "\n" + workspaceMuted.Render(" "+sanitizeLine(context)) + "\n" + workspaceBorder.Render(strings.Repeat("─", w))
-	}
 	for len(footer) < 2 {
 		footer = append(footer, "")
+	}
+	if os.Getenv(uiPaneEnv) == "1" {
+		if !m.showPreferences && !m.enteringLab && !m.exitMenu && !m.confirmDestroy {
+			footer[0] = active
+			if m.home && !strings.HasPrefix(footer[1], "pgup/pgdn") {
+				footer[1] = "↑/↓ select  enter open  n start lab  r refresh  q quit"
+			}
+		}
+		return workspaceFit(workspaceMuted.Render(" "+sanitizeLine(context))+"\n"+
+			workspaceFit(body, w, m.bodyHeight())+"\n"+footer[0]+"\n"+workspaceMuted.Render(footer[1]), w, h)
 	}
 	return workspaceFit(header, w, 3) + "\n" + workspaceFit(body, w, max(0, h-5)) + "\n" +
 		workspaceFit(workspaceFocus.Render(footer[0])+"\n"+workspaceMuted.Render(footer[1]), w, 2)
 }
 
-func (m workspaceModel) bodyHeight() int { return max(3, m.height-5) }
+func (m workspaceModel) bodyHeight() int {
+	if os.Getenv(uiPaneEnv) == "1" {
+		return max(3, m.height-3)
+	}
+	return max(3, m.height-5)
+}
 
 func (m workspaceModel) smallView() string {
 	keys := "q exit menu\np preferences"

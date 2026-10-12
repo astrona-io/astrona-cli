@@ -124,11 +124,24 @@ func TestUIPaneResizesChildTerminal(t *testing.T) {
 	for _, size := range [][2]int{{120, 40}, {52, 18}, {80, 24}} {
 		m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		got, err := pty.GetsizeFull(slave)
-		if err != nil || int(got.Cols) != size[0]-4 || int(got.Rows) != size[1]-6 {
+		if err != nil || int(got.Cols) != size[0] || int(got.Rows) != size[1]-uiHeaderHeight(size[0], size[1])-1 {
 			t.Fatalf("child terminal size = %+v, %v", got, err)
 		}
 		if m.emulator.Width() != int(got.Cols) || m.emulator.Height() != int(got.Rows) {
 			t.Fatal("emulator and child dimensions differ")
+		}
+	}
+}
+
+func TestUIPaneFailureKeepsFinalOutputVisible(t *testing.T) {
+	m := newUIPaneModel(nil, nil, 80, 24)
+	defer m.emulator.Close()
+	_, _ = fmt.Fprintf(m.emulator, "\x1b[%d;1HLast error detail", m.emulator.Height())
+	m.failure, m.ended = "Command failed", true
+	view := ansi.Strip(m.View())
+	for _, want := range []string{"Last error detail", "Command failed", "Enter / Esc close"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("failure screen hides %q", want)
 		}
 	}
 }

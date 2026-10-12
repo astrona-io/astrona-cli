@@ -352,15 +352,20 @@ func (m uiHomeModel) View() string {
 		} else {
 			var rows []string
 			page := max(1, h-2)
+			if m.tab == 0 {
+				rows = append(rows, workspaceMuted.Bold(true).Render("  "+uiRunColumns("LAB", "TYPE", "STATUS", "AGE", w-6)))
+				page = max(1, page-1)
+			}
 			start := max(0, m.selected-page+1)
 			for i := start; i < min(m.count(), start+page); i++ {
 				label := ""
 				if m.tab == 0 {
 					r := m.data.runs[i]
-					label = fmt.Sprintf("%s  %s  %s", r.name, r.kind, r.status)
+					age := "—"
 					if !r.started.IsZero() {
-						label += "  " + max(time.Duration(0), time.Since(r.started)).Round(time.Second).String()
+						age = formatUptime(max(time.Duration(0), time.Since(r.started)))
 					}
+					label = uiRunColumns(r.name, r.kind, r.status, age, w-6)
 				} else {
 					item := m.history()[i]
 					label = item.label
@@ -371,7 +376,11 @@ func (m uiHomeModel) View() string {
 				if i == m.selected {
 					rows = append(rows, workspaceSelected(label, w-4))
 				} else {
-					rows = append(rows, "  "+sanitizeLine(label))
+					style := workspaceMuted
+					if m.tab == 0 && m.data.runs[i].openable {
+						style = workspaceFocus
+					}
+					rows = append(rows, style.Render("  "+sanitizeLine(label)))
 				}
 			}
 			content = strings.Join(rows, "\n")
@@ -409,6 +418,9 @@ func (m uiHomeModel) View() string {
 
 func runUIHomeScreen(ctx context.Context, m uiHomeModel) (uiHomeModel, error) {
 	uiPaneTitle("HOME")
+	if m.editor.showPreferences {
+		uiPaneTitle("PREFERENCES")
+	}
 	screenCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	m.refresh = func() tea.Msg { return readUIHome(screenCtx) }

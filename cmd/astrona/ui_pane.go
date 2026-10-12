@@ -145,7 +145,7 @@ type uiPaneModel struct {
 }
 
 func uiPaneSize(width, height int) (int, int) {
-	return max(1, min(width-4, 1000)), max(1, min(height-6, 500))
+	return max(1, min(width, 1000)), max(1, min(height-uiHeaderHeight(width, height)-1, 500))
 }
 
 func uiPaneWinsize(width, height int) *pty.Winsize {
@@ -269,28 +269,24 @@ func (m *uiPaneModel) key(key tea.KeyMsg) tea.Cmd {
 
 func (m *uiPaneModel) View() string {
 	content := m.screen()
+	header := m.header()
 	footer := "Ctrl+] pane controls / scrollback"
+	if strings.HasPrefix(m.title, "SHELL /") {
+		footer = "Type exit to return to the lab  ·  Ctrl+] pane controls"
+	}
 	if m.controls {
 		footer = "↑/↓ PgUp/PgDn scroll   End latest   Esc resume   q close UI"
 	}
 	if m.ended {
 		footer = "↑/↓ PgUp/PgDn scroll   Enter / Esc close"
 	}
-	status := m.failure
-	if status == "" {
-		status = "Ctrl+C interrupts the active command. Output and errors stay in this pane."
-		if m.title == "HOME" {
-			status = "Select a lab to inspect it. Closing this screen leaves labs running."
-		}
-		if strings.HasPrefix(m.title, "SHELL /") {
-			status = "Type exit to return to the workspace. Ctrl+C interrupts a shell command."
-		}
+	if m.failure != "" {
+		header = workspaceFit(header, m.width, uiHeaderHeight(m.width, m.height)-1) + "\n" + workspaceDanger.Render(m.failure)
 	}
 	if m.closing {
-		content = "Close the UI and stop its active command?\nAny lab already created stays on this machine.\n\ny close / Enter or Esc return"
+		content = workspaceDialog(content, "CLOSE UI", "Close the UI and stop its active command?\nAny lab already created stays on this machine.\n\ny close / Enter or Esc return", m.width, m.emulator.Height(), false)
 	}
-	panel := workspacePanel(uiPaneLabel(m.title), content, m.width, m.height-4, workspaceFocus)
-	return workspaceFit(m.header()+"\n"+panel+"\n"+status+"\n"+footer, m.width, m.height)
+	return workspaceFit(header+"\n"+workspaceFit(content, m.width, m.emulator.Height())+"\n"+workspaceMuted.Render(footer), m.width, m.height)
 }
 
 func (m *uiPaneModel) screen() string {
