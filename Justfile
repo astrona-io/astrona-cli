@@ -9,6 +9,12 @@ default:
 # Build ./astrona for local testing (state: ~/.astrona-dev; nothing installed)
 build:
     go build -ldflags "-X main.Version=developer" -o {{bin}} ./cmd/astrona
+    @echo "Built ./{{bin}}. Run: ./{{bin}} --help (or just run --help)" >&2
+
+# Build and run the local development binary, forwarding CLI arguments
+[positional-arguments]
+run *args: build
+    @./{{bin}} "$@"
 
 # Remove the built binary
 clean:

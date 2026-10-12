@@ -76,6 +76,9 @@ func (m workspaceModel) frame(title, context, body string, footer []string) stri
 			active += " | " + ansi.Truncate(sanitizeLine(m.snapshot.tracking), max(0, w-len(active)-4), "…") + " "
 		}
 	}
+	if m.navigation != "" {
+		active = m.navigation
+	}
 	header := brand + "\n" + workspaceMuted.Render(" "+sanitizeLine(context)) + "\n" + workspaceFocus.Render(active) + workspaceBorder.Render(strings.Repeat("─", max(0, w-ansi.StringWidth(active))))
 	for len(footer) < 2 {
 		footer = append(footer, "")

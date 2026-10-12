@@ -58,7 +58,9 @@ When the result can't be sent, the grade still stands: an expired session (or on
 
 Labs from your own files or repositories (`-c ./my-lab`, `--git <url>`) are not tied to an account: they run without signing in, and no page is opened.
 
-The site is `https://astrona.io` unless you sign in to another one:
+Release builds default to `https://astrona.io`. Development builds (`just build`
+or unversioned `go run`) default to `http://localhost:3000`. You can explicitly
+select another site:
 
 ```sh
 astrona login --site http://localhost:3000    # e.g. local development (plain http only to localhost)

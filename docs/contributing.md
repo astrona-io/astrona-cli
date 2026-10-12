@@ -12,6 +12,7 @@
 | Recipe | What it does |
 |---|---|
 | `just build` | Build the development binary at `./astrona`; nothing is installed or moved |
+| `just run <args>` | Build and run `./astrona`, forwarding CLI arguments |
 | `just clean` | Remove the built binary |
 | `just fmt` | Fail if any file needs `gofmt` |
 | `just fmt-fix` | Auto-fix formatting |
@@ -26,9 +27,22 @@ Run `just` with no arguments to list every recipe.
 
 ```sh
 just build
+./astrona --help
 ./astrona settings path
 ./astrona run ./examples/k8s-basics-01 --ui
 ```
+
+Or build and run in one step:
+
+```sh
+just run --help
+just run settings path
+just run run ./examples/k8s-basics-01 --ui
+```
+
+`./cmd/astrona` is the Go source directory, not the executable. Running it
+directly can report `permission denied`; use `./astrona` after `just build`,
+`just run <args>`, or `go run ./cmd/astrona <args>` instead.
 
 Use `./astrona` to run your local build. Plain `astrona` may run the installed
 release from your `PATH`. The former `just install` recipe has been removed.
@@ -50,9 +64,12 @@ helpers run the same binary and keep the same profile.
 
 This isolates Astrona-managed state, not the machine: container engines, images,
 host ports and your kubectl configuration are still shared. Port collisions
-remain possible. Lab scripts still run on your machine. The server remains
-`astrona.io` unless you explicitly set `ASTRONA_URL`; logging in and submitting
-can affect that account. On Windows, build and run inside WSL. An unversioned
+remain possible. Lab scripts still run on your machine. Development builds
+default to `http://localhost:3000`; release builds default to `https://astrona.io`.
+`astrona login --site`, `ASTRONA_URL`, or a site remembered with a development
+sign-in can select another server. `ASTRONA_URL` overrides the remembered site;
+the login flag overrides it for sign-in. Logging in and submitting can affect
+the account on the selected server. On Windows, build and run inside WSL. An unversioned
 native launcher refuses to forward commands to the installed release.
 
 ## Working on the docs

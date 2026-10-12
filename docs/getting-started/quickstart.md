@@ -1,5 +1,9 @@
 # Quickstart
 
+For a terminal dashboard, use `astrona ui` to browse active runs and history,
+or add `--ui` when starting a lab. Finishing a workspace submission or confirmed
+destruction returns to [UI Home](../guides/ui-home.md).
+
 This walks through the full loop — bring a lab up, work on it, get graded, tear it down — using the [`examples/k8s-basics-01`](https://github.com/astrona-io/astrona-cli/tree/main/examples/k8s-basics-01) lab shipped in the repo. Clone the repo first, or point `--git` at it directly (see [Remote Config Sources](../guides/remote-config.md)).
 
 ## 1. Check your toolchain

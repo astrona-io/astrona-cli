@@ -52,6 +52,7 @@ type workspaceModel struct {
 	preferences                                           workspacePreferences
 	home, enteringLab                                     bool
 	labDraft                                              string
+	navigation                                            string
 	showAlert                                             bool
 	alertScroll                                           int
 }

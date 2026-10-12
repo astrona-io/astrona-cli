@@ -13,33 +13,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func runWorkspaceHome(ctx context.Context, flags *rootFlags) error {
-	return driveWorkspace(ctx, workspaceModel{home: true}, workspaceDriver{
-		screen: runWorkspaceScreen,
-		labs:   workspaceLabNames,
-		start: func(lab string) error {
-			return runWorkspaceChild(ctx, "run", lab)
-		},
-		open: func(lab string) error {
-			return runWorkspaceChild(ctx, "ui", lab)
-		},
-		preferences: func() (workspacePreferences, error) {
-			path, err := settingsPath(flags)
-			if err != nil {
-				return workspacePreferences{}, err
-			}
-			return loadWorkspacePreferences(path)
-		},
-		savePreference: func(row workspaceSetting, value string) error {
-			path, err := settingsPath(flags)
-			if err != nil {
-				return err
-			}
-			return saveWorkspacePreference(ctx, path, row, value)
-		},
-	})
-}
-
 // Use the normal command entrypoint so startup keeps its settings, terms,
 // trust prompts and version handover. The home screen has released the terminal.
 func runWorkspaceChild(ctx context.Context, command, lab string) error {
@@ -48,9 +21,6 @@ func runWorkspaceChild(ctx context.Context, command, lab string) error {
 		return fmt.Errorf("find Astrona executable: %w", err)
 	}
 	args := []string{command}
-	if command == "run" {
-		args = append(args, "--ui")
-	}
 	args = append(args, "--", lab)
 	cmd := exec.CommandContext(ctx, path, args...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr

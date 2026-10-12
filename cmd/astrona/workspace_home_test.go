@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,59 +107,5 @@ func TestWorkspaceHomeView(t *testing.T) {
 	m = workspaceKey(m, "esc")
 	if m.showPreferences || !m.home {
 		t.Fatal("preferences did not return home")
-	}
-}
-
-func TestWorkspaceHomeDriver(t *testing.T) {
-	for _, fail := range []bool{false, true} {
-		t.Run(map[bool]string{false: "success", true: "failure"}[fail], func(t *testing.T) {
-			screens, starts, opens, refreshes := 0, 0, 0, 0
-			d := workspaceDriver{
-				screen: func(_ context.Context, m workspaceModel, refresh func(context.Context) workspaceSnapshot) (workspaceModel, error) {
-					screens++
-					if refresh != nil || !m.home {
-						t.Fatal("home used lab polling")
-					}
-					switch screens {
-					case 1:
-						m.action, m.labDraft = workspaceStart, "./labs/demo"
-					case 2:
-						if len(m.labs) != 1 || (fail && !strings.Contains(m.notice, "start failed")) {
-							t.Fatalf("start did not return home: %+v", m)
-						}
-						m.action = workspaceSelect
-					case 3:
-						m.action = workspaceReloadLabs
-					default:
-						m.action = workspaceLeave
-					}
-					return m, nil
-				},
-				start: func(lab string) error {
-					starts++
-					if lab != "./labs/demo" {
-						t.Fatal(lab)
-					}
-					if fail {
-						return errors.New("start failed")
-					}
-					return nil
-				},
-				open: func(lab string) error {
-					opens++
-					if lab != "astro-demo" {
-						t.Fatal(lab)
-					}
-					return nil
-				},
-				labs: func() ([]string, error) { refreshes++; return []string{"astro-demo"}, nil },
-			}
-			if err := driveWorkspace(t.Context(), workspaceModel{home: true}, d); err != nil {
-				t.Fatal(err)
-			}
-			if starts != 1 || opens != 1 || refreshes != 3 || screens != 4 {
-				t.Fatalf("unexpected calls: start=%d open=%d refresh=%d screen=%d", starts, opens, refreshes, screens)
-			}
-		})
 	}
 }

@@ -529,6 +529,7 @@ start a Kind lab by catalog ID or local path, `p` for Preferences, or `r` to
 find labs started from another terminal. Select a running lab and press Enter
 to open it. Press `q` to close the home screen. Starting a lab uses the usual
 startup and trust prompts; cancelling or failing returns to the home screen.
+After startup, select the run and press Enter to open its workspace.
 
 The workspace keeps its header and keyboard hints visible around bordered panels.
 Starting a lab, editing a preference and confirming destruction use dialogs.

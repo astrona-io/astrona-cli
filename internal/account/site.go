@@ -15,13 +15,26 @@ import (
 	"net"
 	"net/url"
 	"strings"
+
+	"astrona/internal/apphome"
 )
 
-// DefaultSite is the Astrona site the CLI signs in to unless ASTRONA_URL,
-// `astrona login --site` or an earlier sign-in says otherwise.
+// DefaultSite is the official production site and the release-build fallback.
 const DefaultSite = "https://astrona.io"
 
-// SiteEnv names the environment variable that overrides DefaultSite (for
+// DevelopmentSite is the fallback site for unversioned development builds.
+const DevelopmentSite = "http://localhost:3000"
+
+// DefaultLoginSite returns the fallback for the active build profile. Keep
+// DefaultSite fixed: IsDefaultSite identifies the official production site.
+func DefaultLoginSite() string {
+	if apphome.Development() {
+		return DevelopmentSite
+	}
+	return DefaultSite
+}
+
+// SiteEnv names the environment variable that overrides the selected site (for
 // example http://localhost:3000 for local development).
 const SiteEnv = "ASTRONA_URL"
 
@@ -67,7 +80,7 @@ func isLoopback(host string) bool {
 
 // ResolveSite returns the site the CLI talks to: ASTRONA_URL when set
 // (validated), else saved — the site of the saved sign-in, "" when there
-// is none — else DefaultSite. getenv is os.Getenv outside tests.
+// is none — else DefaultLoginSite. getenv is os.Getenv outside tests.
 func ResolveSite(getenv func(string) string, saved string) (string, error) {
 	if raw := strings.TrimSpace(getenv(SiteEnv)); raw != "" {
 		site, err := NormalizeSite(raw)
@@ -81,7 +94,7 @@ func ResolveSite(getenv func(string) string, saved string) (string, error) {
 			return site, nil
 		}
 	}
-	return DefaultSite, nil
+	return DefaultLoginSite(), nil
 }
 
 // NormalizeSite validates a site URL and reduces it to scheme://host[:port]
