@@ -57,10 +57,13 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			"Opening the workspace never restarts a lab or its timer. Use astrona run <lab> --ui to start one.\n\n" +
 			"Arrow keys select a cluster; s or Enter opens a local shell with that lab's isolated kubeconfigs. " +
 			"Exit the shell to return. Tab switches between the task and submission results; Page Up/Down scroll. " +
+			"p opens saved preferences: select a setting, Enter to edit and review, then y to save. " +
+			"Esc cancels. Defaults and descriptions are shown, and update-check requires an explicit true/false choice. " +
+			"Saved options apply to future commands; cache policy is checked after this workspace closes. " +
 			"g submits a graded lab through the Proctor and keeps it running, even after a pass. " +
 			"q or Ctrl-C opens an exit menu: keep running, submit (graded labs), or explicitly confirm destruction. " +
 			"Closing the terminal does not submit or destroy; existing time limits still apply.\n\n" +
-			"Requires an interactive terminal outside CI. No persistent setting; QEMU is not yet supported.",
+			"Requires an interactive terminal outside CI. Opening the UI is opt-in, not a saved setting; QEMU is not yet supported.",
 		Example:           "  astrona ui\n  astrona ui " + apphome.ClusterPrefix() + "my-lab\n  astrona run ./labs/my-lab --ui",
 		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: labCompletion(isKind),
@@ -201,6 +204,20 @@ func runLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string,
 	}
 	return driveWorkspace(ctx, m, workspaceDriver{
 		screen: runWorkspaceScreen, refresh: refresh,
+		preferences: func() (workspacePreferences, error) {
+			path, err := settingsPath(flags)
+			if err != nil {
+				return workspacePreferences{}, err
+			}
+			return loadWorkspacePreferences(path)
+		},
+		savePreference: func(row workspaceSetting, value string) error {
+			path, err := settingsPath(flags)
+			if err != nil {
+				return err
+			}
+			return saveWorkspacePreference(ctx, path, row, value)
+		},
 		guard: func() error { return workspaceGuard(name, runID) },
 		shell: func(alias string) error { return runLabShell(name, alias, nil) },
 		submit: func() (string, error) {
@@ -225,12 +242,14 @@ func runLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string,
 // Lifecycle effects are separate from rendering, making the exit and failure
 // paths testable without a container engine or a real account.
 type workspaceDriver struct {
-	screen  func(context.Context, workspaceModel, func(context.Context) workspaceSnapshot) (workspaceModel, error)
-	refresh func(context.Context) workspaceSnapshot
-	guard   func() error
-	shell   func(string) error
-	submit  func() (string, error)
-	destroy func() (bool, error)
+	screen         func(context.Context, workspaceModel, func(context.Context) workspaceSnapshot) (workspaceModel, error)
+	refresh        func(context.Context) workspaceSnapshot
+	guard          func() error
+	shell          func(string) error
+	submit         func() (string, error)
+	destroy        func() (bool, error)
+	preferences    func() (workspacePreferences, error)
+	savePreference func(workspaceSetting, string) error
 }
 
 func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) error {
@@ -245,6 +264,33 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 			return nil
 		}
 		m.exitMenu, m.confirmDestroy = false, false
+		// Preferences do not act on the lab and remain usable if it expires.
+		// File access happens here, after Bubble Tea releases the terminal.
+		if m.action == workspaceLoadPreferences || m.action == workspaceSavePreference {
+			m.showPreferences = true
+			selected := m.preferences.selected
+			if m.action == workspaceSavePreference {
+				if selected < 0 || selected >= len(m.preferences.rows) {
+					m.preferences.notice = "No setting selected; press r to reload."
+					continue
+				}
+				err = d.savePreference(m.preferences.rows[selected], m.preferences.draft)
+				if err != nil {
+					m.preferences.editing, m.preferences.confirming = true, false
+					m.preferences.notice = "Not saved: " + err.Error()
+					continue
+				}
+			}
+			m.preferences, err = d.preferences()
+			m.preferences.selected = min(selected, max(0, len(m.preferences.rows)-1))
+			if m.action == workspaceSavePreference {
+				m.preferences.notice = "Saved. The running lab was not changed."
+			}
+			if err != nil {
+				m.preferences.notice += " Could not load preferences: " + err.Error()
+			}
+			continue
+		}
 		if err = d.guard(); err != nil {
 			m.notice = err.Error()
 			m.snapshot.blocked = err.Error()

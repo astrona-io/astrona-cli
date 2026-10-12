@@ -518,6 +518,26 @@ use `astrona settings path` to find and repair it. Settings and lock files must
 not be symlinks. Remote-code trust and automatic confirmation cannot be enabled
 through settings.
 
+### Change settings inside the lab workspace
+
+In `astrona ui` or a lab started with `--ui`, press `p` to open Preferences.
+Use the arrow keys to select a setting. The editor shows its current value,
+whether it is saved or a default, its built-in default and an explanation.
+Press Enter, type a value, then Enter to review and `y` to save. Esc cancels
+the edit without saving; another Esc returns to the lab. Page Up/Down scrolls
+long descriptions. Press `r` in the list to reload choices saved by another command.
+
+The editor uses the same file as `astrona settings path`. It validates values
+before saving and refuses to overwrite a setting changed elsewhere while you
+were editing it. `update-check` requires an explicit `true` or `false`; a blank
+answer never accepts network access. Editing preferences does not approve new
+settings definitions or usage terms.
+
+Saved options apply to future CLI commands, not the current workspace's options
+or running lab. Cache policy is checked after the workspace closes; saving a
+cache preference does not itself delete files. Opening the UI remains opt-in
+through `--ui` or `astrona ui`, not a persistent setting.
+
 ### Review settings after an upgrade
 
 `astrona settings view` gives each setting a readable block with its current

@@ -57,6 +57,8 @@ func TestWorkspaceActions(t *testing.T) {
 		want            workspaceAction
 	}{
 		{"shell", []string{"s"}, true, false, workspaceShell},
+		{"preferences", []string{"p"}, true, false, workspaceLoadPreferences},
+		{"stale can edit preferences", []string{"p"}, true, true, workspaceLoadPreferences},
 		{"enter shell", []string{"enter"}, true, false, workspaceShell},
 		{"submit", []string{"g"}, true, false, workspaceSubmit},
 		{"playground ignores grade", []string{"g"}, false, false, workspaceNone},
