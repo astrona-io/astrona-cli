@@ -1,0 +1,33 @@
+{% extends "main.html" %}
+
+{% block content %}
+<section class="astro-hero" aria-labelledby="astrona-cli">
+  <div class="astro-hero__copy">
+    <p class="astro-eyebrow">Cloud Native learning · CLI documentation</p>
+    <h1 id="astrona-cli">Astrona <span>CLI</span></h1>
+    <p>Astrona spins up local Kubernetes labs with kind, backed by Docker or Podman, or as a QEMU virtual machine when a lab needs a full OS. Its cluster, bootstrap steps, and grading rules are driven by a single YAML config file.</p>
+    <div class="astro-actions">
+      <a class="md-button md-button--primary" href="{{ 'getting-started/installation/' | url }}">Install the CLI ↗</a>
+      <a class="md-button" href="{{ 'getting-started/quickstart/' | url }}">Run your first lab →</a>
+    </div>
+  </div>
+  <div class="astro-console" aria-hidden="true">
+    <div class="astro-console__bar"><i></i><i></i><i></i><span>LOCAL LAB ENVIRONMENT</span></div>
+    <svg class="astro-console__map" viewBox="0 0 400 210" fill="none">
+      <g stroke="var(--astro-violet)" opacity=".2">
+        <circle cx="200" cy="105" r="83"/><circle cx="200" cy="105" r="58"/>
+        <path d="M0 105H400M200 0V210" stroke-dasharray="2 10"/>
+      </g>
+      <g class="astro-orbit"><circle cx="200" cy="22" r="4" fill="var(--astro-orange)"/><circle cx="200" cy="188" r="3" fill="var(--astro-pink)"/></g>
+      <g class="astro-signal" stroke="var(--astro-cyan)" opacity=".6"><path d="M80 105H165M235 105H320M200 65V40M200 145V173"/></g>
+      <path d="M200 64L236 85V125L200 146L164 125V85Z" fill="var(--astro-panel-2)" stroke="var(--astro-cyan)"/>
+      <g stroke="var(--astro-cyan)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M183 95L193 105L183 115M204 116H218"/></g>
+      <g fill="var(--astro-panel)" stroke="var(--astro-violet)"><rect x="50" y="88" width="30" height="34" rx="7"/><rect x="320" y="88" width="30" height="34" rx="7"/></g>
+      <g fill="var(--astro-green)"><circle class="astro-beacon" cx="65" cy="105" r="3"/><circle class="astro-beacon" cx="335" cy="105" r="3"/><circle cx="200" cy="40" r="3"/><circle cx="200" cy="173" r="3"/></g>
+      <g fill="var(--astro-muted)" font-family="monospace" font-size="9" text-anchor="middle"><text x="65" y="142">KIND</text><text x="335" y="142">QEMU</text></g>
+    </svg>
+    <div class="astro-console__commands"><div><span>$</span> astrona setup</div><div><span>$</span> astrona labs</div><div><span>$</span> astrona check</div></div>
+  </div>
+</section>
+{{ page.content }}
+{% endblock %}

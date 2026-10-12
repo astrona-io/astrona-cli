@@ -75,6 +75,13 @@ The codebase is organized in a standard, logical Go folder structure:
 
 ## Build & run
 
+The docs theme follows the public frontend's Mission Control tokens. Styling is
+in `docs/stylesheets/extra.css`, templates in `docs/overrides/`, and optional
+motion controls in `docs/javascripts/motion.js`. Keep Material's built-in search,
+navigation, code copying and mike version selection. Theme changes require a
+strict docs build and desktop/mobile browser checks; see `docs/contributing.md`.
+Never make documentation depend on animation or JavaScript to be readable.
+
 ```sh
 just build (or go build -o astrona ./cmd/astrona)
 go vet ./...

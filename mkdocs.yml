@@ -7,17 +7,19 @@ edit_uri: edit/main/docs/
 copyright: Astrona.io — Apache License 2.0
 
 docs_dir: docs
+exclude_docs: |
+  overrides/
 
 theme:
   name: material
+  custom_dir: docs/overrides
   logo: assets/logo.svg
   favicon: assets/favicon.svg
   palette:
     scheme: slate
     primary: black
-    accent: amber
-  # Matches astrona.io's system-font stack exactly (no webfont fetch) —
-  # set as raw CSS custom properties in extra_css instead.
+    accent: deep orange
+  # Font families and optional webfonts match the public frontend.
   font: false
   features:
     - navigation.tabs
@@ -33,6 +35,9 @@ theme:
 
 extra_css:
   - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/motion.js
 
 extra:
   version:
