@@ -37,6 +37,40 @@ opens a live-reloading local copy. The CLI reference under `docs/reference/cli/`
 
 **Adding a command:** put it in a help group in `cmd/astrona/groups.go` (`astrona --help` lists commands by group, in workflow order) and add its generated page(s) to the matching group of the CLI Reference in `mkdocs.yml`. Unit tests fail if either is missing.
 
+### Theme and browser checks
+
+The docs use the frontend's Mission Control palette and typography. The matching
+tokens live in `docs/stylesheets/extra.css`; their source is
+`astrona-web/app/assets/css/_tokens.scss`. `docs/overrides/main.html` adds the
+shared background and motion control. `home.html` contains the homepage hero;
+the guide links and feature descriptions stay in `docs/index.md`.
+
+Material still owns search, code copying, mobile navigation and mike version
+selection. Keep overrides small and use the `url` template filter for internal
+links so release-specific paths work. Do not hand-edit generated command pages.
+Space Grotesk and JetBrains Mono are requested from Google Fonts, as on the
+frontend; system fonts remain available when those requests are blocked.
+
+Decorative SVGs are hidden from assistive technology. Content is visible without
+JavaScript. Motion must respect `prefers-reduced-motion` and the saved pause
+choice in `docs/javascripts/motion.js`; do not make animation part of navigation
+or hide content until an animation runs.
+
+Build the site, then check it in Chromium:
+
+```sh
+just build-docs
+uv run --with playwright playwright install chromium
+uv run --with playwright python .github/scripts/check-docs-theme.py \
+  --site-dir site --screenshots /tmp/astrona-docs-screenshots
+```
+
+Use `--browser /path/to/chromium` to reuse an installed browser. The check starts
+a temporary localhost server under `/dev/` and checks desktop/375px layouts,
+navigation, search, copy controls, reduced motion and a no-JavaScript page.
+It does not run labs or contact Astrona's services. Screenshots stay outside the
+repository. Also check the deployed mike version selector after a release.
+
 Versioning and deployment (on push to `main` and on release tags) are handled by [`.github/workflows/docs.yml`](https://github.com/astrona-io/astrona-cli/blob/main/.github/workflows/docs.yml) — see that file for the exact `mike deploy` invocations.
 
 ## Security-sensitive areas

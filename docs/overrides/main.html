@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+{% endblock %}
+
+{% block header %}
+  <div class="astro-sky" aria-hidden="true"><span class="astro-sky__planet"></span></div>
+  {{ super() }}
+{% endblock %}
+
+{% block tabs %}
+  {{ super() }}
+  <div class="astro-context md-grid">
+    <a class="astro-context__home" href="https://astrona.io">↗ Astrona.io <span>Cloud Native learning, open to everyone.</span></a>
+    <button class="astro-motion" type="button" aria-pressed="false" hidden>Pause animations</button>
+  </div>
+{% endblock %}
