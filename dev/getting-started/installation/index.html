@@ -5003,9 +5003,19 @@ through settings.</p>
 With no running labs, <code>astrona ui</code> opens a home screen. Press <code>n</code> or Enter to
 start a Kind lab by catalog ID or local path, <code>p</code> for Preferences, or <code>r</code> to
 find labs started from another terminal. Select a running lab and press Enter
-to open it. Press <code>q</code> to close the home screen. Starting a lab uses the usual
-startup and trust prompts; cancelling or failing returns to the home screen.
-After startup, select the run and press Enter to open its workspace.</p>
+to open it. Press <code>q</code> to close the home screen. Starting a lab shows one Yes/No
+notice covering terms, settings, lab code and downloads. Tab opens the details.
+Yes starts setup inside the UI; No cancels with a message. Downloads, progress
+and errors stay in the terminal pane. Cancelling or failing returns to Home.
+After startup, select the run and press Enter to open its workspace.
+Inside the workspace, Enter shows the task; <code>s</code> opens a shell inside the UI.
+Type <code>exit</code> in the shell to return to the workspace. Ctrl+] opens pane controls
+for scrolling recent output or closing the UI.</p>
+<p>Starting an existing lab asks whether to destroy its current work and start over.
+No keeps it running. Yes discards it without saving or submitting, then starts a
+local-only run: no account session, progress or results are sent to the Astrona
+API. To reopen a lab without restarting, use <code>astrona ui</code>. Both UI commands work
+from inside a lab shell. See <a href="../../guides/ui-home/">the UI guide</a> for details.</p>
 <p>The workspace keeps its header and keyboard hints visible around bordered panels.
 Starting a lab, editing a preference and confirming destruction use dialogs.
 Errors appear in an alert panel; press F1 to read the full message, Page Up/Down

@@ -4016,8 +4016,8 @@ It has three sections:</p>
 <p>Tab changes sections, arrow keys select entries, Page Up/Down scroll details,
 <code>r</code> refreshes, <code>?</code> opens Help, and <code>q</code> or Ctrl-C closes Home. The screen refreshes
 every five seconds. Closing Home leaves labs running.</p>
-<p>Press <code>n</code> to enter a catalog lab ID or local path and start a lab through the
-normal startup prompts. After startup, select the run and press Enter to open
+<p>Press <code>n</code> to enter a catalog lab ID or local path and review the startup
+notice. After startup, select the run and press Enter to open
 its workspace. Press <code>p</code> to edit Preferences, even with no active runs. Boolean
 settings use <code>yes</code> / <code>no</code>; blank input keeps the current value.</p>
 <p>Home and the workspace use bordered panels, highlighted selections and fixed
@@ -4027,6 +4027,44 @@ Page Up/Down scrolls it, and Esc returns. Save confirmations use status panels.<
 <p>Start a new lab and enter its workspace:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>run<span class="w"> </span>./labs/my-lab<span class="w"> </span>--ui
 </code></pre></div>
+<p>Startup shows one Yes/No box before downloads or lab changes. Yes accepts the
+displayed settings and CLI terms, authorizes the lab's code and required
+downloads for this invocation, and continues with setup. Saved preferences
+are kept. Catalog labs use your account when signed in; otherwise they run
+without account progress tracking. Other labs stay running.</p>
+<p>The UI stays open after Yes. Repository downloads, setup progress, later
+confirmations, grading and teardown run inside its terminal pane. Startup
+errors stay visible until you press Enter or Esc to close the UI. The command's
+exit code is preserved.</p>
+<p>Press Ctrl+] for pane controls. Arrow keys and Page Up/Down scroll recent
+output; End returns to the latest output, and Esc resumes input to the lab.
+From pane controls, <code>q</code> asks before closing the UI and stopping its active
+command. Any lab already created remains on your machine. Closing the UI does
+not submit results or destroy the lab.</p>
+<p>Use Tab to read the terms and setting explanations, arrow keys or Page Up/Down
+to scroll, and left/right to select Yes or No. Enter confirms the selection;
+<code>y</code> accepts directly. No, <code>n</code>, Esc or Ctrl-C cancels startup and prints a message.
+Cancellation exits with code 3; when starting from Home, it returns there with
+a cancellation notice. No leaves existing labs as they are.</p>
+<p>When the requested lab already exists, the box asks whether to destroy it
+and start over. Yes discards work in that lab and its linked clusters without
+saving or submitting it. The old account session is detached locally and its
+playground watchdog is stopped without reporting to Astrona. The replacement
+run stays local, even when signed in: it creates no account session and sends
+no progress or submission results to the Astrona API. Grading still works
+locally. Other labs stay running. The CLI skips teardown scripts during this
+discard operation and blocks automatic version handover for the local run.</p>
+<p>Saved runs are checked before the first notice. If an existing lab is only
+found after its config is loaded, a restart confirmation appears then, before
+any account access or deletion. A lab replaced by another command while the
+dialog is open must be reviewed again. <code>--yes --ui</code> does not bypass this check.</p>
+<p>You can open the UI from an Astrona lab shell. The inherited shell marker does
+not choose which lab to replace; the command's lab argument or selected config
+does. Startup leaves that shell's Kubernetes context unchanged. To continue
+working on an existing lab without restarting, use <code>astrona ui &lt;lab-name&gt;</code>.</p>
+<p>The startup notice cannot approve a remote config this CLI cannot parse.
+Version handover still requires trust for that exact source or an explicit
+<code>--trust</code> supplied after reviewing it.</p>
 <p>Or open an existing lab directly:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>ui<span class="w"> </span>astro-my-lab
 </code></pre></div>
@@ -4034,8 +4072,10 @@ Page Up/Down scrolls it, and Esc returns. Save confirmations use status panels.<
 displayed by Home or <code>astrona list</code>.</p>
 <p>Within the workspace:</p>
 <ul>
-<li>Arrow keys select a cluster. <code>s</code> or Enter opens a shell with that lab's
-  isolated kubeconfigs; exiting the shell returns to the workspace.</li>
+<li>Arrow keys select a cluster. Enter shows the task and keeps the UI open.
+  <code>s</code> opens a shell inside the UI, with that lab's isolated kubeconfigs.
+  Commands, editors and their output stay in the terminal pane. Ctrl+C
+  interrupts the shell's active command; type <code>exit</code> to return to the workspace.</li>
 <li>Tab changes between the task and results; Page Up/Down scrolls.</li>
 <li><code>p</code> opens saved preferences. Select a setting, press Enter to edit and
   review, then <code>y</code> to save; Esc cancels. Settings apply to future commands,

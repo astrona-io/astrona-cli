@@ -4185,6 +4185,10 @@
 
 <h1 id="grading-the-proctor">Grading (the Proctor)<a class="headerlink" href="#grading-the-proctor" title="Permanent link">&para;</a></h1>
 <p>A student never grades their own work — the same way a real exam is graded by a proctor, not by the person taking it. <code>astrona submit</code> hands the running environment to the <strong>Proctor</strong>, a single component (<code>internal/proctor</code>) that both the student-facing <code>submit</code> and the lab-developer-facing <code>test</code> command go through. No other command reads <code>validation.checks</code>/<code>validation.script</code> directly.</p>
+<p>If you restart an existing lab through the UI's discard confirmation, the new
+run is local only. <code>astrona submit</code> still grades it and records the local result,
+but does not upload it to the Astrona API, even if you are signed in. This choice
+is saved with the run and also applies after reopening the CLI.</p>
 <h2 id="what-it-checks">What it checks<a class="headerlink" href="#what-it-checks" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">validation</span><span class="p">:</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>

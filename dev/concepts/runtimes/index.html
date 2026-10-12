@@ -4352,6 +4352,11 @@
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="k">$(</span>astrona<span class="w"> </span>kubeconfig<span class="w"> </span>my-lab<span class="k">)</span>
 </code></pre></div>
 <p>Inside <code>astrona shell</code>, <code>$ASTRONA_LAB</code> holds the lab name (e.g. add it to your prompt). With no lab-name, both commands use the lab config from <code>-c</code>, or the only running kind lab. A lab created by an older astrona (no isolated kubeconfig yet) gets one generated on first use.</p>
+<p>You can open <code>astrona ui</code> or run a lab with <code>--ui</code> from that shell. UI startup
+keeps the inherited kubeconfig context unchanged. Restarting an existing lab
+requires confirmation and uses the requested lab's source, never <code>$ASTRONA_LAB</code>,
+to choose what to discard. Context restoration is skipped inside the lab shell
+because its kubeconfig is isolated from your original one.</p>
 <h3 id="port-forwards">Port forwards<a class="headerlink" href="#port-forwards" title="Permanent link">&para;</a></h3>
 <p>A kind lab can declare <a href="../../reference/lab-config/#runtimeportforwardsn"><code>runtime.portForwards</code></a> so a student reaches in-cluster services from their own browser or client, without running <code>kubectl port-forward</code> themselves:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">runtime</span><span class="p">:</span>
