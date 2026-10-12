@@ -12,6 +12,7 @@
 | Recipe | What it does |
 |---|---|
 | `just build` | Build the development binary at `./astrona`; nothing is installed or moved |
+| `just run <args>` | Build and run `./astrona`, forwarding CLI arguments |
 | `just clean` | Remove the built binary |
 | `just fmt` | Fail if any file needs `gofmt` |
 | `just fmt-fix` | Auto-fix formatting |
@@ -26,9 +27,22 @@ Run `just` with no arguments to list every recipe.
 
 ```sh
 just build
+./astrona --help
 ./astrona settings path
 ./astrona run ./examples/k8s-basics-01 --ui
 ```
+
+Or build and run in one step:
+
+```sh
+just run --help
+just run settings path
+just run run ./examples/k8s-basics-01 --ui
+```
+
+`./cmd/astrona` is the Go source directory, not the executable. Running it
+directly can report `permission denied`; use `./astrona` after `just build`,
+`just run <args>`, or `go run ./cmd/astrona <args>` instead.
 
 Use `./astrona` to run your local build. Plain `astrona` may run the installed
 release from your `PATH`. The former `just install` recipe has been removed.
