@@ -29,9 +29,12 @@ astrona run --git git@github.com:org/labs-repo.git --git-ref feature-branch -c .
 With `--git` set, `--config` changes meaning: instead of a local path or URL, it becomes the **subdirectory within the cloned repo** to use (`.` for the repo root). `--git` accepts anything `git clone` does — `https://`, `git@host:`, or `ssh://` — so authentication (SSH agent, credential helper) is entirely git's own, astrona doesn't handle credentials itself.
 
 - `--git-ref` checks out a specific branch, tag, or commit (default: the repo's own default branch).
-- The clone is cached under your user cache directory, keyed by a hash of the URL + ref — a repeat run reuses it and just fetches/checks out again rather than re-cloning.
+- The clone is cached under your user cache directory, keyed by a hash of the URL + ref. Repeat runs check the selected remote branch or tag's commit ID with `git ls-remote`. If that commit is already cached, no fetch is needed. Otherwise, Astrona fetches the selected ref and checks it out. No separate checksum file is required in the lab repository.
+- A full commit hash stays pinned and needs no network check once cached. Other revision expressions, such as `main~1`, use the normal fetch path.
+- If the metadata check or fetch fails, Astrona warns and uses the cached revision. A first-time clone still needs a connection. The selected commit is recorded in the cache's `refs/astrona/cached` Git ref; existing caches are supported without re-cloning.
+- Astrona still restores tracked files and removes untracked and ignored files inside its managed cache on every run, even when no download is needed. Keep your own edits in a separate local checkout and use `-c` to run it.
 - The resolved subdirectory is validated to stay within the clone — a `--config` value like `../../etc` is rejected, not silently escaped.
-- Only a one-line `Cloning …` / `Updating …` is printed; git's own checkout chatter is shown with `--verbose`, or on failure as part of the error.
+- Progress says `Cloning …` for a new cache, then `Checking …` followed by `Using cached … (no download needed)` or `Updating …` on repeat runs. Progress goes to stderr so JSON output stays clean. Git's own checkout chatter is shown with `--verbose`, or on failure as part of the error.
 
 ## Precedence
 
