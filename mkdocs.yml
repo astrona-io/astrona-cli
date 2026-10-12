@@ -76,6 +76,7 @@ nav:
       - Grading: concepts/grading.md
       - Run Logs: concepts/logs.md
   - Guides:
+      - UI Home and Workspace: guides/ui-home.md
       - Authoring a Lab: guides/authoring-a-lab.md
       - CI Integration: guides/ci-integration.md
       - macOS Kind Regression: guides/macos-kind-testing.md

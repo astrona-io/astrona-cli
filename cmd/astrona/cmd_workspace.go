@@ -52,16 +52,17 @@ func workspaceRuntime(cfg *config.LabConfig) error {
 func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:   "ui [lab-name]",
-		Short: "Open a terminal workspace for a running Kind lab",
-		Long: "Select a running Kind lab saved by Astrona, or name one from astrona list. " +
+		Short: "Open the UI home with active runs and history",
+		Long: "Open Home to browse saved runs, submission history and completed labs/playgrounds, even when no lab or engine is running. " +
+			"Enter opens a running Kind lab; name one to open its workspace directly. " +
 			"Opening the workspace never restarts a lab or its timer. Use astrona run <lab> --ui to start one.\n\n" +
 			"Arrow keys select a cluster; s or Enter opens a local shell with that lab's isolated kubeconfigs. " +
 			"Exit the shell to return. Tab switches between the task and submission results; Page Up/Down scroll. " +
 			"p opens saved preferences: select a setting, Enter to edit and review, then y to save. " +
 			"Esc cancels. Defaults and descriptions are shown, and update-check requires an explicit true/false choice. " +
-			"Saved options apply to future commands; cache policy is checked after this workspace closes. " +
-			"g submits a graded lab through the Proctor and keeps it running, even after a pass. " +
-			"q or Ctrl-C opens an exit menu: keep running, submit (graded labs), or explicitly confirm destruction. " +
+			"Saved options apply to future commands; cache policy is checked after the UI closes. " +
+			"g submits a graded lab through the Proctor and returns Home, keeping the lab running, even after a pass. " +
+			"q or Ctrl-C opens an exit menu: return Home with the lab running, submit (graded labs), or explicitly confirm destruction and return Home. " +
 			"Closing the terminal does not submit or destroy; existing time limits still apply.\n\n" +
 			"Requires an interactive terminal outside CI. Opening the UI is opt-in, not a saved setting; QEMU is not yet supported.",
 		Example:           "  astrona ui\n  astrona ui " + apphome.ClusterPrefix() + "my-lab\n  astrona run ./labs/my-lab --ui",
@@ -71,35 +72,16 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			if err := requireWorkspaceTerminal(); err != nil {
 				return err
 			}
-			if _, err := cluster.DetectContainerEngine(); err != nil {
-				return err
+			if len(args) == 0 {
+				return runUIHome(cmd.Context(), flags, "")
 			}
 			names, err := workspaceLabNames()
 			if err != nil {
 				return err
 			}
-			name := ""
-			if len(args) > 0 {
-				name = config.NormalizeClusterName(args[0])
-				if !slices.Contains(names, name) {
-					return fmt.Errorf("no saved, running Kind lab named %s; use astrona list", name)
-				}
-			} else {
-				switch len(names) {
-				case 0:
-					return fmt.Errorf("no saved Kind labs are running; start one with astrona run <lab> --ui")
-				case 1:
-					name = names[0]
-				default:
-					picked, err := runWorkspaceScreen(cmd.Context(), workspaceModel{labs: names}, nil)
-					if err != nil {
-						return err
-					}
-					if picked.action != workspaceSelect {
-						return nil
-					}
-					name = names[picked.selected]
-				}
+			name := config.NormalizeClusterName(args[0])
+			if !slices.Contains(names, name) {
+				return fmt.Errorf("no saved, running Kind lab named %s; use astrona ui to view saved runs and history", name)
 			}
 			st, err := labstate.Load(name)
 			if err != nil {
@@ -174,22 +156,33 @@ func workspaceGuard(name, runID string) error {
 }
 
 func runLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string, flags *rootFlags) error {
-	if err := workspaceRuntime(cfg); err != nil {
-		return err
-	}
-	name := config.NormalizeClusterName(cfg.Metadata.Name)
-	if err := requireRunningKindLab(cfg, name); err != nil {
-		return err
-	}
-	st, err := labstate.Load(name)
+	notice, err := openLabWorkspace(ctx, cfg, baseDir, flags, "")
 	if err != nil {
 		return err
 	}
+	return runUIHome(ctx, flags, notice)
+}
+
+func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string, flags *rootFlags, expectedRunID string) (string, error) {
+	if err := workspaceRuntime(cfg); err != nil {
+		return "", err
+	}
+	name := config.NormalizeClusterName(cfg.Metadata.Name)
+	if err := requireRunningKindLab(cfg, name); err != nil {
+		return "", err
+	}
+	st, err := labstate.Load(name)
+	if err != nil {
+		return "", err
+	}
 	if st == nil {
-		return fmt.Errorf("lab %s has no saved run state; restart it before using the workspace", name)
+		return "", fmt.Errorf("lab %s has no saved run state; restart it before using the workspace", name)
+	}
+	if expectedRunID != "" && workspaceRunID(st) != expectedRunID {
+		return "", fmt.Errorf("run changed while opening %s; select it again from Home", name)
 	}
 	if !sameSource(st.Source, rememberedSource(flags)) {
-		return fmt.Errorf("lab %s was started from another config; attach using its saved source with astrona ui %s", name, name)
+		return "", fmt.Errorf("lab %s was started from another config; attach using its saved source with astrona ui %s", name, name)
 	}
 	runID := workspaceRunID(st)
 	links, _ := lifecycle.Links(name)
@@ -202,8 +195,10 @@ func runLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string,
 	refresh := func(ctx context.Context) workspaceSnapshot {
 		return readWorkspaceSnapshot(ctx, name, runID, clusters, playground, cfg.Exam.Enabled())
 	}
-	return driveWorkspace(ctx, m, workspaceDriver{
-		screen: runWorkspaceScreen, refresh: refresh,
+	notice := ""
+	err = driveWorkspace(ctx, m, workspaceDriver{
+		returnHome: func(message string) { notice = message },
+		screen:     runWorkspaceScreen, refresh: refresh,
 		preferences: func() (workspacePreferences, error) {
 			path, err := settingsPath(flags)
 			if err != nil {
@@ -237,11 +232,13 @@ func runLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string,
 			return err == nil && !cfg.Teardown.KeepCluster, err
 		},
 	})
+	return notice, err
 }
 
 // Lifecycle effects are separate from rendering, making the exit and failure
 // paths testable without a container engine or a real account.
 type workspaceDriver struct {
+	returnHome     func(string)
 	screen         func(context.Context, workspaceModel, func(context.Context) workspaceSnapshot) (workspaceModel, error)
 	refresh        func(context.Context) workspaceSnapshot
 	guard          func() error
@@ -260,7 +257,11 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 			return err
 		}
 		if m.action == workspaceLeave || m.action == workspaceNone {
-			fmt.Printf("Workspace closed; the lab was not destroyed on exit. Reopen: astrona ui %s\n", m.name)
+			if d.returnHome != nil {
+				d.returnHome("Left " + m.name + " running. Select it in Active runs to reopen.")
+			} else {
+				fmt.Printf("Workspace closed; the lab was not destroyed on exit. Reopen: astrona ui %s\n", m.name)
+			}
 			return nil
 		}
 		m.exitMenu, m.confirmDestroy = false, false
@@ -308,10 +309,21 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 			if err != nil && exitCodeFor(err) == 2 {
 				err = nil
 			}
+			if d.returnHome != nil && (err == nil || m.submission != "") {
+				message := m.submission + "\nLab " + m.name + " remains running."
+				if err != nil {
+					message += "\n" + err.Error()
+				}
+				d.returnHome(message)
+				return nil
+			}
 		case workspaceDestroy:
 			var destroyed bool
 			destroyed, err = d.destroy()
 			if err == nil && destroyed {
+				if d.returnHome != nil {
+					d.returnHome("Destroyed " + m.name + ". View History for saved runs and results.")
+				}
 				return nil
 			}
 			if err == nil {

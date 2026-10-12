@@ -127,9 +127,14 @@ func releaseLab(w io.Writer, clusterName string) {
 	}
 }
 
-// forgetLab removes everything remembered about a destroyed lab — first
-// ending a timed playground (its watchdog and its clock).
+// forgetLab preserves completed-run history, then removes active lab memory
+// after ending a timed playground (its watchdog and its clock).
 func forgetLab(clusterName string) {
+	if st, err := labstate.Load(clusterName); err != nil {
+		ui.Warnf("could not read completed run for history: %s", err)
+	} else if err := labstate.RecordFinishedRun(clusterName, st, time.Now()); err != nil {
+		ui.Warnf("could not save completed run history: %s", err)
+	}
 	endPlayground(clusterName)
 	if err := labstate.Remove(clusterName); err != nil {
 		ui.Warnf("%s", err)
