@@ -7,7 +7,18 @@ astrona ui
 ```
 
 Home opens even when no labs are running or the container engine is offline.
-It has three sections:
+The top bar stays visible during setup, grading and shell sessions. It shows
+your login status, account name, site, CLI version and active profile
+(Development or Release). A green **Logged in** means saved credentials have
+an unexpired access token. Red **Not logged in** means there is no saved login
+for the selected site. Expired credentials show **Login needs checking** in
+amber; use `astrona whoami` to check and renew them, or `astrona login` to sign
+in. An unreadable credentials file shows **Login unavailable**.
+
+The header rereads local credentials every five seconds. It does not contact
+the API or verify whether the server has revoked a login.
+
+Home has three sections:
 
 - **Active runs:** saved runs, their container status and elapsed time. Select
   a running Kind lab or playground and press Enter to open its workspace.
@@ -20,7 +31,10 @@ It has three sections:
 - **Help:** controls, starting a lab, the current local profile and any errors
   encountered while reading run information.
 
-Tab changes sections, arrow keys select entries, Page Up/Down scroll details,
+The navigation bar highlights the current section. Press `1` for Active runs,
+`2` for History, `3` for Help, or `p` for Preferences. The summary below it
+shows running and saved run counts, recent history count and refresh interval.
+Tab also changes sections, arrow keys select entries, Page Up/Down scroll details,
 `r` refreshes, `?` opens Help, and `q` or Ctrl-C closes Home. The screen refreshes
 every five seconds. Closing Home leaves labs running.
 

@@ -124,7 +124,7 @@ func TestUIPaneResizesChildTerminal(t *testing.T) {
 	for _, size := range [][2]int{{120, 40}, {52, 18}, {80, 24}} {
 		m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
 		got, err := pty.GetsizeFull(slave)
-		if err != nil || int(got.Cols) != size[0]-4 || int(got.Rows) != size[1]-4 {
+		if err != nil || int(got.Cols) != size[0]-4 || int(got.Rows) != size[1]-6 {
 			t.Fatalf("child terminal size = %+v, %v", got, err)
 		}
 		if m.emulator.Width() != int(got.Cols) || m.emulator.Height() != int(got.Rows) {

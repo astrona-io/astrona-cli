@@ -267,6 +267,9 @@ func (m uiHomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab":
 			m.tab = (m.tab + 1) % 3
 			m.selected, m.scroll, m.detail = 0, 0, false
+		case "1", "2", "3":
+			m.tab = int(msg.String()[0] - '1')
+			m.selected, m.scroll, m.detail = 0, 0, false
 		case "?":
 			m.tab, m.detail, m.scroll = 2, false, 0
 		case "up", "k":
@@ -320,13 +323,17 @@ func (m uiHomeModel) View() string {
 	if message != "" {
 		h -= 4
 	}
-	tabs := []string{"Active runs", "History", "Help"}
-	tabs[m.tab] = "[" + tabs[m.tab] + "]"
-	editor.navigation = " " + strings.Join(tabs, "  ") + " "
+	tabs := []string{"Active runs", "History", "Help", "Preferences"}
+	keys := []string{"<1>", "<2>", "<3>", "<p>"}
+	if w < 72 {
+		tabs = []string{"Runs", "History", "Help", "Settings"}
+		keys = []string{"1", "2", "3", "p"}
+	}
+	editor.navigation = workspaceNav(tabs, keys, m.tab)
 	title, content := "ACTIVE RUNS", ""
 	if m.tab == 2 {
 		title = "HELP"
-		content = "n starts a lab by catalog ID or local path.\np opens Preferences.\nSelect a running Kind lab and press Enter to open its workspace.\nSubmit with g, or leave through the exit menu, to return Home.\nHistory includes submission attempts and completed labs/playgrounds.\nOnly the latest 100 persistent entries are shown; astrona progress summarizes all graded attempts.\nF1 opens alert details. Esc closes dialogs.\nLocal profile: ~/" + apphome.Name() + "\n" + m.data.warning
+		content = "1 Active runs · 2 History · 3 Help · p Preferences\nn starts a lab by catalog ID or local path.\nSelect a running Kind lab and press Enter to open its workspace.\nSubmit with g, or leave through the exit menu, to return Home.\nHistory includes submission attempts and completed labs/playgrounds.\nOnly the latest 100 persistent entries are shown; astrona progress summarizes all graded attempts.\nF1 opens alert details. Esc closes dialogs.\nLogin status uses saved credentials; it does not check the API.\nUse astrona login to sign in, or astrona whoami to check an expired login.\nLocal profile: ~/" + apphome.Name() + "\n" + m.data.warning
 		content = workspacePage(content, w-4, h-2, m.scroll)
 	} else if m.tab == 1 && m.detail && m.count() > 0 {
 		title = "HISTORY / DETAILS"
@@ -387,7 +394,13 @@ func (m uiHomeModel) View() string {
 			body += "\n" + workspacePanel("STATUS", workspacePage(message, w-4, 2, 0), w, 4, workspaceMuted)
 		}
 	}
-	view := editor.frame("HOME", fmt.Sprintf("%d saved runs  |  %d recent history entries", len(m.data.runs), len(m.data.history)), body, footer)
+	running := 0
+	for _, run := range m.data.runs {
+		if run.openable {
+			running++
+		}
+	}
+	view := editor.frame("HOME", fmt.Sprintf("Running: %d  ·  Saved: %d  ·  History: %d  ·  Refresh: every 5s", running, len(m.data.runs), len(m.data.history)), body, footer)
 	if editor.showAlert {
 		return editor.alertView(view)
 	}

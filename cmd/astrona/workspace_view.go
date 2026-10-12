@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -64,22 +65,26 @@ func (m workspaceModel) frame(title, context, body string, footer []string) stri
 	if gap > 0 {
 		brand += strings.Repeat(" ", gap) + version
 	}
-	active := " LABS "
+	active := workspaceNav([]string{"Labs", "Preferences"}, []string{"<enter>", "<p>"}, 0)
 	if m.showPreferences {
-		active = " PREFERENCES "
+		active = workspaceNav([]string{"Preferences", "Back"}, []string{"", "<esc>"}, 0)
 	} else if !m.home && len(m.labs) == 0 {
-		active = " LAB / TASK "
+		selected := 0
 		if m.results {
-			active = " LAB / RESULTS "
+			selected = 1
 		}
-		if m.snapshot.tracking != "" {
-			active += " | " + ansi.Truncate(sanitizeLine(m.snapshot.tracking), max(0, w-len(active)-4), "…") + " "
+		active = workspaceNav([]string{"Task", "Results", "Shell", "Preferences"}, []string{"<enter>", "<tab>", "<s>", "<p>"}, selected)
+		if w < 72 {
+			active = workspaceNav([]string{"Task", "Results", "Shell", "Settings"}, []string{"↵", "⇥", "s", "p"}, selected)
 		}
 	}
 	if m.navigation != "" {
 		active = m.navigation
 	}
-	header := brand + "\n" + workspaceMuted.Render(" "+sanitizeLine(context)) + "\n" + workspaceFocus.Render(active) + workspaceBorder.Render(strings.Repeat("─", max(0, w-ansi.StringWidth(active))))
+	header := brand + "\n" + workspaceMuted.Render(" "+sanitizeLine(context)) + "\n" + active
+	if os.Getenv(uiPaneEnv) == "1" {
+		header = active + "\n" + workspaceMuted.Render(" "+sanitizeLine(context)) + "\n" + workspaceBorder.Render(strings.Repeat("─", w))
+	}
 	for len(footer) < 2 {
 		footer = append(footer, "")
 	}
@@ -162,6 +167,12 @@ func (m workspaceModel) labView() string {
 		clock += "  Left: " + remaining.String()
 	}
 	context := m.name + "  |  " + m.snapshot.kind + "  |  " + clock
+	if os.Getenv(uiPaneEnv) == "1" {
+		context = fmt.Sprintf("%s  ·  Clusters: %d  ·  %s", m.snapshot.kind, len(m.snapshot.clusters), clock)
+	}
+	if m.snapshot.tracking != "" {
+		context += "  |  " + m.snapshot.tracking
+	}
 	message := m.notice
 	if m.snapshot.blocked != "" {
 		message = m.snapshot.blocked

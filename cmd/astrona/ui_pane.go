@@ -141,10 +141,11 @@ type uiPaneModel struct {
 	width, height, scroll, code   int
 	title, failure                string
 	controls, closing, ended, eof bool
+	account                       uiAccountStatus
 }
 
 func uiPaneSize(width, height int) (int, int) {
-	return max(1, min(width-4, 1000)), max(1, min(height-4, 500))
+	return max(1, min(width-4, 1000)), max(1, min(height-6, 500))
 }
 
 func uiPaneWinsize(width, height int) *pty.Winsize {
@@ -170,11 +171,14 @@ func (m *uiPaneModel) read() tea.Msg {
 }
 
 func (m *uiPaneModel) Init() tea.Cmd {
-	return tea.Batch(m.read, func() tea.Msg { return uiPaneExit{<-m.exited} })
+	return tea.Batch(m.read, readUIAccountStatus, func() tea.Msg { return uiPaneExit{<-m.exited} })
 }
 
 func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case uiAccountStatus:
+		m.account = msg
+		return m, uiAccountTick()
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		w, h := uiPaneSize(msg.Width, msg.Height)
@@ -275,6 +279,9 @@ func (m *uiPaneModel) View() string {
 	status := m.failure
 	if status == "" {
 		status = "Ctrl+C interrupts the active command. Output and errors stay in this pane."
+		if m.title == "HOME" {
+			status = "Select a lab to inspect it. Closing this screen leaves labs running."
+		}
 		if strings.HasPrefix(m.title, "SHELL /") {
 			status = "Type exit to return to the workspace. Ctrl+C interrupts a shell command."
 		}
@@ -282,8 +289,8 @@ func (m *uiPaneModel) View() string {
 	if m.closing {
 		content = "Close the UI and stop its active command?\nAny lab already created stays on this machine.\n\ny close / Enter or Esc return"
 	}
-	panel := workspacePanel("ASTRONA / "+m.title, content, m.width, m.height-2, workspaceFocus)
-	return workspaceFit(panel+"\n"+status+"\n"+footer, m.width, m.height)
+	panel := workspacePanel(uiPaneLabel(m.title), content, m.width, m.height-4, workspaceFocus)
+	return workspaceFit(m.header()+"\n"+panel+"\n"+status+"\n"+footer, m.width, m.height)
 }
 
 func (m *uiPaneModel) screen() string {
