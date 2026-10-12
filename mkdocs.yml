@@ -146,6 +146,9 @@ nav:
               - reference/cli/astrona_images.md
               - reference/cli/astrona_images_list.md
           - astrona itself:
+              - reference/cli/astrona_data.md
+              - reference/cli/astrona_data_clean.md
+              - reference/cli/astrona_data_reset.md
               - reference/cli/astrona_settings.md
               - reference/cli/astrona_settings_get.md
               - reference/cli/astrona_settings_set.md

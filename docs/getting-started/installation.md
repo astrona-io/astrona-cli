@@ -292,6 +292,73 @@ Error: 1 problem(s) found — the ✗ lines above say how to fix each
 
 It checks this machine (tools, container engine, inotify), the lab (its config, whether this astrona may run it, memory and free ports when it isn't running) and the running lab (nodes, linked clusters, port forwards, unhealthy pods, exam clock). It only reads — nothing is started or changed — and exits non-zero on any ✗ — including a lab you named (argument, `-c`, `--file`, `--git`, `astrona use` — `astrona doctor .` counts) that isn't there or whose config doesn't parse; only when no lab is named and the current directory has none does it check the machine alone. `--bundle` also writes the full [diagnostics bundle](../guides/ci-integration.md#diagnostics-on-failure). Unhealthy pods are ⚠, not ✗: in a lab they may be the exercise.
 
+## Local data and cache cleanup
+
+Inspect local files without connecting to Astrona or starting a container engine:
+
+```sh
+astrona data
+astrona data -o json
+```
+
+The report lists file counts and logical byte sizes under `~/.astrona` and the
+Astrona Git cache (`~/Library/Caches/astrona/repos` on macOS, normally
+`~/.cache/astrona/repos` on Linux). It includes saved results, logs, VM state and
+installed CLI versions, but does not read their contents or follow symlinks.
+Logical sizes can exceed actual disk use for sparse VM disks. Docker/Podman
+storage and progress saved to your account are outside this report.
+
+Preview cleanup before applying it:
+
+```sh
+astrona data clean
+astrona data clean --yes
+astrona data clean --temp-only
+astrona data clean --temp-only --yes
+```
+
+Cleanup removes downloaded image/addon caches, cached Git checkouts, and the
+catalog/update-check metadata. Those files will need to be downloaded again;
+check that you no longer need them offline. `--temp-only` limits deletion to
+partial image/addon downloads older than 24 hours inside Astrona's cache. It
+does not scan the system temp directory or delete unrelated temporary files.
+
+If any saved lab, VM, Kind, exam or port-forward state exists, caches are kept.
+Stopped VMs can still depend on cached backing images. Use `astrona list` to
+inspect your labs and `astrona destroy <lab>` to remove those you no longer need.
+Do not delete state files to bypass this check. Symlinked cache locations are
+rejected, and symlinks at the top of a cache are kept for manual inspection.
+
+Ordinary commands hold a shared maintenance lock; confirmed cleanup or reset
+requires an exclusive lock and fails immediately if another command holds it.
+Older CLI releases do not take this lock. Finish those commands before applying
+maintenance. The `.maintenance.lock` and `settings.json.lock` files stay in place;
+their presence does not mean a process is running. Never delete them to unlock
+the CLI.
+
+Reset saved CLI preferences and the selected lab:
+
+```sh
+astrona data reset
+astrona data reset --yes
+```
+
+Reset deletes only `settings.json`, `current.json`, `update-check.json`, and
+`catalog.json`. It works even if a settings file contains invalid JSON. This
+restores preference defaults and clears the `astrona use` selection; it does not
+restart or destroy a lab. Credentials, trust approvals, custom catalog sources,
+results, resources, bundles, logs and installed tools are preserved. Use
+`astrona logout` separately if you want to sign out.
+
+Both commands accept `-o json`. Without `--yes` they only preview; `--dry-run`
+always prevents deletion, even when combined with `--yes`. The CLI cannot restore
+deleted files. To remove old logs or unused CLI releases, use the existing commands:
+
+```sh
+astrona logs clean --older-than 168h --keep 10
+astrona versions list
+```
+
 ## Persistent CLI settings
 
 `astrona settings` lists your preferences and shows whether each value is saved
