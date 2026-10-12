@@ -62,7 +62,7 @@ func TestUIPaneKeyEncoding(t *testing.T) {
 		{"alt", "", "\x1bx", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x"), Alt: true}},
 		{"history", "", "\x1b[A", tea.KeyMsg{Type: tea.KeyUp}},
 		{"application cursor", "\x1b[?1h", "\x1bOA", tea.KeyMsg{Type: tea.KeyUp}},
-		{"details", "", "\x1bOP", tea.KeyMsg{Type: tea.KeyF1}},
+		{"function key", "", "\x1bOP", tea.KeyMsg{Type: tea.KeyF1}},
 		{"shift tab", "", "\x1b[Z", tea.KeyMsg{Type: tea.KeyShiftTab}},
 		{"paste", "\x1b[?2004h", "\x1b[200~first\nsecond\x1b[201~", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("first\nsecond"), Paste: true}},
 	} {
@@ -304,9 +304,9 @@ func TestUIPaneNativeTextSelection(t *testing.T) {
 	m := newUIPaneModel(nil, nil, 120, 30)
 	defer m.emulator.Close()
 	m.mouseDown = true
-	cmd := m.key(tea.KeyMsg{Type: tea.KeyF4})
+	cmd := m.key(tea.KeyMsg{Type: tea.KeyCtrlY})
 	if !m.selectText || m.mouseDown || cmd == nil || reflect.TypeOf(cmd()) != reflect.TypeOf(tea.DisableMouse()) {
-		t.Fatal("F4 did not enable native selection")
+		t.Fatal("Ctrl+Y did not enable native selection")
 	}
 	m.Update(tea.MouseMsg{X: 2, Y: 12, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
 	if m.mouseDown {
@@ -315,8 +315,8 @@ func TestUIPaneNativeTextSelection(t *testing.T) {
 	if !strings.Contains(m.View(), "Copy shortcut") {
 		t.Fatal("copy instructions missing")
 	}
-	cmd = m.key(tea.KeyMsg{Type: tea.KeyF4})
+	cmd = m.key(tea.KeyMsg{Type: tea.KeyCtrlY})
 	if m.selectText || cmd == nil || reflect.TypeOf(cmd()) != reflect.TypeOf(tea.EnableMouseCellMotion()) {
-		t.Fatal("F4 did not restore mouse controls")
+		t.Fatal("Ctrl+Y did not restore mouse controls")
 	}
 }

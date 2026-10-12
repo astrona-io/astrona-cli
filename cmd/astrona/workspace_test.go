@@ -344,9 +344,14 @@ func TestWorkspaceAlertNavigation(t *testing.T) {
 		t.Fatal("save confirmation shown as an alert")
 	}
 	m.preferences.notice, m.preferences.noticeError, m.preferences.editing = "Invalid value", true, true
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyF1})
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("!")})
+	m = next.(workspaceModel)
+	if m.showAlert || !strings.Contains(m.preferences.draft, "!") {
+		t.Fatal("alert shortcut consumed setting input")
+	}
+	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlG})
 	if !next.(workspaceModel).showAlert {
-		t.Fatal("could not inspect an error while editing")
+		t.Fatal("could not inspect error while editing")
 	}
 }
 

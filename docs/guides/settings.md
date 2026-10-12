@@ -84,7 +84,7 @@ from inside a lab shell. See [the UI guide](ui-home.md) for details.
 
 The workspace keeps its header and keyboard hints visible around bordered panels.
 Starting a lab, editing a preference and confirming destruction use dialogs.
-Errors appear in an alert panel; press F1 to read the full message, Page Up/Down
+Errors appear in an alert panel; press Ctrl+G to read the full message, Page Up/Down
 to scroll it, and Esc to return. Save confirmations appear as status messages.
 
 Use the arrow keys to select a setting. The editor shows its current value,

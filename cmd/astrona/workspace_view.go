@@ -125,7 +125,7 @@ func (m workspaceModel) smallView() string {
 }
 
 func workspaceAlert(message string, width int) string {
-	return workspacePanel("ALERT [f1 details]", workspacePage(message, width-4, 2, 0), width, 4, workspaceWarn)
+	return workspacePanel("ALERT [ctrl+g details]", workspacePage(message, width-4, 2, 0), width, 4, workspaceWarn)
 }
 
 func (m workspaceModel) alertMessage() string {

@@ -325,7 +325,7 @@ func (m uiHomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "p":
 			m.editor.action = workspaceLoadPreferences
 			return m, tea.Quit
-		case "f1", "!":
+		case "ctrl+g", "!":
 			message := m.data.warning
 			if m.noticeError {
 				message = m.notice + "\n" + message
@@ -409,7 +409,7 @@ func (m uiHomeModel) View() string {
 	title, content := "ACTIVE RUNS", ""
 	if m.tab == 2 {
 		title = "HELP"
-		content = "1 Active runs · 2 History · 3 Help · p Preferences\nSelect a running lab and press Enter for its task and terminal tabs.\nCtrl+D opens a force-delete confirmation for the selected run.\nCtrl+C returns from a lab to Home and pauses time spent.\nCtrl+T names a new terminal; mouse clicks or Ctrl+N/P change tabs. F3 opens lab details.\nHistory includes submission attempts and completed labs/playgrounds.\nOnly the latest 100 persistent entries are shown; astrona progress summarizes all graded attempts.\nF1 opens alert details. Esc closes dialogs.\nLogin status uses saved credentials; it does not check the API.\nUse astrona login to sign in, or astrona whoami to check an expired login.\nLocal profile: ~/" + apphome.Name() + "\n" + m.data.warning
+		content = "1 Active runs · 2 History · 3 Help · p Preferences\nSelect a running lab and press Enter for its task and terminal tabs.\nCtrl+D opens a force-delete confirmation for the selected run.\nCtrl+C returns from a lab to Home and pauses time spent.\nCtrl+T names a new terminal; mouse clicks or Ctrl+N/P change tabs. Ctrl+G opens lab details.\nHistory includes submission attempts and completed labs/playgrounds.\nOnly the latest 100 persistent entries are shown; astrona progress summarizes all graded attempts.\nCtrl+G opens alert details. Esc closes dialogs.\nLogin status uses saved credentials; it does not check the API.\nUse astrona login to sign in, or astrona whoami to check an expired login.\nLocal profile: ~/" + apphome.Name() + "\n" + m.data.warning
 		content = workspacePage(content, w-4, h-2, m.scroll)
 	} else if m.tab == 1 && m.detail && m.count() > 0 {
 		title = "HISTORY / DETAILS"
