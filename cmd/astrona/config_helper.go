@@ -8,6 +8,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labstate"
 	"astrona/internal/ui"
 
 	"github.com/mattn/go-isatty"
@@ -48,7 +49,18 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 		}
 		return nil, "", func() {}, withNoLabHint(err, flags)
 	}
-	if err := ensureLabVersion(cfg.AstronaVersion, flags, handoverApproval(flags, cfg, nil, filepath.Dir(finalPath))); err != nil {
+	versionFlags := *flags
+	if cfg.AstronaVersion != "" {
+		st, stateErr := labstate.Load(config.NormalizeClusterName(cfg.Metadata.Name))
+		if stateErr != nil {
+			cleanup()
+			return nil, "", func() {}, stateErr
+		}
+		if st != nil && st.LocalOnly {
+			versionFlags.localOnly = true
+		}
+	}
+	if err := ensureLabVersion(cfg.AstronaVersion, &versionFlags, handoverApproval(flags, cfg, nil, filepath.Dir(finalPath))); err != nil {
 		cleanup()
 		return nil, "", func() {}, err
 	}

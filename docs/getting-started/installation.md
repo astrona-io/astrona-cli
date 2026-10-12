@@ -534,6 +534,12 @@ After startup, select the run and press Enter to open its workspace.
 Inside the workspace, Enter shows the task; `s` explicitly opens a shell.
 Type `exit` in the shell to return to the UI.
 
+Starting an existing lab asks whether to destroy its current work and start over.
+No keeps it running. Yes discards it without saving or submitting, then starts a
+local-only run: no account session, progress or results are sent to the Astrona
+API. To reopen a lab without restarting, use `astrona ui`. Both UI commands work
+from inside a lab shell. See [the UI guide](../guides/ui-home.md) for details.
+
 The workspace keeps its header and keyboard hints visible around bordered panels.
 Starting a lab, editing a preference and confirming destruction use dialogs.
 Errors appear in an alert panel; press F1 to read the full message, Page Up/Down

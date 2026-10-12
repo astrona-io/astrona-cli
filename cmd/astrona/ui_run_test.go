@@ -16,44 +16,87 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type uiRunGateFixture struct {
+	root   *cobra.Command
+	flags  *rootFlags
+	path   string
+	cancel context.CancelFunc
+	ran    bool
+}
+
+func newUIRunGateFixture(t *testing.T) *uiRunGateFixture {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+	f := &uiRunGateFixture{path: filepath.Join(t.TempDir(), "settings.json")}
+	if err := writeSettingsFile(f.path, userSettings{"update-check": []byte("false")}); err != nil {
+		t.Fatal(err)
+	}
+	f.flags = &rootFlags{settingsFile: f.path}
+	f.root = newRootCmd(f.flags)
+	ctx, cancel := context.WithCancel(t.Context())
+	f.cancel = cancel
+	t.Cleanup(cancel)
+	f.root.SetContext(ctx)
+	f.root.SetOut(io.Discard)
+	f.root.SetErr(io.Discard)
+	run, _, err := f.root.Find([]string{"run"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.root.PersistentPreRunE = func(*cobra.Command, []string) error {
+		if !f.flags.uiStartupApproved || f.flags.trust || !f.flags.installVersion {
+			t.Fatal("startup consent not scoped to invocation")
+		}
+		return nil
+	}
+	run.RunE = func(*cobra.Command, []string) error { f.ran = true; return nil }
+	installCommandGate(f.root, func(cmd *cobra.Command) error { return checkSettingsReview(cmd, f.flags) })
+	installTermsGate(f.root, f.flags, func(cmd *cobra.Command, explicit bool) error {
+		store, err := terms.DefaultStore()
+		if err != nil {
+			return err
+		}
+		return store.Ensure(cmd.Context(), strings.NewReader(""), io.Discard, false, false, explicit, Version)
+	})
+	f.root.SetArgs([]string{"run", "ATS000/section-010/module-01/lab-01", "--ui"})
+	return f
+}
+
+func checkUIRunConsent(t *testing.T, f *uiRunGateFixture, accepted bool) {
+	t.Helper()
+	if accepted {
+		view, err := buildSettingsView(f.path)
+		if err != nil || len(view.Pending) != 0 {
+			t.Fatalf("review missing: %+v %v", view, err)
+		}
+		saved, err := loadSettings(f.path)
+		if err != nil || string(saved["update-check"]) != "false" {
+			t.Fatal("saved preference replaced")
+		}
+		return
+	}
+	if f.flags.uiStartupApproved {
+		t.Fatal("continued without consent")
+	}
+	if _, err := os.Stat(settingsReceiptPath(f.path)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("review receipt written without consent")
+	}
+	store, err := terms.DefaultStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	consent, err := store.Accepted()
+	if err != nil || consent {
+		t.Fatal("terms accepted without consent")
+	}
+}
+
 func TestUIRunGate(t *testing.T) {
 	for _, mode := range []string{"accept", "decline", "changed settings", "cancelled context"} {
 		t.Run(mode, func(t *testing.T) {
-			t.Setenv("HOME", t.TempDir())
-			path := filepath.Join(t.TempDir(), "settings.json")
-			if err := writeSettingsFile(path, userSettings{"update-check": []byte("false")}); err != nil {
-				t.Fatal(err)
-			}
-			flags := &rootFlags{settingsFile: path}
-			root := newRootCmd(flags)
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
-			root.SetContext(ctx)
-			root.SetOut(io.Discard)
-			root.SetErr(io.Discard)
-			run, _, err := root.Find([]string{"run"})
-			if err != nil {
-				t.Fatal(err)
-			}
-			ran, confirmations := false, 0
-			root.PersistentPreRunE = func(*cobra.Command, []string) error {
-				if !flags.uiStartupApproved || flags.trust || !flags.installVersion {
-					t.Fatal("startup consent not scoped to invocation")
-				}
-				return nil
-			}
-			run.RunE = func(*cobra.Command, []string) error { ran = true; return nil }
-			installCommandGate(root, func(cmd *cobra.Command) error {
-				return checkSettingsReview(cmd, flags)
-			})
-			installTermsGate(root, flags, func(cmd *cobra.Command, explicit bool) error {
-				s, err := terms.DefaultStore()
-				if err != nil {
-					return err
-				}
-				return s.Ensure(cmd.Context(), strings.NewReader(""), io.Discard, false, false, explicit, Version)
-			})
-			installUIRunGate(root, flags, func(_ *cobra.Command, notice uiRunNotice) (bool, error) {
+			f := newUIRunGateFixture(t)
+			confirmations := 0
+			installUIRunGate(f.root, f.flags, func(_ *cobra.Command, notice uiRunNotice) (bool, error) {
 				confirmations++
 				for _, text := range []string{"ATS000/section-010/module-01/lab-01", "update-check=no", "Other labs stay running", "signed out", "this run only"} {
 					if !strings.Contains(notice.summary, text) {
@@ -63,52 +106,25 @@ func TestUIRunGate(t *testing.T) {
 				if !strings.Contains(notice.details, terms.Document()) {
 					t.Fatal("full terms missing")
 				}
-				if mode == "changed settings" {
-					if err := writeSettingsFile(path, userSettings{"update-check": []byte("true")}); err != nil {
+				switch mode {
+				case "changed settings":
+					if err := writeSettingsFile(f.path, userSettings{"update-check": []byte("true")}); err != nil {
 						t.Fatal(err)
 					}
-				}
-				if mode == "cancelled context" {
-					cancel()
+				case "cancelled context":
+					f.cancel()
 				}
 				return mode != "decline", nil
 			})
-			root.SetArgs([]string{"run", "ATS000/section-010/module-01/lab-01", "--ui"})
-			err = root.Execute()
-			if confirmations != 1 || ran != (mode == "accept") {
-				t.Fatalf("confirmations=%d ran=%v err=%v", confirmations, ran, err)
+			err := f.root.Execute()
+			accepted := mode == "accept"
+			if confirmations != 1 || f.ran != accepted || (err == nil) != accepted {
+				t.Fatalf("confirmations=%d ran=%v err=%v", confirmations, f.ran, err)
 			}
-			if mode == "accept" {
-				if err != nil {
-					t.Fatal(err)
-				}
-				view, err := buildSettingsView(path)
-				if err != nil || len(view.Pending) != 0 {
-					t.Fatalf("review missing: %+v %v", view, err)
-				}
-				saved, err := loadSettings(path)
-				if err != nil || string(saved["update-check"]) != "false" {
-					t.Fatal("saved preference replaced")
-				}
-			} else {
-				if err == nil || flags.uiStartupApproved {
-					t.Fatal("continued without consent")
-				}
-				if mode == "decline" && !errors.Is(err, errUIRunDeclined) {
-					t.Fatal(err)
-				}
-				if _, err := os.Stat(settingsReceiptPath(path)); !errors.Is(err, os.ErrNotExist) {
-					t.Fatal("review receipt written without consent")
-				}
-				store, err := terms.DefaultStore()
-				if err != nil {
-					t.Fatal(err)
-				}
-				accepted, err := store.Accepted()
-				if err != nil || accepted {
-					t.Fatal("terms accepted without consent")
-				}
+			if mode == "decline" && !errors.Is(err, errUIRunDeclined) {
+				t.Fatal(err)
 			}
+			checkUIRunConsent(t, f, accepted)
 		})
 	}
 }

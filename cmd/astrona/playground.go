@@ -132,7 +132,7 @@ func newPlaygroundWatchdogCmd() *cobra.Command {
 // how `astrona destroy` stops it.
 func watchPlayground(ctx context.Context, clusterName string, tick time.Duration) error {
 	st, err := labstate.Load(clusterName)
-	if err != nil || st == nil || !st.Session.IsPlayground() {
+	if err != nil || st == nil || st.LocalOnly || !st.Session.IsPlayground() {
 		return err
 	}
 	sess := *st.Session
@@ -156,6 +156,13 @@ func watchPlayground(ctx context.Context, clusterName string, tick time.Duration
 		if err == nil && (cur == nil || cur.Session == nil || cur.Session.ID != sess.ID) {
 			return nil
 		}
+	}
+	current, err := labstate.Load(clusterName)
+	if err != nil {
+		return err
+	}
+	if current == nil || current.LocalOnly || current.Session == nil || current.Session.ID != sess.ID {
+		return nil
 	}
 	fmt.Printf("%s time limit reached: stopping %s\n", time.Now().Format(time.RFC3339), clusterName)
 	stopPlaygroundClock(ctx, &sess, "time_limit")
@@ -199,7 +206,9 @@ func endPlayground(clusterName string) {
 		return
 	}
 	stopWatchdog(st.Session.WatchdogPID, clusterName)
-	stopPlaygroundClock(context.Background(), st.Session, "destroyed")
+	if !st.LocalOnly {
+		stopPlaygroundClock(context.Background(), st.Session, "destroyed")
+	}
 }
 
 // endOldSession runs before a lab is built again under the same name (run's

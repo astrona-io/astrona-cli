@@ -167,10 +167,11 @@ func TestWorkspaceTerminalValidation(t *testing.T) {
 		{"output pipe", true, false, false, "xterm", "", false},
 		{"ci tty", true, true, true, "xterm", "", false},
 		{"dumb", true, true, false, "dumb", "", false},
-		{"nested", true, true, false, "xterm", "astro-lab", false},
+		{"lab shell can open UI", true, true, false, "xterm", "astro-lab", true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := checkWorkspaceTerminal(tt.input, tt.output, tt.ci, tt.term, tt.nested); (err == nil) != tt.ok {
+			t.Setenv(labShellEnvVar, tt.nested)
+			if err := checkWorkspaceTerminal(tt.input, tt.output, tt.ci, tt.term); (err == nil) != tt.ok {
 				t.Fatal(err)
 			}
 		})

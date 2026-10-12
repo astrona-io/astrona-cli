@@ -38,6 +38,8 @@ type rootFlags struct {
 	updateCheck       bool
 	acceptTerms       bool
 	uiStartupApproved bool
+	uiRestart         *uiRunRestart
+	localOnly         bool
 	// settingsFile is an optional path override for isolated command tests.
 	settingsFile string
 	settingsArgs []string

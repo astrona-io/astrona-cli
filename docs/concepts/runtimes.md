@@ -153,6 +153,12 @@ export KUBECONFIG=$(astrona kubeconfig my-lab)
 
 Inside `astrona shell`, `$ASTRONA_LAB` holds the lab name (e.g. add it to your prompt). With no lab-name, both commands use the lab config from `-c`, or the only running kind lab. A lab created by an older astrona (no isolated kubeconfig yet) gets one generated on first use.
 
+You can open `astrona ui` or run a lab with `--ui` from that shell. UI startup
+keeps the inherited kubeconfig context unchanged. Restarting an existing lab
+requires confirmation and uses the requested lab's source, never `$ASTRONA_LAB`,
+to choose what to discard. Context restoration is skipped inside the lab shell
+because its kubeconfig is isolated from your original one.
+
 ### Port forwards
 
 A kind lab can declare [`runtime.portForwards`](../reference/lab-config.md#runtimeportforwardsn) so a student reaches in-cluster services from their own browser or client, without running `kubectl port-forward` themselves:

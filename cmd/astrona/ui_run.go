@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"astrona/internal/terms"
@@ -18,8 +19,10 @@ var errUIRunDeclined = errors.New("lab startup cancelled")
 const uiRunDeclinedExitCode = 3
 
 type uiRunNotice struct {
-	summary string
-	details string
+	title        string
+	summary      string
+	details      string
+	detailsTitle string
 }
 
 // Install after the ordinary gates so UI consent happens before their prompts,
@@ -42,30 +45,69 @@ func installUIRunGate(root *cobra.Command, flags *rootFlags, confirm func(*cobra
 }
 
 func approveUIRun(cmd *cobra.Command, flags *rootFlags, confirm func(*cobra.Command, uiRunNotice) (bool, error)) error {
-	path, err := settingsPath(flags)
+	approval, err := prepareUIRunApproval(cmd, flags)
 	if err != nil {
 		return err
 	}
-	view, err := buildSettingsView(path)
-	if err != nil {
-		return err
-	}
-	store, err := terms.DefaultStore()
-	if err != nil {
-		return err
-	}
-	accepted, err := store.Accepted()
-	if err != nil {
-		return err
-	}
-	notice := buildUIRunNotice(cmd, flags, view, !accepted)
-	yes, err := confirm(cmd, notice)
+	yes, err := confirm(cmd, approval.notice)
 	if err != nil {
 		return err
 	}
 	if !yes {
 		return errUIRunDeclined
 	}
+	if err := approval.save(cmd); err != nil {
+		return err
+	}
+	flags.uiStartupApproved, flags.installVersion = true, true
+	flags.uiRestart, flags.localOnly = approval.restart, approval.localOnly
+	return nil
+}
+
+type uiRunApproval struct {
+	view          settingsView
+	store         terms.Store
+	termsAccepted bool
+	restart       *uiRunRestart
+	localOnly     bool
+	notice        uiRunNotice
+}
+
+func uiRunSettings(flags *rootFlags) (settingsView, error) {
+	path, err := settingsPath(flags)
+	if err != nil {
+		return settingsView{}, err
+	}
+	return buildSettingsView(path)
+}
+
+func prepareUIRunApproval(cmd *cobra.Command, flags *rootFlags) (uiRunApproval, error) {
+	var approval uiRunApproval
+	view, err := uiRunSettings(flags)
+	if err != nil {
+		return approval, err
+	}
+	store, err := terms.DefaultStore()
+	if err != nil {
+		return approval, err
+	}
+	accepted, err := store.Accepted()
+	if err != nil {
+		return approval, err
+	}
+	restart, err := findUIRunRestart(cmd, flags, readHomeContainers)
+	if err != nil {
+		return approval, err
+	}
+	preview := *flags
+	preview.uiRestart = restart
+	requestedRestart, _ := cmd.Flags().GetBool("yes")
+	preview.localOnly = restart != nil || requestedRestart
+	approval = uiRunApproval{view: view, store: store, termsAccepted: accepted, restart: restart, localOnly: preview.localOnly, notice: buildUIRunNotice(cmd, &preview, view, !accepted)}
+	return approval, nil
+}
+
+func (a uiRunApproval) save(cmd *cobra.Command) error {
 	if err := cmd.Context().Err(); err != nil {
 		return err
 	}
@@ -74,16 +116,12 @@ func approveUIRun(cmd *cobra.Command, flags *rootFlags, confirm func(*cobra.Comm
 	review := &cobra.Command{}
 	review.SetContext(cmd.Context())
 	review.SetErr(io.Discard)
-	if err := ensureSettingsReview(review, path, reviewDefinitions(), false, view.ID); err != nil {
+	if err := ensureSettingsReview(review, a.view.Path, reviewDefinitions(), false, a.view.ID); err != nil {
 		return err
 	}
-	if !accepted {
-		if err := store.Accept("prompt", Version); err != nil {
-			return err
-		}
+	if !a.termsAccepted {
+		return a.store.Accept("prompt", Version)
 	}
-	flags.uiStartupApproved = true
-	flags.installVersion = true
 	return nil
 }
 
@@ -106,9 +144,18 @@ func buildUIRunNotice(cmd *cobra.Command, flags *rootFlags, view settingsView, n
 	if selected.gitRef != "" {
 		label += " at " + selected.gitRef
 	}
-	action := "Start this lab, or open its workspace if it is already running."
+	action := "Start this lab. If it already exists, review a restart confirmation."
 	if restart, _ := cmd.Flags().GetBool("yes"); restart {
 		action = "Restart this lab if it exists. Its current work will be deleted."
+	}
+	tracking := "Catalog labs use your signed-in account for progress tracking. If signed out, the lab runs without account tracking."
+	title := "START LAB"
+	if flags.uiRestart != nil {
+		title, action = "RESTART LAB", flags.uiRestart.message()
+		tracking = ""
+	}
+	if flags.localOnly && flags.uiRestart == nil {
+		tracking = "This run is local only. No progress or results will be sent to the Astrona API."
 	}
 	var values, details []string
 	for _, v := range view.Values {
@@ -116,22 +163,29 @@ func buildUIRunNotice(cmd *cobra.Command, flags *rootFlags, view settingsView, n
 		if f := cmd.Flags().Lookup(v.Key); f != nil && f.Changed {
 			value, source = f.Value.String(), "command flag"
 		}
+		if v.Key == "keep-context" && os.Getenv(labShellEnvVar) != "" {
+			value, source = "true", "inherited lab shell"
+		}
 		values = append(values, v.Key+"="+settingValueText(value))
 		details = append(details, fmt.Sprintf("%s: %s (%s; default %s)\n%s", v.Key, settingValueText(value), source, settingValueText(string(v.Default)), v.Description))
 	}
-	summary := sanitizeLine(label) + "\n\n" + action + "\nOther labs stay running.\n"
+	summary := sanitizeLine(label) + "\n\n" + action + "\n"
+	if flags.uiRestart == nil {
+		summary += "Other labs stay running.\n"
+	}
 	if needsTerms {
 		summary += "Yes accepts the CLI terms and data-loss risk notice (Tab to read).\n"
 	}
-	summary += "\n" +
-		"Yes authorizes downloads, required CLI installation, containers, lab scripts and manifests, and configured local ports. Lab code may run on your machine. Only accept if you trust this lab and its sources. This code approval applies to this run only.\n\n" +
-		"Catalog labs use your signed-in account for progress tracking. If signed out, the lab runs without account tracking.\n\n" +
-		"Settings: " + strings.Join(values, ", ") + ". Saved choices are kept.\n"
+	summary += "\nYes authorizes downloads, required CLI installation, containers, lab scripts and manifests, and configured local ports. Lab code may run on your machine. Only accept if you trust this lab and its sources. This code approval applies to this run only.\n\n"
+	if tracking != "" {
+		summary += tracking + "\n\n"
+	}
+	summary += "Settings: " + strings.Join(values, ", ") + ". Saved choices are kept.\n"
 	if len(view.Pending) > 0 {
 		summary += "Yes acknowledges the settings review; removed settings are cleared.\n"
 	}
 	summary += "\nTab: terms and setting explanations. No cancels before startup."
-	return uiRunNotice{summary: summary, details: terms.Document() + "\n\nSettings\n\n" + strings.Join(details, "\n\n") + "\n\nPending review: " + strings.Join(view.Pending, ", ")}
+	return uiRunNotice{title: title, summary: summary, details: terms.Document() + "\n\nSettings\n\n" + strings.Join(details, "\n\n") + "\n\nPending review: " + strings.Join(view.Pending, ", ")}
 }
 
 type uiRunModel struct {
@@ -163,7 +217,7 @@ func (m uiRunModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "home":
 			m.scroll = 0
 		case "end":
-			m.scroll = len(m.text())
+			m.scroll = len(m.noticeText())
 		case "left", "right", "h", "l":
 			m.yes = !m.yes
 		case "y", "Y", "enter":
@@ -177,7 +231,7 @@ func (m uiRunModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m uiRunModel) text() string {
+func (m uiRunModel) noticeText() string {
 	if m.details {
 		return m.notice.details
 	}
@@ -186,7 +240,7 @@ func (m uiRunModel) text() string {
 
 func (m uiRunModel) maxScroll() int {
 	w := min(100, m.width-4)
-	lines := strings.Split(ansi.Wrap(sanitizeTerminalText(m.text()), max(1, w-4), ""), "\n")
+	lines := strings.Split(ansi.Wrap(sanitizeTerminalText(m.noticeText()), max(1, w-4), ""), "\n")
 	return max(0, len(lines)-max(1, m.height-9))
 }
 
@@ -196,14 +250,20 @@ func (m uiRunModel) View() string {
 	}
 	w, h := min(100, m.width-4), m.height-4
 	title := "START LAB"
+	if m.notice.title != "" {
+		title = m.notice.title
+	}
 	if m.details {
 		title = "TERMS AND SETTINGS"
+		if m.notice.detailsTitle != "" {
+			title = m.notice.detailsTitle
+		}
 	}
 	buttons := "  Yes    [No]"
 	if m.yes {
 		buttons = " [Yes]    No "
 	}
-	body := workspaceFit(workspacePage(m.text(), w-4, h-5, m.scroll), w-4, h-5)
+	body := workspaceFit(workspacePage(m.noticeText(), w-4, h-5, m.scroll), w-4, h-5)
 	body += "\n" + workspaceFocus.Render(buttons) + "\n" + workspaceMuted.Render("←/→ choose  enter confirm  y yes  n no")
 	box := workspacePanel(title, body, w, h, workspaceFocus)
 	footer := "↑/↓ scroll  Tab details  Esc cancel"

@@ -132,6 +132,10 @@ func sendResult(ctx context.Context, w io.Writer, clusterName string, src *labst
 	}
 	var sess *labstate.Session
 	if st != nil {
+		if st.LocalOnly {
+			fmt.Fprintln(w, "This run is local only. No result was sent to Astrona.")
+			return false
+		}
 		sess = st.Session
 	}
 	if sess == nil && catalogLab == "" {

@@ -29,15 +29,12 @@ import (
 )
 
 func requireWorkspaceTerminal() error {
-	return checkWorkspaceTerminal(isatty.IsTerminal(os.Stdin.Fd()), isatty.IsTerminal(os.Stdout.Fd()), terms.InCI(os.Getenv), os.Getenv("TERM"), os.Getenv(labShellEnvVar))
+	return checkWorkspaceTerminal(isatty.IsTerminal(os.Stdin.Fd()), isatty.IsTerminal(os.Stdout.Fd()), terms.InCI(os.Getenv), os.Getenv("TERM"))
 }
 
-func checkWorkspaceTerminal(input, output, ci bool, term, nested string) error {
+func checkWorkspaceTerminal(input, output, ci bool, term string) error {
 	if ci || !input || !output || term == "dumb" {
 		return fmt.Errorf("the lab UI needs an interactive terminal (stdin and stdout), outside CI; run without --ui for scripts")
-	}
-	if nested != "" {
-		return fmt.Errorf("already inside a lab shell for %s; exit it before opening the UI", nested)
 	}
 	return nil
 }
@@ -391,7 +388,9 @@ func readWorkspaceSnapshot(ctx context.Context, name, runID string, clusters []w
 	}
 	if st != nil {
 		snap.started, _ = time.Parse(time.RFC3339, st.StartedAt)
-		if st.Session != nil {
+		if st.LocalOnly {
+			snap.tracking = "Local only: API tracking disabled for this run"
+		} else if st.Session != nil {
 			snap.tracking = "Account session: " + st.Session.ID + " (upload checked on submit)"
 			if st.Session.IsPlayground() {
 				snap.deadline, _ = time.Parse(time.RFC3339, st.Session.DeadlineAt)

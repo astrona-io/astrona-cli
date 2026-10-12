@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -71,6 +72,7 @@ func rememberLab(clusterName string, flags *rootFlags, sess *labstate.Session) {
 	err := labstate.Update(clusterName, func(s *labstate.State) {
 		s.Source = rememberedSource(flags)
 		s.Session = sess
+		s.LocalOnly = flags.localOnly
 		s.StartedAt = time.Now().UTC().Format(time.RFC3339)
 	})
 	if err != nil {
@@ -97,6 +99,9 @@ func switchToLab(clusterName, labContext string) *labstate.Switched {
 // from — only if the lab's context is still current — and says what it
 // did. Call it before the lab's cluster is deleted.
 func releaseLab(w io.Writer, clusterName string) {
+	if os.Getenv(labShellEnvVar) != "" {
+		return // An inherited isolated kubeconfig is not the user's original context.
+	}
 	st, err := labstate.Load(clusterName)
 	if err != nil || st == nil || st.KubeContext == nil {
 		return

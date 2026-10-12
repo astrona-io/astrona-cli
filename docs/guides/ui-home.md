@@ -51,8 +51,30 @@ Use Tab to read the terms and setting explanations, arrow keys or Page Up/Down
 to scroll, and left/right to select Yes or No. Enter confirms the selection;
 `y` accepts directly. No, `n`, Esc or Ctrl-C cancels startup and prints a message.
 Cancellation exits with code 3; when starting from Home, it returns there with
-a cancellation notice. Existing labs are left as they are. `--yes --ui`
-explicitly requests a restart, which is shown in the notice.
+a cancellation notice. No leaves existing labs as they are.
+
+When the requested lab already exists, the box asks whether to destroy it
+and start over. Yes discards work in that lab and its linked clusters without
+saving or submitting it. The old account session is detached locally and its
+playground watchdog is stopped without reporting to Astrona. The replacement
+run stays local, even when signed in: it creates no account session and sends
+no progress or submission results to the Astrona API. Grading still works
+locally. Other labs stay running. The CLI skips teardown scripts during this
+discard operation and blocks automatic version handover for the local run.
+
+Saved runs are checked before the first notice. If an existing lab is only
+found after its config is loaded, a restart confirmation appears then, before
+any account access or deletion. A lab replaced by another command while the
+dialog is open must be reviewed again. `--yes --ui` does not bypass this check.
+
+You can open the UI from an Astrona lab shell. The inherited shell marker does
+not choose which lab to replace; the command's lab argument or selected config
+does. Startup leaves that shell's Kubernetes context unchanged. To continue
+working on an existing lab without restarting, use `astrona ui <lab-name>`.
+
+The startup notice cannot approve a remote config this CLI cannot parse.
+Version handover still requires trust for that exact source or an explicit
+`--trust` supplied after reviewing it.
 
 Or open an existing lab directly:
 
