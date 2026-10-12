@@ -137,6 +137,9 @@ func TestUITaskProcessHelper(t *testing.T) {
 		cmd.Env = append(os.Environ(), "PS1=task-shell> ", "ENV=/dev/null")
 		return cmd, nil
 	}}
+	// Let the outer pane apply its full task size before the child starts.
+	uiPaneTitle("TASK / " + m.name)
+	time.Sleep(100 * time.Millisecond)
 	for range 2 {
 		result, err := runUITaskScreen(ctx, m, nil)
 		if err != nil || result.action != workspaceLeave {
@@ -175,21 +178,29 @@ func TestUITaskKeepsTabsAcrossOverview(t *testing.T) {
 	_, _ = io.WriteString(keys, "export KEEP_TAB=retained; printf 'first-%s\\n' ready\r")
 	waitUIPaneOutput(t, out, "first-ready")
 	_, _ = io.WriteString(keys, "\x14") // Ctrl+T
-	waitUIPaneOutput(t, out, "Terminal 2")
+	waitUIPaneOutput(t, out, "NEW TERMINAL")
+	_, _ = io.WriteString(keys, "Monitor\r")
+	waitUIPaneOutput(t, out, "[2 Monitor]")
 	_, _ = io.WriteString(keys, "printf 'second-%s\\n' \"${KEEP_TAB:-isolated}\"\r")
 	waitUIPaneOutput(t, out, "second-isolated")
-	_, _ = fmt.Fprintf(keys, "\x1b[<0;55;%dM", uiHeaderHeight(120, 40)+1) // Click the first terminal tab.
+	_, _ = fmt.Fprintf(keys, "\x1b[<0;40;%dM", uiHeaderHeight(120, 40)+1) // Click the first terminal tab.
 	_, _ = io.WriteString(keys, "sleep 30\r")
 	time.Sleep(100 * time.Millisecond)
 	_, _ = io.WriteString(keys, "\x1bc") // Alt+C interrupts the foreground command.
 	_, _ = io.WriteString(keys, "printf 'interrupt-%s\\n' works\r")
 	waitUIPaneOutput(t, out, "interrupt-works")
+	row := uiHeaderHeight(120, 40) + 5
+	_, _ = fmt.Fprintf(keys, "\x1b[<0;36;%dM\x1b[<32;49;%dM\x1b[<0;49;%dm", row, row, row)
+	time.Sleep(100 * time.Millisecond)
+	_, _ = io.WriteString(keys, "printf 'width-%s\\n' \"$(stty size | cut -d' ' -f2)\"\r")
+	waitUIPaneOutput(t, out, "width-68")
 	_, _ = io.WriteString(keys, "\x03")
 	waitUIPaneOutput(t, out, "Time paused; terminal tabs retained")
 	_, _ = io.WriteString(keys, "\r")
 	time.Sleep(100 * time.Millisecond)
 	_, _ = io.WriteString(keys, "printf 'reopened-%s\\n' \"$KEEP_TAB\"\r")
 	waitUIPaneOutput(t, out, "reopened-retained")
+
 	_, _ = io.WriteString(keys, "\x03")
 	time.Sleep(100 * time.Millisecond)
 	_, _ = io.WriteString(keys, "q")
@@ -297,5 +308,83 @@ func TestUITaskMarkdown(t *testing.T) {
 	}
 	if strings.Contains(page, "\x1b]52") || strings.Contains(plain, "```") || strings.Contains(plain, "**") {
 		t.Fatal("raw markdown or unsafe escape rendered")
+	}
+}
+
+func TestUITaskNamesNewTabsAndCancels(t *testing.T) {
+	manager := testUITerminals(t)
+	m := &uiTaskModel{workspace: workspaceModel{width: 100, height: 30}, terminals: manager, sized: true}
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlT})
+	if cmd != nil || !m.namingTab || len(manager.snapshot()) != 0 {
+		t.Fatal("terminal started before naming")
+	}
+	view := ansi.Strip(m.View())
+	for _, want := range []string{"NEW TERMINAL", "mouse click", "Ctrl+N / Ctrl+P"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("missing %q", want)
+		}
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("Monitorø")})
+	m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if m.namingTab || len(manager.snapshot()) != 0 {
+		t.Fatal("cancel created a tab")
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlT})
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("Monitor")})
+	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter, Paste: true})
+	if cmd != nil || !m.namingTab {
+		t.Fatal("pasted Enter confirmed a tab")
+	}
+	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("confirmation did not start tab")
+	}
+	if msg := cmd().(uiTerminalStarted); msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	m.Update(uiTerminalChanged{})
+	if len(m.tabs) != 1 || m.tabs[0].label != "Monitor" {
+		t.Fatal("tab name not retained")
+	}
+	if !strings.Contains(ansi.Strip(m.View()), "[1 Monitor]") {
+		t.Fatal("tab name not displayed")
+	}
+}
+
+func TestUITaskDividerDrag(t *testing.T) {
+	manager := testUITerminals(t)
+	m := &uiTaskModel{workspace: workspaceModel{width: 120, height: 35}, terminals: manager, sized: true}
+	left, _, _ := m.size()
+	if left != 36 {
+		t.Fatalf("default width: %d", left)
+	}
+	m.Update(tea.MouseMsg{X: left - 1, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m.Update(tea.MouseMsg{X: 59, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionMotion})
+	left, _, _ = m.size()
+	if left != 60 || manager.taskWidth != 50 {
+		t.Fatalf("drag width: %d", left)
+	}
+	m.Update(tea.MouseMsg{X: 59, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionRelease})
+	m.Update(tea.MouseMsg{X: 89, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionMotion})
+	if m.taskWidth != 50 || m.dragging {
+		t.Fatal("released divider kept moving")
+	}
+	m.namingTab = true
+	m.Update(tea.MouseMsg{X: 59, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	if m.dragging {
+		t.Fatal("modal allowed background drag")
+	}
+	for _, width := range []int{20, 48, 64, 80, 120} {
+		for _, percent := range []int{20, 30, 60} {
+			m.workspace.width, m.taskWidth = width, percent
+			left, right, _ := m.size()
+			if width < 64 && left != 0 {
+				t.Fatal("narrow view did not switch to a single pane")
+			}
+			if width >= 64 && (left < 18 || right < 28 || left+right+4 != width) {
+				t.Fatalf("invalid split: width=%d task=%d terminal=%d", width, left, right)
+			}
+		}
 	}
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -119,65 +118,49 @@ func TestHomeReturnsAfterWorkspaceAndHandlesErrors(t *testing.T) {
 	}
 }
 
-func TestHomePreferencesAndStartup(t *testing.T) {
-	for _, failure := range []error{nil, errors.New("startup failed"), errUIRunDeclined} {
-		t.Run(fmt.Sprint(failure), func(t *testing.T) {
-			prefs := preferencesFixture(t, "update-check").preferences
-			screens, saves, starts := 0, 0, 0
-			d := uiHomeDriver{
-				screen: func(_ context.Context, m uiHomeModel) (uiHomeModel, error) {
-					screens++
-					m.width, m.height = 80, 24
-					switch screens {
-					case 1:
-						m = homeKey(m, "p")
-					case 2:
-						if !m.editor.showPreferences {
-							t.Fatal("preferences did not open")
-						}
-						for range prefs.selected {
-							m = homeKey(m, "down")
-						}
-						m = homeKey(homeKey(homeKey(homeKey(m, "enter"), "no"), "enter"), "y")
-					case 3:
-						if !strings.Contains(m.editor.preferences.notice, "Saved.") {
-							t.Fatal("save result missing")
-						}
-						m = homeKey(homeKey(homeKey(homeKey(m, "esc"), "n"), "./labs/demo"), "enter")
-					case 4:
-						wantError := failure != nil && !errors.Is(failure, errUIRunDeclined)
-						if m.editor.enteringLab || m.editor.showPreferences || m.notice == "" || m.noticeError != wantError {
-							t.Fatal("startup did not return Home")
-						}
-						if errors.Is(failure, errUIRunDeclined) && !strings.Contains(m.notice, "cancelled") {
-							t.Fatal("declined startup reported success")
-						}
-						m = homeKey(m, "q")
-					default:
-						t.Fatal("unexpected extra screen")
-					}
-					return m, nil
-				},
-				preferences: func() (workspacePreferences, error) { return prefs, nil },
-				savePreference: func(row workspaceSetting, value string) error {
-					saves++
-					if row.key != "update-check" || value != "false" {
-						t.Fatal("wrong preference saved")
-					}
-					return nil
-				},
-				start: func(lab string) error {
-					starts++
-					if lab != "./labs/demo" {
-						t.Fatal(lab)
-					}
-					return failure
-				},
+func TestHomePreferencesWithoutStartup(t *testing.T) {
+	prefs := preferencesFixture(t, "update-check").preferences
+	screens, saves := 0, 0
+	d := uiHomeDriver{
+		screen: func(_ context.Context, m uiHomeModel) (uiHomeModel, error) {
+			screens++
+			m.width, m.height = 80, 24
+			switch screens {
+			case 1:
+				m = homeKey(m, "p")
+			case 2:
+				if !m.editor.showPreferences {
+					t.Fatal("preferences did not open")
+				}
+				for range prefs.selected {
+					m = homeKey(m, "down")
+				}
+				m = homeKey(homeKey(homeKey(homeKey(m, "enter"), "no"), "enter"), "y")
+			case 3:
+				if !strings.Contains(m.editor.preferences.notice, "Saved.") {
+					t.Fatal("save result missing")
+				}
+				m = homeKey(m, "esc")
+				m = homeKey(homeKey(m, "n"), "enter")
+				if m.open || m.editor.action != workspaceNone {
+					t.Fatal("removed startup action still active")
+				}
+				m = homeKey(m, "q")
+			default:
+				t.Fatal("unexpected extra screen")
 			}
-			if err := driveUIHome(t.Context(), uiHomeModel{}, d); err != nil || saves != 1 || starts != 1 {
-				t.Fatalf("save=%d start=%d err=%v", saves, starts, err)
+			return m, nil
+		}, preferences: func() (workspacePreferences, error) { return prefs, nil },
+		savePreference: func(row workspaceSetting, value string) error {
+			saves++
+			if row.key != "update-check" || value != "false" {
+				t.Fatal("wrong preference saved")
 			}
-		})
+			return nil
+		},
+	}
+	if err := driveUIHome(t.Context(), uiHomeModel{}, d); err != nil || saves != 1 {
+		t.Fatalf("save=%d err=%v", saves, err)
 	}
 }
 

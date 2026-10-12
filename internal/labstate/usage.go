@@ -80,3 +80,15 @@ func loadUsage(path string) (ResourceUsage, error) {
 	err = json.Unmarshal(data, &usage)
 	return usage, err
 }
+
+// ReadUsage returns the latest local resource measurements for a run.
+func ReadUsage(lab, started string) (ResourceUsage, error) {
+	if lab == "" || started == "" {
+		return ResourceUsage{}, nil
+	}
+	dir, err := activityDir(lab, started)
+	if err != nil {
+		return ResourceUsage{}, err
+	}
+	return loadUsage(filepath.Join(dir, "resources", "usage.json"))
+}

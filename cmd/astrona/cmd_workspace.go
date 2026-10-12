@@ -52,10 +52,10 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 		Short: "Open the UI home with active runs and history",
 		Long: "Open Home to browse saved runs, submission history and completed labs/playgrounds, even when no lab or engine is running. " +
 			"Enter opens a running Kind lab; name one to open its workspace directly. " +
-			"Press n to start a lab by catalog ID or local path, or p for preferences. Opening the workspace never restarts a lab or its timer.\n\n" +
+			"Press p for preferences. Start labs from the command line with astrona run <lab> --ui. Opening the workspace never restarts a lab or its timer.\n\n" +
 			"Downloads, setup, grading, teardown and errors stay inside the UI's terminal pane. Ctrl+] opens pane controls and scrollback. " +
-			"Enter opens the task on the left and an isolated lab terminal on the right. Ctrl-T adds a terminal; Ctrl-N/P switches tabs. " +
-			"F2 focuses the task for scrolling. F3 opens lab details, cluster selection and submission results. " +
+			"Enter opens the task on the left and an isolated lab terminal on the right. Ctrl-T opens a name dialog for a new terminal; mouse clicks or Ctrl-N/P switch tabs. " +
+			"F2 focuses the task for scrolling. Drag the divider to resize it; ui-task-width in Preferences sets the default percentage. F3 opens lab details, cluster selection and submission results. " +
 			"Ctrl-C returns Home and pauses time spent; terminal tabs keep running until the UI closes. Alt-C interrupts a terminal command. " +
 			"p opens saved preferences: select a setting, Enter to edit and review, then y to save. " +
 			"Esc cancels. Boolean settings use yes/no, and blank input keeps the current value. F1 opens alert details. " +
@@ -198,7 +198,11 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		clusters = append(clusters, workspaceCluster{name: link.Cluster, alias: link.Name, status: "Checking…"})
 	}
 	playground := st.Session.IsPlayground() || isPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground"
-	m := workspaceModel{runID: runID, taskTerminals: true, terminalCommand: func(alias string) (*exec.Cmd, error) {
+	path, err := settingsPath(flags)
+	if err != nil {
+		return "", err
+	}
+	m := workspaceModel{settingsPath: path, runID: runID, taskTerminals: true, terminalCommand: func(alias string) (*exec.Cmd, error) {
 		if err := workspaceGuard(name, runID); err != nil {
 			return nil, err
 		}

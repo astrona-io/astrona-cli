@@ -140,6 +140,10 @@ func (m *uiPaneModel) activityTick(now time.Time) {
 			m.activity.periods = []labstate.ActivityPeriod{{Start: now, End: now}}
 		}
 	}
+	m.usage, _ = labstate.ReadUsage(target.Lab, target.Started)
+	if time.Since(m.usage.Updated) > 15*time.Second {
+		m.usage = labstate.ResourceUsage{}
+	}
 	wasPaused := m.activity.paused
 	m.activity.update(now)
 	if m.activity.paused != wasPaused || now.Sub(m.activity.saved) >= 5*time.Second {

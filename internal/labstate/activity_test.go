@@ -77,6 +77,9 @@ func TestUsageAveragesDeduplicateUIs(t *testing.T) {
 	if err != nil || usage.Samples != 2 || usage.AverageCPU != 30 || usage.AverageMemory != 150 {
 		t.Fatalf("bad averages: %+v %v", usage, err)
 	}
+	if saved, err := ReadUsage("astro-lab", stamp); err != nil || saved.Samples != 2 || saved.CPU != 40 || saved.AverageMemory != 150 {
+		t.Fatalf("read measurements: %+v %v", saved, err)
+	}
 	usage, err = RecordUsage("astro-lab", now.Add(time.Hour).Format(time.RFC3339), 1, 2, now.Add(time.Hour))
 	if err != nil || usage.Samples != 1 || usage.AverageCPU != 1 {
 		t.Fatal("restart inherited averages")

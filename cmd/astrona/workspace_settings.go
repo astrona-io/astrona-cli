@@ -187,6 +187,8 @@ func preferenceChangeImpact(key, value string) string {
 		return "Allow lab commands to switch your kubectl context to the lab. Subsequent kubectl commands may target that lab."
 	case "parallel":
 		return "Start up to " + value + " linked clusters at once. Higher concurrency can reduce startup time but uses more resources at once."
+	case "ui-task-width":
+		return "Use " + value + "% of the lab view for the task pane. Drag the divider to adjust it for this UI session."
 	case "login-reminder":
 		if value == "true" {
 			return "Offer login before each guest lab run so catalog progress can be tracked."

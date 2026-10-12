@@ -22,7 +22,6 @@ const (
 	workspaceSelect
 	workspaceLoadPreferences
 	workspaceSavePreference
-	workspaceStart
 	workspaceReloadLabs
 )
 
@@ -46,6 +45,7 @@ type workspaceTick time.Time
 // program has stopped reading stdin and restored the terminal.
 type workspaceModel struct {
 	runID                                                 string
+	settingsPath                                          string
 	terminalCommand                                       func(string) (*exec.Cmd, error)
 	taskTerminals                                         bool
 	name, task, notice                                    string
@@ -60,8 +60,7 @@ type workspaceModel struct {
 	refresh                                               func() tea.Msg
 	showPreferences                                       bool
 	preferences                                           workspacePreferences
-	home, enteringLab                                     bool
-	labDraft                                              string
+	home                                                  bool
 	navigation                                            string
 	showAlert                                             bool
 	alertScroll                                           int
@@ -110,7 +109,7 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		if (key == "f1" || (key == "!" && !m.enteringLab && !m.preferences.editing)) && m.alertMessage() != "" {
+		if (key == "f1" || (key == "!" && !m.preferences.editing)) && m.alertMessage() != "" {
 			m.showAlert, m.alertScroll = true, 0
 			return m, nil
 		}

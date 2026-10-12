@@ -24,6 +24,7 @@ astrona settings -o json
 | `verbose` | `no` | Stream full command output instead of the compact step view |
 | `keep-context` | `no` | Leave kubectl's current-context unchanged on commands with `--keep-context` |
 | `parallel` | `1` | Start up to 1–5 linked clusters at once on commands with `--parallel` |
+| `ui-task-width` | `30` | Default task pane width as a percentage of the lab view (20–60) |
 | `login-reminder` | `yes` | Offer guests login before each lab run; `no` hides reminders |
 | `update-check` | `yes` | Check for new CLI releases and show update notices |
 | `cache-retention-days` | `30` | Maximum disposable-cache age; whole days from 1 to 36500 |
