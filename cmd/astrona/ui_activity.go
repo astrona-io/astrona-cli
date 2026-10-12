@@ -129,6 +129,7 @@ func (m *uiPaneModel) activityTick(now time.Time) {
 			m.failure = m.activityError
 		}
 		m.activity = uiActivityClock{target: target, lastInput: now}
+		m.activityAway = false
 		m.activityTotal, m.activitySavedOwn = 0, 0
 		if target.Lab != "" {
 			m.activity.periods = []labstate.ActivityPeriod{{Start: now, End: now}}

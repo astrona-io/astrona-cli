@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -41,6 +42,9 @@ type workspaceTick time.Time
 // workspaceModel owns display state only. Lifecycle actions run after the
 // program has stopped reading stdin and restored the terminal.
 type workspaceModel struct {
+	runID                                                 string
+	terminalCommand                                       func(string) (*exec.Cmd, error)
+	taskTerminals                                         bool
 	name, task, notice                                    string
 	submission                                            string
 	snapshot                                              workspaceSnapshot
@@ -88,6 +92,10 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, workspaceTickCmd()
 	case tea.KeyMsg:
 		key := msg.String()
+		if key == "ctrl+c" && !msg.Paste && !m.home && len(m.labs) == 0 && !m.showPreferences {
+			m.action = workspaceLeave
+			return m, tea.Quit
+		}
 		if m.showAlert {
 			switch key {
 			case "esc", "enter", "q", "ctrl+c", "ctrl+d":
@@ -159,7 +167,14 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "p":
 			m.action = workspaceLoadPreferences
 			return m, tea.Quit
-		case "q", "esc", "ctrl+c", "ctrl+d":
+		case "ctrl+c":
+			m.action = workspaceLeave
+			return m, tea.Quit
+		case "ctrl+d":
+			if m.snapshot.blocked == "" {
+				m.confirmDestroy = true
+			}
+		case "q", "esc":
 			m.exitMenu = true
 		case "up", "k":
 			m.selected = max(0, m.selected-1)
@@ -175,6 +190,10 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "home":
 			m.scroll = 0
 		case "enter":
+			if m.terminalCommand != nil {
+				m.taskTerminals = true
+				return m, tea.Quit
+			}
 			m.results, m.scroll = false, 0
 		case "s":
 			if m.snapshot.blocked == "" && len(m.snapshot.clusters) > 0 {
@@ -232,6 +251,9 @@ func (m workspaceModel) menuText() string {
 // runWorkspaceScreen owns the polling context. Returning to a shell or grading
 // first cancels in-flight reads; no background refresh writes to the terminal.
 func runWorkspaceScreen(ctx context.Context, m workspaceModel, refresh func(context.Context) workspaceSnapshot) (workspaceModel, error) {
+	if m.taskTerminals && !m.showPreferences && m.terminalCommand != nil {
+		return runUITaskScreen(ctx, m, refresh)
+	}
 	uiPaneTitle("WORKSPACE / " + m.name)
 	if m.showPreferences {
 		uiPaneTitle("PREFERENCES")

@@ -54,13 +54,15 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			"Enter opens a running Kind lab; name one to open its workspace directly. " +
 			"Press n to start a lab by catalog ID or local path, or p for preferences. Opening the workspace never restarts a lab or its timer.\n\n" +
 			"Downloads, setup, grading, teardown and errors stay inside the UI's terminal pane. Ctrl+] opens pane controls and scrollback. " +
-			"Arrow keys select a cluster; Enter shows its task. Press s to open a shell inside the UI with that lab's isolated kubeconfigs. " +
-			"Exit the shell to return. Tab switches between the task and submission results; Page Up/Down scroll. " +
+			"Enter opens the task on the left and an isolated lab terminal on the right. Ctrl-T adds a terminal; Ctrl-N/P switches tabs. " +
+			"F2 focuses the task for scrolling. F3 opens lab details, cluster selection and submission results. " +
+			"Ctrl-C returns Home and pauses time spent; terminal tabs keep running until the UI closes. Alt-C interrupts a terminal command. " +
 			"p opens saved preferences: select a setting, Enter to edit and review, then y to save. " +
 			"Esc cancels. Boolean settings use yes/no, and blank input keeps the current value. F1 opens alert details. " +
 			"Saved options apply to future commands; cache policy is checked after the UI closes. " +
 			"g submits a graded lab through the Proctor and returns Home, keeping the lab running, even after a pass. " +
-			"q or Ctrl-C opens an exit menu: return Home with the lab running, submit (graded labs), or explicitly confirm destruction and return Home. " +
+			"Ctrl-D on Home opens a red force-delete confirmation. Select Yes and press Enter to discard the selected run without saving or submitting it. " +
+			"In lab details, q opens the exit menu: keep running, submit, or confirm normal teardown. " +
 			"Closing the terminal does not submit or destroy; existing time limits still apply.\n\n" +
 			"Requires an interactive terminal outside CI. Opening the UI is opt-in, not a saved setting; QEMU is not yet supported.",
 		Example:           "  astrona ui\n  astrona ui " + apphome.ClusterPrefix() + "my-lab\n  astrona run ./labs/my-lab --ui",
@@ -157,6 +159,8 @@ func workspaceGuard(name, runID string) error {
 }
 
 func runLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string, flags *rootFlags) error {
+	ctx, closeTerminals := uiTerminalContext(ctx)
+	defer closeTerminals()
 	notice, err := openLabWorkspace(ctx, cfg, baseDir, flags, "")
 	if err != nil {
 		return err
@@ -194,7 +198,13 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		clusters = append(clusters, workspaceCluster{name: link.Cluster, alias: link.Name, status: "Checking…"})
 	}
 	playground := st.Session.IsPlayground() || isPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground"
-	m := workspaceModel{name: name, task: workspaceTask(cfg, baseDir, flags), canSubmit: workspaceCanSubmit(cfg, playground), snapshot: workspaceSnapshot{clusters: clusters}}
+	m := workspaceModel{runID: runID, taskTerminals: true, terminalCommand: func(alias string) (*exec.Cmd, error) {
+		if err := workspaceGuard(name, runID); err != nil {
+			return nil, err
+		}
+		cmd, _, err := labShellCommand(name, alias, nil)
+		return cmd, err
+	}, name: name, task: workspaceTask(cfg, baseDir, flags), canSubmit: workspaceCanSubmit(cfg, playground), snapshot: workspaceSnapshot{clusters: clusters}}
 	refresh := func(ctx context.Context) workspaceSnapshot {
 		return readWorkspaceSnapshot(ctx, name, runID, clusters, playground, cfg.Exam.Enabled())
 	}
@@ -224,6 +234,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 			return result, err
 		},
 		destroy: func() (bool, error) {
+			closeUITerminals(ctx, name)
 			rep, err := ui.NewReporter("destroy", name, flags.verbose)
 			if err != nil {
 				return false, err
@@ -259,9 +270,20 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 		if err != nil {
 			return err
 		}
+		if m.action == workspaceSelect {
+			m.taskTerminals = false
+			continue
+		}
+		if m.taskTerminals && m.action == workspaceNone {
+			continue
+		}
 		if m.action == workspaceLeave || m.action == workspaceNone {
 			if d.returnHome != nil {
-				d.returnHome("Left " + m.name + " running. Select it in Active runs to reopen.")
+				message := "Left " + m.name + " running. Select it in Active runs to reopen."
+				if m.snapshot.blocked != "" {
+					message = m.snapshot.blocked
+				}
+				d.returnHome(message)
 			} else {
 				fmt.Printf("Workspace closed; the lab was not destroyed on exit. Reopen: astrona ui %s\n", m.name)
 			}
@@ -281,6 +303,10 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 		}
 		switch m.action {
 		case workspaceShell:
+			if m.terminalCommand != nil {
+				m.taskTerminals = true
+				continue
+			}
 			uiPaneTitle("SHELL / " + m.name)
 			err = d.shell(m.snapshot.clusters[m.selected].alias)
 		case workspaceSubmit:

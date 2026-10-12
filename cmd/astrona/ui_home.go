@@ -181,6 +181,8 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 }
 
 type uiHomeModel struct {
+	deleting                     *uiHomeRun
+	deleteYes, destroy           bool
 	data                         uiHomeSnapshot
 	notice                       string
 	tab, selected, width, height int
@@ -248,6 +250,33 @@ func (m uiHomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, workspaceTickCmd()
 	case tea.KeyMsg:
+		if m.deleting != nil {
+			if !m.deleteDialogFits() {
+				if msg.String() == "esc" || msg.String() == "ctrl+c" {
+					m.deleting = nil
+				}
+				return m, nil
+			}
+			if msg.Paste {
+				return m, nil
+			}
+			switch msg.String() {
+			case "esc", "ctrl+c", "n", "N":
+				m.deleting = nil
+				m.deleteYes = false
+			case "tab", "left", "right":
+				m.deleteYes = !m.deleteYes
+			case "y", "Y":
+				m.deleteYes = true
+			case "enter":
+				if m.deleteYes {
+					m.destroy = true
+					return m, tea.Quit
+				}
+				m.deleting = nil
+			}
+			return m, nil
+		}
 		m.editor.home, m.editor.width, m.editor.height = true, m.width, m.height
 		if m.editor.showPreferences || m.editor.enteringLab || m.editor.showAlert {
 			next, command := m.editor.Update(msg)
@@ -270,7 +299,13 @@ func (m uiHomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if strings.TrimSpace(message) != "" {
 				m.editor.notice, m.editor.showAlert, m.editor.alertScroll = message, true, 0
 			}
-		case "q", "ctrl+c", "ctrl+d":
+		case "ctrl+d":
+			if m.width >= 48 && m.height >= 14 && m.tab == 0 && m.selected < len(m.data.runs) {
+				run := m.data.runs[m.selected]
+				m.deleting = &run
+				m.deleteYes = false
+			}
+		case "q", "ctrl+c":
 			m.quit = true
 			return m, tea.Quit
 		case "esc":
@@ -344,7 +379,7 @@ func (m uiHomeModel) View() string {
 	title, content := "ACTIVE RUNS", ""
 	if m.tab == 2 {
 		title = "HELP"
-		content = "1 Active runs · 2 History · 3 Help · p Preferences\nn starts a lab by catalog ID or local path.\nSelect a running Kind lab and press Enter to open its workspace.\nSubmit with g, or leave through the exit menu, to return Home.\nHistory includes submission attempts and completed labs/playgrounds.\nOnly the latest 100 persistent entries are shown; astrona progress summarizes all graded attempts.\nF1 opens alert details. Esc closes dialogs.\nLogin status uses saved credentials; it does not check the API.\nUse astrona login to sign in, or astrona whoami to check an expired login.\nLocal profile: ~/" + apphome.Name() + "\n" + m.data.warning
+		content = "1 Active runs · 2 History · 3 Help · p Preferences\nn starts a lab by catalog ID or local path.\nSelect a running Kind lab and press Enter for its task and terminal tabs.\nCtrl+D opens a force-delete confirmation for the selected run.\nCtrl+C returns from a lab to Home and pauses time spent.\nCtrl+T opens a terminal; Ctrl+N/P changes tabs. F3 opens lab details.\nHistory includes submission attempts and completed labs/playgrounds.\nOnly the latest 100 persistent entries are shown; astrona progress summarizes all graded attempts.\nF1 opens alert details. Esc closes dialogs.\nLogin status uses saved credentials; it does not check the API.\nUse astrona login to sign in, or astrona whoami to check an expired login.\nLocal profile: ~/" + apphome.Name() + "\n" + m.data.warning
 		content = workspacePage(content, w-4, h-2, m.scroll)
 	} else if m.tab == 1 && m.detail && m.count() > 0 {
 		title = "HISTORY / DETAILS"
@@ -398,7 +433,7 @@ func (m uiHomeModel) View() string {
 		}
 	}
 	body := workspacePanel(title, content, w, h, workspaceFocus)
-	footer := []string{"n start  p preferences  tab sections  q quit", "↑/↓ select  enter open/details  r refresh  ? help"}
+	footer := []string{"n start  p preferences  tab sections  q quit", "↑/↓ select  Enter open  Ctrl+D delete  r refresh"}
 	if m.detail || m.tab == 2 {
 		footer[1] = "pgup/pgdn scroll  Esc back  tab sections"
 	}
@@ -421,6 +456,12 @@ func (m uiHomeModel) View() string {
 		}
 	}
 	view := editor.frame("HOME", fmt.Sprintf("Running: %d  ·  Saved: %d  ·  History: %d  ·  Refresh: every 5s", running, len(m.data.runs), len(m.data.history)), body, footer)
+	if m.deleting != nil {
+		if !m.deleteDialogFits() {
+			return workspaceDialog(view, "FORCE DELETE", "Resize the terminal to read the full warning.\nEsc cancels.", m.width, m.height, true)
+		}
+		return workspaceDialog(view, "FORCE DELETE", uiDeleteMessage(m.deleting.name, m.deleteYes), m.width, m.height, true)
+	}
 	if editor.showAlert {
 		return editor.alertView(view)
 	}
@@ -435,7 +476,7 @@ func runUIHomeScreen(ctx context.Context, m uiHomeModel) (uiHomeModel, error) {
 	screenCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	m.refresh = func() tea.Msg { return readUIHome(screenCtx) }
-	m.polling, m.open, m.quit = true, false, false
+	m.polling, m.open, m.quit, m.destroy = true, false, false, false
 	m.editor.action = workspaceNone
 	final, err := tea.NewProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen()).Run()
 	if err != nil {
@@ -445,6 +486,7 @@ func runUIHomeScreen(ctx context.Context, m uiHomeModel) (uiHomeModel, error) {
 }
 
 type uiHomeDriver struct {
+	destroy        func(uiHomeRun) error
 	screen         func(context.Context, uiHomeModel) (uiHomeModel, error)
 	open           func(uiHomeRun) (string, error)
 	start          func(string) error
@@ -458,6 +500,16 @@ func driveUIHome(ctx context.Context, m uiHomeModel, d uiHomeDriver) error {
 		m, err = d.screen(ctx, m)
 		if err != nil {
 			return err
+		}
+		if m.destroy && m.deleting != nil {
+			err = d.destroy(*m.deleting)
+			m.notice, m.noticeError = "Deleted "+m.deleting.name+". All work in this run was discarded.", err != nil
+			if err != nil {
+				m.notice = err.Error()
+			}
+			m.deleting, m.destroy, m.deleteYes = nil, false, false
+			m.tab, m.selected, m.detail = 0, 0, false
+			continue
 		}
 		switch m.editor.action {
 		case workspaceLoadPreferences, workspaceSavePreference:
@@ -495,9 +547,12 @@ func driveUIHome(ctx context.Context, m uiHomeModel, d uiHomeDriver) error {
 }
 
 func runUIHome(ctx context.Context, flags *rootFlags, notice string) error {
+	ctx, closeTerminals := uiTerminalContext(ctx)
+	defer closeTerminals()
 	return driveUIHome(ctx, uiHomeModel{notice: notice}, uiHomeDriver{
-		screen: runUIHomeScreen,
-		start:  func(lab string) error { return runWorkspaceChild(ctx, "run", lab) },
+		screen:  runUIHomeScreen,
+		destroy: func(run uiHomeRun) error { return forceDeleteUIRun(ctx, run, flags.verbose) },
+		start:   func(lab string) error { return runWorkspaceChild(ctx, "run", lab) },
 		preferences: func() (workspacePreferences, error) {
 			path, err := settingsPath(flags)
 			if err != nil {

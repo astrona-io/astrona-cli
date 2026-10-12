@@ -90,7 +90,7 @@ func (m workspaceModel) frame(title, context, body string, footer []string) stri
 		if !m.showPreferences && !m.enteringLab && !m.exitMenu && !m.confirmDestroy {
 			footer[0] = active
 			if m.home && !strings.HasPrefix(footer[1], "pgup/pgdn") {
-				footer[1] = "↑/↓ select  enter open  n start lab  r refresh  q quit"
+				footer[1] = "↑/↓ select  Enter open  Ctrl+D delete  n start  q quit"
 			}
 		}
 		return workspaceFit(workspaceMuted.Render(" "+sanitizeLine(context))+"\n"+
@@ -228,7 +228,7 @@ func (m workspaceModel) labView() string {
 	if message != "" {
 		body += "\n" + workspaceAlert(message, w)
 	}
-	footer := []string{"↑/↓ cluster  s shell  tab view  p preferences", "q exit menu  enter task  pgup/pgdn scroll"}
+	footer := []string{"↑/↓ cluster  s shell  tab view  p preferences", "q exit menu  Ctrl+C overview  enter task"}
 	if m.canSubmit {
 		footer[1] = "g submit   " + footer[1]
 	}

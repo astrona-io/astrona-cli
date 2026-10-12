@@ -27,7 +27,7 @@ the API or verify whether the server has revoked a login.
 
 Home has three sections:
 
-- **Active runs:** saved runs, their container status and elapsed time. Select
+- **Active runs:** saved runs, their container status and active time. Select
   a running Kind lab or playground and press Enter to open its workspace.
   Stopped, missing or unavailable runs remain visible but cannot be opened.
 - **History:** graded submission attempts, scores and completed local runs,
@@ -43,7 +43,14 @@ The tabs below the content highlight the current section. Press `1` for Active r
 shows running and saved run counts, recent history count and refresh interval.
 Tab also changes sections, arrow keys select entries, Page Up/Down scroll details,
 `r` refreshes, `?` opens Help, and `q` or Ctrl-C closes Home. The screen refreshes
-every five seconds. Closing Home leaves labs running.
+every five seconds. Closing Home leaves labs running and closes the UI's terminal tabs.
+
+Ctrl+D on Active runs opens a red **Force delete** dialog for the selected
+lab or playground. **No, keep running** is selected by default. Choose **Yes,
+delete** with Tab, arrows or `y`, then press Enter to confirm. Esc or `n` cancels.
+Force deletion discards work in the run and its linked clusters, skips teardown
+scripts and `keepCluster`, and sends no results to Astrona. A run replaced while
+the dialog is open must be selected and confirmed again.
 
 Press `n` to enter a catalog lab ID or local path and review the startup
 notice. After startup, select the run and press Enter to open
@@ -65,6 +72,10 @@ without input, an idle dialog pauses the counter and excludes the idle interval
 back to your last input. Press Enter on **Continue** to resume; that keypress is
 consumed by the dialog. Output, polling and background commands do not count
 as activity. The lab and commands keep running while the counter is paused.
+
+Ctrl+C returns to Home and pauses the counter immediately. Terminal tabs and
+background commands keep running, but their output does not add time. Reopening
+the same run resumes tracking and restores its tabs.
 
 The footer shows active time and whether it is paused. Home's Active column
 and finished-run history retain the recorded time. Checkpoints are saved every
@@ -142,22 +153,35 @@ astrona ui astro-my-lab
 Development builds use `astrodev-` names and separate local data. Use the name
 displayed by Home or `astrona list`.
 
-Within the workspace:
+Enter from Home opens the question/task on the left and one terminal tab on
+the right. The shell uses that lab's isolated kubeconfigs. Commands and editors
+stay inside the terminal pane.
 
-- Arrow keys select a cluster. Enter shows the task and keeps the UI open.
-  `s` opens a shell inside the UI, with that lab's isolated kubeconfigs.
-  Commands, editors and their output stay in the terminal pane. Ctrl+C
-  interrupts the shell's active command; type `exit` to return to the workspace.
-- Tab changes between the task and results; Page Up/Down scrolls.
-- `p` opens saved preferences. Select a setting, press Enter to edit and
-  review, then `y` to save; Esc cancels. Settings apply to future commands,
-  and cache policy is checked after the complete UI session closes.
-- `g` submits a graded lab through the Proctor and returns to Home. The lab
-  stays running after either PASS or FAIL, so you can reopen it or destroy it.
-  Playground workspaces do not offer submission.
-- `q` or Ctrl-C opens the exit menu. Keep the run active and return Home, submit
-  a graded lab, or choose destruction and confirm with `y`. Enter cancels the
-  destruction confirmation.
+| Key | Action |
+| --- | --- |
+| Ctrl+T | Open another terminal for the selected cluster. |
+| Ctrl+N / Ctrl+P | Switch to the next / previous terminal tab. |
+| Ctrl+C | Return to Home and pause time spent. Tabs keep running. |
+| Alt+C | Interrupt the active terminal command. |
+| F2 | Switch focus between the task and terminal. |
+| Page Up/Down, arrows | Scroll the task when it has focus. |
+| Shift+Page Up/Down | Scroll the active terminal's output. |
+| F3 | Open lab details, cluster selection, results and submission controls. |
+
+On terminals narrower than 64 columns, F2 switches between the task and
+terminal views. Up to 12 terminal tabs are available per lab in one UI session.
+Type `exit` to end a shell; its final output stays in the tab. Returning to Home
+preserves shells and their environment until the UI closes or the run is deleted.
+
+In lab details, arrow keys select a cluster. Enter or `s` returns to the task
+and terminals; Ctrl+T then opens a terminal for that cluster. Tab switches the
+task/results panel, and Page Up/Down scrolls. `p` opens preferences. Settings
+apply to future commands; cache policy is checked after the UI closes.
+
+Press `g` in lab details to submit a graded lab and return Home. The lab stays
+running after PASS or FAIL. Playgrounds do not offer submission. `q` opens the
+exit menu, where you can leave running, submit, or request normal teardown.
+Confirm normal teardown with `y`; Enter cancels that confirmation.
 
 After a completed submission or successful destruction, Home shows the result
 and refreshed runs/history. Errors before grading completes, failed
