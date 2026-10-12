@@ -179,13 +179,41 @@ func TestDetectContainerEngine(t *testing.T) {
 
 	os.Remove(filepath.Join(dir, "podman"))
 	t.Setenv("PATH", dir+string(os.PathListSeparator)) // new PATH: detect again
-	if _, err := DetectContainerEngine(); err == nil || !strings.Contains(err.Error(), "Docker isn't running") {
+	if _, err := DetectContainerEngine(); err == nil || !strings.Contains(err.Error(), "Docker is not reachable") {
 		t.Errorf("only stopped docker = %v", err)
 	}
 
 	t.Setenv("PATH", t.TempDir())
 	if _, err := DetectContainerEngine(); err == nil || !strings.Contains(err.Error(), "neither Docker nor Podman is installed") {
 		t.Errorf("none installed = %v", err)
+	}
+}
+
+func TestDetectContainerEngineUnreachableDiagnostics(t *testing.T) {
+	for _, engines := range [][]string{{"docker"}, {"podman"}, {"docker", "podman"}} {
+		t.Run(strings.Join(engines, "+"), func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv("PATH", dir)
+			t.Setenv("KIND_EXPERIMENTAL_PROVIDER", "")
+			for _, name := range engines {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\nexit 125\n"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			_, err := DetectContainerEngine()
+			if err == nil {
+				t.Fatal("unreachable engines should fail")
+			}
+			message := err.Error()
+			if !strings.Contains(message, "reachable") || strings.Contains(message, "isn't running") {
+				t.Fatalf("connection failure must not assume the engine is stopped: %s", message)
+			}
+			for _, name := range engines {
+				if !strings.Contains(message, "`"+name+" info`") || !strings.Contains(message, name+" info: exit status 125") {
+					t.Errorf("missing health-check diagnostics for %s: %s", name, message)
+				}
+			}
+		})
 	}
 }
 
@@ -213,5 +241,34 @@ func TestDetectContainerEngineHonorsKindProvider(t *testing.T) {
 	t.Setenv("PATH", dir+string(os.PathListSeparator))
 	if _, err := DetectContainerEngine(); err == nil || !strings.Contains(err.Error(), "selected container engine podman") {
 		t.Fatalf("missing explicit provider should not fall back to Docker: %v", err)
+	}
+}
+
+func TestDetectContainerEngineRetriesAfterFailure(t *testing.T) {
+	for _, name := range []string{"docker", "podman"} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv("PATH", dir)
+			t.Setenv("KIND_EXPERIMENTAL_PROVIDER", name)
+			enginePath := filepath.Join(dir, name)
+			writeEngine := func(body string) {
+				t.Helper()
+				if err := os.WriteFile(enginePath, []byte("#!/bin/sh\n"+body+"\n"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if _, err := DetectContainerEngine(); err == nil {
+				t.Fatal("missing engine should fail")
+			}
+			writeEngine("exit 125")
+			if _, err := DetectContainerEngine(); err == nil || strings.Contains(err.Error(), "not installed") {
+				t.Fatalf("installed engine should be checked again: %v", err)
+			}
+			writeEngine("exit 0")
+			if engine, err := DetectContainerEngine(); err != nil || engine.Name != name {
+				t.Fatalf("started engine should be detected without changing PATH: %+v, %v", engine, err)
+			}
+		})
 	}
 }
