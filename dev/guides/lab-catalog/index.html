@@ -4093,7 +4093,9 @@
 </ol>
 <p>When the result can't be sent, the grade still stands: an expired session (or one that isn't yours) says to run the lab again for a new attempt, an attempt that's already finished shows Astrona's message, a session whose time ran out shows Astrona's message plus how to start a new attempt (<code>astrona reset &lt;lab&gt;</code>, or <code>astrona destroy &lt;lab&gt;</code> then <code>astrona run &lt;lab&gt;</code>) and never offers to delete the lab, and a network or server error is a warning. Signed out, submit says to <code>astrona login</code> and run the lab again. Under <code>-o json</code> these lines go to stderr, so stdout stays exactly one JSON document.</p>
 <p>Labs from your own files or repositories (<code>-c ./my-lab</code>, <code>--git &lt;url&gt;</code>) are not tied to an account: they run without signing in, and no page is opened.</p>
-<p>The site is <code>https://astrona.io</code> unless you sign in to another one:</p>
+<p>Release builds default to <code>https://astrona.io</code>. Development builds (<code>just build</code>
+or unversioned <code>go run</code>) default to <code>http://localhost:3000</code>. You can explicitly
+select another site:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>login<span class="w"> </span>--site<span class="w"> </span>http://localhost:3000<span class="w">    </span><span class="c1"># e.g. local development (plain http only to localhost)</span>
 </code></pre></div>
 <p>The site is remembered with the sign-in: <code>whoami</code>, <code>logout</code> and catalog labs use it without repeating it. <code>ASTRONA_URL</code> overrides it for a single command (<code>ASTRONA_URL=https://staging.astrona.io astrona whoami</code>). The sign-in is only ever sent back to the site it came from: with <code>ASTRONA_URL</code> pointing elsewhere, you're signed out until you <code>astrona login</code> on that site. A site without astrona sign-in (<code>/api/cli/config</code> not found) makes <code>login</code> say so and suggest <code>--site</code>.</p>

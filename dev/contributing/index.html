@@ -4196,9 +4196,12 @@ other release binaries; rebuild from source to update them. Background lab
 helpers run the same binary and keep the same profile.</p>
 <p>This isolates Astrona-managed state, not the machine: container engines, images,
 host ports and your kubectl configuration are still shared. Port collisions
-remain possible. Lab scripts still run on your machine. The server remains
-<code>astrona.io</code> unless you explicitly set <code>ASTRONA_URL</code>; logging in and submitting
-can affect that account. On Windows, build and run inside WSL. An unversioned
+remain possible. Lab scripts still run on your machine. Development builds
+default to <code>http://localhost:3000</code>; release builds default to <code>https://astrona.io</code>.
+<code>astrona login --site</code>, <code>ASTRONA_URL</code>, or a site remembered with a development
+sign-in can select another server. <code>ASTRONA_URL</code> overrides the remembered site;
+the login flag overrides it for sign-in. Logging in and submitting can affect
+the account on the selected server. On Windows, build and run inside WSL. An unversioned
 native launcher refuses to forward commands to the installed release.</p>
 <h2 id="working-on-the-docs">Working on the docs<a class="headerlink" href="#working-on-the-docs" title="Permanent link">&para;</a></h2>
 <p>This site is <a href="https://www.mkdocs.org/">MkDocs</a> + <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a>, versioned with <a href="https://github.com/jimporter/mike">mike</a>. Source lives under <code>docs/</code>, config at the repo root <code>mkdocs.yml</code>.</p>
