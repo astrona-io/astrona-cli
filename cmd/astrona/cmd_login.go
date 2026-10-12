@@ -16,20 +16,21 @@ import (
 
 func newLoginCmd() *cobra.Command {
 	var siteFlag string
+	defaultSite := account.DefaultLoginSite()
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Sign in to your Astrona account (catalog labs need it)",
 		Long: "Sign this computer in to your Astrona account. Catalog labs (`astrona run astrona.io/ATS014/…`) are tied " +
 			"to your account: `astrona run` starts a lab session for you and opens the lab page, which " +
 			"tracks your time. Labs from your own files or repositories (-c / --git) don't need it.\n\n" +
-			"Sign-in happens on the Astrona website: astrona opens a page on astrona.io in your browser. " +
+			"Sign-in happens on the configured Astrona website: astrona opens its sign-in page in your browser. " +
 			"If you're already signed in there, check that the code matches the one in the terminal and " +
-			"click Authorize; otherwise sign in on astrona.io first and you're brought back to that page. " +
+			"click Authorize; otherwise sign in on that site first and you're brought back to that page. " +
 			"The terminal waits and finishes by itself. No password is ever typed into the terminal. On a " +
 			"machine without a browser, open the printed link on any device.\n\n" +
 			"The sign-in is saved in ~/" + apphome.Name() + "/credentials.json (readable only by you) and renewed " +
 			"automatically. `astrona whoami` shows who is signed in, `astrona logout` signs out.\n\n" +
-			"The site is " + account.DefaultSite + " unless --site (or " + account.SiteEnv + ") names another, " +
+			"The default site is " + defaultSite + " unless --site (or " + account.SiteEnv + ") names another, " +
 			"for example http://localhost:3000 for local development. The site is remembered with the " +
 			"sign-in, so whoami, logout and catalog labs use it without repeating it; " + account.SiteEnv +
 			" still overrides it per command. Plain http:// is only accepted for localhost.",
@@ -52,7 +53,7 @@ func newLoginCmd() *cobra.Command {
 			return login(ctx, client, store, site, thisDevice())
 		},
 	}
-	cmd.Flags().StringVar(&siteFlag, "site", "", "Sign in to this Astrona site (e.g. http://localhost:3000) instead of "+account.DefaultSite+"; it's remembered for later commands")
+	cmd.Flags().StringVar(&siteFlag, "site", "", "Sign in to this Astrona site (e.g. http://localhost:3000) instead of "+defaultSite+"; it's remembered for later commands")
 	return cmd
 }
 

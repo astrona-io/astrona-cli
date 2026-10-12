@@ -14,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"astrona/internal/apphome"
 )
 
 // fakeSite is an Astrona site: CLI config, device sign-in, token,
@@ -188,6 +190,46 @@ func TestResolveSiteSaved(t *testing.T) {
 	}
 	if _, err := ResolveSite(func(string) string { return "ftp://x" }, ""); err == nil || !strings.Contains(err.Error(), SiteEnv) {
 		t.Errorf("bad ASTRONA_URL error = %v, want it to name %s", err, SiteEnv)
+	}
+}
+
+func TestResolveSiteBuildProfiles(t *testing.T) {
+	wasDevelopment := apphome.Development()
+	t.Cleanup(func() {
+		if wasDevelopment {
+			apphome.Configure("developer")
+		} else {
+			apphome.Configure("v1.0.0")
+		}
+	})
+	for _, profile := range []struct{ version, fallback string }{
+		{"developer", DevelopmentSite},
+		{"dev", DevelopmentSite},
+		{"", DevelopmentSite},
+		{"v1.0.0", DefaultSite},
+		{"v1.1.0-rc1", DefaultSite},
+	} {
+		t.Run(profile.version, func(t *testing.T) {
+			apphome.Configure(profile.version)
+			for _, tc := range []struct{ name, env, saved, want string }{
+				{"default", "", "", profile.fallback},
+				{"blank override", "  ", "", profile.fallback},
+				{"saved site", "", "https://staging.astrona.io", "https://staging.astrona.io"},
+				{"environment override", "https://other.astrona.io", DefaultSite, "https://other.astrona.io"},
+				{"invalid saved site", "", "http://evil.example", profile.fallback},
+			} {
+				got, err := ResolveSite(func(string) string { return tc.env }, tc.saved)
+				if err != nil || got != tc.want {
+					t.Errorf("%s: got %q, %v; want %q", tc.name, got, err, tc.want)
+				}
+			}
+			if _, err := ResolveSite(func(string) string { return "http://evil.example" }, ""); err == nil {
+				t.Error("invalid explicit URL silently fell back to the default")
+			}
+			if !IsDefaultSite(DefaultSite) || IsDefaultSite(DevelopmentSite) {
+				t.Error("build profile changed the official-site identity")
+			}
+		})
 	}
 }
 

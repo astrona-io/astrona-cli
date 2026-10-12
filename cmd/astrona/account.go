@@ -24,7 +24,7 @@ type labAccount struct {
 
 // accountDeps provide optional account tracking (replaced in tests). The
 // site is ASTRONA_URL, else the one this computer signed in to, else
-// account.DefaultSite.
+// the active build profile's default site.
 var accountDeps = func() (*account.Client, account.Store, string, error) {
 	store, err := account.DefaultStore()
 	if err != nil {
