@@ -33,6 +33,46 @@
          <lastmod>2026-10-12</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/getting-started/installation/apt/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/getting-started/installation/dnf/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/getting-started/installation/homebrew/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/getting-started/installation/manual/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/getting-started/installation/quick-install/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/getting-started/installation/setup/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/getting-started/installation/shell-completion/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/getting-started/installation/snap/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/getting-started/installation/updates/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/getting-started/installation/windows/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/guides/astrona-versions/</loc>
          <lastmod>2026-10-12</lastmod>
     </url>
@@ -42,6 +82,10 @@
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/guides/ci-integration/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/guides/cli-terms/</loc>
          <lastmod>2026-10-12</lastmod>
     </url>
     <url>
@@ -57,6 +101,10 @@
          <lastmod>2026-10-12</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/guides/local-data/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/guides/macos-kind-testing/</loc>
          <lastmod>2026-10-12</lastmod>
     </url>
@@ -66,6 +114,10 @@
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/guides/remote-config/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/guides/settings/</loc>
          <lastmod>2026-10-12</lastmod>
     </url>
     <url>
