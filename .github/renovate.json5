@@ -2,10 +2,8 @@
 // (installed on the astrona-io org; https://developer.mend.io shows its
 // jobs and logs). Its PRs trigger CI like any other PR.
 //
-// Auto-merge: Go module minor/patch updates are handed to GitHub's native
-// auto-merge, which merges only once the required checks on main (Lint,
-// Unit tests, E2E) pass. Major updates, the Go toolchain and GitHub
-// Actions updates stay manual.
+// Renovate merges dependency PRs into main after checks pass. It performs
+// the merge itself, without relying on GitHub's native auto-merge setting.
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: ['config:recommended'],
@@ -15,7 +13,11 @@
   // for releases still inside that window.
   minimumReleaseAge: '3 days',
   internalChecksFilter: 'strict',
-  platformAutomerge: true,
+  baseBranchPatterns: ['main'],
+  automerge: true,
+  automergeType: 'pr',
+  platformAutomerge: false,
+  ignoreTests: false,
   postUpdateOptions: ['gomodTidy', 'gomodUpdateImportPaths'],
   packageRules: [
     {
@@ -28,19 +30,6 @@
       matchManagers: ['gomod'],
       matchPackageNames: ['/^golang\\.org\\/x\\//'],
       groupName: 'golang.org/x packages',
-    },
-    {
-      description: 'Auto-merge Go module minor/patch/digest updates once CI passes',
-      matchManagers: ['gomod'],
-      matchUpdateTypes: ['minor', 'patch', 'digest'],
-      automerge: true,
-      automergeType: 'pr',
-    },
-    {
-      description: 'Never auto-merge the go / toolchain directive — needs a human to check CI images and docs',
-      matchManagers: ['gomod'],
-      matchDepTypes: ['golang', 'toolchain'],
-      automerge: false,
     },
   ],
 }
