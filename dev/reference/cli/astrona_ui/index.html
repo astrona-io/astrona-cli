@@ -4106,8 +4106,8 @@
 <p>Open a terminal workspace for a running Kind lab</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Select a running Kind lab saved by Astrona, or name one from astrona list. Opening the workspace never restarts a lab or its timer. Use astrona run <lab> --ui to start one.</p>
-<p>Arrow keys select a cluster; s or Enter opens a local shell with that lab's isolated kubeconfigs. Exit the shell to return. Tab switches between the task and submission results; Page Up/Down scroll. g submits a graded lab through the Proctor and keeps it running, even after a pass. q or Ctrl-C opens an exit menu: keep running, submit (graded labs), or explicitly confirm destruction. Closing the terminal does not submit or destroy; existing time limits still apply.</p>
-<p>Requires an interactive terminal outside CI. No persistent setting; QEMU is not yet supported.</p>
+<p>Arrow keys select a cluster; s or Enter opens a local shell with that lab's isolated kubeconfigs. Exit the shell to return. Tab switches between the task and submission results; Page Up/Down scroll. p opens saved preferences: select a setting, Enter to edit and review, then y to save. Esc cancels. Defaults and descriptions are shown, and update-check requires an explicit true/false choice. Saved options apply to future commands; cache policy is checked after this workspace closes. g submits a graded lab through the Proctor and keeps it running, even after a pass. q or Ctrl-C opens an exit menu: keep running, submit (graded labs), or explicitly confirm destruction. Closing the terminal does not submit or destroy; existing time limits still apply.</p>
+<p>Requires an interactive terminal outside CI. Opening the UI is opt-in, not a saved setting; QEMU is not yet supported.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona ui [lab-name] [flags]
 </code></pre></div>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
