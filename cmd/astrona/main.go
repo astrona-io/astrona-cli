@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"astrona/internal/localdata"
 	"astrona/internal/ui"
 	"astrona/internal/version"
 )
@@ -239,7 +240,7 @@ func main() {
 
 	rootCmd := newRootCmd(&rootFlags{})
 
-	if err := rootCmd.Execute(); err != nil {
+	if err := executeWithDataLock(rootCmd, localdata.DefaultStore); err != nil {
 		ui.PrintError(err)
 		os.Exit(exitCodeFor(err))
 	}
