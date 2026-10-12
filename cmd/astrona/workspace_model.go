@@ -1,6 +1,7 @@
 package main
 
 import (
+	"astrona/internal/labstate"
 	"context"
 	"fmt"
 	"os/exec"
@@ -13,6 +14,7 @@ type workspaceAction int
 
 const (
 	workspaceNone workspaceAction = iota
+	workspaceTaskView
 	workspaceLeave
 	workspaceShell
 	workspaceSubmit
@@ -29,6 +31,7 @@ type workspaceCluster struct {
 }
 
 type workspaceSnapshot struct {
+	usage                           labstate.ResourceUsage
 	clusters                        []workspaceCluster
 	started, deadline               time.Time
 	kind, tracking, result, blocked string
@@ -192,6 +195,7 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if m.terminalCommand != nil {
 				m.taskTerminals = true
+				m.action = workspaceTaskView
 				return m, tea.Quit
 			}
 			m.results, m.scroll = false, 0

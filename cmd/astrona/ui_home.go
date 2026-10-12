@@ -27,6 +27,8 @@ type uiHomeRun struct {
 	openable                  bool
 	activeTime                time.Duration
 	activityTracked           bool
+	activity                  string
+	usage                     labstate.ResourceUsage
 }
 
 type uiHomeHistory struct {
@@ -41,10 +43,15 @@ type uiHomeSnapshot struct {
 }
 
 func readHomeContainers(ctx context.Context) (map[string][]kindContainer, error) {
+	containers, _, err := readHomeEngine(ctx)
+	return containers, err
+}
+
+func readHomeEngine(ctx context.Context) (map[string][]kindContainer, string, error) {
 	providers := []string{"docker", "podman"}
 	if provider := os.Getenv("KIND_EXPERIMENTAL_PROVIDER"); provider != "" {
 		if provider != "docker" && provider != "podman" {
-			return nil, fmt.Errorf("invalid KIND_EXPERIMENTAL_PROVIDER: %q", provider)
+			return nil, "", fmt.Errorf("invalid KIND_EXPERIMENTAL_PROVIDER: %q", provider)
 		}
 		providers = []string{provider}
 	}
@@ -62,11 +69,11 @@ func readHomeContainers(ctx context.Context) (map[string][]kindContainer, error)
 		err = cmd.Run()
 		cancel()
 		if err == nil {
-			return groupKindContainers(string(out.Bytes())), nil
+			return groupKindContainers(string(out.Bytes())), path, nil
 		}
 		failures = append(failures, fmt.Sprintf("%s: %v", provider, err))
 	}
-	return nil, fmt.Errorf("container engine unavailable; use astrona setup / doctor (%s)", strings.Join(failures, "; "))
+	return nil, "", fmt.Errorf("container engine unavailable; use astrona setup / doctor (%s)", strings.Join(failures, "; "))
 }
 
 // readUIHome performs bounded, read-only container discovery. History remains
@@ -80,9 +87,13 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 	}
 	containers := map[string][]kindContainer{}
 	engineAvailable := false
+	var usageSamples map[string]uiContainerUsage
 	if len(names) > 0 {
 		readCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		live, err := readHomeContainers(readCtx)
+		live, provider, err := readHomeEngine(readCtx)
+		if err == nil {
+			usageSamples = readUIContainerUsage(readCtx, provider, live)
+		}
 		cancel()
 		if err != nil {
 			warn(err)
@@ -124,6 +135,17 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 		} else if engineAvailable {
 			run.status = "Not found / non-Kind run"
 		}
+		run.activity = "—"
+		if run.openable {
+			run.activity = "Paused"
+			active, err := labstate.HasActiveUI(name, st.StartedAt, time.Now())
+			if err != nil {
+				warn(err)
+			} else if active {
+				run.activity = "Active"
+			}
+		}
+		run.usage = uiRunUsage(name, st.StartedAt, containers, usageSamples)
 		data.runs = append(data.runs, run)
 	}
 	labs, err := proctor.HistoryLabs()
@@ -366,6 +388,9 @@ func (m uiHomeModel) View() string {
 	if editor.enteringLab && editor.notice != "" {
 		message, isError = editor.notice, true
 	}
+	if m.tab == 0 && len(m.data.runs) > 0 {
+		h -= 2
+	}
 	if message != "" {
 		h -= 4
 	}
@@ -399,7 +424,7 @@ func (m uiHomeModel) View() string {
 			var rows []string
 			page := max(1, h-2)
 			if m.tab == 0 {
-				rows = append(rows, workspaceMuted.Bold(true).Render("  "+uiRunColumns("LAB", "TYPE", "STATUS", "ACTIVE", w-6)))
+				rows = append(rows, workspaceMuted.Bold(true).Render("  "+uiRunActivityColumns("LAB", "TYPE", "STATUS", "STATE", "ACTIVE", w-6)))
 				page = max(1, page-1)
 			}
 			start := max(0, m.selected-page+1)
@@ -411,7 +436,7 @@ func (m uiHomeModel) View() string {
 					if r.activityTracked {
 						age = formatUptime(r.activeTime)
 					}
-					label = uiRunColumns(r.name, r.kind, r.status, age, w-6)
+					label = uiRunActivityColumns(r.name, r.kind, r.status, r.activity, age, w-6)
 				} else {
 					item := m.history()[i]
 					label = item.label
@@ -433,6 +458,10 @@ func (m uiHomeModel) View() string {
 		}
 	}
 	body := workspacePanel(title, content, w, h, workspaceFocus)
+	if m.tab == 0 && len(m.data.runs) > 0 {
+		r := m.data.runs[min(m.selected, len(m.data.runs)-1)]
+		body += "\n" + workspaceFit(uiUsageText(r.usage), w, 1) + "\n" + workspaceFit("Averages: observed samples · all lab nodes and linked clusters", w, 1)
+	}
 	footer := []string{"n start  p preferences  tab sections  q quit", "↑/↓ select  Enter open  Ctrl+D delete  r refresh"}
 	if m.detail || m.tab == 2 {
 		footer[1] = "pgup/pgdn scroll  Esc back  tab sections"

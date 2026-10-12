@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -14,6 +15,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 	"github.com/creack/pty"
 )
@@ -21,15 +23,17 @@ import (
 // A tab keeps consuming output while Home is visible. Its bounded emulator
 // retains the screen and scrollback without counting output as user activity.
 type uiTerminalTab struct {
-	mu              sync.Mutex
-	id              int
-	terminal        *os.File
-	emulator        *vt.Emulator
-	cmd             *exec.Cmd
-	done, inputDone chan struct{}
-	ended           bool
-	failure         string
-	scroll          int
+	mu                          sync.Mutex
+	id                          int
+	terminal                    *os.File
+	emulator                    *vt.Emulator
+	cmd                         *exec.Cmd
+	done, inputDone, outputDone chan struct{}
+	releaseOnce                 sync.Once
+	disposed                    bool
+	ended                       bool
+	failure                     string
+	scroll                      int
 }
 
 type uiTerminalChanged struct{}
@@ -45,6 +49,7 @@ type uiTerminals struct {
 	factory   func(string) (*exec.Cmd, error)
 	closeOnce sync.Once
 	active    int
+	nextID    int
 }
 
 func newUITerminals(ctx context.Context, factory func(string) (*exec.Cmd, error)) *uiTerminals {
@@ -94,15 +99,20 @@ func (t *uiTerminals) start(alias string, width, height int) tea.Cmd {
 		if err != nil {
 			return uiTerminalStarted{err: err}
 		}
-		tab := &uiTerminalTab{id: len(t.tabs) + 1, terminal: terminal, cmd: cmd, emulator: vt.NewEmulator(width, height), done: make(chan struct{}), inputDone: make(chan struct{})}
+		t.nextID++
+		tab := &uiTerminalTab{id: t.nextID, terminal: terminal, cmd: cmd, emulator: vt.NewEmulator(width, height), done: make(chan struct{}), inputDone: make(chan struct{}), outputDone: make(chan struct{})}
 		tab.emulator.SetScrollbackSize(2000)
 		t.tabs = append(t.tabs, tab)
 		t.workers.Go(func() {
 			defer close(tab.inputDone)
-			_, _ = io.Copy(terminal, tab.emulator)
+			copyUITerminalInput(terminal, tab.emulator, func(err error) {
+				tab.mu.Lock()
+				tab.failure = "Terminal input stopped: " + err.Error()
+				tab.mu.Unlock()
+				t.notify()
+			})
 		})
 		t.workers.Go(func() {
-			defer close(tab.done)
 			err := cmd.Wait()
 			tab.mu.Lock()
 			tab.ended = true
@@ -110,9 +120,15 @@ func (t *uiTerminals) start(alias string, width, height int) tea.Cmd {
 				tab.failure = err.Error()
 			}
 			tab.mu.Unlock()
+			close(tab.done)
+			tab.release()
+			t.mu.Lock()
+			t.tabs = slices.DeleteFunc(t.tabs, func(candidate *uiTerminalTab) bool { return candidate == tab })
+			t.mu.Unlock()
 			t.notify()
 		})
 		t.workers.Go(func() {
+			defer close(tab.outputDone)
 			for {
 				buf := make([]byte, 32*1024)
 				n, err := terminal.Read(buf)
@@ -138,12 +154,61 @@ func (t *uiTerminals) start(alias string, width, height int) tea.Cmd {
 	}
 }
 
+// Drain emulator input independently of PTY backpressure. A blocked shell must
+// not hold the emulator lock or prevent the UI from processing navigation.
+func copyUITerminalInput(terminal io.Writer, emulator *vt.Emulator, report func(error)) {
+	queue := make(chan []byte, 256) // At most 8 MiB of pending input.
+	writerDone := make(chan struct{})
+	go func() {
+		defer close(writerDone)
+		for data := range queue {
+			if _, err := terminal.Write(data); err != nil {
+				_ = emulator.InputPipe().(io.Closer).Close()
+				report(err)
+				// Keep draining until the emulator reader closes the queue.
+				for range queue {
+				}
+				return
+			}
+		}
+	}()
+	_, err := io.Copy(terminalInputQueue{queue}, emulator)
+	_ = emulator.InputPipe().(io.Closer).Close()
+	if err != nil {
+		report(err)
+	}
+	close(queue)
+	<-writerDone
+}
+
+type terminalInputQueue struct{ queue chan<- []byte }
+
+func (q terminalInputQueue) Write(data []byte) (int, error) {
+	select {
+	case q.queue <- append([]byte(nil), data...):
+		return len(data), nil
+	default:
+		return 0, fmt.Errorf("shell is not reading input; reopen the terminal")
+	}
+}
+
+func (tab *uiTerminalTab) release() {
+	tab.releaseOnce.Do(func() {
+		_ = tab.terminal.Close()
+		_ = tab.emulator.InputPipe().(io.Closer).Close()
+		<-tab.inputDone
+		<-tab.outputDone
+		tab.mu.Lock()
+		tab.disposed = true
+		_ = tab.emulator.Close()
+		tab.mu.Unlock()
+	})
+}
+
 func (t *uiTerminals) close() {
 	t.closeOnce.Do(func() {
 		t.cancel()
-		t.mu.Lock()
-		defer t.mu.Unlock()
-		for _, tab := range t.tabs {
+		for _, tab := range t.snapshot() {
 			_ = tab.terminal.Close()
 			select {
 			case <-tab.done:
@@ -151,13 +216,9 @@ func (t *uiTerminals) close() {
 				_ = syscall.Kill(-tab.cmd.Process.Pid, syscall.SIGKILL)
 				<-tab.done
 			}
-			_ = tab.emulator.InputPipe().(io.Closer).Close()
-			<-tab.inputDone
+			tab.release()
 		}
 		t.workers.Wait()
-		for _, tab := range t.tabs {
-			_ = tab.emulator.Close()
-		}
 	})
 }
 
@@ -212,6 +273,10 @@ type uiTaskModel struct {
 	active              int
 	starting, taskFocus bool
 	next                tea.Cmd
+	sized               bool
+	markdownSource      string
+	markdownWidth       int
+	markdownLines       []string
 }
 
 func (m *uiTaskModel) size() (left, width, height int) {
@@ -220,11 +285,11 @@ func (m *uiTaskModel) size() (left, width, height int) {
 	if w < 64 {
 		left = 0
 	}
-	return left, max(1, w-left-4), max(1, h-5)
+	return left, max(1, w-left-4), max(1, h-6)
 }
 
 func (m *uiTaskModel) start() tea.Cmd {
-	if m.starting {
+	if m.starting || !m.sized {
 		return nil
 	}
 	if m.workspace.snapshot.blocked != "" {
@@ -240,11 +305,7 @@ func (m *uiTaskModel) start() tea.Cmd {
 }
 
 func (m *uiTaskModel) Init() tea.Cmd {
-	var start tea.Cmd
-	if len(m.tabs) == 0 {
-		start = m.start()
-	}
-	return tea.Batch(m.next, start, workspaceTickCmd(), m.workspace.refresh)
+	return tea.Batch(m.next, workspaceTickCmd(), m.workspace.refresh)
 }
 
 func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -257,15 +318,30 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case uiTerminalChanged:
 		tabs := m.terminals.snapshot()
-		if len(tabs) > len(m.tabs) {
-			m.active = len(tabs) - 1
+		var selected *uiTerminalTab
+		if m.active < len(m.tabs) {
+			selected = m.tabs[m.active]
+		}
+		for i, tab := range tabs {
+			if tab == selected {
+				m.active = i
+			}
+			if !slices.Contains(m.tabs, tab) {
+				m.active = i
+			}
 		}
 		m.tabs = tabs
+		m.active = min(m.active, max(0, len(tabs)-1))
 		m.resize()
 		return m, m.next
 	case tea.WindowSizeMsg:
 		m.workspace.width, m.workspace.height = msg.Width, msg.Height
+		firstSize := !m.sized
+		m.sized = msg.Width > 0 && msg.Height > 0
 		m.resize()
+		if firstSize && len(m.tabs) == 0 {
+			return m, m.start()
+		}
 	case workspaceSnapshot:
 		m.workspace.snapshot, m.workspace.polling = msg, false
 		m.workspace.nextRefresh = time.Now().Add(5 * time.Second)
@@ -280,6 +356,16 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(workspaceTickCmd(), m.workspace.refresh)
 		}
 		return m, workspaceTickCmd()
+	case tea.MouseMsg:
+		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && msg.Y == 0 {
+			_, hits := m.navigation()
+			for _, hit := range hits {
+				if msg.X >= hit.start && msg.X < hit.end {
+					m.active, m.taskFocus = hit.index, false
+					break
+				}
+			}
+		}
 	case tea.KeyMsg:
 		if !msg.Paste {
 			switch msg.String() {
@@ -322,6 +408,9 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			tab := m.tabs[m.active]
 			tab.mu.Lock()
 			defer tab.mu.Unlock()
+			if tab.disposed {
+				return m, nil
+			}
 			if !msg.Paste {
 				switch msg.String() {
 				case "shift+pgup":
@@ -348,7 +437,7 @@ func (m *uiTaskModel) resize() {
 	_, w, h := m.size()
 	for _, tab := range m.tabs {
 		tab.mu.Lock()
-		if tab.emulator.Width() == w && tab.emulator.Height() == h {
+		if tab.disposed || (tab.emulator.Width() == w && tab.emulator.Height() == h) {
 			tab.mu.Unlock()
 			continue
 		}
@@ -362,35 +451,62 @@ func (m *uiTaskModel) resize() {
 	}
 }
 
-func (m *uiTaskModel) View() string {
-	left, w, h := m.size()
-	var labels, keys []string
+type uiTabHit struct{ start, end, index int }
+
+func (m *uiTaskModel) navigation() (string, []uiTabHit) {
+	left, w, _ := m.size()
+	nav := ""
+	if left > 0 {
+		nav = workspaceFit(" F2: task / terminal", left, 1)
+	}
 	visible := max(1, (w+4)/22)
 	first := max(0, m.active-visible+1)
+	var hits []uiTabHit
 	for i := first; i < min(len(m.tabs), first+visible); i++ {
-		tab := m.tabs[i]
-		tab.mu.Lock()
-		label := fmt.Sprintf("Terminal %d", tab.id)
-		if tab.ended {
-			label += " (closed)"
+		if i > first {
+			nav += " "
 		}
-		tab.mu.Unlock()
-		labels = append(labels, label)
-		keys = append(keys, fmt.Sprint(i+1))
-	}
-	nav := workspaceNav(labels, keys, m.active-first)
-	if left > 0 {
-		nav = workspaceFit(" F2: task / terminal", left, 1) + nav
+		start := ansi.StringWidth(nav)
+		selected := -1
+		if i == m.active {
+			selected = 0
+		}
+		nav += workspaceNav([]string{fmt.Sprintf("Terminal %d", m.tabs[i].id)}, []string{fmt.Sprint(i + 1)}, selected)
+		hits = append(hits, uiTabHit{start, min(m.workspace.width, ansi.StringWidth(nav)), i})
 	}
 	if m.starting {
 		nav += " Opening terminal…"
 	}
+	return nav, hits
+}
+
+func (m *uiTaskModel) taskPage(width, height int) string {
+	if m.markdownLines == nil || m.markdownSource != m.workspace.task || m.markdownWidth != width {
+		rendered := renderMarkdown(sanitizeTerminalText(m.workspace.task), true)
+		if os.Getenv("NO_COLOR") != "" {
+			rendered = ansi.Strip(rendered)
+		}
+		m.markdownSource, m.markdownWidth = m.workspace.task, width
+		m.markdownLines = strings.Split(ansi.Wrap(rendered, max(1, width), ""), "\n")
+	}
+	start := min(max(0, m.workspace.scroll), max(0, len(m.markdownLines)-height))
+	return strings.Join(m.markdownLines[start:min(len(m.markdownLines), start+max(0, height))], "\n")
+}
+
+func (m *uiTaskModel) View() string {
+	left, w, h := m.size()
+	nav, _ := m.navigation()
 	screen := "Press Ctrl+T to open a terminal."
 	terminalStatus := ""
 	if len(m.tabs) > 0 {
 		tab := m.tabs[m.active]
 		tab.mu.Lock()
-		screen = uiTerminalScreen(tab.emulator, tab.scroll, !m.taskFocus && !tab.ended)
+		if !tab.disposed {
+			screen = uiTerminalScreen(tab.emulator, tab.scroll, !m.taskFocus && !tab.ended)
+		}
+		if tab.failure != "" {
+			terminalStatus = tab.failure
+		}
 		if tab.ended {
 			terminalStatus = "Shell closed. Ctrl+T opens another terminal."
 			if tab.failure != "" {
@@ -407,10 +523,10 @@ func (m *uiTaskModel) View() string {
 
 	body := terminal
 	if left > 0 {
-		task := workspacePanel("QUESTION / TASK", workspacePage(m.workspace.task, left-4, h, m.workspace.scroll), left, h+2, taskStyle)
+		task := workspacePanel("QUESTION / TASK", m.taskPage(left-4, h), left, h+2, taskStyle)
 		body = lipgloss.JoinHorizontal(lipgloss.Top, task, terminal)
 	} else if m.taskFocus {
-		body = workspacePanel("QUESTION / TASK", workspacePage(m.workspace.task, w, h, m.workspace.scroll), w+4, h+2, taskStyle)
+		body = workspacePanel("QUESTION / TASK", m.taskPage(w, h), w+4, h+2, taskStyle)
 	}
 	footer := "Ctrl+T new · Ctrl+N/P tabs · F2 task · F3 lab · Ctrl+C overview"
 	if terminalStatus != "" {
@@ -419,7 +535,7 @@ func (m *uiTaskModel) View() string {
 	if m.workspace.notice != "" {
 		footer = m.workspace.notice
 	}
-	return workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render("Alt+C interrupts a command · Ctrl+C pauses time; tabs keep running"), m.workspace.width, m.workspace.height)
+	return workspaceFit(nav+"\n"+body+"\n"+uiUsageText(m.workspace.snapshot.usage)+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render("Alt+C interrupts a command · Ctrl+C pauses time; tabs keep running"), m.workspace.width, m.workspace.height)
 }
 
 func runUITaskScreen(ctx context.Context, workspace workspaceModel, refresh func(context.Context) workspaceSnapshot) (workspaceModel, error) {
@@ -434,9 +550,18 @@ func runUITaskScreen(ctx context.Context, workspace workspaceModel, refresh func
 		workspace.refresh = func() tea.Msg { return refresh(screenCtx) }
 		workspace.polling = true
 	}
-	m := &uiTaskModel{workspace: workspace, terminals: terminals, tabs: terminals.snapshot(), active: terminals.active, next: terminals.next(screenCtx)}
-	_, err := tea.NewProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen()).Run()
-	terminals.active = m.active
+	m := &uiTaskModel{workspace: workspace, terminals: terminals, tabs: terminals.snapshot(), active: 0, next: terminals.next(screenCtx)}
+	for i, tab := range m.tabs {
+		if tab.id == terminals.active {
+			m.active = i
+		}
+	}
+	_, err := tea.NewProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
+	if m.active < len(m.tabs) {
+		terminals.active = m.tabs[m.active].id
+	} else {
+		terminals.active = 0
+	}
 	if m.workspace.snapshot.blocked != "" {
 		closeUITerminals(ctx, workspace.name)
 	}

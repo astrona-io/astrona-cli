@@ -34,6 +34,11 @@ func forceDeleteUIRun(ctx context.Context, run uiHomeRun, verbose bool) error {
 	if err := config.ValidateName(run.name); err != nil {
 		return err
 	}
+	release, err := labstate.LockMutation(run.name)
+	if err != nil {
+		return err
+	}
+	defer release()
 	st, err := labstate.Load(run.name)
 	if err != nil {
 		return err
@@ -52,5 +57,5 @@ func forceDeleteUIRun(ctx context.Context, run uiHomeRun, verbose bool) error {
 		return err
 	}
 	closeUITerminals(ctx, run.name)
-	return destroyByName(run.name, rep)
+	return destroyByNameLocked(run.name, rep)
 }

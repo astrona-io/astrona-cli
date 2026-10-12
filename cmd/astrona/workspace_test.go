@@ -573,3 +573,19 @@ func TestWorkspaceSubmissionDelivery(t *testing.T) {
 		t.Fatal(text)
 	}
 }
+
+func TestWorkspaceNoActionLeavesTaskScreen(t *testing.T) {
+	screens := 0
+	err := driveWorkspace(t.Context(), workspaceModel{taskTerminals: true}, workspaceDriver{
+		screen: func(_ context.Context, m workspaceModel, _ func(context.Context) workspaceSnapshot) (workspaceModel, error) {
+			screens++
+			if screens > 1 {
+				t.Fatal("no-action exit reopened task screen")
+			}
+			return m, nil
+		}, returnHome: func(string) {},
+	})
+	if err != nil || screens != 1 {
+		t.Fatalf("exit: %d %v", screens, err)
+	}
+}

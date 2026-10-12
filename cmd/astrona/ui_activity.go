@@ -96,6 +96,9 @@ func (c *uiActivityClock) save(now time.Time) error {
 	if err := labstate.SaveActivity(c.target.Lab, c.target.Started, c.target.Session, c.periods); err != nil {
 		return err
 	}
+	if err := labstate.SavePresence(c.target.Lab, c.target.Started, c.target.Session, !c.paused, now); err != nil {
+		return err
+	}
 	c.saved = now
 	return nil
 }
@@ -124,6 +127,8 @@ func (m *uiPaneModel) activityTick(now time.Time) {
 		}
 	}
 	if target != m.activity.target {
+		m.activity.update(now)
+		m.activity.paused = true
 		m.saveActivity(now)
 		if m.activityError != "" {
 			m.failure = m.activityError

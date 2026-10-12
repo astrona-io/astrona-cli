@@ -102,3 +102,31 @@ func TestUIOverviewStopsActivityImmediately(t *testing.T) {
 		t.Fatal("overview obstructed by idle dialog")
 	}
 }
+
+func TestUIActivityResumesAfterOverview(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	now := time.Now().UTC().Truncate(time.Second)
+	stamp := now.Format(time.RFC3339)
+	if err := labstate.Save("astro-lab", &labstate.State{StartedAt: stamp}); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "target.json")
+	t.Setenv(uiActivityEnv, path)
+	m := newUIPaneModel(nil, nil, 100, 30)
+	defer m.emulator.Close()
+	m.activityPath = path
+	stop := uiActivityStart("astro-lab", stamp)
+	m.activityTick(now)
+	m.activity.paused, m.activityAway = true, true
+	m.saveActivity(now.Add(time.Second))
+	stop()
+	// Reopening may replace the control file before the next tick sees Home.
+	defer uiActivityStart("astro-lab", stamp)()
+	m.activityTick(now.Add(2 * time.Second))
+	if m.activity.paused || m.activityAway {
+		t.Fatal("reopened lab stayed paused")
+	}
+	if active, err := labstate.HasActiveUI("astro-lab", stamp, now.Add(3*time.Second)); err != nil || !active {
+		t.Fatalf("resume not published: %v %v", active, err)
+	}
+}

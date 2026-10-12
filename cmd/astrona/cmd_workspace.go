@@ -274,7 +274,7 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 			m.taskTerminals = false
 			continue
 		}
-		if m.taskTerminals && m.action == workspaceNone {
+		if m.action == workspaceTaskView {
 			continue
 		}
 		if m.action == workspaceLeave || m.action == workspaceNone {
@@ -401,7 +401,7 @@ func workspaceTask(cfg *config.LabConfig, baseDir string, flags *rootFlags) stri
 	}
 	title, body := stripFrontMatter(sanitizeTerminalText(text))
 	if title != "" {
-		return title + "\n\n" + body
+		return "# " + title + "\n\n" + body
 	}
 	return body
 }
@@ -459,6 +459,12 @@ func readWorkspaceSnapshot(ctx context.Context, name, runID string, clusters []w
 				}
 				snap.result += fmt.Sprintf("\n[%s] %s", status, check.Name)
 			}
+		}
+	}
+	if st != nil && snap.blocked == "" {
+		containers, provider, err := readHomeEngine(ctx)
+		if err == nil {
+			snap.usage = uiRunUsage(name, st.StartedAt, containers, readUIContainerUsage(ctx, provider, containers))
 		}
 	}
 	// A bounded worker pool keeps a lab with many linked clusters responsive.

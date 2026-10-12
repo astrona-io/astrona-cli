@@ -77,6 +77,11 @@ Ctrl+C returns to Home and pauses the counter immediately. Terminal tabs and
 background commands keep running, but their output does not add time. Reopening
 the same run resumes tracking and restores its tabs.
 
+Home shows container status separately from activity: **Active** means at least
+one UI is working in that lab; **Paused** means none is active. Watching Home
+does not resume a timer. Other UIs refresh this state about every five seconds;
+a crashed UI stops being considered active after 15 seconds.
+
 The footer shows active time and whether it is paused. Home's Active column
 and finished-run history retain the recorded time. Checkpoints are saved every
 five seconds and on pause, resume and exit. Time with the UI closed is not
@@ -169,8 +174,10 @@ stay inside the terminal pane.
 | F3 | Open lab details, cluster selection, results and submission controls. |
 
 On terminals narrower than 64 columns, F2 switches between the task and
-terminal views. Up to 12 terminal tabs are available per lab in one UI session.
-Type `exit` to end a shell; its final output stays in the tab. Returning to Home
+terminal views. The task pane formats Markdown headings, lists, code blocks,
+links and emphasis. Up to 12 terminal tabs are available per lab in one UI session.
+Click a terminal tab to switch to it. Type `exit` to close a shell and remove
+its tab. Closing a tab frees a slot for another terminal. Returning to Home
 preserves shells and their environment until the UI closes or the run is deleted.
 
 In lab details, arrow keys select a cluster. Enter or `s` returns to the task
@@ -203,3 +210,33 @@ the regular CLI and `astrona ssh` to work on them.
 Standalone `astrona submit` and `astrona destroy` keep their normal terminal
 behavior. They do not automatically open Home. Closing a terminal never
 submits or destroys a lab; existing lab/playground time limits still apply.
+
+## CPU and memory
+
+The task view and Home show current CPU and memory totals for the selected lab,
+including its node containers and linked clusters. Averages cover valid samples
+collected while a UI observes the run, including time when activity is paused.
+They are sample means, not estimates for time when no UI was open. Concurrent
+UIs share the local averages and contribute at most one sample every five seconds.
+A fresh run starts fresh averages. These measurements are not sent to Astrona.
+
+CPU uses the container engine's reported percentage and can exceed 100% across
+cores. Memory uses the engine's reported usage. Missing, unsupported or incomplete
+stats show as unavailable; they do not count as zero. Sampling supports Docker
+and Podman Kind nodes and does not require Kubernetes Metrics Server.
+
+## Guest login reminder
+
+Each guest lab run offers **Log in** or **Continue as guest** before starting the
+lab. The **Never ask again** checkbox saves your choice to hide future reminders.
+Tab or arrow keys move between the buttons and checkbox; Space checks it and
+Enter accepts. Esc cancels startup without saving the checkbox.
+
+Login opens the existing browser sign-in flow and resumes startup when complete.
+With `--ui`, the reminder and sign-in progress stay in the UI. Catalog labs can
+track account progress after login; local labs stay local. Explicit local-only
+restarts keep API tracking disabled and skip the reminder.
+
+Restore reminders with `astrona settings set login-reminder yes`, or change
+**login-reminder** in Preferences. Noninteractive catalog runs still require
+`--without-login` when signed out.

@@ -178,7 +178,7 @@ func TestUITaskKeepsTabsAcrossOverview(t *testing.T) {
 	waitUIPaneOutput(t, out, "Terminal 2")
 	_, _ = io.WriteString(keys, "printf 'second-%s\\n' \"${KEEP_TAB:-isolated}\"\r")
 	waitUIPaneOutput(t, out, "second-isolated")
-	_, _ = io.WriteString(keys, "\x10") // Ctrl+P
+	_, _ = fmt.Fprintf(keys, "\x1b[<0;55;%dM", uiHeaderHeight(120, 40)+1) // Click the first terminal tab.
 	_, _ = io.WriteString(keys, "sleep 30\r")
 	time.Sleep(100 * time.Millisecond)
 	_, _ = io.WriteString(keys, "\x1bc") // Alt+C interrupts the foreground command.
@@ -198,5 +198,104 @@ func TestUITaskKeepsTabsAcrossOverview(t *testing.T) {
 	}
 	if strings.Count(out.String(), "\x1b[?1049l") != 1 {
 		t.Fatal("UI left the alternate screen during navigation")
+	}
+}
+
+func TestUITaskWaitsForWindowSize(t *testing.T) {
+	manager := testUITerminals(t)
+	m := &uiTaskModel{terminals: manager}
+	if m.start() != nil || len(manager.snapshot()) != 0 {
+		t.Fatal("started before window size")
+	}
+	_, start := m.Update(tea.WindowSizeMsg{Width: 120, Height: 35})
+	if start == nil {
+		t.Fatal("window size did not start a shell")
+	}
+	if result := start().(uiTerminalStarted); result.err != nil {
+		t.Fatal(result.err)
+	}
+	tab := manager.snapshot()[0]
+	waitUITab(t, tab, "tabs-test>")
+	_, w, h := m.size()
+	size, err := pty.GetsizeFull(tab.terminal)
+	if err != nil || int(size.Cols) != w || int(size.Rows) != h {
+		t.Fatalf("initial size %v: %v", size, err)
+	}
+}
+
+func TestUITerminalExitRemovesTabAndPreservesSelection(t *testing.T) {
+	manager := testUITerminals(t)
+	for range 3 {
+		if msg := manager.start("", 60, 20)().(uiTerminalStarted); msg.err != nil {
+			t.Fatal(msg.err)
+		}
+	}
+	tabs := manager.snapshot()
+	m := &uiTaskModel{workspace: workspaceModel{width: 120, height: 35}, terminals: manager, tabs: tabs, active: 1, sized: true}
+	if _, err := io.WriteString(tabs[0].terminal, "exit\n"); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for len(manager.snapshot()) != 2 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	m.Update(uiTerminalChanged{})
+	if len(m.tabs) != 2 || m.tabs[m.active] != tabs[1] {
+		t.Fatal("closed tab retained or active tab changed")
+	}
+	if msg := manager.start("", 60, 20)().(uiTerminalStarted); msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	m.Update(uiTerminalChanged{})
+	if m.tabs[m.active].id != 4 {
+		t.Fatal("new tab reused an existing ID or was not selected")
+	}
+	_, hits := m.navigation()
+	m.Update(tea.MouseMsg{X: hits[0].start, Y: 0, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+	if m.active != hits[0].index {
+		t.Fatal("mouse did not select tab")
+	}
+}
+
+func TestUITerminalBlockedInputDoesNotBlockNavigation(t *testing.T) {
+	manager := newUITerminals(t.Context(), func(string) (*exec.Cmd, error) {
+		return exec.Command("/bin/sh", "-c", "stty -echo; printf ready; sleep 30"), nil
+	})
+	defer manager.close()
+	if msg := manager.start("", 60, 20)().(uiTerminalStarted); msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	tab := manager.snapshot()[0]
+	waitUITab(t, tab, "ready")
+	m := &uiTaskModel{workspace: workspaceModel{width: 120, height: 35}, terminals: manager, tabs: []*uiTerminalTab{tab}, sized: true}
+	done := make(chan struct{})
+	go func() {
+		m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(strings.Repeat("x", 1024*1024)), Paste: true})
+		m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		manager.close()
+		<-done
+		t.Fatal("blocked shell input froze navigation")
+	}
+	if m.workspace.action != workspaceLeave {
+		t.Fatal("could not leave task view")
+	}
+}
+
+func TestUITaskMarkdown(t *testing.T) {
+	m := &uiTaskModel{workspace: workspaceModel{task: "# A task\n\n**Important**\n- Run `kubectl get pods`\n```sh\necho hello\n```\n[Docs](https://example.com)\n\x1b]52;c;payload\a"}}
+	page := m.taskPage(50, 30)
+	plain := ansi.Strip(page)
+	for _, want := range []string{"A task", "Important", "• Run kubectl get pods", "    echo hello", "Docs (https://example.com)"} {
+		if !strings.Contains(plain, want) {
+			t.Fatalf("missing %q in %s", want, plain)
+		}
+	}
+	if strings.Contains(page, "\x1b]52") || strings.Contains(plain, "```") || strings.Contains(plain, "**") {
+		t.Fatal("raw markdown or unsafe escape rendered")
 	}
 }
