@@ -270,7 +270,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../../guides/authoring-a-lab/" class="md-tabs__link">
+        <a href="../../../guides/ui-home/" class="md-tabs__link">
           
   
   
@@ -732,6 +732,8 @@
       
         
       
+        
+      
     
     
     
@@ -776,6 +778,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../guides/ui-home/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UI Home and Workspace
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -4103,10 +4133,10 @@
   <h1>Astrona ui</h1>
 
 <h2 id="astrona-ui">astrona ui<a class="headerlink" href="#astrona-ui" title="Permanent link">&para;</a></h2>
-<p>Open a terminal workspace for a running Kind lab</p>
+<p>Open the UI home with active runs and history</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
-<p>Select a running Kind lab saved by Astrona, or name one from astrona list. Opening the workspace never restarts a lab or its timer. Use astrona run <lab> --ui to start one.</p>
-<p>Arrow keys select a cluster; s or Enter opens a local shell with that lab's isolated kubeconfigs. Exit the shell to return. Tab switches between the task and submission results; Page Up/Down scroll. p opens saved preferences: select a setting, Enter to edit and review, then y to save. Esc cancels. Defaults and descriptions are shown, and update-check requires an explicit true/false choice. Saved options apply to future commands; cache policy is checked after this workspace closes. g submits a graded lab through the Proctor and keeps it running, even after a pass. q or Ctrl-C opens an exit menu: keep running, submit (graded labs), or explicitly confirm destruction. Closing the terminal does not submit or destroy; existing time limits still apply.</p>
+<p>Open Home to browse saved runs, submission history and completed labs/playgrounds, even when no lab or engine is running. Enter opens a running Kind lab; name one to open its workspace directly. Opening the workspace never restarts a lab or its timer. Use astrona run <lab> --ui to start one.</p>
+<p>Arrow keys select a cluster; s or Enter opens a local shell with that lab's isolated kubeconfigs. Exit the shell to return. Tab switches between the task and submission results; Page Up/Down scroll. p opens saved preferences: select a setting, Enter to edit and review, then y to save. Esc cancels. Defaults and descriptions are shown, and update-check requires an explicit true/false choice. Saved options apply to future commands; cache policy is checked after the UI closes. g submits a graded lab through the Proctor and returns Home, keeping the lab running, even after a pass. q or Ctrl-C opens an exit menu: return Home with the lab running, submit (graded labs), or explicitly confirm destruction and return Home. Closing the terminal does not submit or destroy; existing time limits still apply.</p>
 <p>Requires an interactive terminal outside CI. Opening the UI is opt-in, not a saved setting; QEMU is not yet supported.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona ui [lab-name] [flags]
 </code></pre></div>
