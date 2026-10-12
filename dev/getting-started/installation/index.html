@@ -696,6 +696,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Local data and cache cleanup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#automatic-cache-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic cache limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inspect-and-clean-manually" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect and clean manually
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4180,6 +4208,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Local data and cache cleanup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#automatic-cache-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic cache limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#inspect-and-clean-manually" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect and clean manually
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4598,9 +4654,43 @@ and signing in does not repair a container connection.</p>
 </code></pre></div>
 <p>It checks this machine (tools, container engine, inotify), the lab (its config, whether this astrona may run it, memory and free ports when it isn't running) and the running lab (nodes, linked clusters, port forwards, unhealthy pods, exam clock). It only reads — nothing is started or changed — and exits non-zero on any ✗ — including a lab you named (argument, <code>-c</code>, <code>--file</code>, <code>--git</code>, <code>astrona use</code> — <code>astrona doctor .</code> counts) that isn't there or whose config doesn't parse; only when no lab is named and the current directory has none does it check the machine alone. <code>--bundle</code> also writes the full <a href="../../guides/ci-integration/#diagnostics-on-failure">diagnostics bundle</a>. Unhealthy pods are ⚠, not ✗: in a lab they may be the exercise.</p>
 <h2 id="local-data-and-cache-cleanup">Local data and cache cleanup<a class="headerlink" href="#local-data-and-cache-cleanup" title="Permanent link">&para;</a></h2>
+<h3 id="automatic-cache-limits">Automatic cache limits<a class="headerlink" href="#automatic-cache-limits" title="Permanent link">&para;</a></h3>
+<p>Disposable caches have a default retention of <strong>30 days</strong> and a combined maximum
+size of <strong>50 GB</strong>. Change them with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>cache-retention-days<span class="w"> </span><span class="m">30</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>cache-max-size-gb<span class="w"> </span><span class="m">50</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>cache-max-size-gb<span class="w"> </span><span class="m">0</span><span class="w">  </span><span class="c1"># unlimited size; age limit still applies</span>
+</code></pre></div>
+<p>Astrona checks the limits when operational commands finish, including commands
+that fail after setup. It deletes expired entries first, then the oldest remaining
+entries until their combined size fits the budget. Age uses filesystem modification
+times; for a Git checkout, the newest entry within it determines its age. Reading
+a cache file alone does not reset its age. Images and their metadata are removed
+together. GB means 1,000,000,000 bytes, measured as logical file sizes.</p>
+<p>The limits cover downloaded images/addons, cached Git checkouts, catalog metadata
+and update-check metadata. They do not cover lab disks, student resources, results,
+logs, bundles, installed tools, credentials, or Docker/Podman storage.</p>
+<p>This is cleanup between commands, not a background service or a download quota.
+Nothing expires while the CLI is not running. If any saved lab state exists,
+including a stopped VM, <strong>all cache eviction is deferred</strong> to protect dependencies.
+Cleanup also defers if another CLI command holds the maintenance lock. Usage can
+therefore exceed the limits while downloads or labs need it. A notice on stderr
+explains deferrals and reports removed entries without changing JSON stdout or
+the original command's exit code. Help, completions, settings, data inspection and
+internal background commands do not trigger automatic deletion.</p>
+<p>Preview or explicitly apply just the configured policy:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--policy
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--policy<span class="w"> </span>--yes
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--policy<span class="w"> </span>--yes<span class="w"> </span>--dry-run<span class="w">  </span><span class="c1"># preview only</span>
+</code></pre></div>
+<p>Settings changes take effect on the next operational command or policy cleanup;
+changing a setting does not itself delete anything. Policy cleanup needs valid
+settings. Ordinary <code>data clean</code> and <code>data reset</code> remain usable for repair when
+settings are malformed. <code>--policy</code> cannot be combined with <code>--temp-only</code>.</p>
+<h3 id="inspect-and-clean-manually">Inspect and clean manually<a class="headerlink" href="#inspect-and-clean-manually" title="Permanent link">&para;</a></h3>
 <p>Inspect local files without connecting to Astrona or starting a container engine:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>astrona<span class="w"> </span>data
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>-o<span class="w"> </span>json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>astrona<span class="w"> </span>data
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>-o<span class="w"> </span>json
 </code></pre></div>
 <p>The report lists file counts and logical byte sizes under <code>~/.astrona</code> and the
 Astrona Git cache (<code>~/Library/Caches/astrona/repos</code> on macOS, normally
@@ -4609,10 +4699,10 @@ installed CLI versions, but does not read their contents or follow symlinks.
 Logical sizes can exceed actual disk use for sparse VM disks. Docker/Podman
 storage and progress saved to your account are outside this report.</p>
 <p>Preview cleanup before applying it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--yes
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--temp-only
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--temp-only<span class="w"> </span>--yes
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--yes
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--temp-only
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--temp-only<span class="w"> </span>--yes
 </code></pre></div>
 <p>Cleanup removes downloaded image/addon caches, cached Git checkouts, and the
 catalog/update-check metadata. Those files will need to be downloaded again;
@@ -4631,8 +4721,8 @@ maintenance. The <code>.maintenance.lock</code> and <code>settings.json.lock</co
 their presence does not mean a process is running. Never delete them to unlock
 the CLI.</p>
 <p>Reset saved CLI preferences and the selected lab:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>astrona<span class="w"> </span>data<span class="w"> </span>reset
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>reset<span class="w"> </span>--yes
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>astrona<span class="w"> </span>data<span class="w"> </span>reset
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>reset<span class="w"> </span>--yes
 </code></pre></div>
 <p>Reset deletes only <code>settings.json</code>, <code>current.json</code>, <code>update-check.json</code>, and
 <code>catalog.json</code>. It works even if a settings file contains invalid JSON. This
@@ -4643,20 +4733,22 @@ results, resources, bundles, logs and installed tools are preserved. Use
 <p>Both commands accept <code>-o json</code>. Without <code>--yes</code> they only preview; <code>--dry-run</code>
 always prevents deletion, even when combined with <code>--yes</code>. The CLI cannot restore
 deleted files. To remove old logs or unused CLI releases, use the existing commands:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>astrona<span class="w"> </span>logs<span class="w"> </span>clean<span class="w"> </span>--older-than<span class="w"> </span>168h<span class="w"> </span>--keep<span class="w"> </span><span class="m">10</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>astrona<span class="w"> </span>versions<span class="w"> </span>list
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>astrona<span class="w"> </span>logs<span class="w"> </span>clean<span class="w"> </span>--older-than<span class="w"> </span>168h<span class="w"> </span>--keep<span class="w"> </span><span class="m">10</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>astrona<span class="w"> </span>versions<span class="w"> </span>list
 </code></pre></div>
 <h2 id="persistent-cli-settings">Persistent CLI settings<a class="headerlink" href="#persistent-cli-settings" title="Permanent link">&para;</a></h2>
 <p><code>astrona settings</code> lists your preferences and shows whether each value is saved
 or comes from the default. Preferences live in <code>~/.astrona/settings.json</code>,
 separate from credentials, lab state, and remote-code approvals.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>astrona<span class="w"> </span>settings
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>keep-context<span class="w"> </span><span class="nb">true</span>
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parallel<span class="w"> </span><span class="m">2</span>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>astrona<span class="w"> </span>settings<span class="w"> </span>get<span class="w"> </span>keep-context
-<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>keep-context
-<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>astrona<span class="w"> </span>settings<span class="w"> </span>path
-<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>astrona<span class="w"> </span>settings<span class="w"> </span>-o<span class="w"> </span>json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>astrona<span class="w"> </span>settings
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>keep-context<span class="w"> </span><span class="nb">true</span>
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parallel<span class="w"> </span><span class="m">2</span>
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>cache-retention-days<span class="w"> </span><span class="m">30</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>cache-max-size-gb<span class="w"> </span><span class="m">50</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>astrona<span class="w"> </span>settings<span class="w"> </span>get<span class="w"> </span>keep-context
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>keep-context
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>astrona<span class="w"> </span>settings<span class="w"> </span>path
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>astrona<span class="w"> </span>settings<span class="w"> </span>-o<span class="w"> </span>json
 </code></pre></div>
 <table>
 <thead>
@@ -4687,6 +4779,16 @@ separate from credentials, lab state, and remote-code approvals.</p>
 <td><code>true</code></td>
 <td>Check for new CLI releases and show update notices</td>
 </tr>
+<tr>
+<td><code>cache-retention-days</code></td>
+<td><code>30</code></td>
+<td>Maximum disposable-cache age; whole days from 1 to 36500</td>
+</tr>
+<tr>
+<td><code>cache-max-size-gb</code></td>
+<td><code>50</code></td>
+<td>Combined disposable-cache limit in decimal GB; <code>0</code> means unlimited size</td>
+</tr>
 </tbody>
 </table>
 <p>Explicit flags override saved values, including <code>--verbose=false</code>,
@@ -4703,12 +4805,17 @@ values plus defaults, before flags or environment-based suppression are applied.
 created. A lock prevents simultaneous CLI edits from overwriting each other;
 retry if another command is changing settings. Settings commands do not contact
 the network, fetch a lab, or change your sign-in.</p>
-<p>You can also edit the JSON file directly. Values must be JSON booleans or, for
-<code>parallel</code>, an integer from 1 to 5. Unknown keys and invalid values are rejected
+<p>You can also edit the JSON file directly. Values must be JSON booleans or whole
+numbers for <code>parallel</code> and the cache settings. <code>parallel</code> accepts 1 to 5;
+<code>cache-max-size-gb</code> accepts 0 to 9223372036 without overflowing the byte count.
+Unknown keys and invalid values are rejected
 before a normal command runs. A damaged file is never silently overwritten:
 use <code>astrona settings path</code> to find and repair it. Settings and lock files must
 not be symlinks. Remote-code trust and automatic confirmation cannot be enabled
 through settings.</p>
+<p>Cache limits are local preferences, not lab flags, and are not forwarded during
+version handover. Older CLI releases that validate settings may reject these new
+keys; remove the overrides or upgrade that binary before using it.</p>
 <h2 id="shell-completion">Shell completion<a class="headerlink" href="#shell-completion" title="Permanent link">&para;</a></h2>
 <p>Installed with Homebrew? Completion for bash, zsh and fish is already set up — skip the steps below (Homebrew's shell setup must be loaded, see <code>brew info astrona</code>).</p>
 <p><code>astrona completion &lt;shell&gt;</code> prints a completion script for bash, zsh, fish or PowerShell. Besides commands and flags, it completes <strong>lab names</strong> from what's actually on your machine — <code>astrona destroy &lt;TAB&gt;</code>, <code>stop</code>, <code>start</code>, <code>shell</code>, <code>kubeconfig</code>, <code>diagnose</code>, <code>ssh</code>, <code>port-forward list|stop</code> — filtered to what makes sense (<code>start</code> offers stopped labs, <code>ssh</code> qemu VMs), each with its runtime and status. Type part of the name without <code>astro-</code> and the short form is completed.</p>
@@ -4721,21 +4828,21 @@ through settings.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">zsh</label><label for="__tabbed_1_2">bash</label><label for="__tabbed_1_3">fish</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
 </code></pre></div>
 </div>
 </div>
 </div>
 <h2 id="staying-up-to-date">Staying up to date<a class="headerlink" href="#staying-up-to-date" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>astrona<span class="w"> </span>upgrade
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>astrona<span class="w"> </span>upgrade
 </code></pre></div>
 <p><code>astrona upgrade</code> checks GitHub for the latest release, downloads the binary for your OS/architecture, verifies it against the SHA-256 digest GitHub records for it (and its <a href="../../guides/astrona-versions/#build-provenance">build provenance</a> when the GitHub CLI is installed), and atomically replaces the currently running executable — only when the release is newer than yours. On a <a href="#homebrew-macos-linux">Homebrew</a> install it runs <code>brew upgrade astrona</code> instead (<code>brew reinstall astrona</code> with <code>--force</code>), so Homebrew keeps track of the install.</p>
 <p>On DEB, RPM and Snap installs, <code>astrona upgrade</code> prints the package installation command and exits without modifying package-owned files, including with <code>--force</code>. Download and install the newer package using the instructions above.</p>
