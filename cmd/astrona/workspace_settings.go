@@ -99,7 +99,10 @@ func (m workspaceModel) updatePreferences(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "y":
 			m.action = workspaceSavePreference
 			return m, tea.Quit
-		case "n", "enter", "q":
+		case "n", "q":
+			p.confirming, p.editing, p.draft = false, false, ""
+			p.notice = "Change declined; current value kept."
+		case "enter":
 			p.confirming, p.editing = false, true
 		}
 		return m, nil
@@ -120,7 +123,7 @@ func (m workspaceModel) updatePreferences(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			p.draft, p.editing, p.confirming = string(parsed), false, true
-			p.notice = ""
+			p.notice, p.scroll = "", 0
 		case "backspace", "ctrl+h":
 			if len(p.draft) > 0 {
 				p.draft = p.draft[:len(p.draft)-1]
@@ -163,6 +166,37 @@ func preferenceEffect(key string) string {
 	return "Used by future CLI commands. This workspace keeps its current command options; the running lab is unchanged."
 }
 
+// Describe the requested value, not a recommendation to change it.
+func preferenceChangeImpact(key, value string) string {
+	switch key {
+	case "verbose":
+		if value == "true" {
+			return "Show full command output to help troubleshoot failures; terminal output will be longer."
+		}
+		return "Use compact progress output; detailed command output will no longer stream by default."
+	case "keep-context":
+		if value == "true" {
+			return "Keep your existing kubectl context so lab commands do not switch it. Use the lab's isolated kubeconfig to work on it."
+		}
+		return "Allow lab commands to switch your kubectl context to the lab. Subsequent kubectl commands may target that lab."
+	case "parallel":
+		return "Start up to " + value + " linked clusters at once. Higher concurrency can reduce startup time but uses more resources at once."
+	case "update-check":
+		if value == "true" {
+			return "Allow release checks to show update notices. GitHub receives your IP address. CI, non-terminal sessions and development builds still skip checks."
+		}
+		return "Stop automatic release checks and update notices. You will need to check for new releases yourself."
+	case "cache-retention-days":
+		return "Allow cleanup of eligible disposable caches older than " + value + " days. Shorter retention can free disk space but require downloads again."
+	case "cache-max-size-gb":
+		if value == "0" {
+			return "Remove the cache size limit; disk use can grow without a size cap. The age limit still applies."
+		}
+		return "Target a disposable-cache limit of " + value + " GB. Cleanup may remove eligible caches and require downloads again; protected lab caches can keep usage above the limit."
+	}
+	return "Use the selected value for this preference."
+}
+
 func (m workspaceModel) preferencesView() string {
 	p := m.preferences
 	w := max(1, m.width-2)
@@ -179,7 +213,7 @@ func (m workspaceModel) preferencesView() string {
 		if p.editing || p.confirming {
 			lines = append(lines, accent.Render(clip(row.key)))
 			if p.confirming {
-				footer = []string{clip("Save " + row.key + " = " + p.draft + "?"), "y save   enter edit   Esc cancel"}
+				footer = []string{"Apply this change? [y/N]", "y yes   n no   enter edit   Esc cancel"}
 			} else {
 				footer = []string{clip("New value: " + p.draft + "_"), "enter review   Ctrl+u clear   Esc cancel"}
 			}
@@ -199,6 +233,13 @@ func (m workspaceModel) preferencesView() string {
 			source = "saved"
 		}
 		details = fmt.Sprintf("Current: %s (%s)   Default: %s\n%s\n\n%s", row.value, source, row.definition.Default, row.definition.Description, preferenceEffect(row.key))
+		if p.confirming {
+			details = fmt.Sprintf("Change: %s -> %s\nDefault: %s\nWhy: You requested this preference; changing it is optional.\nEffect: %s\n\n%s", row.value, p.draft, row.definition.Default, preferenceChangeImpact(row.key, p.draft), preferenceEffect(row.key))
+			// Retain the full privacy disclosure even when the proposed value disables checks.
+			if row.definition.ExplicitChoice {
+				details += "\n\n" + row.definition.Description
+			}
+		}
 		if row.definition.ExplicitChoice && p.editing {
 			details = "Type your choice explicitly; Enter alone cannot accept it.\n" + details
 		}

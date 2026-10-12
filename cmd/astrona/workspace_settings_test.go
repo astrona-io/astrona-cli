@@ -45,6 +45,8 @@ func TestWorkspacePreferenceEditing(t *testing.T) {
 		{"confirm", "parallel", []string{"enter", "2", "enter"}, workspaceNone, false, true, true},
 		{"save", "parallel", []string{"enter", "2", "enter", "y"}, workspaceSavePreference, false, true, true},
 		{"return to edit", "parallel", []string{"enter", "2", "enter", "enter"}, workspaceNone, true, false, true},
+		{"decline", "parallel", []string{"enter", "2", "enter", "n"}, workspaceNone, false, false, true},
+		{"quit confirmation", "parallel", []string{"enter", "2", "enter", "q"}, workspaceNone, false, false, true},
 		{"cancel edit", "parallel", []string{"enter", "2", "esc"}, workspaceNone, false, false, true},
 		{"cancel confirmation", "parallel", []string{"enter", "2", "enter", "ctrl+c"}, workspaceNone, false, false, true},
 		{"leave", "parallel", []string{"esc"}, workspaceNone, false, false, false},
@@ -85,6 +87,38 @@ func TestWorkspacePreferenceEditing(t *testing.T) {
 	m = workspaceKey(m, "y")
 	if m.action != workspaceNone {
 		t.Fatal("saved from unreadable terminal")
+	}
+}
+
+func TestWorkspacePreferenceConfirmationExplainsChange(t *testing.T) {
+	for _, tc := range []struct{ key, value, effect string }{
+		{"verbose", "true", "troubleshoot"},
+		{"verbose", "false", "compact"},
+		{"keep-context", "true", "isolated kubeconfig"},
+		{"keep-context", "false", "may target that lab"},
+		{"parallel", "3", "more resources"},
+		{"update-check", "true", "GitHub receives your IP address"},
+		{"update-check", "false", "check for new releases yourself"},
+		{"cache-retention-days", "7", "downloads again"},
+		{"cache-max-size-gb", "10", "protected lab caches"},
+		{"cache-max-size-gb", "0", "without a size cap"},
+	} {
+		t.Run(tc.key+"="+tc.value, func(t *testing.T) {
+			m := preferencesFixture(t, tc.key)
+			m.width, m.height = 120, 40
+			old := m.preferences.rows[m.preferences.selected].value
+			m = workspaceKey(workspaceKey(workspaceKey(m, "enter"), tc.value), "enter")
+			view := strings.Join(strings.Fields(ansi.Strip(m.View())), " ")
+			for _, want := range []string{"Change: " + old + " -> " + tc.value, "Why:", "optional", tc.effect, "Apply this change? [y/N]", "n no"} {
+				if !strings.Contains(view, want) {
+					t.Fatalf("missing %q: %s", want, view)
+				}
+			}
+			m = workspaceKey(m, "n")
+			if m.action != workspaceNone || m.preferences.draft != "" || m.preferences.rows[m.preferences.selected].value != old {
+				t.Fatal("decline did not preserve the current value")
+			}
+		})
 	}
 }
 

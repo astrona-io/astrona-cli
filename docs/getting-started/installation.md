@@ -523,7 +523,10 @@ through settings.
 In `astrona ui` or a lab started with `--ui`, press `p` to open Preferences.
 Use the arrow keys to select a setting. The editor shows its current value,
 whether it is saved or a default, its built-in default and an explanation.
-Press Enter, type a value, then Enter to review and `y` to save. Esc cancels
+Press Enter, type a value, then Enter to review the current and proposed values,
+why the change is being proposed, its effect and when it applies. Changes you
+request here are optional. Press `y` to approve or `n` to decline and keep the
+current value; Enter returns to editing without saving. Esc cancels
 the edit without saving; another Esc returns to the lab. Page Up/Down scrolls
 long descriptions. Press `r` in the list to reload choices saved by another command.
 
@@ -554,6 +557,11 @@ The review happens after terms acceptance but before lab loading or update check
 You can also start it with `astrona settings review`.
 
 For each pending setting, the prompt shows its default and current choice.
+It explains why review is needed: a new setting, a changed default, explanation,
+behavior revision or explicit-choice requirement. A new default does not replace
+a saved value. Each chosen value is shown as current → proposed before the final
+approval prompt. Declining leaves both preferences and the review receipt unchanged;
+commands that require review stay blocked until it is approved.
 Enter a value, press Enter to keep an ordinary preference, or type `q` to cancel.
 Network-sensitive choices require a typed value: `update-check` asks you to type
 `true` or `false` and explains that release checks contact GitHub. A blank or

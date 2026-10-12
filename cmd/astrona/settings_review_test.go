@@ -356,6 +356,42 @@ func TestReviewAutomationAndStaleID(t *testing.T) {
 	}
 }
 
+func TestSettingsReviewExplainsChangesBeforeApproval(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	defs := reviewDefinitions()
+	acceptReview(t, path, defs)
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiptBefore, err := os.ReadFile(settingsReceiptPath(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	def := defs["parallel"]
+	def.Default = "2"
+	def.Description = "Updated parallel startup explanation"
+	def.Revision++
+	defs["parallel"] = def
+	cmd, out := reviewCommand("2\nn\n")
+	if err := ensureSettingsReview(cmd, path, defs, true, ""); err == nil {
+		t.Fatal("declined review succeeded")
+	}
+	for _, want := range []string{"Why review:", "default changed from 1 to 2", "Previous explanation:", "behavior revision changed from 1 to 2", "Proposed: 1 -> 2", "Save these choices and continue? [y/N]"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("missing %q: %s", want, out.String())
+		}
+	}
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatal("decline changed settings", err)
+	}
+	receiptAfter, err := os.ReadFile(settingsReceiptPath(path))
+	if err != nil || !bytes.Equal(receiptBefore, receiptAfter) {
+		t.Fatal("decline approved changed definitions", err)
+	}
+}
+
 func TestReviewGatePrecedesAllOperationalHooks(t *testing.T) {
 	for _, args := range [][]string{{"run", "--yes", "--trust", "--accept-terms"}, {"res", "run", "test"}, {"setup", "--yes"}, {}} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
