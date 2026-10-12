@@ -26,12 +26,16 @@ const helpTemplateBody = `{{with (or .Long .Short)}}{{. | trimTrailingWhitespace
 // after newXCmd is called but before RunE runs, so they're read through
 // this shared pointer rather than passed by value.
 type rootFlags struct {
-	configPath string
-	fileName   string
-	gitURL     string
-	gitRef     string
-	verbose    bool
-	trust      bool
+	configPath  string
+	fileName    string
+	gitURL      string
+	gitRef      string
+	verbose     bool
+	trust       bool
+	updateCheck bool
+	// settingsFile is an optional path override for isolated command tests.
+	settingsFile string
+	settingsArgs []string
 	// labArg is the lab given as a command's argument (useLabArg), so a
 	// hand-over to another astrona version can spell it as -c instead.
 	labArg string
@@ -143,20 +147,26 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 		SilenceErrors: true,
 		// Plain `astrona`: which lab, its state, what to do next.
 		Run: homeRun(flags),
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// The lab picked with `astrona use`, unless this command
 			// names one or runs inside a lab directory.
 			flags.gitExplicit = cmd.Flags().Changed("git")
 			flags.cmdPath = strings.Fields(cmd.CommandPath())[1:]
-			if cmd.Name() != "use" {
-				applyCurrentLab(cmd, flags)
-			}
 			// Hidden commands (docgen, the port-forward supervisor) are
 			// tooling/background processes — no version nag, no network.
 			if cmd.Name() == "__complete" || cmd.Name() == "help" || cmd.Hidden {
-				return
+				return nil
 			}
-			checkLatestVersion(flags.verbose)
+			if err := applyUserSettings(cmd, flags); err != nil {
+				return err
+			}
+			if cmd.Name() != "use" {
+				applyCurrentLab(cmd, flags)
+			}
+			if flags.updateCheck {
+				checkLatestVersion(flags.verbose)
+			}
+			return nil
 		},
 	}
 
@@ -198,6 +208,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.PersistentFlags().BoolVar(&flags.installVersion, "install-version", false, "If the lab needs another astrona release (astronaVersion) that isn't installed, install it without asking — for CI")
 	rootCmd.PersistentFlags().BoolVar(&flags.trust, "trust", false, "Approve running a remote (--git / URL) lab without asking — for CI; review the lab first")
 	rootCmd.PersistentFlags().BoolVar(&flags.verbose, "verbose", false, "Stream the full output of every underlying command instead of the compact step view")
+	rootCmd.PersistentFlags().BoolVar(&flags.updateCheck, "update-check", true, "Check for new CLI releases (disabled in CI, without a terminal, or by ASTRONA_NO_UPDATE_CHECK)")
 
 	// Commands are grouped by who uses them and listed in the order you'd
 	// use them (see commandGroups), not alphabetically.
