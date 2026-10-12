@@ -620,7 +620,7 @@ func runUITaskScreen(ctx context.Context, workspace workspaceModel, refresh func
 			m.active = i
 		}
 	}
-	_, err = tea.NewProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
+	_, err = runUIProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if m.active < len(m.tabs) {
 		terminals.active = m.tabs[m.active].id
 	} else {

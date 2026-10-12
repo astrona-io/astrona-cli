@@ -136,7 +136,7 @@ func confirmGuestLabRun(cmd *cobra.Command, flags *rootFlags, acct *labAccount, 
 	}
 	uiPaneTitle("TRACK YOUR PROGRESS")
 	defer uiPaneTitle("SETUP")
-	result, err := tea.NewProgram(guestRunModel{local: flags.catalogLab == ""}, tea.WithContext(cmd.Context()), tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()), tea.WithAltScreen()).Run()
+	result, err := runUIProgram(guestRunModel{local: flags.catalogLab == ""}, tea.WithContext(cmd.Context()), tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()), tea.WithAltScreen())
 	if err != nil {
 		return nil, false, fmt.Errorf("login reminder: %w", err)
 	}

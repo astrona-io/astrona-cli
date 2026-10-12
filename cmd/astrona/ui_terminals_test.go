@@ -137,16 +137,13 @@ func TestUITaskProcessHelper(t *testing.T) {
 		cmd.Env = append(os.Environ(), "PS1=task-shell> ", "ENV=/dev/null")
 		return cmd, nil
 	}}
-	// Let the outer pane apply its full task size before the child starts.
-	uiPaneTitle("TASK / " + m.name)
-	time.Sleep(100 * time.Millisecond)
 	for range 2 {
 		result, err := runUITaskScreen(ctx, m, nil)
 		if err != nil || result.action != workspaceLeave {
 			os.Exit(21)
 		}
 		uiPaneTitle("HOME")
-		resultHome, err := tea.NewProgram(uiHomeModel{notice: "Time paused; terminal tabs retained", data: uiHomeSnapshot{runs: []uiHomeRun{{name: "astro-test-lab", openable: true}}}}, tea.WithAltScreen(), tea.WithContext(ctx)).Run()
+		resultHome, err := runUIProgram(uiHomeModel{notice: "Time paused; terminal tabs retained", data: uiHomeSnapshot{runs: []uiHomeRun{{name: "astro-test-lab", openable: true}}}}, tea.WithAltScreen(), tea.WithContext(ctx))
 		home := resultHome.(uiHomeModel)
 		if err != nil {
 			os.Exit(22)

@@ -279,7 +279,7 @@ func confirmUIRun(cmd *cobra.Command, notice uiRunNotice) (bool, error) {
 	}
 	uiPaneTitle(notice.title)
 	defer uiPaneTitle("SETUP")
-	final, err := tea.NewProgram(uiRunModel{notice: notice}, tea.WithContext(cmd.Context()), tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()), tea.WithAltScreen()).Run()
+	final, err := runUIProgram(uiRunModel{notice: notice}, tea.WithContext(cmd.Context()), tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()), tea.WithAltScreen())
 	if err != nil {
 		return false, fmt.Errorf("startup confirmation: %w", err)
 	}
