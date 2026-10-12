@@ -27,6 +27,7 @@ func commandGroups(flags *rootFlags) []commandGroup {
 			newLabsCmd(),
 			newUseCmd(flags),
 			newRunCmd(flags),
+			newWorkspaceCmd(flags),
 			newDocsCmd(flags),
 			newShellCmd(flags),
 			newResourceCmd(flags),

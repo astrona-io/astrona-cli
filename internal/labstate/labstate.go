@@ -65,13 +65,15 @@ func (s *Session) IsPlayground() bool { return s != nil && s.Kind == "playground
 
 // State is everything remembered about one lab.
 type State struct {
+	// StartedAt is local readiness time, not a session-token expiry or deadline.
+	StartedAt   string       `json:"startedAt,omitempty"`
 	Source      *Source      `json:"source,omitempty"`
 	KubeContext *KubeContext `json:"kubeContext,omitempty"`
 	Session     *Session     `json:"session,omitempty"`
 }
 
 func (s *State) empty() bool {
-	return s == nil || (s.Source == nil && s.KubeContext == nil && s.Session == nil)
+	return s == nil || (s.StartedAt == "" && s.Source == nil && s.KubeContext == nil && s.Session == nil)
 }
 
 // Dir returns ~/.astrona/labs (not created).

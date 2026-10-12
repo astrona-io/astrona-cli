@@ -28,7 +28,7 @@ import (
 // is bound to the root command's persistent --config/--file/--git/--git-ref
 // flags.
 func newRunCmd(flags *rootFlags) *cobra.Command {
-	var yes, withoutLogin bool
+	var yes, withoutLogin, workspace bool
 	cmd := &cobra.Command{
 		Use:   "run [lab]",
 		Short: "Start a lab: create its cluster(s) or VM(s) and set it up",
@@ -55,34 +55,44 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"If the lab is already running, run asks whether to destroy it and start over (or keep it as " +
 			"it is); --yes starts over without asking and is required when not in a terminal. If other " +
 			"labs are running, it also offers to destroy them first — only when asked in a terminal; " +
-			"--yes never touches other labs.",
+			"--yes never touches other labs.\n\n" +
+			"--ui opens a Kind lab's terminal workspace once it is ready. If already running, --ui " +
+			"attaches without restarting it unless --yes is also given. Reopen later with astrona ui. " +
+			"The UI is opt-in per invocation, requires a terminal outside CI, and has no saved setting.",
 		Example: `  astrona run astrona.io/ATS014/section-010/module-01/lab-02   # catalog lab: no login needed
   astrona run ./labs/my-lab
+  astrona run ./labs/my-lab --ui                      # terminal workspace
   astrona run --git https://github.com/org/labs -c labs/net-01
   astrona run renew                                  # a running playground: its full time limit again`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if workspace {
+				if err := requireWorkspaceTerminal(); err != nil {
+					return err
+				}
+			}
 			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
 				return err
 			}
 			if flags.configPath == "" {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
 			}
-			ctx := context.Background()
-			// Account tracking is optional: signed-out catalog labs run locally.
-			acct, err := accountForLab(ctx, flags)
-			if err != nil {
-				return err
-			}
-
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err
 			}
 			defer configCleanup()
+			if workspace {
+				if err := workspaceRuntime(cfg); err != nil {
+					return err
+				}
+			}
 
 			// Running labs are dealt with first: keeping the lab costs nothing.
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
+			if workspace && !yes && labExists(cfg, clusterName) {
+				return runLabWorkspace(cmd.Context(), cfg, baseDir, flags)
+			}
 			label := clusterName
 			if len(args) > 0 && catalog.LooksLikeLabID(args[0]) {
 				label = args[0] + " (" + clusterName + ")"
@@ -95,6 +105,14 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if choice.keep {
 				fmt.Printf("Kept the running lab %s — nothing changed.\n", clusterName)
 				return nil
+			}
+
+			ctx := cmd.Context()
+			// Attaching doesn't need account renewal. New runs still check
+			// optional tracking before building anything.
+			acct, err := accountForLab(ctx, flags)
+			if err != nil {
+				return err
 			}
 
 			approved, err := approveUntrackedLab(os.Stdin, promptOut, isatty.IsTerminal(os.Stdin.Fd()), withoutLogin, flags.catalogLab, acct)
@@ -153,12 +171,16 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			start.done(clusterName)
+			if workspace {
+				return runLabWorkspace(cmd.Context(), cfg, baseDir, flags)
+			}
 			return nil
 		},
 	}
 
 	addParallelFlag(cmd, flags)
 	addKeepContextFlag(cmd, flags)
+	cmd.Flags().BoolVar(&workspace, "ui", false, "Open the terminal workspace (kind labs); attach if already running unless --yes restarts it")
 	cmd.Flags().BoolVar(&withoutLogin, "without-login", false, "Confirm running a catalog lab without signing in or tracking progress on Astrona")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "If the lab is already running, destroy it and start over without asking")
 	cmd.AddCommand(newRunRenewCmd())

@@ -19,8 +19,9 @@ func withHome(t *testing.T) string {
 func TestSaveLoadPermissionsAndRemove(t *testing.T) {
 	home := withHome(t)
 	want := &State{
-		Source:  &Source{Config: "/labs/x"},
-		Session: &Session{Site: "https://astrona.io", ID: "s1", Lab: "ATS/x", URL: "https://astrona.io/labs/x", ExpiresAt: "2026-10-07T20:00:00Z"},
+		StartedAt: "2026-10-12T12:00:00Z",
+		Source:    &Source{Config: "/labs/x"},
+		Session:   &Session{Site: "https://astrona.io", ID: "s1", Lab: "ATS/x", URL: "https://astrona.io/labs/x", ExpiresAt: "2026-10-07T20:00:00Z"},
 	}
 	if err := Save("astro-x", want); err != nil {
 		t.Fatal(err)
@@ -47,7 +48,7 @@ func TestSaveLoadPermissionsAndRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ = Load("astro-x")
-	if got.Source == nil || got.Session == nil || got.KubeContext.Previous != "prod" {
+	if got.Source == nil || got.Session == nil || got.KubeContext.Previous != "prod" || got.StartedAt != want.StartedAt {
 		t.Errorf("after Update: %+v", got)
 	}
 	if names, _ := Names(); !reflect.DeepEqual(names, []string{"astro-x"}) {

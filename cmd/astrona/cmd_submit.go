@@ -89,154 +89,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer configCleanup()
-
-			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
-
-			if history {
-				attempts, err := proctor.LoadAttempts(clusterName)
-				if err != nil {
-					return err
-				}
-				if output == "json" {
-					if attempts == nil {
-						attempts = []proctor.Attempt{}
-					}
-					return printJSON(attempts)
-				}
-				printAttempts(os.Stdout, clusterName, attempts)
-				return nil
-			}
-
-			// A broken config (bad check type, apiVersion…) is an error
-			// (exit 1), not a failed grade (exit 2) — and isn't recorded.
-			if err := lifecycle.Validate(cfg); err != nil {
-				return err
-			}
-
-			// Grading runs validation scripts and command checks on this
-			// machine.
-			if err := requireTrust(flags, cfg, baseDir); err != nil {
-				return err
-			}
-
-			// Grading a lab that isn't there would fail every check (and
-			// record that as an attempt) — say what's actually wrong.
-			if err := requireRunningKindLab(cfg, clusterName); err != nil {
-				return err
-			}
-
-			env, err := runtime.LoadEnvironment(clusterName, cfg.Runtime)
-			if err != nil {
-				return fmt.Errorf("could not find a running lab environment: %w", err)
-			}
-			links, _ := lifecycle.Links(clusterName)
-			env.WithLinks(links)
-			env.AddEnv(lifecycle.CAEnv(clusterName)...)
-
-			opts := ui.Options{Verbose: flags.verbose}
-			if output == "json" {
-				opts.Raw = os.Stderr // stdout is the JSON result
-			}
-			rep, err := ui.New("submit", cfg.Metadata.Name, opts)
-			if err != nil {
-				return err
-			}
-			defer rep.Close()
-
-			rep.Section("Proctor")
-			var examState *exam.State
-			if cfg.Exam.Enabled() {
-				if examState, err = exam.Load(clusterName); err != nil {
-					rep.Warn("%s", err)
-				}
-			}
-
-			pr := proctor.NewProctor(baseDir, env)
-			if noHints || cfg.Exam.HideHints {
-				pr.HideHints()
-			}
-			if watch {
-				rep.Close()
-				return watchGrading(pr, cfg, clusterName, watchInterval, examState)
-			}
-			previous, _ := proctor.LoadAttempts(clusterName)
-			grade := pr.Grade
-			if output == "json" {
-				grade = pr.Evaluate          // no human report: the JSON is the output
-				pr.ScriptOutputTo(os.Stderr) // and nothing else on stdout
-			}
-			results, pass, err := grade(cfg)
-			if err != nil {
-				return err
-			}
-
-			now := time.Now()
-			overTime := false
-			if examState != nil {
-				if output != "json" {
-					fmt.Printf("Time: %s\n", examState.Summary(now))
-				}
-				if strictOverTime(examState, cfg.Exam.Strict, pass, now) {
-					pass, overTime = false, true
-					if output != "json" {
-						fmt.Printf("Submitted after the time limit — not counted as a pass (exam.strict).\n")
-					}
-				}
-			}
-
-			attempt := proctor.NewAttempt(results, pass, now)
-			if examState != nil {
-				attempt.Timed = true
-				attempt.ElapsedSeconds = int64(examState.Elapsed(now).Seconds())
-				attempt.OverTime = examState.Over(now)
-			}
-			if err := proctor.RecordAttempt(clusterName, attempt); err != nil {
-				rep.Warn("could not record this attempt: %s", err)
-			}
-			result := submissionJSON(cfg, clusterName, results, pass, overTime, len(previous)+1, pr.HintsHidden(), now)
-			if junitPath != "" {
-				if err := junit.WriteJUnitReport(junitPath, clusterName, results); err != nil {
-					rep.Warn("failed to write JUnit report: %s", err)
-				}
-			}
-			if output == "json" {
-				if err := printJSON(result); err != nil {
-					return err
-				}
-			} else {
-				printProgress(os.Stdout, previous, attempt)
-				fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, pass, 0))
-			}
-			rep.Close()
-
-			// The grade stands whatever happens to sending it: a failure
-			// here is a warning, never a different exit code.
-			sent := sendResult(context.Background(), status, clusterName, rememberedSource(flags), result)
-			if !pass {
-				return notPassed("submission did not pass grading")
-			}
-			follow := submitFollowUp(pass, sent, keep, output == "json", stdinIsTerminal(), cfg.Teardown.KeepCluster)
-			if follow != followNothing {
-				name := clusterName
-				if flags.catalogLab != "" {
-					name = flags.catalogLab
-				}
-				offerDestroy(promptIn, promptOut, status, follow == followAsk, name, func() error {
-					drep, err := ui.NewReporter("destroy", cfg.Metadata.Name, flags.verbose)
-					if err != nil {
-						return err
-					}
-					defer drep.Close()
-					info := teardownInfo{clusterName: cfg.Metadata.Name, teardown: cfg.Teardown, runtime: cfg.Runtime, cfg: cfg}
-					if err := destroyLab(info, baseDir, drep); err != nil {
-						return err
-					}
-					drep.Close()
-					fmt.Fprintf(status, "Lab %s deleted.\n", name)
-					return nil
-				})
-			}
-			return nil
+			return submitLoadedLab(flags, cfg, baseDir, submitOptions{junitPath: junitPath, output: output, noHints: noHints, history: history, watch: watch, keep: keep, watchInterval: watchInterval}, status)
 		},
 	}
 
@@ -247,8 +100,173 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().DurationVar(&watchInterval, "interval", 5*time.Second, "How often --watch re-grades (minimum 2s)")
 	cmd.Flags().BoolVar(&keep, "keep", false, "After a passing result is sent to Astrona, keep the lab instead of asking whether to delete it")
 	addOutputFlag(cmd, &output)
-
 	return cmd
+}
+
+type submitOptions struct {
+	junitPath, output             string
+	noHints, history, watch, keep bool
+	watchInterval                 time.Duration
+	completed                     func(submissionResult, bool, bool)
+}
+
+// submitLoadedLab is shared by submit and the workspace. Keeping the loaded
+// config avoids fetching a different revision in the middle of a UI session.
+func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, options submitOptions, status io.Writer) error {
+	junitPath, output := options.junitPath, options.output
+	noHints, history, watch, keep, watchInterval := options.noHints, options.history, options.watch, options.keep, options.watchInterval
+
+	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
+
+	if history {
+		attempts, err := proctor.LoadAttempts(clusterName)
+		if err != nil {
+			return err
+		}
+		if output == "json" {
+			if attempts == nil {
+				attempts = []proctor.Attempt{}
+			}
+			return printJSON(attempts)
+		}
+		printAttempts(os.Stdout, clusterName, attempts)
+		return nil
+	}
+
+	// A broken config (bad check type, apiVersion…) is an error
+	// (exit 1), not a failed grade (exit 2) — and isn't recorded.
+	if err := lifecycle.Validate(cfg); err != nil {
+		return err
+	}
+
+	// Grading runs validation scripts and command checks on this
+	// machine.
+	if err := requireTrust(flags, cfg, baseDir); err != nil {
+		return err
+	}
+
+	// Grading a lab that isn't there would fail every check (and
+	// record that as an attempt) — say what's actually wrong.
+	if err := requireRunningKindLab(cfg, clusterName); err != nil {
+		return err
+	}
+
+	env, err := runtime.LoadEnvironment(clusterName, cfg.Runtime)
+	if err != nil {
+		return fmt.Errorf("could not find a running lab environment: %w", err)
+	}
+	links, _ := lifecycle.Links(clusterName)
+	env.WithLinks(links)
+	env.AddEnv(lifecycle.CAEnv(clusterName)...)
+
+	opts := ui.Options{Verbose: flags.verbose}
+	if output == "json" {
+		opts.Raw = os.Stderr // stdout is the JSON result
+	}
+	rep, err := ui.New("submit", cfg.Metadata.Name, opts)
+	if err != nil {
+		return err
+	}
+	defer rep.Close()
+
+	rep.Section("Proctor")
+	var examState *exam.State
+	if cfg.Exam.Enabled() {
+		if examState, err = exam.Load(clusterName); err != nil {
+			rep.Warn("%s", err)
+		}
+	}
+
+	pr := proctor.NewProctor(baseDir, env)
+	if noHints || cfg.Exam.HideHints {
+		pr.HideHints()
+	}
+	if watch {
+		rep.Close()
+		return watchGrading(pr, cfg, clusterName, watchInterval, examState)
+	}
+	previous, _ := proctor.LoadAttempts(clusterName)
+	grade := pr.Grade
+	if output == "json" {
+		grade = pr.Evaluate          // no human report: the JSON is the output
+		pr.ScriptOutputTo(os.Stderr) // and nothing else on stdout
+	}
+	results, pass, err := grade(cfg)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	overTime := false
+	if examState != nil {
+		if output != "json" {
+			fmt.Printf("Time: %s\n", examState.Summary(now))
+		}
+		if strictOverTime(examState, cfg.Exam.Strict, pass, now) {
+			pass, overTime = false, true
+			if output != "json" {
+				fmt.Printf("Submitted after the time limit — not counted as a pass (exam.strict).\n")
+			}
+		}
+	}
+
+	attempt := proctor.NewAttempt(results, pass, now)
+	if examState != nil {
+		attempt.Timed = true
+		attempt.ElapsedSeconds = int64(examState.Elapsed(now).Seconds())
+		attempt.OverTime = examState.Over(now)
+	}
+	recordErr := proctor.RecordAttempt(clusterName, attempt)
+	if recordErr != nil {
+		rep.Warn("could not record this attempt: %s", recordErr)
+	}
+	result := submissionJSON(cfg, clusterName, results, pass, overTime, len(previous)+1, pr.HintsHidden(), now)
+	if junitPath != "" {
+		if err := junit.WriteJUnitReport(junitPath, clusterName, results); err != nil {
+			rep.Warn("failed to write JUnit report: %s", err)
+		}
+	}
+	if output == "json" {
+		if err := printJSON(result); err != nil {
+			return err
+		}
+	} else {
+		printProgress(os.Stdout, previous, attempt)
+		fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, pass, 0))
+	}
+	rep.Close()
+
+	// The grade stands whatever happens to sending it: a failure
+	// here is a warning, never a different exit code.
+	sent := sendResult(context.Background(), status, clusterName, rememberedSource(flags), result)
+	if options.completed != nil {
+		options.completed(result, sent, recordErr == nil)
+	}
+	if !pass {
+		return notPassed("submission did not pass grading")
+	}
+	follow := submitFollowUp(pass, sent, keep, output == "json", stdinIsTerminal(), cfg.Teardown.KeepCluster)
+	if follow != followNothing {
+		name := clusterName
+		if flags.catalogLab != "" {
+			name = flags.catalogLab
+		}
+		offerDestroy(promptIn, promptOut, status, follow == followAsk, name, func() error {
+			drep, err := ui.NewReporter("destroy", cfg.Metadata.Name, flags.verbose)
+			if err != nil {
+				return err
+			}
+			defer drep.Close()
+			info := teardownInfo{clusterName: cfg.Metadata.Name, teardown: cfg.Teardown, runtime: cfg.Runtime, cfg: cfg}
+			if err := destroyLab(info, baseDir, drep); err != nil {
+				return err
+			}
+			drep.Close()
+			fmt.Fprintf(status, "Lab %s deleted.\n", name)
+			return nil
+		})
+	}
+	return nil
 }
 
 // checkWatchFlags refuses flags that --watch would otherwise silently
