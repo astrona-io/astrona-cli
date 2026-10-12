@@ -735,6 +735,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Persistent CLI settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#review-settings-after-an-upgrade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review settings after an upgrade
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -3503,6 +3520,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -3675,6 +3696,62 @@
     
   
     Astrona settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_settings_view/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings view
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_settings_review/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings review
   
 
     
@@ -4247,6 +4324,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Persistent CLI settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#review-settings-after-an-upgrade" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review settings after an upgrade
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4676,8 +4770,10 @@ including a stopped VM, <strong>all cache eviction is deferred</strong> to prote
 Cleanup also defers if another CLI command holds the maintenance lock. Usage can
 therefore exceed the limits while downloads or labs need it. A notice on stderr
 explains deferrals and reports removed entries without changing JSON stdout or
-the original command's exit code. Help, completions, settings, data inspection and
-internal background commands do not trigger automatic deletion.</p>
+the original command's exit code. Help, completions, settings, data inspection,
+internal background commands, stop/destroy and logout do not trigger automatic
+deletion. Commands exempt from settings review also skip release checks, so they
+can be used for cleanup without applying unreviewed preferences.</p>
 <p>Preview or explicitly apply just the configured policy:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--policy
 <a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--policy<span class="w"> </span>--yes
@@ -4724,7 +4820,7 @@ the CLI.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>astrona<span class="w"> </span>data<span class="w"> </span>reset
 <a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>reset<span class="w"> </span>--yes
 </code></pre></div>
-<p>Reset deletes only <code>settings.json</code>, <code>current.json</code>, <code>update-check.json</code>, and
+<p>Reset deletes only <code>settings.json</code>, <code>settings-review.json</code>, <code>current.json</code>, <code>update-check.json</code>, and
 <code>catalog.json</code>. It works even if a settings file contains invalid JSON. This
 restores preference defaults and clears the <code>astrona use</code> selection; it does not
 restart or destroy a lab. Credentials, trust approvals, custom catalog sources,
@@ -4741,14 +4837,17 @@ deleted files. To remove old logs or unused CLI releases, use the existing comma
 or comes from the default. Preferences live in <code>~/.astrona/settings.json</code>,
 separate from credentials, lab state, and remote-code approvals.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>astrona<span class="w"> </span>settings
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>keep-context<span class="w"> </span><span class="nb">true</span>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parallel<span class="w"> </span><span class="m">2</span>
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>cache-retention-days<span class="w"> </span><span class="m">30</span>
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>cache-max-size-gb<span class="w"> </span><span class="m">50</span>
-<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>astrona<span class="w"> </span>settings<span class="w"> </span>get<span class="w"> </span>keep-context
-<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>keep-context
-<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>astrona<span class="w"> </span>settings<span class="w"> </span>path
-<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>astrona<span class="w"> </span>settings<span class="w"> </span>-o<span class="w"> </span>json
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>astrona<span class="w"> </span>settings<span class="w"> </span>view
+<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>astrona<span class="w"> </span>settings<span class="w"> </span>view<span class="w"> </span>-o<span class="w"> </span>json
+<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>astrona<span class="w"> </span>settings<span class="w"> </span>review
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>keep-context<span class="w"> </span><span class="nb">true</span>
+<a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parallel<span class="w"> </span><span class="m">2</span>
+<a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>cache-retention-days<span class="w"> </span><span class="m">30</span>
+<a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>cache-max-size-gb<span class="w"> </span><span class="m">50</span>
+<a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>astrona<span class="w"> </span>settings<span class="w"> </span>get<span class="w"> </span>keep-context
+<a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>keep-context
+<a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>astrona<span class="w"> </span>settings<span class="w"> </span>path
+<a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a>astrona<span class="w"> </span>settings<span class="w"> </span>-o<span class="w"> </span>json
 </code></pre></div>
 <table>
 <thead>
@@ -4797,7 +4896,9 @@ update checks for one command; save it with
 <code>astrona settings set update-check false</code> to keep that preference. The existing
 <code>ASTRONA_NO_UPDATE_CHECK</code> environment variable, CI detection, and non-terminal
 output still suppress update checks even when the setting is true.</p>
-<p>Only saved overrides are written to the JSON file. <code>unset</code> removes one override
+<p>Only saved choices are written to the JSON file. Review saves each chosen value,
+including a default you choose to keep, so later releases cannot silently replace
+that choice. <code>unset</code> removes one override
 without changing the others; omitted keys use the built-in defaults. Listing
 or reading settings does not create a file. The JSON output contains configured
 values plus defaults, before flags or environment-based suppression are applied.</p>
@@ -4813,6 +4914,50 @@ before a normal command runs. A damaged file is never silently overwritten:
 use <code>astrona settings path</code> to find and repair it. Settings and lock files must
 not be symlinks. Remote-code trust and automatic confirmation cannot be enabled
 through settings.</p>
+<h3 id="review-settings-after-an-upgrade">Review settings after an upgrade<a class="headerlink" href="#review-settings-after-an-upgrade" title="Permanent link">&para;</a></h3>
+<p><code>astrona settings view</code> gives each setting a readable block with its current
+value, source, built-in default and explanation. Booleans appear as On/Off;
+cache settings use days or GB when supported by your CLI version. It also lists
+pending changes and a review ID. <code>-o json</code> includes the same information;
+the existing <code>astrona settings -o json</code> remains a flat values object. Both are
+read-only and show preferences before flags or environment overrides.</p>
+<p>On first use of the review feature, Astrona asks about every setting. Later it
+asks only when a setting is added, removed, or changes its default, explanation
+or behavior revision. A CLI version change alone does not trigger another review.
+The review happens after terms acceptance but before lab loading or update checks.
+You can also start it with <code>astrona settings review</code>.</p>
+<p>For each pending setting, the prompt shows its default and current choice.
+Enter a value, press Enter to keep an ordinary preference, or type <code>q</code> to cancel.
+Network-sensitive choices require a typed value: <code>update-check</code> asks you to type
+<code>true</code> or <code>false</code> and explains that release checks contact GitHub. A final <code>[y/N]</code>
+confirms the review. Cancellation, EOF or invalid input leaves choices unchanged.
+Saved overrides stay selected unless you change them. Reviewed settings that
+have been removed are deleted from preferences only after confirmation; unknown
+keys not found in the previous review still require manual repair.</p>
+<p>The receipt lives in <code>~/.astrona/settings-review.json</code>, separate from preferences
+and usage-term acceptance. It records the reviewed definitions and CLI version,
+not a server identity or tracking token. Writes share the settings lock and use
+private atomic files. If interrupted between saving choices and the receipt,
+the next command asks again. <code>data reset --yes</code> clears both files. Unsetting an
+explicit network choice requires another review before normal use.</p>
+<p>Help, completion, settings, local data maintenance, terms display, internal
+background helpers, stop/destroy and logout remain available without review.
+Older binaries do not enforce this gate. No new telemetry or account tracking
+is enabled by this feature; existing signed-in lab progress tracking is separate.</p>
+<p>Without an interactive terminal (including CI), a pending review stops the
+command instead of assuming agreement. <code>--yes</code>, <code>--trust</code> and <code>--accept-terms</code>
+do not approve settings. Set network-sensitive choices explicitly, inspect the
+view, then acknowledge its exact ID:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>update-check<span class="w"> </span><span class="nb">false</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>astrona<span class="w"> </span>settings<span class="w"> </span>view
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>astrona<span class="w"> </span>settings<span class="w"> </span>review<span class="w"> </span>--accept<span class="w"> </span>&lt;review-id-you-inspected&gt;
+</code></pre></div>
+<p>The ID binds to definitions and saved choices, so it changes when either changes.
+Do not pipe a newly generated ID straight into <code>--accept</code>; keep the reviewed ID
+in CI configuration and update it after inspecting changes. For a fresh runner,
+use the ID displayed with that runner's exact saved settings, before review
+pins additional defaults. An existing current receipt permits headless commands;
+it does not remove the separate per-command CI requirement for <code>--accept-terms</code>.</p>
 <p>Cache limits are local preferences, not lab flags, and are not forwarded during
 version handover. Older CLI releases that validate settings may reject these new
 keys; remove the overrides or upgrade that binary before using it.</p>
@@ -4828,21 +4973,21 @@ keys; remove the overrides or upgrade that binary before using it.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">zsh</label><label for="__tabbed_1_2">bash</label><label for="__tabbed_1_3">fish</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
 </code></pre></div>
 </div>
 </div>
 </div>
 <h2 id="staying-up-to-date">Staying up to date<a class="headerlink" href="#staying-up-to-date" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>astrona<span class="w"> </span>upgrade
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>astrona<span class="w"> </span>upgrade
 </code></pre></div>
 <p><code>astrona upgrade</code> checks GitHub for the latest release, downloads the binary for your OS/architecture, verifies it against the SHA-256 digest GitHub records for it (and its <a href="../../guides/astrona-versions/#build-provenance">build provenance</a> when the GitHub CLI is installed), and atomically replaces the currently running executable — only when the release is newer than yours. On a <a href="#homebrew-macos-linux">Homebrew</a> install it runs <code>brew upgrade astrona</code> instead (<code>brew reinstall astrona</code> with <code>--force</code>), so Homebrew keeps track of the install.</p>
 <p>On DEB, RPM and Snap installs, <code>astrona upgrade</code> prints the package installation command and exits without modifying package-owned files, including with <code>--force</code>. Download and install the newer package using the instructions above.</p>
