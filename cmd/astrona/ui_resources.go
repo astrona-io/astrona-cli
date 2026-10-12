@@ -4,16 +4,94 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
 	"astrona/internal/cluster"
+	"astrona/internal/config"
 	"astrona/internal/labstate"
 )
 
 type uiContainerUsage struct{ cpu, memory float64 }
+
+func readUIQEMUUsage(ctx context.Context, groups map[string][]*config.QEMUHandle) map[int]uiContainerUsage {
+	expected := map[int]string{}
+	var pids []string
+	for _, vms := range groups {
+		for _, vm := range vms {
+			if vm.PID > 0 && expected[vm.PID] == "" {
+				expected[vm.PID] = vm.ClusterName
+				pids = append(pids, strconv.Itoa(vm.PID))
+			}
+		}
+	}
+	if len(pids) == 0 {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "ps", "-ww", "-p", strings.Join(pids, ","), "-o", "pid=", "-o", "%cpu=", "-o", "rss=", "-o", "command=")
+	cmd.Env = append(os.Environ(), "LC_ALL=C")
+	cmd.WaitDelay = time.Second
+	var out workspaceOutput
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		return nil
+	}
+	return parseUIQEMUUsage(string(out.Bytes()), expected)
+}
+
+func parseUIQEMUUsage(output string, expected map[int]string) map[int]uiContainerUsage {
+	samples := map[int]uiContainerUsage{}
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 6 || !strings.Contains(fields[3], "qemu-system") {
+			continue
+		}
+		pid, err := strconv.Atoi(fields[0])
+		if err != nil || expected[pid] == "" {
+			continue
+		}
+		matches := false
+		for i := 4; i+1 < len(fields); i++ {
+			if fields[i] == "-name" && fields[i+1] == "astrona-"+expected[pid] {
+				matches = true
+			}
+		}
+		cpu, cpuErr := strconv.ParseFloat(fields[1], 64)
+		rss, rssErr := strconv.ParseFloat(fields[2], 64)
+		if !matches || cpuErr != nil || rssErr != nil || cpu < 0 || rss < 0 || math.IsNaN(cpu) || math.IsNaN(rss) || math.IsInf(cpu, 0) || math.IsInf(rss*1024, 0) {
+			continue
+		}
+		samples[pid] = uiContainerUsage{cpu, rss * 1024}
+	}
+	return samples
+}
+
+func uiQEMURunUsage(name, started string, vms []*config.QEMUHandle, samples map[int]uiContainerUsage) labstate.ResourceUsage {
+	if started == "" || len(vms) == 0 {
+		return labstate.ResourceUsage{}
+	}
+	var cpu, memory float64
+	seen := map[int]bool{}
+	for _, vm := range vms {
+		sample, ok := samples[vm.PID]
+		if !ok || seen[vm.PID] {
+			return labstate.ResourceUsage{}
+		}
+		seen[vm.PID] = true
+		cpu += sample.cpu
+		memory += sample.memory
+	}
+	usage, err := labstate.RecordUsage(name, started, cpu, memory, time.Now())
+	if err != nil {
+		return labstate.ResourceUsage{}
+	}
+	return usage
+}
 
 func readUIContainerUsage(ctx context.Context, provider string, containers map[string][]kindContainer) map[string]uiContainerUsage {
 	names := []string{}

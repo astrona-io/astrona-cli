@@ -15,7 +15,7 @@ type uiRunRestart struct {
 }
 
 func (r uiRunRestart) message() string {
-	return fmt.Sprintf("Lab %s already exists.\n\nDestroy it and start a new lab?\nAll work in this lab and its linked clusters will be lost. Nothing will be saved or submitted before deletion.\n\nThe replacement run is local only. Astrona will not send its progress or results to the Astrona API, even if you are signed in. Other labs stay running.\n\nYes destroys this lab and starts over. No cancels and keeps the existing lab.", sanitizeLine(r.name))
+	return fmt.Sprintf("Lab %s already exists.\n\nDestroy it and start a new lab?\nAll work in this lab, its VMs and its linked clusters will be lost. Nothing will be saved or submitted before deletion.\n\nThe replacement run is local only. Astrona will not send its progress or results to the Astrona API, even if you are signed in. Other labs stay running.\n\nYes destroys this lab and starts over. No cancels and keeps the existing lab.", sanitizeLine(r.name))
 }
 
 // Match the requested source against saved runs without fetching a catalog or
@@ -52,13 +52,17 @@ func findUIRunRestart(cmd *cobra.Command, flags *rootFlags, containers func(cont
 	if len(candidates) == 0 {
 		return nil, nil
 	}
-	live, err := containers(cmd.Context())
-	if err != nil {
-		return nil, nil // The runtime check after config loading reports engine failures.
+	qemu, _ := readUIQEMUVMs()
+	var live map[string][]kindContainer
+	for _, candidate := range candidates {
+		if len(qemu[candidate.name]) == 0 {
+			live, _ = containers(cmd.Context())
+			break
+		}
 	}
 	var found *uiRunRestart
 	for _, candidate := range candidates {
-		if len(live[candidate.name]) == 0 {
+		if len(live[candidate.name]) == 0 && len(qemu[candidate.name]) == 0 {
 			continue
 		}
 		if found != nil {

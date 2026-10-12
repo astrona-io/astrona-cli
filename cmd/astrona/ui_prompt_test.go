@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 )
 
 func TestUITerminalCompactPromptKeepsShellSetup(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
 	for _, shell := range []string{"zsh", "bash", "sh", "fish"} {
 		t.Run(shell, func(t *testing.T) {
 			path, err := exec.LookPath(shell)
@@ -45,6 +47,42 @@ func TestUITerminalCompactPromptKeepsShellSetup(t *testing.T) {
 			}
 			tab := manager.snapshot()[0]
 			waitUITab(t, tab, "astrona-cli >")
+			tab.mu.Lock()
+			found := false
+			for y := 0; y < tab.emulator.Height(); y++ {
+				for x := 0; x+len("astrona-cli >") < tab.emulator.Width(); x++ {
+					cell := tab.emulator.CellAt(x, y)
+					if cell != nil && cell.Content == "a" {
+						var line strings.Builder
+						for offset := range len("astrona-cli >") {
+							c := tab.emulator.CellAt(x+offset, y)
+							if c != nil {
+								line.WriteString(c.Content)
+							}
+						}
+						if line.String() == "astrona-cli >" {
+							found = true
+							r, g, b, _ := cell.Style.Fg.RGBA()
+							if r != 135*257 || g != 215*257 || b != 255*257 {
+								t.Errorf("prompt color: %s", fmt.Sprint(cell.Style.Fg))
+							}
+							after := tab.emulator.CellAt(x+len("astrona-cli >"), y)
+							if after == nil || after.Style.Fg == nil {
+								t.Error("input color missing")
+							} else {
+								r, g, b, _ = after.Style.Fg.RGBA()
+								if r != 65535 || g != 65535 || b != 65535 {
+									t.Error("input is not white")
+								}
+							}
+						}
+					}
+				}
+			}
+			tab.mu.Unlock()
+			if !found {
+				t.Fatal("colored prompt not found")
+			}
 			if shell != "fish" {
 				_, _ = io.WriteString(tab.terminal, "kept_alias\n")
 				waitUITab(t, tab, "setup-kept")

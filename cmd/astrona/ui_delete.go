@@ -16,7 +16,7 @@ func uiDeleteMessage(name string, yes bool) string {
 	if yes {
 		choices = "No, keep running    [ Yes, delete ]"
 	}
-	return "Delete " + sanitizeLine(name) + " and linked clusters?\n\nAll work will be lost. No saving or submission to Astrona. This cannot be undone.\n\n" + choices + "\nTab/arrows choose · Enter confirms · Esc cancels"
+	return "Delete " + sanitizeLine(name) + " and all its VMs and linked clusters?\n\nAll work will be lost. No saving or submission to Astrona. This cannot be undone.\n\n" + choices + "\nTab/arrows choose · Enter confirms · Esc cancels"
 }
 
 func (m uiHomeModel) deleteDialogFits() bool {

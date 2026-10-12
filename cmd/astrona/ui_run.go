@@ -176,7 +176,7 @@ func buildUIRunNotice(cmd *cobra.Command, flags *rootFlags, view settingsView, n
 	if needsTerms {
 		summary += "Yes accepts the CLI terms and data-loss risk notice (Tab to read).\n"
 	}
-	summary += "\nYes authorizes downloads, required CLI installation, containers, lab scripts and manifests, and configured local ports. Lab code may run on your machine. Only accept if you trust this lab and its sources. This code approval applies to this run only.\n\n"
+	summary += "\nYes authorizes downloads, required CLI installation, containers, virtual machines, lab scripts and manifests, and configured local ports. Lab code may run on your machine. Only accept if you trust this lab and its sources. This code approval applies to this run only.\n\n"
 	if tracking != "" {
 		summary += tracking + "\n\n"
 	}

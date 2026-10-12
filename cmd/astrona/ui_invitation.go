@@ -26,7 +26,7 @@ func offerRunUI(args []string, in io.Reader, out io.Writer, interactive bool) ([
 		return args, nil
 	}
 	fmt.Fprintln(out, "Try Astrona's terminal UI to follow setup progress and work in terminal tabs.")
-	fmt.Fprintln(out, "The UI will become the default in v0.5.0. It currently supports Kind labs.")
+	fmt.Fprintln(out, "The UI will become the default in v0.5.0. It supports Kind and QEMU labs.")
 	for {
 		fmt.Fprint(out, "Open the UI? (yes/no, Enter for yes): ")
 		answer, err := readUIInvitationAnswer(in)
