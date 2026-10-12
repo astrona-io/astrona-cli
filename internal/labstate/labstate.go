@@ -71,10 +71,12 @@ type State struct {
 	Source      *Source      `json:"source,omitempty"`
 	KubeContext *KubeContext `json:"kubeContext,omitempty"`
 	Session     *Session     `json:"session,omitempty"`
+	// LocalOnly prevents account tracking and result uploads for this run.
+	LocalOnly bool `json:"localOnly,omitempty"`
 }
 
 func (s *State) empty() bool {
-	return s == nil || (s.StartedAt == "" && s.Source == nil && s.KubeContext == nil && s.Session == nil)
+	return s == nil || (s.StartedAt == "" && s.Source == nil && s.KubeContext == nil && s.Session == nil && !s.LocalOnly)
 }
 
 // Dir returns ~/.astrona/labs (not created).

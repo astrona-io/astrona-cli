@@ -222,11 +222,18 @@ func runLabShell(lab, clusterFlag string, command []string) error {
 	if shell == "" {
 		shell = "/bin/sh"
 	}
-	fmt.Fprintf(os.Stderr, "Entering lab shell for %s — kubectl now targets context kind-%s. Type `exit` to leave.\n", lab, target)
+	if os.Getenv(uiPaneEnv) == "1" {
+		uiPaneTitle("SHELL / " + target)
+		fmt.Fprint(os.Stdout, "\x1b[2J\x1b[H")
+	} else {
+		fmt.Fprintf(os.Stderr, "Entering lab shell for %s — kubectl now targets context kind-%s. Type `exit` to leave.\n", lab, target)
+	}
 	c := exec.Command(shell)
 	c.Env = env
 	err = runAttached(c)
-	fmt.Fprintf(os.Stderr, "Left lab shell for %s.\n", lab)
+	if os.Getenv(uiPaneEnv) != "1" {
+		fmt.Fprintf(os.Stderr, "Left lab shell for %s.\n", lab)
+	}
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
 		return nil // the shell's own exit status is the user's last command, not ours
@@ -234,13 +241,13 @@ func runLabShell(lab, clusterFlag string, command []string) error {
 	return err
 }
 
-// runAttached runs c on this terminal. Ctrl-C is meant for the child (it
-// shares our process group), so astrona ignores SIGINT while it runs
-// rather than dying and orphaning it.
+// Catch Ctrl-C in Astrona while the child handles it. Ignoring SIGINT would
+// pass SIG_IGN into the shell and make its commands ignore Ctrl-C as well.
 func runAttached(c *exec.Cmd) error {
 	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
-	signal.Ignore(os.Interrupt)
-	defer signal.Reset(os.Interrupt)
+	interrupts := make(chan os.Signal, 1)
+	signal.Notify(interrupts, os.Interrupt)
+	defer signal.Stop(interrupts)
 	if err := c.Run(); err != nil {
 		return fmt.Errorf("%s: %w", c.Args[0], err)
 	}

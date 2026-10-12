@@ -150,6 +150,9 @@ func ensureLabVersion(constraint string, flags *rootFlags, approve func() error)
 	if c.Allows(cur) {
 		return nil
 	}
+	if flags.localOnly {
+		return fmt.Errorf("this local-only run needs astrona %s; install a compatible CLI and restart from its UI so the no-upload choice is preserved", c)
+	}
 	if from := os.Getenv(dispatchedEnv); from != "" {
 		return fmt.Errorf("this lab needs astrona %s; astrona %s handed it to %s, which doesn't fit either", c, from, cur)
 	}

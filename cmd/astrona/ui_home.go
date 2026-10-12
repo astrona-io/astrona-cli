@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -394,6 +395,7 @@ func (m uiHomeModel) View() string {
 }
 
 func runUIHomeScreen(ctx context.Context, m uiHomeModel) (uiHomeModel, error) {
+	uiPaneTitle("HOME")
 	screenCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	m.refresh = func() tea.Msg { return readUIHome(screenCtx) }
@@ -431,6 +433,9 @@ func driveUIHome(ctx context.Context, m uiHomeModel, d uiHomeDriver) error {
 			m.notice, m.noticeError = "Lab startup finished. Select the run and press Enter to open it.", err != nil
 			if err != nil {
 				m.notice = err.Error()
+			}
+			if errors.Is(err, errUIRunDeclined) {
+				m.notice, m.noticeError = "Lab startup cancelled. No lab was started or changed.", false
 			}
 			m.editor.action = workspaceNone
 			m.tab, m.selected, m.detail = 0, 0, false

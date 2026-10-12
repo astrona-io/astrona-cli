@@ -370,6 +370,23 @@ func TestReleaseLabLeavesAnotherContext(t *testing.T) {
 	}
 }
 
+func TestReleaseLabPreservesInheritedShellContext(t *testing.T) {
+	kube := withFakeKube(t, "prod", "kind-astro-x")
+	if switchToLab("astro-x", "kind-astro-x") == nil {
+		t.Fatal("not switched")
+	}
+	t.Setenv(labShellEnvVar, "astro-x")
+	var out bytes.Buffer
+	releaseLab(&out, "astro-x")
+	st, err := labstate.Load("astro-x")
+	if err != nil || st == nil || st.KubeContext == nil || st.KubeContext.Previous != "prod" {
+		t.Fatalf("original context was lost: %+v, %v", st, err)
+	}
+	if kube.current != "kind-astro-x" || out.Len() != 0 {
+		t.Fatalf("inherited context changed: %s, %s", kube.current, out.String())
+	}
+}
+
 func TestReleaseLabPreviousGone(t *testing.T) {
 	kube := withFakeKube(t, "old", "kind-astro-x")
 	if switchToLab("astro-x", "kind-astro-x") == nil {

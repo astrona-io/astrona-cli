@@ -59,7 +59,7 @@ func TestWorkspaceActions(t *testing.T) {
 		{"shell", []string{"s"}, true, false, workspaceShell},
 		{"preferences", []string{"p"}, true, false, workspaceLoadPreferences},
 		{"stale can edit preferences", []string{"p"}, true, true, workspaceLoadPreferences},
-		{"enter shell", []string{"enter"}, true, false, workspaceShell},
+		{"enter keeps workspace", []string{"enter"}, true, false, workspaceNone},
 		{"submit", []string{"g"}, true, false, workspaceSubmit},
 		{"playground ignores grade", []string{"g"}, false, false, workspaceNone},
 		{"q only opens menu", []string{"q"}, true, false, workspaceNone},
@@ -167,10 +167,11 @@ func TestWorkspaceTerminalValidation(t *testing.T) {
 		{"output pipe", true, false, false, "xterm", "", false},
 		{"ci tty", true, true, true, "xterm", "", false},
 		{"dumb", true, true, false, "dumb", "", false},
-		{"nested", true, true, false, "xterm", "astro-lab", false},
+		{"lab shell can open UI", true, true, false, "xterm", "astro-lab", true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := checkWorkspaceTerminal(tt.input, tt.output, tt.ci, tt.term, tt.nested); (err == nil) != tt.ok {
+			t.Setenv(labShellEnvVar, tt.nested)
+			if err := checkWorkspaceTerminal(tt.input, tt.output, tt.ci, tt.term); (err == nil) != tt.ok {
 				t.Fatal(err)
 			}
 		})
@@ -540,8 +541,8 @@ func TestWorkspaceDriverSafety(t *testing.T) {
 			if submit != tt.wantSubmit || destroy != tt.wantDestroy || shell != tt.wantShell {
 				t.Fatalf("submit=%d destroy=%d shell=%d", submit, destroy, shell)
 			}
-			if tt.action == workspaceSubmit && screens != 2 {
-				t.Fatal("submission closed workspace")
+			if (tt.action == workspaceSubmit || tt.action == workspaceShell) && screens != 2 {
+				t.Fatal("action did not return to workspace")
 			}
 		})
 	}

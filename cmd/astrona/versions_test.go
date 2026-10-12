@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"astrona/internal/labstate"
 	"astrona/internal/trust"
 	"astrona/internal/version"
 
@@ -410,6 +411,12 @@ func TestLoadLabForCommandTrustsBeforeHandover(t *testing.T) {
 			if err == nil || errors.Is(err, errHandedOver) || !strings.Contains(err.Error(), "--trust") || len(*handed) != 0 {
 				t.Fatalf("untrusted = %v, handed to %v", err, *handed)
 			}
+			if tc.name == "doesn't parse" {
+				_, _, _, err = LoadLabForCommand(&rootFlags{configPath: url, fileName: "config.yaml", uiStartupApproved: true, installVersion: true})
+				if err == nil || !strings.Contains(err.Error(), "--trust") || len(*handed) != 0 {
+					t.Fatalf("UI notice authorized an unreadable config: %v, handovers: %v", err, *handed)
+				}
+			}
 
 			_, _, _, err = LoadLabForCommand(&rootFlags{configPath: url, fileName: "config.yaml", trust: true})
 			if !errors.Is(err, errHandedOver) {
@@ -421,5 +428,44 @@ func TestLoadLabForCommandTrustsBeforeHandover(t *testing.T) {
 				t.Errorf("approval not stored for the version handed to: %v, %v", status, err)
 			}
 		})
+	}
+}
+
+func TestLocalOnlyRunCannotHandover(t *testing.T) {
+	_, handed, _ := handoverFakes(t)
+	installFake(t, "astrona-0.2.1")
+	approved := false
+	err := ensureLabVersion("<=0.2.1", &rootFlags{localOnly: true, installVersion: true}, func() error {
+		approved = true
+		return nil
+	})
+	if err == nil || !strings.Contains(err.Error(), "local-only") || approved || len(*handed) != 0 {
+		t.Fatalf("local-only approval lost on handover: %v", err)
+	}
+}
+
+func TestLoadLocalOnlyRunVersion(t *testing.T) {
+	_, handed, _ := handoverFakes(t)
+	installFake(t, "astrona-0.2.1")
+	if err := labstate.Save("astro-old", &labstate.State{LocalOnly: true}); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	for _, constraint := range []string{"<=0.2.1", ">=0.2.1"} {
+		if err := os.WriteFile(path, []byte("astronaVersion: \""+constraint+"\"\nmetadata:\n  name: old\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		flags := &rootFlags{configPath: path, fileName: "config.yaml"}
+		_, _, cleanup, err := LoadLabForCommand(flags)
+		cleanup()
+		if constraint == "<=0.2.1" && (err == nil || !strings.Contains(err.Error(), "local-only")) {
+			t.Fatalf("saved local run handed over: %v", err)
+		}
+		if constraint == ">=0.2.1" && err != nil {
+			t.Fatal(err)
+		}
+		if flags.localOnly || len(*handed) != 0 {
+			t.Fatal("version check changed startup choices or handed over")
+		}
 	}
 }

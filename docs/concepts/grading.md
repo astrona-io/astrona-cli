@@ -2,6 +2,11 @@
 
 A student never grades their own work — the same way a real exam is graded by a proctor, not by the person taking it. `astrona submit` hands the running environment to the **Proctor**, a single component (`internal/proctor`) that both the student-facing `submit` and the lab-developer-facing `test` command go through. No other command reads `validation.checks`/`validation.script` directly.
 
+If you restart an existing lab through the UI's discard confirmation, the new
+run is local only. `astrona submit` still grades it and records the local result,
+but does not upload it to the Astrona API, even if you are signed in. This choice
+is saved with the run and also applies after reopening the CLI.
+
 ## What it checks
 
 ```yaml

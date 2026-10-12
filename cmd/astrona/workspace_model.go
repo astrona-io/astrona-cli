@@ -171,7 +171,9 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.scroll = max(0, m.scroll-max(1, m.height/2))
 		case "home":
 			m.scroll = 0
-		case "enter", "s":
+		case "enter":
+			m.results, m.scroll = false, 0
+		case "s":
 			if m.snapshot.blocked == "" && len(m.snapshot.clusters) > 0 {
 				m.action = workspaceShell
 				return m, tea.Quit
@@ -227,6 +229,7 @@ func (m workspaceModel) menuText() string {
 // runWorkspaceScreen owns the polling context. Returning to a shell or grading
 // first cancels in-flight reads; no background refresh writes to the terminal.
 func runWorkspaceScreen(ctx context.Context, m workspaceModel, refresh func(context.Context) workspaceSnapshot) (workspaceModel, error) {
+	uiPaneTitle("WORKSPACE / " + m.name)
 	if err := ctx.Err(); err != nil {
 		return m, err
 	}

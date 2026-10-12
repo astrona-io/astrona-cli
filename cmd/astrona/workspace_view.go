@@ -198,7 +198,7 @@ func (m workspaceModel) labView() string {
 	if message != "" {
 		body += "\n" + workspaceAlert(message, w)
 	}
-	footer := []string{"↑/↓ cluster  s shell  tab view  p preferences", "pgup/pgdn scroll   q exit menu"}
+	footer := []string{"↑/↓ cluster  s shell  tab view  p preferences", "q exit menu  enter task  pgup/pgdn scroll"}
 	if m.canSubmit {
 		footer[1] = "g submit   " + footer[1]
 	}

@@ -24,8 +24,8 @@ Tab changes sections, arrow keys select entries, Page Up/Down scroll details,
 `r` refreshes, `?` opens Help, and `q` or Ctrl-C closes Home. The screen refreshes
 every five seconds. Closing Home leaves labs running.
 
-Press `n` to enter a catalog lab ID or local path and start a lab through the
-normal startup prompts. After startup, select the run and press Enter to open
+Press `n` to enter a catalog lab ID or local path and review the startup
+notice. After startup, select the run and press Enter to open
 its workspace. Press `p` to edit Preferences, even with no active runs. Boolean
 settings use `yes` / `no`; blank input keeps the current value.
 
@@ -41,6 +41,52 @@ Start a new lab and enter its workspace:
 astrona run ./labs/my-lab --ui
 ```
 
+Startup shows one Yes/No box before downloads or lab changes. Yes accepts the
+displayed settings and CLI terms, authorizes the lab's code and required
+downloads for this invocation, and continues with setup. Saved preferences
+are kept. Catalog labs use your account when signed in; otherwise they run
+without account progress tracking. Other labs stay running.
+
+The UI stays open after Yes. Repository downloads, setup progress, later
+confirmations, grading and teardown run inside its terminal pane. Startup
+errors stay visible until you press Enter or Esc to close the UI. The command's
+exit code is preserved.
+
+Press Ctrl+] for pane controls. Arrow keys and Page Up/Down scroll recent
+output; End returns to the latest output, and Esc resumes input to the lab.
+From pane controls, `q` asks before closing the UI and stopping its active
+command. Any lab already created remains on your machine. Closing the UI does
+not submit results or destroy the lab.
+
+Use Tab to read the terms and setting explanations, arrow keys or Page Up/Down
+to scroll, and left/right to select Yes or No. Enter confirms the selection;
+`y` accepts directly. No, `n`, Esc or Ctrl-C cancels startup and prints a message.
+Cancellation exits with code 3; when starting from Home, it returns there with
+a cancellation notice. No leaves existing labs as they are.
+
+When the requested lab already exists, the box asks whether to destroy it
+and start over. Yes discards work in that lab and its linked clusters without
+saving or submitting it. The old account session is detached locally and its
+playground watchdog is stopped without reporting to Astrona. The replacement
+run stays local, even when signed in: it creates no account session and sends
+no progress or submission results to the Astrona API. Grading still works
+locally. Other labs stay running. The CLI skips teardown scripts during this
+discard operation and blocks automatic version handover for the local run.
+
+Saved runs are checked before the first notice. If an existing lab is only
+found after its config is loaded, a restart confirmation appears then, before
+any account access or deletion. A lab replaced by another command while the
+dialog is open must be reviewed again. `--yes --ui` does not bypass this check.
+
+You can open the UI from an Astrona lab shell. The inherited shell marker does
+not choose which lab to replace; the command's lab argument or selected config
+does. Startup leaves that shell's Kubernetes context unchanged. To continue
+working on an existing lab without restarting, use `astrona ui <lab-name>`.
+
+The startup notice cannot approve a remote config this CLI cannot parse.
+Version handover still requires trust for that exact source or an explicit
+`--trust` supplied after reviewing it.
+
 Or open an existing lab directly:
 
 ```sh
@@ -52,8 +98,10 @@ displayed by Home or `astrona list`.
 
 Within the workspace:
 
-- Arrow keys select a cluster. `s` or Enter opens a shell with that lab's
-  isolated kubeconfigs; exiting the shell returns to the workspace.
+- Arrow keys select a cluster. Enter shows the task and keeps the UI open.
+  `s` opens a shell inside the UI, with that lab's isolated kubeconfigs.
+  Commands, editors and their output stay in the terminal pane. Ctrl+C
+  interrupts the shell's active command; type `exit` to return to the workspace.
 - Tab changes between the task and results; Page Up/Down scrolls.
 - `p` opens saved preferences. Select a setting, press Enter to edit and
   review, then `y` to save; Esc cancels. Settings apply to future commands,

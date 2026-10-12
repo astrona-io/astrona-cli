@@ -156,29 +156,38 @@ var errNotTrusted = errors.New("not trusted — nothing was run")
 // has approved this exact version of it — once per version. --trust
 // approves without asking (CI); without a terminal it refuses.
 func requireTrust(flags *rootFlags, cfg *config.LabConfig, baseDir string) error {
+	if flags.uiStartupApproved {
+		return nil // The startup notice grants code execution for this invocation only.
+	}
 	src, err := labSource(flags, cfg, baseDir)
 	if err != nil || src == nil {
 		return err
 	}
-	status, prevPin, err := trust.Check(*src)
+	return approveParsedSource(flags.trust, *src, func() []string {
+		return append(labRiskSummary(cfg), resourceRiskLines(cfg, baseDir)...)
+	})
+}
+
+// Resolve prompt consent separately from config inspection and persisted trust.
+func approveParsedSource(explicit bool, src trust.Source, summary func() []string) error {
+	status, prevPin, err := trust.Check(src)
 	if err != nil {
 		return err
 	}
 	if status == trust.Trusted {
 		return nil
 	}
-	if flags.trust {
+	if explicit {
 		fmt.Fprintf(os.Stderr, "Trusting %s at %s (--trust).\n", src.Location, shortPin(src.Pin))
-		return trust.Approve(*src, time.Now())
+		return trust.Approve(src, time.Now())
 	}
 	if !isatty.IsTerminal(os.Stdin.Fd()) {
 		return fmt.Errorf("lab %s (%s) hasn't been approved to run on this machine — review it, then pass --trust", src.Location, shortPin(src.Pin))
 	}
-	summary := append(labRiskSummary(cfg), resourceRiskLines(cfg, baseDir)...)
-	if !confirmTrust(os.Stdin, promptOut, *src, status, prevPin, summary) {
+	if !confirmTrust(os.Stdin, promptOut, src, status, prevPin, summary()) {
 		return errNotTrusted
 	}
-	return trust.Approve(*src, time.Now())
+	return trust.Approve(src, time.Now())
 }
 
 // requireTrustUnparsed is requireTrust for a remote lab this astrona can't

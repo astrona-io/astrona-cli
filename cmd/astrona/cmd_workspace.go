@@ -29,15 +29,12 @@ import (
 )
 
 func requireWorkspaceTerminal() error {
-	return checkWorkspaceTerminal(isatty.IsTerminal(os.Stdin.Fd()), isatty.IsTerminal(os.Stdout.Fd()), terms.InCI(os.Getenv), os.Getenv("TERM"), os.Getenv(labShellEnvVar))
+	return checkWorkspaceTerminal(isatty.IsTerminal(os.Stdin.Fd()), isatty.IsTerminal(os.Stdout.Fd()), terms.InCI(os.Getenv), os.Getenv("TERM"))
 }
 
-func checkWorkspaceTerminal(input, output, ci bool, term, nested string) error {
+func checkWorkspaceTerminal(input, output, ci bool, term string) error {
 	if ci || !input || !output || term == "dumb" {
 		return fmt.Errorf("the lab UI needs an interactive terminal (stdin and stdout), outside CI; run without --ui for scripts")
-	}
-	if nested != "" {
-		return fmt.Errorf("already inside a lab shell for %s; exit it before opening the UI", nested)
 	}
 	return nil
 }
@@ -56,7 +53,8 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 		Long: "Open Home to browse saved runs, submission history and completed labs/playgrounds, even when no lab or engine is running. " +
 			"Enter opens a running Kind lab; name one to open its workspace directly. " +
 			"Press n to start a lab by catalog ID or local path, or p for preferences. Opening the workspace never restarts a lab or its timer.\n\n" +
-			"Arrow keys select a cluster; s or Enter opens a local shell with that lab's isolated kubeconfigs. " +
+			"Downloads, setup, grading, teardown and errors stay inside the UI's terminal pane. Ctrl+] opens pane controls and scrollback. " +
+			"Arrow keys select a cluster; Enter shows its task. Press s to open a shell inside the UI with that lab's isolated kubeconfigs. " +
 			"Exit the shell to return. Tab switches between the task and submission results; Page Up/Down scroll. " +
 			"p opens saved preferences: select a setting, Enter to edit and review, then y to save. " +
 			"Esc cancels. Boolean settings use yes/no, and blank input keeps the current value. F1 opens alert details. " +
@@ -269,7 +267,7 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 		}
 		m.exitMenu, m.confirmDestroy = false, false
 		// Preferences do not act on the lab and remain usable if it expires.
-		// File access happens here, after Bubble Tea releases the terminal.
+		// File access happens between workspace screens, inside the UI pane.
 		if m.action == workspaceLoadPreferences || m.action == workspaceSavePreference {
 			applyWorkspacePreference(&m, d.preferences, d.savePreference)
 			continue
@@ -281,11 +279,13 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 		}
 		switch m.action {
 		case workspaceShell:
+			uiPaneTitle("SHELL / " + m.name)
 			err = d.shell(m.snapshot.clusters[m.selected].alias)
 		case workspaceSubmit:
 			if !m.canSubmit {
 				continue
 			}
+			uiPaneTitle("GRADING / " + m.name)
 			m.submission, err = d.submit()
 			m.results, m.scroll = true, 0
 			if err != nil && exitCodeFor(err) == 2 {
@@ -300,6 +300,7 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 				return nil
 			}
 		case workspaceDestroy:
+			uiPaneTitle("DESTROY / " + m.name)
 			var destroyed bool
 			destroyed, err = d.destroy()
 			if err == nil && destroyed {
@@ -391,7 +392,9 @@ func readWorkspaceSnapshot(ctx context.Context, name, runID string, clusters []w
 	}
 	if st != nil {
 		snap.started, _ = time.Parse(time.RFC3339, st.StartedAt)
-		if st.Session != nil {
+		if st.LocalOnly {
+			snap.tracking = "Local only: API tracking disabled for this run"
+		} else if st.Session != nil {
 			snap.tracking = "Account session: " + st.Session.ID + " (upload checked on submit)"
 			if st.Session.IsPlayground() {
 				snap.deadline, _ = time.Parse(time.RFC3339, st.Session.DeadlineAt)
