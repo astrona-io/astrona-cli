@@ -46,6 +46,8 @@ func initialReviewInput() string {
 
 func TestPinnedCISettingsReview(t *testing.T) {
 	saved := userSettings{"verbose": json.RawMessage("false"), "keep-context": json.RawMessage("false"), "parallel": json.RawMessage("1"), "update-check": json.RawMessage("false")}
+	saved["cache-retention-days"] = json.RawMessage("30")
+	saved["cache-max-size-gb"] = json.RawMessage("50")
 	id, err := settingsReviewID(reviewDefinitions(), saved)
 	if err != nil {
 		t.Fatal(err)

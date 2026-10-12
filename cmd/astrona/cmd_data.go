@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"text/tabwriter"
 	"time"
 
@@ -62,12 +63,13 @@ func dataCommand(store func() (localdata.Store, error)) *cobra.Command {
 }
 
 func dataChangeCommand(store func() (localdata.Store, error), reset bool) *cobra.Command {
-	var yes, dryRun, tempOnly bool
+	var yes, dryRun, tempOnly, policyOnly bool
 	var output string
 	cmd := &cobra.Command{
 		Use:   "clean",
 		Short: "Preview deletion of unused download and repository caches",
 		Long: "Preview removal of image, addon and Git caches, plus catalog and update-check metadata. " +
+			"With --policy, select only entries exceeding cache-retention-days or cache-max-size-gb. " +
 			"Use --yes to delete; --dry-run always previews, even with --yes. " +
 			"Saved lab state blocks cleanup, including stopped VMs. Destroy unwanted labs through astrona destroy first. " +
 			"Credentials, results, resources, bundles, logs and installed tools are kept. " +
@@ -99,6 +101,12 @@ func dataChangeCommand(store func() (localdata.Store, error), reset bool) *cobra
 			var p localdata.Plan
 			if reset {
 				p, err = s.PlanReset(cmd.Context())
+			} else if policyOnly {
+				var policy localdata.CachePolicy
+				policy, err = loadCachePolicy(filepath.Join(s.Data, "settings.json"))
+				if err == nil {
+					p, err = s.PlanPolicy(cmd.Context(), policy, time.Now())
+				}
 			} else {
 				p, err = s.PlanClean(cmd.Context(), tempOnly, time.Now())
 			}
@@ -136,6 +144,8 @@ func dataChangeCommand(store func() (localdata.Store, error), reset bool) *cobra
 			"For sign-out use astrona logout. Finish commands running in older CLI versions before resetting."
 	} else {
 		cmd.Flags().BoolVar(&tempOnly, "temp-only", false, "Only remove partial image/addon downloads older than 24h; never scan the system temp directory")
+		cmd.Flags().BoolVar(&policyOnly, "policy", false, "Only remove entries that exceed saved cache age or combined size limits")
+		cmd.MarkFlagsMutuallyExclusive("temp-only", "policy")
 	}
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Apply deletions; without this flag only show a preview")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without changing files, even with --yes")

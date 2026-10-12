@@ -11,6 +11,8 @@ import (
 // Installing this at the entrypoint keeps command construction side-effect free.
 func executeWithDataLock(root *cobra.Command, store func() (localdata.Store, error)) error {
 	var release func()
+	var ready *cobra.Command
+	var dataStore localdata.Store
 	defer func() {
 		if release != nil {
 			release()
@@ -40,10 +42,14 @@ func executeWithDataLock(root *cobra.Command, store func() (localdata.Store, err
 				if err != nil {
 					return err
 				}
+				dataStore = s
 			}
 			if before != nil {
-				return before(c, args)
+				if err := before(c, args); err != nil {
+					return err
+				}
 			}
+			ready = c
 			return nil
 		}
 		for _, child := range cmd.Commands() {
@@ -51,5 +57,13 @@ func executeWithDataLock(root *cobra.Command, store func() (localdata.Store, err
 		}
 	}
 	wrap(root, nil)
-	return root.Execute()
+	err := root.Execute()
+	if release != nil {
+		release()
+		release = nil
+		if ready != nil {
+			enforceCachePolicy(ready, dataStore)
+		}
+	}
+	return err
 }

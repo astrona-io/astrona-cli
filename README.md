@@ -48,6 +48,13 @@ a release changes their definitions. Use `astrona settings review` to choose
 values explicitly. CI needs a matching, reviewed settings ID; accepting usage
 terms does not approve settings. See [settings review](docs/getting-started/installation.md#review-settings-after-an-upgrade).
 
+Disposable caches default to 30 days and 50 GB combined. Change the limits with
+`astrona settings set cache-retention-days 60` and
+`astrona settings set cache-max-size-gb 100`; size `0` means unlimited.
+Preview policy cleanup with `astrona data clean --policy`. Automatic cleanup
+runs after operational commands and defers while saved labs or another CLI
+command may need the files. See [cache limits](docs/getting-started/installation.md#automatic-cache-limits).
+
 `astrona submit` and `astrona test` exit 2 when the lab was graded and didn't pass, 1 on any other error. `astrona check` exits non-zero on any ✗ — a missing required dependency (`kind`, `docker`/`podman`, `kubectl`), a container engine that isn't running or is too small, or a lab (from `-c`/`--git`, `astrona use`, or `./config.yaml`) that can't be loaded or won't fit; ⚠ warnings — such as the optional qemu toolchain or `git` missing — don't fail it.
 
 Every command, flag and example is in the [CLI reference](https://cli.astrona.io/reference/cli/astrona/).

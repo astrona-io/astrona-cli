@@ -6,6 +6,8 @@ prepare_test_settings() {
   "$@" settings set keep-context false
   "$@" settings set parallel 1
   "$@" settings set update-check false
+  "$@" settings set cache-retention-days 30
+  "$@" settings set cache-max-size-gb 50
   "$@" settings view
-  "$@" settings review --accept '7bdd50635bcf87b7df6b4dc6d5d54253d23011057cfb4e9c2ea84a129172915c'
+  "$@" settings review --accept '0c4c167f1ccf46e0f52e0b418f8ab893d71f5636a5867f42ce67093782ee0484'
 }
