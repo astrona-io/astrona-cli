@@ -100,7 +100,7 @@ func TestSettingsViewReadOnly(t *testing.T) {
 				t.Fatalf("view created files: %v", err)
 			}
 			if len(args) == 2 {
-				for _, want := range []string{"Default:", "Off (false)", "GitHub", "Needs review:", "Review ID:"} {
+				for _, want := range []string{"Default:", "no", "GitHub", "Needs review:", "Review ID:"} {
 					if !strings.Contains(out.String(), want) {
 						t.Fatalf("missing %s: %s", want, out.String())
 					}
@@ -122,7 +122,7 @@ func TestReviewInteractiveAndUnchangedRelease(t *testing.T) {
 	if err := ensureSettingsReview(cmd, path, defs, true, ""); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Default: true") || !strings.Contains(out.String(), "Type your value explicitly") {
+	if !strings.Contains(out.String(), "Default: yes") || !strings.Contains(out.String(), "Value [yes] (yes/no, enter to keep, q to cancel)") {
 		t.Fatal(out.String())
 	}
 	rest, err := io.ReadAll(cmd.InOrStdin())
@@ -153,6 +153,54 @@ func TestReviewInteractiveAndUnchangedRelease(t *testing.T) {
 	}
 }
 
+func TestReviewBlankKeepsUpdateCheck(t *testing.T) {
+	for _, tc := range []struct{ name, saved, answer, want string }{
+		{"default", "", "", "true"},
+		{"whitespace", "", " \t", "true"},
+		{"saved no", "false", "", "false"},
+		{"saved yes", "true", "", "true"},
+		{"explicit no", "", "no", "false"},
+		{"explicit yes", "false", "yes", "true"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "settings.json")
+			if tc.saved != "" {
+				if err := changeSetting(path, "update-check", &tc.saved); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cmd, out := reviewCommand(strings.Replace(initialReviewInput(), "false\n", tc.answer+"\n", 1) + "next prompt\n")
+			if err := ensureSettingsReview(cmd, path, reviewDefinitions(), true, ""); err != nil {
+				t.Fatalf("review failed: %v\n%s", err, out.String())
+			}
+			saved, err := loadSettings(path)
+			if err != nil || string(saved["update-check"]) != tc.want {
+				t.Fatalf("settings = %v, %v", saved, err)
+			}
+			rest, err := io.ReadAll(cmd.InOrStdin())
+			if err != nil || string(rest) != "next prompt\n" {
+				t.Fatalf("consumed later input: %q, %v", rest, err)
+			}
+		})
+	}
+}
+
+func TestReviewAutomationAcceptsDefaults(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	view, err := buildSettingsView(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd, _ := reviewCommand("")
+	if err := ensureSettingsReview(cmd, path, reviewDefinitions(), false, view.ID); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := loadSettings(path)
+	if err != nil || string(saved["update-check"]) != "true" {
+		t.Fatalf("settings = %v, %v", saved, err)
+	}
+}
+
 func TestReviewDeclineAndInvalidInputDoNotSave(t *testing.T) {
 	for _, input := range []string{"q\n", "", "\n99\n", "\n\n\n", "\n\nfalse\n\nn\n", "\n\nfalse\n\ny", strings.Repeat("x", 129)} {
 		t.Run(input, func(t *testing.T) {
@@ -180,11 +228,11 @@ func TestReviewDeclineAndInvalidInputDoNotSave(t *testing.T) {
 	}
 }
 
-func TestReviewExplicitChoiceRetriesKeepEarlierAnswers(t *testing.T) {
+func TestReviewInvalidChoiceRetriesKeepEarlierAnswers(t *testing.T) {
 	for _, tc := range []struct{ name, answer, want string }{
-		{"blank then false", "\nfalse\n", "false"},
-		{"blank then true", "\ntrue\n", "true"},
-		{"whitespace and invalid", " \t\r\nyes\n1\nfalse\n", "false"},
+		{"invalid then no", "maybe\nno\n", "false"},
+		{"invalid then yes", "maybe\nyes\n", "true"},
+		{"invalid then trimmed no", "1\n \tNo \r\n", "false"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
@@ -197,10 +245,10 @@ func TestReviewExplicitChoiceRetriesKeepEarlierAnswers(t *testing.T) {
 			if err != nil || string(saved["parallel"]) != "2" || string(saved["update-check"]) != tc.want {
 				t.Fatalf("lost choices: %v, %v", saved, err)
 			}
-			if strings.Count(out.String(), "parallel (new setting)") != 1 || !strings.Contains(out.String(), "update-check must be true or false. Please try again") {
+			if strings.Count(out.String(), "parallel (new setting)") != 1 || !strings.Contains(out.String(), "update-check must be yes or no. Please try again") {
 				t.Fatalf("did not retry only the current question: %s", out.String())
 			}
-			if strings.Count(out.String(), "Type your value explicitly (true/false, q to cancel):") != strings.Count(tc.answer, "\n") {
+			if strings.Count(out.String(), "Value [yes] (yes/no, enter to keep, q to cancel):") != strings.Count(tc.answer, "\n") {
 				t.Fatalf("unexpected number of prompts: %s", out.String())
 			}
 			rest, err := io.ReadAll(cmd.InOrStdin())
@@ -215,8 +263,8 @@ func TestReviewExplicitChoiceRetriesKeepEarlierAnswers(t *testing.T) {
 	}
 }
 
-func TestReviewExplicitChoiceRetryCanStillCancel(t *testing.T) {
-	for _, answer := range []string{"\nq\n", "\n", "\ntrue"} {
+func TestReviewInvalidChoiceRetryCanStillCancel(t *testing.T) {
+	for _, answer := range []string{"maybe\nq\n", "maybe\n", "maybe\nyes"} {
 		t.Run(answer, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
 			value := "3"
@@ -233,10 +281,10 @@ func TestReviewExplicitChoiceRetryCanStillCancel(t *testing.T) {
 			}
 			cmd, out := reviewCommand(prefix + answer)
 			if err := ensureSettingsReview(cmd, path, reviewDefinitions(), true, ""); err == nil {
-				t.Fatal("blank input approved the default")
+				t.Fatal("incomplete review was approved")
 			}
 			if !strings.Contains(out.String(), "Please try again") {
-				t.Fatal("did not retry the blank answer")
+				t.Fatal("did not retry the invalid answer")
 			}
 			after, err := os.ReadFile(path)
 			if err != nil || !bytes.Equal(before, after) {
@@ -328,9 +376,6 @@ func TestReviewAutomationAndStaleID(t *testing.T) {
 		t.Fatal(err)
 	}
 	cmd, _ := reviewCommand("")
-	if err := ensureSettingsReview(cmd, path, defs, false, view.ID); err == nil || !strings.Contains(err.Error(), "explicit choice") {
-		t.Fatalf("approved sensitive default: %v", err)
-	}
 	value := "false"
 	if err := changeSetting(path, "update-check", &value); err != nil {
 		t.Fatal(err)
@@ -351,8 +396,8 @@ func TestReviewAutomationAndStaleID(t *testing.T) {
 	if err := changeSetting(path, "update-check", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := ensureSettingsReview(cmd, path, defs, false, ""); err == nil {
-		t.Fatal("missing explicit network choice did not prompt")
+	if err := ensureSettingsReview(cmd, path, defs, false, ""); err != nil {
+		t.Fatalf("restoring the default required another review: %v", err)
 	}
 }
 
@@ -443,7 +488,7 @@ func TestReviewExemptionsAndCancellation(t *testing.T) {
 
 func TestHumanSettingsValues(t *testing.T) {
 	for _, tc := range []struct{ key, value, want string }{
-		{"verbose", "true", "On (true)"}, {"verbose", "false", "Off (false)"},
+		{"verbose", "true", "yes"}, {"verbose", "false", "no"},
 		{"cache-retention-days", "30", "30 days"}, {"cache-max-size-gb", "50", "50 GB"},
 		{"cache-max-size-gb", "0", "Unlimited (0 GB)"}, {"parallel", "2", "2 concurrent cluster(s)"},
 		{"future", "42", "42"},

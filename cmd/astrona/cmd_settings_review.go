@@ -72,10 +72,8 @@ func newSettingsViewCmd(flags *rootFlags) *cobra.Command {
 
 func humanSetting(key, value string) string {
 	switch value {
-	case "true":
-		return "On (true)"
-	case "false":
-		return "Off (false)"
+	case "true", "false":
+		return settingValueText(value)
 	}
 	switch key {
 	case "cache-retention-days":
@@ -123,7 +121,7 @@ func newSettingsReviewCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "review", Short: "Choose values for new or changed CLI settings", Args: cobra.NoArgs,
 		Long: "Review new settings, changed defaults or descriptions, and removed settings. " +
-			"Saved values are kept unless you change them. Without a terminal, set sensitive choices explicitly, " +
+			"Saved values are kept unless you change them. Without a terminal, choose any overrides, " +
 			"inspect settings view, then pass its exact --accept review ID. --yes and --accept-terms do not approve settings. " +
 			"No tracking service is enabled by this command.",
 		RunE: func(cmd *cobra.Command, _ []string) error {

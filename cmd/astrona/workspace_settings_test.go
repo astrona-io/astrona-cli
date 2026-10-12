@@ -51,8 +51,8 @@ func TestWorkspacePreferenceEditing(t *testing.T) {
 		{"cancel confirmation", "parallel", []string{"enter", "2", "enter", "ctrl+c"}, workspaceNone, false, false, true},
 		{"leave", "parallel", []string{"esc"}, workspaceNone, false, false, false},
 		{"reload", "parallel", []string{"r"}, workspaceLoadPreferences, false, false, true},
-		{"sensitive blank", "update-check", []string{"enter", "enter"}, workspaceNone, true, false, true},
-		{"sensitive false", "update-check", []string{"enter", "false", "enter", "y"}, workspaceSavePreference, false, true, true},
+		{"update check blank", "update-check", []string{"enter", "enter"}, workspaceNone, false, false, true},
+		{"update check no", "update-check", []string{"enter", "no", "enter", "y"}, workspaceSavePreference, false, true, true},
 		{"lifecycle keys are input", "parallel", []string{"enter", "s", "g", "q", "d", "y"}, workspaceNone, true, false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -108,8 +108,8 @@ func TestWorkspacePreferenceConfirmationExplainsChange(t *testing.T) {
 			m.width, m.height = 120, 40
 			old := m.preferences.rows[m.preferences.selected].value
 			m = workspaceKey(workspaceKey(workspaceKey(m, "enter"), tc.value), "enter")
-			view := strings.Join(strings.Fields(ansi.Strip(m.View())), " ")
-			for _, want := range []string{"Change: " + old + " -> " + tc.value, "Why:", "optional", tc.effect, "Apply this change? [y/N]", "n no"} {
+			view := strings.Join(strings.Fields(strings.ReplaceAll(ansi.Strip(m.View()), "│", " ")), " ")
+			for _, want := range []string{"Change: " + settingValueText(old) + " -> " + settingValueText(tc.value), "Why:", "optional", tc.effect, "Apply this change? [y/N]", "n no"} {
 				if !strings.Contains(view, want) {
 					t.Fatalf("missing %q: %s", want, view)
 				}
@@ -143,7 +143,7 @@ func TestWorkspacePreferenceView(t *testing.T) {
 					t.Fatal(view)
 				}
 			}
-			if !strings.Contains(strings.Join(strings.Fields(ansi.Strip(m.View())), " "), "GitHub receives your IP address") {
+			if !strings.Contains(strings.Join(strings.Fields(strings.ReplaceAll(ansi.Strip(m.View()), "│", " ")), " "), "GitHub receives your IP address") {
 				t.Fatal("missing privacy explanation")
 			}
 		})

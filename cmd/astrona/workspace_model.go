@@ -3,12 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 )
 
 type workspaceAction int
@@ -22,6 +19,8 @@ const (
 	workspaceSelect
 	workspaceLoadPreferences
 	workspaceSavePreference
+	workspaceStart
+	workspaceReloadLabs
 )
 
 type workspaceCluster struct {
@@ -51,6 +50,10 @@ type workspaceModel struct {
 	refresh                                               func() tea.Msg
 	showPreferences                                       bool
 	preferences                                           workspacePreferences
+	home, enteringLab                                     bool
+	labDraft                                              string
+	showAlert                                             bool
+	alertScroll                                           int
 }
 
 func workspaceTickCmd() tea.Cmd {
@@ -58,7 +61,7 @@ func workspaceTickCmd() tea.Cmd {
 }
 
 func (m workspaceModel) Init() tea.Cmd {
-	if len(m.labs) > 0 {
+	if m.home || len(m.labs) > 0 {
 		return nil
 	}
 	return tea.Batch(workspaceTickCmd(), m.refresh)
@@ -81,6 +84,27 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, workspaceTickCmd()
 	case tea.KeyMsg:
 		key := msg.String()
+		if m.showAlert {
+			switch key {
+			case "esc", "enter", "q", "ctrl+c", "ctrl+d":
+				m.showAlert = false
+			case "down", "j", "pgdown":
+				m.alertScroll += 3
+			case "up", "k", "pgup":
+				m.alertScroll = max(0, m.alertScroll-3)
+			}
+			return m, nil
+		}
+		if (key == "f1" || (key == "!" && !m.enteringLab && !m.preferences.editing)) && m.alertMessage() != "" {
+			m.showAlert, m.alertScroll = true, 0
+			return m, nil
+		}
+		if m.showPreferences {
+			return m.updatePreferences(msg)
+		}
+		if m.home {
+			return m.updateHome(msg)
+		}
 		if len(m.labs) > 0 {
 			switch key {
 			case "up", "k":
@@ -95,9 +119,6 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 			return m, nil
-		}
-		if m.showPreferences {
-			return m.updatePreferences(msg)
 		}
 		if m.confirmDestroy {
 			switch key {
@@ -165,85 +186,21 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m workspaceModel) View() string {
-	w, h := max(20, m.width-4), max(5, m.height-2)
-	accent := lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true)
-	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
-	clip := func(s string) string { return ansi.Truncate(sanitizeLine(s), w, "…") }
-	heading := accent.Render("ASTRONA  /  LAB WORKSPACE")
-	if len(m.labs) > 0 {
-		lines := []string{heading, "", "Choose a running Kind lab", ""}
-		start := max(0, m.selected-max(1, h-9)+1)
-		for i := start; i < min(len(m.labs), start+max(1, h-9)); i++ {
-			prefix := "  "
-			if i == m.selected {
-				prefix = "> "
-			}
-			lines = append(lines, clip(prefix+m.labs[i]))
-		}
-		return strings.Join(append(lines, "", "↑/↓ select   enter open   q cancel"), "\n")
-	}
-	if m.showPreferences {
-		return m.preferencesView()
-	}
 	if m.width < 48 || m.height < 14 {
-		return heading + "\nTerminal too small (minimum 48 × 14).\n" + m.menuText()
+		return m.smallView()
 	}
-	clock := "Elapsed: unknown (older run)"
-	if !m.snapshot.started.IsZero() {
-		clock = "Elapsed: " + max(time.Duration(0), m.now.Sub(m.snapshot.started)).Round(time.Second).String()
-	}
-	if !m.snapshot.deadline.IsZero() {
-		remaining := m.snapshot.deadline.Sub(m.now)
-		if remaining > 0 {
-			clock += "   Left: " + remaining.Round(time.Second).String()
-		} else {
-			clock += "   Time limit reached"
-		}
-	}
-	lines := []string{heading, clip(m.name + "  /  " + m.snapshot.kind), clip(clock), dim.Render(clip(m.snapshot.tracking))}
-	if m.snapshot.blocked != "" {
-		lines = append(lines, accent.Render(clip(m.snapshot.blocked)))
+	var view string
+	if m.showPreferences {
+		view = m.preferencesView()
+	} else if m.home || len(m.labs) > 0 {
+		view = m.homeView()
 	} else {
-		lines = append(lines, clip(m.notice))
+		view = m.labView()
 	}
-	leftWidth := min(36, max(20, w/3))
-	contentWidth := w - leftWidth - 5
-	menu := ansi.Wrap(m.menuText(), w, "")
-	bodyHeight := max(3, m.height-8-lipgloss.Height(menu))
-	left := []string{"CLUSTERS"}
-	visible := max(1, (bodyHeight-1)/2)
-	start := max(0, m.selected-visible+1)
-	for i := start; i < min(len(m.snapshot.clusters), start+visible); i++ {
-		c := m.snapshot.clusters[i]
-		prefix := "  "
-		if i == m.selected {
-			prefix = "> "
-		}
-		label := ansi.Truncate(sanitizeLine(prefix+c.name), leftWidth, "…")
-		if i == m.selected {
-			label = accent.Render(label)
-		}
-		left = append(left, label, dim.Render(ansi.Truncate("  "+sanitizeLine(c.status), leftWidth, "…")))
+	if m.showAlert {
+		return m.alertView(view)
 	}
-	content, title := m.task, "THE TASK"
-	if m.results {
-		content, title = m.snapshot.result, "SUBMISSION RESULTS"
-		if m.submission != "" {
-			content = m.submission
-		}
-	}
-	if content == "" {
-		content = "No task document provided."
-	}
-	wrapped := strings.Split(ansi.Wrap(sanitizeTerminalText(content), max(10, contentWidth), ""), "\n")
-	pageSize := max(1, bodyHeight-1)
-	offset := min(m.scroll, max(0, len(wrapped)-pageSize))
-	right := append([]string{title}, wrapped[offset:min(len(wrapped), offset+pageSize)]...)
-	leftPanel := lipgloss.NewStyle().Width(leftWidth).Height(bodyHeight).Render(strings.Join(left, "\n"))
-	rightPanel := lipgloss.NewStyle().Width(contentWidth).Height(bodyHeight).Render(strings.Join(right, "\n"))
-	divider := dim.Render(strings.TrimSuffix(strings.Repeat("  │  \n", bodyHeight), "\n"))
-	lines = append(lines, "", lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, divider, rightPanel), "", menu)
-	return strings.Join(lines, "\n")
+	return view
 }
 
 func (m workspaceModel) menuText() string {

@@ -53,7 +53,7 @@ func TestSettingsSetGetUnset(t *testing.T) {
 		if _, err := executeSettings(t, path, "set", pair[0], pair[1]); err != nil {
 			t.Fatal(err)
 		}
-		if got, err := executeSettings(t, path, "get", pair[0]); err != nil || strings.TrimSpace(got) != pair[1] {
+		if got, err := executeSettings(t, path, "get", pair[0]); err != nil || strings.TrimSpace(got) != settingValueText(pair[1]) {
 			t.Fatalf("get %s: %q, %v", pair[0], got, err)
 		}
 	}
@@ -70,7 +70,7 @@ func TestSettingsSetGetUnset(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := executeSettings(t, path, "get", "keep-context")
-	if err != nil || got != "false\n" {
+	if err != nil || got != "no\n" {
 		t.Fatalf("unset did not restore the default: %q, %v", got, err)
 	}
 	saved, err := loadSettings(path)
@@ -91,6 +91,31 @@ func TestSettingsSetGetUnset(t *testing.T) {
 	}
 }
 
+func TestSettingsBooleanAnswers(t *testing.T) {
+	for _, key := range []string{"verbose", "keep-context", "update-check"} {
+		for _, tc := range []struct{ input, want, stored string }{
+			{"yes", "yes", "true"}, {"no", "no", "false"},
+			{"true", "yes", "true"}, {"false", "no", "false"},
+			{"Y", "yes", "true"}, {"N", "no", "false"},
+			{" YES ", "yes", "true"}, {" No ", "no", "false"},
+		} {
+			t.Run(key+"/"+tc.input, func(t *testing.T) {
+				path := filepath.Join(t.TempDir(), "settings.json")
+				if got, err := executeSettings(t, path, "set", key, tc.input); err != nil || got != key+" = "+tc.want+"\n" {
+					t.Fatalf("set = %q, %v", got, err)
+				}
+				if got, err := executeSettings(t, path, "get", key); err != nil || got != tc.want+"\n" {
+					t.Fatalf("get = %q, %v", got, err)
+				}
+				saved, err := loadSettings(path)
+				if err != nil || string(saved[key]) != tc.stored {
+					t.Fatalf("settings = %v, %v", saved, err)
+				}
+			})
+		}
+	}
+}
+
 func TestSettingsRejectInvalidEditsWithoutChangingFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	original := []byte("{\"verbose\": true}\n")
@@ -98,7 +123,7 @@ func TestSettingsRejectInvalidEditsWithoutChangingFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{
-		{"set", "verbose", "yes"}, {"set", "parallel", "0"}, {"set", "parallel", "6"},
+		{"set", "verbose", "maybe"}, {"set", "parallel", "0"}, {"set", "parallel", "6"},
 		{"set", "parallel", "1.5"}, {"set", "trust", "true"}, {"unset", "unknown"},
 		{"get", "unknown"}, {"set", "keep-context"}, {"set", "verbose", "false", "extra"},
 		{"-o", "yaml"},
@@ -289,7 +314,7 @@ func TestSettingsCompletion(t *testing.T) {
 			t.Fatalf("%s key completion: %v, %v", action, keys, directive)
 		}
 		values, _ := completeSetting(cmd, []string{"verbose"}, "")
-		if action == "set" && strings.Join(values, " ") != "true false" {
+		if action == "set" && strings.Join(values, " ") != "yes no" {
 			t.Fatalf("boolean completion: %v", values)
 		}
 		if action != "set" && len(values) != 0 {

@@ -7,7 +7,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/ansi"
 )
 
 type workspaceSetting struct {
@@ -21,6 +20,7 @@ type workspacePreferences struct {
 	rows                []workspaceSetting
 	selected, scroll    int
 	editing, confirming bool
+	noticeError         bool
 }
 
 func loadWorkspacePreferences(path string) (workspacePreferences, error) {
@@ -77,6 +77,7 @@ func (m workspaceModel) updatePreferences(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if p.editing || p.confirming {
 			p.editing, p.confirming, p.draft = false, false, ""
 			p.notice = "Edit cancelled; nothing saved."
+			p.noticeError = false
 		} else {
 			m.showPreferences = false
 		}
@@ -102,6 +103,7 @@ func (m workspaceModel) updatePreferences(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "n", "q":
 			p.confirming, p.editing, p.draft = false, false, ""
 			p.notice = "Change declined; current value kept."
+			p.noticeError = false
 		case "enter":
 			p.confirming, p.editing = false, true
 		}
@@ -115,15 +117,18 @@ func (m workspaceModel) updatePreferences(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if value == "" && !row.definition.ExplicitChoice {
 				p.editing = false
 				p.notice = "No change; nothing saved."
+				p.noticeError = false
 				return m, nil
 			}
 			parsed, err := parseSetting(row.key, value)
 			if err != nil {
 				p.notice = err.Error()
+				p.noticeError = true
 				return m, nil
 			}
 			p.draft, p.editing, p.confirming = string(parsed), false, true
 			p.notice, p.scroll = "", 0
+			p.noticeError = false
 		case "backspace", "ctrl+h":
 			if len(p.draft) > 0 {
 				p.draft = p.draft[:len(p.draft)-1]
@@ -154,6 +159,7 @@ func (m workspaceModel) updatePreferences(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		if len(p.rows) > 0 {
 			p.editing, p.draft, p.notice, p.scroll = true, "", "", 0
+			p.noticeError = false
 		}
 	}
 	return m, nil
@@ -199,67 +205,76 @@ func preferenceChangeImpact(key, value string) string {
 
 func (m workspaceModel) preferencesView() string {
 	p := m.preferences
-	w := max(1, m.width-2)
-	clip := func(s string) string { return ansi.Truncate(sanitizeLine(s), w, "…") }
-	if m.width < 48 || m.height < 14 {
-		return "ASTRONA / PREFERENCES\nResize to at least 48 × 14.\nEsc cancels an edit or returns to the lab."
+	w, h := m.width, m.bodyHeight()
+	if p.notice != "" {
+		h -= 4
 	}
-	accent := lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true)
-	lines := []string{accent.Render("ASTRONA / PREFERENCES"), clip(p.path), ""}
 	footer := []string{"↑/↓ select   enter edit   r reload   Esc back", "pgup/pgdn scroll details"}
-	details := "Could not load settings. Press r to retry, or Esc to return to the lab."
+	context := p.path
+	details := "Could not load settings. Press r to retry, or Esc to return."
+	title := "DETAILS"
 	if len(p.rows) > 0 {
 		row := p.rows[p.selected]
-		if p.editing || p.confirming {
-			lines = append(lines, accent.Render(clip(row.key)))
-			if p.confirming {
-				footer = []string{"Apply this change? [y/N]", "y yes   n no   enter edit   Esc cancel"}
-			} else {
-				footer = []string{clip("New value: " + p.draft + "_"), "enter review   Ctrl+u clear   Esc cancel"}
-			}
-		} else {
-			visible := min(len(p.rows), max(1, m.height-17))
-			start := max(0, p.selected-visible+1)
-			for i := start; i < min(len(p.rows), start+visible); i++ {
-				prefix := "  "
-				if i == p.selected {
-					prefix = "> "
-				}
-				lines = append(lines, clip(prefix+p.rows[i].key+" = "+p.rows[i].value))
-			}
-		}
 		source := "default"
 		if row.saved {
 			source = "saved"
 		}
-		details = fmt.Sprintf("Current: %s (%s)   Default: %s\n%s\n\n%s", row.value, source, row.definition.Default, row.definition.Description, preferenceEffect(row.key))
+		context = fmt.Sprintf("Current: %s (%s)  Default: %s", settingValueText(row.value), source, settingValueText(row.definition.Default))
+		title = row.key
+		details = row.definition.Description + "\n\n" + preferenceEffect(row.key)
 		if p.confirming {
-			details = fmt.Sprintf("Change: %s -> %s\nDefault: %s\nWhy: You requested this preference; changing it is optional.\nEffect: %s\n\n%s", row.value, p.draft, row.definition.Default, preferenceChangeImpact(row.key, p.draft), preferenceEffect(row.key))
-			// Retain the full privacy disclosure even when the proposed value disables checks.
-			if row.definition.ExplicitChoice {
+			title = "APPLY PREFERENCE"
+			details = fmt.Sprintf("Change: %s -> %s\nDefault: %s\nWhy: You requested this preference; changing it is optional.\nEffect: %s\n\n%s", settingValueText(row.value), settingValueText(p.draft), settingValueText(row.definition.Default), preferenceChangeImpact(row.key, p.draft), preferenceEffect(row.key))
+			if row.key == "update-check" || row.definition.ExplicitChoice {
 				details += "\n\n" + row.definition.Description
 			}
+			footer = []string{"Apply this change? [y/N]   y yes   n no", "enter edit   Esc cancel   pgup/pgdn scroll"}
+		} else if p.editing {
+			title = "EDIT " + row.key
+			if row.definition.Default == "true" || row.definition.Default == "false" {
+				details = "Enter yes or no; blank keeps the current value.\n\n" + details
+			}
+			if row.definition.ExplicitChoice {
+				details = "Type your choice explicitly; Enter alone cannot accept it.\n" + details
+			}
+			footer = []string{"New value: " + p.draft + "_", "enter review   Ctrl+u clear   Esc cancel"}
 		}
-		if row.definition.ExplicitChoice && p.editing {
-			details = "Type your choice explicitly; Enter alone cannot accept it.\n" + details
+	}
+	listWidth := min(36, w/2)
+	if w < 80 || p.editing || p.confirming {
+		listWidth = w
+	}
+	var rows []string
+	visible := max(1, h-3)
+	start := max(0, p.selected-visible+1)
+	rows = append(rows, workspaceMuted.Render("  SETTING                 VALUE"))
+	for i := start; i < min(len(p.rows), start+visible); i++ {
+		row := p.rows[i]
+		text := fmt.Sprintf("%-22s %s", row.key, settingValueText(row.value))
+		if i == p.selected {
+			rows = append(rows, workspaceSelected(text, listWidth-4))
+		} else {
+			rows = append(rows, "  "+sanitizeLine(text))
 		}
+	}
+	body := workspacePanel("PREFERENCES", strings.Join(rows, "\n"), listWidth, h, workspaceFocus)
+	if p.editing || p.confirming {
+		dialogWidth := min(76, w-6)
+		page := workspacePage(details, dialogWidth-4, h-2, p.scroll)
+		body = workspaceDialog(body, title, page, w, h, false)
+	} else if w >= 80 {
+		rightWidth := w - listWidth
+		right := workspacePanel(title, workspacePage(details, rightWidth-4, h-2, p.scroll), rightWidth, h, workspaceBorder)
+		body = lipgloss.JoinHorizontal(lipgloss.Top, body, right)
+	} else {
+		body = workspacePanel(title, workspacePage(details, w-4, h-2, p.scroll), w, h, workspaceFocus)
 	}
 	if p.notice != "" {
-		// Errors and save status stay visible even when the details are scrolled.
-		lines = append(lines, clip(p.notice))
-		// Keep truncated messages available in full in the scrollable details.
-		if ansi.StringWidth(sanitizeLine(p.notice)) > w {
-			details += "\n\n" + p.notice
+		if p.noticeError {
+			body += "\n" + workspaceAlert(p.notice, w)
+		} else {
+			body += "\n" + workspacePanel("STATUS", workspacePage(p.notice, w-4, 2, 0), w, 4, workspaceMuted)
 		}
 	}
-	lines = append(lines, "")
-	wrapped := strings.Split(ansi.Wrap(sanitizeTerminalText(details), w, ""), "\n")
-	available := max(1, m.height-len(lines)-len(footer)-2)
-	start := min(p.scroll, max(0, len(wrapped)-available))
-	lines = append(lines, wrapped[start:min(len(wrapped), start+available)]...)
-	if len(wrapped) > available {
-		footer[0] = clip(footer[0])
-		lines = append(lines, clip("Details: pgup/pgdn to scroll"))
-	}
-	return strings.Join(append(append(lines, ""), footer...), "\n")
+	return m.frame("PREFERENCES", context, body, footer)
 }

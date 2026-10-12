@@ -307,6 +307,44 @@ func TestWorkspaceViewSanitizesAndKeepsActionsVisible(t *testing.T) {
 	}
 }
 
+func TestWorkspaceAlertNavigation(t *testing.T) {
+	m := workspaceModel{width: 80, height: 24, home: true, notice: strings.Repeat("A long error message.\n", 50) + "Final detail\x1b[2J"}
+	m = workspaceKey(m, "!")
+	if !m.showAlert {
+		t.Fatal("alert did not open")
+	}
+	for _, key := range []string{"n", "p", "y", "d"} {
+		m = workspaceKey(m, key)
+		if m.action != workspaceNone || m.enteringLab || m.showPreferences {
+			t.Fatal("alert key triggered a background action")
+		}
+	}
+	for range 30 {
+		m = workspaceKey(m, "pgdown")
+	}
+	view := ansi.Strip(m.View())
+	if !strings.Contains(view, "Final detail") || !strings.Contains(view, "Esc close") || strings.Contains(m.View(), "\x1b[2J") {
+		t.Fatalf("alert lost details or navigation: %s", view)
+	}
+	if len(strings.Split(view, "\n")) != m.height {
+		t.Fatal("alert exceeded the terminal")
+	}
+	m = workspaceKey(m, "esc")
+	if m.showAlert || !m.home || m.notice == "" {
+		t.Fatal("closing the alert lost workspace state")
+	}
+	m = preferencesFixture(t, "parallel")
+	m.preferences.notice = "Saved. Applies to future commands."
+	if m.alertMessage() != "" {
+		t.Fatal("save confirmation shown as an alert")
+	}
+	m.preferences.notice, m.preferences.noticeError, m.preferences.editing = "Invalid value", true, true
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyF1})
+	if !next.(workspaceModel).showAlert {
+		t.Fatal("could not inspect an error while editing")
+	}
+}
+
 func TestWorkspaceTaskAndOutputBound(t *testing.T) {
 	dir := t.TempDir()
 	cfg := &config.LabConfig{}

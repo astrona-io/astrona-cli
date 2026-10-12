@@ -52,13 +52,16 @@ func workspaceRuntime(cfg *config.LabConfig) error {
 func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:   "ui [lab-name]",
-		Short: "Open a terminal workspace for a running Kind lab",
+		Short: "Open the terminal workspace or start a Kind lab",
 		Long: "Select a running Kind lab saved by Astrona, or name one from astrona list. " +
-			"Opening the workspace never restarts a lab or its timer. Use astrona run <lab> --ui to start one.\n\n" +
+			"With no running labs, open the home screen: n starts a lab by catalog ID or local path, " +
+			"p opens preferences, and r refreshes running labs. " +
+			"Opening the workspace never restarts a lab or its timer.\n\n" +
 			"Arrow keys select a cluster; s or Enter opens a local shell with that lab's isolated kubeconfigs. " +
 			"Exit the shell to return. Tab switches between the task and submission results; Page Up/Down scroll. " +
 			"p opens saved preferences: select a setting, Enter to edit and review, then y to save. " +
-			"Esc cancels. Defaults and descriptions are shown, and update-check requires an explicit true/false choice. " +
+			"Esc cancels. Defaults and descriptions are shown; an empty value keeps the current setting. " +
+			"F1 opens the full alert message; Page Up/Down scrolls it and Esc returns. " +
 			"Saved options apply to future commands; cache policy is checked after this workspace closes. " +
 			"g submits a graded lab through the Proctor and keeps it running, even after a pass. " +
 			"q or Ctrl-C opens an exit menu: keep running, submit (graded labs), or explicitly confirm destruction. " +
@@ -69,9 +72,6 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 		ValidArgsFunction: labCompletion(isKind),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireWorkspaceTerminal(); err != nil {
-				return err
-			}
-			if _, err := cluster.DetectContainerEngine(); err != nil {
 				return err
 			}
 			names, err := workspaceLabNames()
@@ -87,7 +87,7 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			} else {
 				switch len(names) {
 				case 0:
-					return fmt.Errorf("no saved Kind labs are running; start one with astrona run <lab> --ui")
+					return runWorkspaceHome(cmd.Context(), flags)
 				case 1:
 					name = names[0]
 				default:
@@ -128,6 +128,9 @@ func workspaceLabNames() ([]string, error) {
 	known, err := labstate.Names()
 	if err != nil {
 		return nil, err
+	}
+	if len(known) == 0 {
+		return nil, nil
 	}
 	owners := linkedClusterOwners()
 	var names []string
@@ -250,6 +253,9 @@ type workspaceDriver struct {
 	destroy        func() (bool, error)
 	preferences    func() (workspacePreferences, error)
 	savePreference func(workspaceSetting, string) error
+	labs           func() ([]string, error)
+	start          func(string) error
+	open           func(string) error
 }
 
 func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) error {
@@ -260,7 +266,11 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 			return err
 		}
 		if m.action == workspaceLeave || m.action == workspaceNone {
-			fmt.Printf("Workspace closed; the lab was not destroyed on exit. Reopen: astrona ui %s\n", m.name)
+			if m.home {
+				fmt.Println("Workspace closed. Reopen: astrona ui")
+			} else {
+				fmt.Printf("Workspace closed; the lab was not destroyed on exit. Reopen: astrona ui %s\n", m.name)
+			}
 			return nil
 		}
 		m.exitMenu, m.confirmDestroy = false, false
@@ -272,22 +282,45 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 			if m.action == workspaceSavePreference {
 				if selected < 0 || selected >= len(m.preferences.rows) {
 					m.preferences.notice = "No setting selected; press r to reload."
+					m.preferences.noticeError = true
 					continue
 				}
 				err = d.savePreference(m.preferences.rows[selected], m.preferences.draft)
 				if err != nil {
 					m.preferences.editing, m.preferences.confirming = true, false
 					m.preferences.notice = "Not saved: " + err.Error()
+					m.preferences.noticeError = true
 					continue
 				}
 			}
 			m.preferences, err = d.preferences()
 			m.preferences.selected = min(selected, max(0, len(m.preferences.rows)-1))
 			if m.action == workspaceSavePreference {
-				m.preferences.notice = "Saved. The running lab was not changed."
+				m.preferences.notice = "Saved. Applies to future commands."
 			}
 			if err != nil {
 				m.preferences.notice += " Could not load preferences: " + err.Error()
+				m.preferences.noticeError = true
+			}
+			continue
+		}
+		if m.home {
+			switch m.action {
+			case workspaceStart:
+				err = d.start(m.labDraft)
+			case workspaceSelect:
+				if m.selected >= 0 && m.selected < len(m.labs) {
+					err = d.open(m.labs[m.selected])
+				}
+			}
+			m.notice = ""
+			if err != nil {
+				m.notice = err.Error()
+			}
+			m.labs, err = d.labs()
+			m.selected = min(m.selected, max(0, len(m.labs)-1))
+			if err != nil {
+				m.notice = "Could not refresh labs: " + err.Error()
 			}
 			continue
 		}
