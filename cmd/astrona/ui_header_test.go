@@ -107,6 +107,7 @@ func TestUIOverviewLayout(t *testing.T) {
 	for _, size := range [][2]int{{80, 24}, {100, 30}, {160, 35}} {
 		pane := newUIPaneModel(nil, nil, size[0], size[1])
 		pane.title = "HOME"
+		pane.resizeContent()
 		pane.account = uiAccountStatus{label: "Not logged in", site: "astrona.example"}
 		home := uiHomeModel{width: pane.emulator.Width(), height: pane.emulator.Height(), data: uiHomeSnapshot{runs: []uiHomeRun{
 			{name: strings.Repeat("long-lab-name-", 10), kind: "Lab", status: "Running", openable: true},
@@ -114,7 +115,7 @@ func TestUIOverviewLayout(t *testing.T) {
 		}}}
 		_, _ = pane.emulator.WriteString("\x1b[?25l" + strings.ReplaceAll(home.View(), "\n", "\r\n"))
 		view := ansi.Strip(pane.View())
-		for _, want := range []string{"Not logged in", "LAB", "TYPE", "STATUS", "AGE", "Running", "Stopped", "<1>"} {
+		for _, want := range []string{"Not logged in", "LAB", "TYPE", "STATUS", "ACTIVE", "Running", "Stopped", "<1>"} {
 			if !strings.Contains(view, want) {
 				t.Fatalf("%dx%d: missing %q", size[0], size[1], want)
 			}

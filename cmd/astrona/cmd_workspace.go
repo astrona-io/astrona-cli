@@ -186,6 +186,8 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		return "", fmt.Errorf("lab %s was started from another config; attach using its saved source with astrona ui %s", name, name)
 	}
 	runID := workspaceRunID(st)
+	stopActivity := uiActivityStart(name, st.StartedAt)
+	defer stopActivity()
 	links, _ := lifecycle.Links(name)
 	clusters := []workspaceCluster{{name: name, status: "Checking…"}}
 	for _, link := range links {
@@ -392,6 +394,10 @@ func readWorkspaceSnapshot(ctx context.Context, name, runID string, clusters []w
 	}
 	if st != nil {
 		snap.started, _ = time.Parse(time.RFC3339, st.StartedAt)
+		snap.activeTime, snap.activityTracked, err = labstate.ActiveTime(name, st.StartedAt)
+		if err != nil {
+			snap.activityError = "Could not read time spent: " + err.Error()
+		}
 		if st.LocalOnly {
 			snap.tracking = "Local only: API tracking disabled for this run"
 		} else if st.Session != nil {
