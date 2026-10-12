@@ -32,13 +32,13 @@ jobs:
           chmod +x astrona
 
       - name: astrona check
-        run: ./astrona check
+        run: ./astrona check --accept-terms
 
       - name: astrona validate
-        run: ./astrona validate -c .
+        run: ./astrona validate --accept-terms -c .
 
       - name: astrona test
-        run: ./astrona test -c . --junit-xml=junit-report.xml --diagnostics-dir=astrona-diagnostics
+        run: ./astrona test --accept-terms -c . --junit-xml=junit-report.xml --diagnostics-dir=astrona-diagnostics
 
       - name: Upload JUnit report
         if: always()
@@ -57,6 +57,7 @@ jobs:
 
 Notes:
 
+- Review `astrona terms` and pass `--accept-terms` on every operational CI command. A cached receipt, `CI=true`, `--yes`, or `--trust` does not replace explicit acceptance. See [CLI usage terms](../getting-started/installation.md#cli-usage-terms).
 - `if: always()` on the upload step — a failing `astrona test` still writes the JUnit report, and you want that artifact whether the check passed or not.
 - Testing a lab from **another** repo or a URL (`--git …` / `-c https://…`) needs `--trust` in CI — remote labs must be approved before they run (see [Approving remote labs](remote-config.md#approving-remote-labs)). Testing the repo's own checkout (`-c .`) doesn't.
 - Docker is already available on GitHub-hosted `ubuntu-latest` runners, which is all the `kind` runtime needs. A `qemu` runtime lab needs `/dev/kvm` for real hardware acceleration — GitHub-hosted runners don't have it, so a qemu-backed `astrona test` there would fall back to slow software emulation. Run qemu labs' CI on a self-hosted runner with KVM, or a GitHub-hosted runner that provides it.
@@ -139,7 +140,7 @@ The same commands (`astrona check`, `astrona validate -c <path>`, `astrona test 
 So a pipeline can treat them differently, e.g. retry a `1` (infrastructure) but not a `2`:
 
 ```sh
-astrona test -c . ; code=$?
+astrona test --accept-terms -c . ; code=$?
 [ $code -eq 2 ] && echo "::error::the reference solution doesn't pass its own checks"
 exit $code
 ```

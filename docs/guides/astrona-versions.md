@@ -71,4 +71,12 @@ PROCTOR: PASS
 
 ## Upgrading
 
+Terms acceptance is specific to the notice shipped with each binary.
+`--accept-terms` is not forwarded during an automatic version handover: older
+CLIs do not recognize it, and another release can have different terms. A target
+with the same notice can reuse the local receipt outside CI. If a target needs
+acceptance in CI, invoke that installed binary directly with `--accept-terms`
+after reviewing its `terms` output. Releases predating this feature have no
+terms prompt; upgrading the main executable cannot change those older binaries.
+
 `astrona upgrade` installs the latest release over `astrona`, verified against the same GitHub digest, and only when it's actually newer than the one you have. Installed with Homebrew? Then `astrona upgrade` runs `brew upgrade astrona` (`brew reinstall astrona` with `--force`) instead of downloading the binary itself, so Homebrew keeps track of the install. `astrona versions install` works the same either way (it installs into `~/.astrona/bin`, not Homebrew's directory).

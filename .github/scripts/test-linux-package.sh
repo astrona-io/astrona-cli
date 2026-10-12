@@ -31,7 +31,7 @@ fi
 test -s /tmp/astrona-completion.bash
 # A missing engine is expected here. Verify CLI tool lookup, including
 # Git supplied by package dependencies, without installing tools globally.
-"$astrona" check > /tmp/astrona-package-check.log 2>&1 || true
+"$astrona" check --accept-terms > /tmp/astrona-package-check.log 2>&1 || true
 cat /tmp/astrona-package-check.log
 grep -F "$tools/kind" /tmp/astrona-package-check.log
 grep -F "$tools/kubectl" /tmp/astrona-package-check.log
@@ -39,12 +39,12 @@ grep -F "$tools/oras" /tmp/astrona-package-check.log
 grep -E '✓.*git ' /tmp/astrona-package-check.log
 # Validate a known example through Git over HTTPS. This does not execute
 # lab scripts or create a cluster, and catches broken Git helpers/CA bundles.
-"$astrona" validate --git https://github.com/astrona-io/astrona-cli.git \
+"$astrona" validate --accept-terms --git https://github.com/astrona-io/astrona-cli.git \
   --git-ref "${PACKAGE_GIT_REF:-main}" -c examples/k8s-basics-01
 # Even --force must never download a raw binary into a package-owned file.
 before="$(sha256sum "$executable")"
 for flag in '' --force; do
-  if "$astrona" upgrade $flag > /tmp/astrona-package-upgrade.log 2>&1; then
+  if "$astrona" upgrade --accept-terms $flag > /tmp/astrona-package-upgrade.log 2>&1; then
     echo 'Package upgrade should return installation instructions' >&2; exit 1
   fi
   grep -F 'managed by a' /tmp/astrona-package-upgrade.log

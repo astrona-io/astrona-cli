@@ -16,6 +16,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -25,7 +26,9 @@ import (
 	"strings"
 	"unicode/utf16"
 
+	"astrona/internal/terms"
 	"astrona/internal/version"
+	"github.com/mattn/go-isatty"
 )
 
 // Version is set at build time: -ldflags "-X main.Version=v0.4.0".
@@ -96,8 +99,34 @@ func (realWSL) output(args ...string) (string, error) {
 
 func (realWSL) attach(args ...string) error {
 	c := exec.Command("wsl.exe", args...)
+	c.Env = ciWSLEnv(os.Environ(), terms.InCI(os.Getenv))
 	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return c.Run()
+}
+
+// WSL does not inherit arbitrary Windows environment variables. Carry detected
+// CI across explicitly so a cached WSL receipt cannot bypass the CI flag rule.
+func ciWSLEnv(environ []string, ci bool) []string {
+	if !ci {
+		return environ
+	}
+	var result, shared []string
+	for _, entry := range environ {
+		key, value, _ := strings.Cut(entry, "=")
+		switch {
+		case strings.EqualFold(key, "CI"):
+		case strings.EqualFold(key, "WSLENV"):
+			for _, field := range strings.Split(value, ":") {
+				name, _, _ := strings.Cut(field, "/")
+				if field != "" && !strings.EqualFold(name, "CI") {
+					shared = append(shared, field)
+				}
+			}
+		default:
+			result = append(result, entry)
+		}
+	}
+	return append(result, "CI=true", "WSLENV="+strings.Join(append(shared, "CI"), ":"))
 }
 
 // decodeWSL turns wsl.exe output into text. wsl.exe's own messages (like
@@ -164,7 +193,7 @@ func main() {
 	}
 	switch args[0] {
 	case "setup":
-		if err := setup(realWSL{}, os.Stdin, os.Stdout, args[1:]); err != nil {
+		if err := setupWithTerms(realWSL{}, os.Stdin, os.Stdout, args[1:], acceptSetupTerms); err != nil {
 			fmt.Fprintln(os.Stderr, "Error:", err)
 			os.Exit(1)
 		}
@@ -198,6 +227,8 @@ func forward(w wsl, args []string) int {
 
 type options struct {
 	yes, dryRun bool
+	acceptTerms bool
+	showTerms   bool
 }
 
 func parseSetupFlags(args []string) (options, error) {
@@ -208,10 +239,16 @@ func parseSetupFlags(args []string) (options, error) {
 			o.yes = true
 		case "--dry-run":
 			o.dryRun = true
+		case "--accept-terms", "--accept-terms=true":
+			o.acceptTerms = true
+		case "--accept-terms=false":
+			o.acceptTerms = false
+		case "--terms":
+			o.showTerms = true
 		case "-h", "--help":
 			return o, errHelp
 		default:
-			return o, fmt.Errorf("unknown flag %q (setup takes --yes and --dry-run)", a)
+			return o, fmt.Errorf("unknown flag %q (setup takes --yes, --dry-run, --terms and --accept-terms)", a)
 		}
 	}
 	return o, nil
@@ -232,7 +269,36 @@ Needs Windows 10 22H2 or Windows 11, and virtualization turned on in BIOS/UEFI.
 
 Flags:
   -y, --yes     approve every step without asking
-      --dry-run show what setup would do, change nothing`
+      --dry-run show what setup would do, change nothing
+      --terms   read this launcher's setup terms without installing WSL
+      --accept-terms accept CLI usage terms; separate from --yes`
+
+func acceptSetupTerms(explicit bool) error {
+	s, err := terms.DefaultStore()
+	if err != nil {
+		return err
+	}
+	interactive := isatty.IsTerminal(os.Stdin.Fd()) && isatty.IsTerminal(os.Stderr.Fd())
+	return s.Ensure(context.Background(), os.Stdin, os.Stderr, interactive, terms.InCI(os.Getenv), explicit, Version)
+}
+
+func setupWithTerms(w wsl, in io.Reader, out io.Writer, args []string, accept func(bool) error) error {
+	opts, err := parseSetupFlags(args)
+	if errors.Is(err, errHelp) {
+		return setup(w, in, out, args)
+	}
+	if err != nil {
+		return err
+	}
+	if opts.showTerms {
+		_, err := fmt.Fprintf(out, "%s\nSHA-256: %s\n", terms.Document(), terms.Digest())
+		return err
+	}
+	if err := accept(opts.acceptTerms); err != nil {
+		return err
+	}
+	return setup(w, in, out, args)
+}
 
 func setup(w wsl, in io.Reader, out io.Writer, args []string) error {
 	opts, err := parseSetupFlags(args)
@@ -335,6 +401,9 @@ func setup(w wsl, in io.Reader, out io.Writer, args []string) error {
 	step(5, "kind and kubectl", "Installed by astrona setup inside "+distro+" (it shows each step and asks).")
 	if !opts.dryRun {
 		innerArgs := []string{"setup"}
+		if opts.acceptTerms {
+			innerArgs = append(innerArgs, "--accept-terms")
+		}
 		if opts.yes {
 			innerArgs = append(innerArgs, "--yes")
 		}
