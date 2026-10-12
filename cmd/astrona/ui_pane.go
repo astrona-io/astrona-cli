@@ -118,20 +118,23 @@ func runUIPaneCommand(ctx context.Context, cmd *exec.Cmd, width, height int, opt
 		return readUIHome(readCtx)
 	}
 	inputDone := make(chan struct{})
-	go func() {
-		// Drain terminal replies as well as keyboard input. Keep draining if
-		// the child exits while the final output still contains a query.
-		buf := make([]byte, 32*1024)
-		for {
-			n, err := m.emulator.Read(buf)
-			if n > 0 {
-				_, _ = terminal.Write(buf[:n])
-			}
-			if err != nil {
-				break
-			}
+	inputErrors := make(chan error, 1)
+	m.inputError = func() tea.Msg {
+		select {
+		case err := <-inputErrors:
+			return uiPaneInputError{err}
+		case <-dashboardCtx.Done():
+			return nil
 		}
-		close(inputDone)
+	}
+	go func() {
+		defer close(inputDone)
+		copyUITerminalInput(terminal, m.emulator, func(err error) {
+			select {
+			case inputErrors <- err:
+			default:
+			}
+		})
 	}()
 	defer func() {
 		_ = terminal.Close()
@@ -141,14 +144,18 @@ func runUIPaneCommand(ctx context.Context, cmd *exec.Cmd, width, height int, opt
 		<-inputDone
 		_ = m.emulator.Close()
 	}()
-	options = append([]tea.ProgramOption{tea.WithAltScreen(), tea.WithContext(ctx)}, options...)
+	options = append([]tea.ProgramOption{tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithContext(ctx)}, options...)
 	_, err = tea.NewProgram(m, options...).Run()
+	m.activity.update(time.Now())
+	m.activity.paused = true
 	m.saveActivity(time.Now())
 	if m.activityError != "" {
 		err = errors.Join(err, errors.New(m.activityError))
 	}
 	return m.code, err
 }
+
+type uiPaneInputError struct{ err error }
 
 type uiPaneOutput struct {
 	data []byte
@@ -158,6 +165,7 @@ type uiPaneExit struct{ err error }
 type uiPaneDrainTimeout struct{}
 
 type uiPaneModel struct {
+	inputError                      tea.Cmd
 	emulator                        *vt.Emulator
 	terminal                        *os.File
 	exited                          <-chan error
@@ -167,6 +175,7 @@ type uiPaneModel struct {
 	account                         uiAccountStatus
 	activity                        uiActivityClock
 	activityPath, activityError     string
+	activityAway                    bool
 	activityTotal, activitySavedOwn time.Duration
 	dashboard                       uiHomeSnapshot
 	loadDashboard                   tea.Cmd
@@ -201,7 +210,7 @@ func (m *uiPaneModel) read() tea.Msg {
 }
 
 func (m *uiPaneModel) Init() tea.Cmd {
-	return tea.Batch(m.read, readUIAccountStatus, uiActivityTickCmd(), uiLoadingTickCmd(), m.loadDashboard, func() tea.Msg { return uiPaneExit{<-m.exited} })
+	return tea.Batch(m.read, m.inputError, readUIAccountStatus, uiActivityTickCmd(), uiLoadingTickCmd(), m.loadDashboard, func() tea.Msg { return uiPaneExit{<-m.exited} })
 }
 
 func (m *uiPaneModel) resizeContent() {
@@ -219,6 +228,10 @@ func (m *uiPaneModel) resizeContent() {
 
 func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case uiPaneInputError:
+		if !m.ended {
+			m.failure = "Terminal input stopped: " + msg.err.Error()
+		}
 	case uiLoadingTick:
 		m.animation++
 		return m, uiLoadingTickCmd()
@@ -238,6 +251,12 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.resizeContent()
 		if m.title == "HOME" {
 			m.background = m.screen()
+			if m.activity.target.Lab != "" && !m.activityAway {
+				m.activity.update(time.Now())
+				m.activity.paused = true
+				m.activityAway = true
+				m.saveActivity(time.Now())
+			}
 		}
 		if msg.err != nil {
 			m.eof = true
@@ -249,8 +268,9 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case uiPaneExit:
 		m.ended = true
-		m.saveActivity(time.Now())
+		m.activity.update(time.Now())
 		m.activity.paused = true
+		m.saveActivity(time.Now())
 		if msg.err != nil {
 			m.code = 1
 			var exit *exec.ExitError
@@ -267,6 +287,12 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case uiPaneDrainTimeout:
 		_ = m.terminal.Close()
+	case tea.MouseMsg:
+		row := msg.Y - uiHeaderHeight(m.width, m.height)
+		if strings.HasPrefix(m.title, "TASK / ") && row == 0 && msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && !m.controls && !m.closing && !m.ended && !m.activity.paused && !m.activityAway {
+			m.activity.input(time.Now())
+			m.emulator.SendMouse(uv.MouseClickEvent{X: msg.X, Y: row, Button: uv.MouseLeft})
+		}
 	case tea.KeyMsg:
 		return m, m.key(msg)
 	}
@@ -279,14 +305,21 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *uiPaneModel) key(key tea.KeyMsg) tea.Cmd {
 	now := time.Now()
 	m.activity.update(now)
-	if m.activity.paused && !m.controls && !m.closing && !m.ended && key.Type != tea.KeyCtrlCloseBracket {
+	if !key.Paste && key.Type == tea.KeyCtrlC && !m.controls && !m.closing && !m.ended && (strings.HasPrefix(m.title, "TASK / ") || strings.HasPrefix(m.title, "WORKSPACE / ")) {
+		m.activity.paused = true
+		m.activityAway = true
+		m.saveActivity(now)
+		sendUIPaneKey(m.emulator, key)
+		return nil
+	}
+	if !m.activityAway && m.activity.paused && !m.controls && !m.closing && !m.ended && key.Type != tea.KeyCtrlCloseBracket {
 		if key.Type == tea.KeyEnter && !key.Paste {
 			m.activity.input(now)
 			m.saveActivity(now)
 		}
 		return nil
 	}
-	if !m.activity.paused {
+	if !m.activityAway && !m.activity.paused {
 		m.activity.input(now)
 	}
 	if m.closing {
@@ -336,7 +369,7 @@ func (m *uiPaneModel) View() string {
 	content := m.screen()
 	if uiLoadingPhase(m.title) {
 		content = m.loadingView(content)
-	} else if m.title == "START LAB" || m.title == "RESTART LAB" {
+	} else if m.title == "START LAB" || m.title == "RESTART LAB" || m.title == "TRACK YOUR PROGRESS" {
 		content = m.confirmationView(content)
 	}
 	header := m.header()
@@ -353,7 +386,7 @@ func (m *uiPaneModel) View() string {
 	if m.failure != "" {
 		header = workspaceFit(header, m.width, uiHeaderHeight(m.width, m.height)-1) + "\n" + workspaceDanger.Render(m.failure)
 	}
-	if m.activity.paused && !m.controls && !m.ended {
+	if !m.activityAway && m.activity.paused && !m.controls && !m.ended {
 		content = m.idleView(content)
 		footer = "Enter: continue · Ctrl+] pane controls"
 	}
@@ -374,24 +407,28 @@ func (m *uiPaneModel) View() string {
 }
 
 func (m *uiPaneModel) screen() string {
-	w, h := m.emulator.Width(), m.emulator.Height()
+	return uiTerminalScreen(m.emulator, m.scroll, !m.controls && !m.ended)
+}
+
+func uiTerminalScreen(emulator *vt.Emulator, scroll int, showCursor bool) string {
+	w, h := emulator.Width(), emulator.Height()
 	buf := uv.NewRenderBuffer(w, h)
-	start := m.emulator.ScrollbackLen() - m.scroll
-	cursor := m.emulator.CursorPosition()
+	start := emulator.ScrollbackLen() - scroll
+	cursor := emulator.CursorPosition()
 	for y := range h {
 		for x := 0; x < w; {
 			var cell *uv.Cell
-			if start+y < m.emulator.ScrollbackLen() {
-				cell = m.emulator.ScrollbackCellAt(x, start+y)
+			if start+y < emulator.ScrollbackLen() {
+				cell = emulator.ScrollbackCellAt(x, start+y)
 			} else {
-				cell = m.emulator.CellAt(x, start+y-m.emulator.ScrollbackLen())
+				cell = emulator.CellAt(x, start+y-emulator.ScrollbackLen())
 			}
 			c := uv.EmptyCell
 			if cell != nil {
 				c = *cell
 			}
 			c.Link = uv.Link{}
-			if !m.controls && !m.ended && m.scroll == 0 && !m.emulator.CursorHidden() && cursor.X == x && cursor.Y == y {
+			if showCursor && scroll == 0 && !emulator.CursorHidden() && cursor.X == x && cursor.Y == y {
 				c.Style.Attrs ^= uv.AttrReverse
 			}
 			buf.SetCell(x, y, &c)

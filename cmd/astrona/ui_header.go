@@ -154,9 +154,11 @@ func (m *uiPaneModel) headerShortcuts() [][2]string {
 	section, _, _ := strings.Cut(m.title, " / ")
 	switch section {
 	case "HOME":
-		return [][2]string{{"<1>", "Active runs"}, {"<2>", "History"}, {"<3>", "Help"}, {"<p>", "Preferences"}, {"<n>", "Start lab"}, {"<enter>", "Open selected"}, {"<↑/↓>", "Select run"}, {"<r>", "Refresh"}, {"<tab>", "Next section"}, {"<q>", "Quit"}}
+		return [][2]string{{"<1>", "Active runs"}, {"<2>", "History"}, {"<3>", "Help"}, {"<p>", "Preferences"}, {"<n>", "Start lab"}, {"<enter>", "Open selected"}, {"<↑/↓>", "Select run"}, {"<ctrl-d>", "Force delete"}, {"<r>", "Refresh"}, {"<tab>", "Next section"}, {"<q>", "Quit"}}
+	case "TASK":
+		return [][2]string{{"<ctrl-t>", "New terminal"}, {"<ctrl-n/p>", "Switch tab"}, {"<ctrl-c>", "Overview / pause"}, {"<alt-c>", "Interrupt command"}, {"<f2>", "Task / terminal"}, {"<f3>", "Lab details"}}
 	case "WORKSPACE":
-		return [][2]string{{"<enter>", "Task"}, {"<tab>", "Task / results"}, {"<s>", "Shell"}, {"<p>", "Preferences"}, {"<↑/↓>", "Select cluster"}, {"<q>", "Exit menu"}, {"<pgup/dn>", "Scroll task"}, {"<f1>", "Alert details"}}
+		return [][2]string{{"<enter>", "Task + terminals"}, {"<tab>", "Task / results"}, {"<s>", "Shell"}, {"<p>", "Preferences"}, {"<↑/↓>", "Select cluster"}, {"<ctrl-c>", "Overview / pause"}, {"<q>", "Exit menu"}, {"<pgup/dn>", "Scroll task"}, {"<f1>", "Alert details"}}
 	case "SHELL":
 		return [][2]string{{"exit", "Back to lab"}, {"<ctrl-c>", "Interrupt"}, {"<ctrl-]>", "Pane controls"}}
 	case "PREFERENCES":
@@ -170,7 +172,7 @@ func uiPaneLabel(title string) string {
 	section, name, _ := strings.Cut(title, " / ")
 	labels := map[string]string{
 		"STARTUP": "Starting Astrona", "HOME": "Home", "SETUP": "Setting up your lab",
-		"WORKSPACE": "Lab workspace", "SHELL": "Shell", "GRADING": "Grading",
+		"TASK": "Task and terminals", "WORKSPACE": "Lab workspace", "SHELL": "Shell", "GRADING": "Grading",
 		"DESTROY": "Removing lab", "START LAB": "Start a lab",
 	}
 	if label, ok := labels[section]; ok {

@@ -10,6 +10,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
 	"astrona/internal/runtime"
@@ -114,6 +115,11 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
+			release, err := labstate.LockMutation(clusterName)
+			if err != nil {
+				return err
+			}
+			defer release()
 			if soft {
 				what := clusterName
 				if clusterFlag != "" {
@@ -155,7 +161,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			approved, err := approveUntrackedLab(os.Stdin, promptOut, isatty.IsTerminal(os.Stdin.Fd()), withoutLogin, flags.catalogLab, acct)
+			acct, approved, err := confirmGuestLabRun(cmd, flags, acct, withoutLogin)
 			if err != nil {
 				return err
 			}

@@ -48,7 +48,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"For a kind lab with runtime.portForwards, the forwards are started last (bound to 127.0.0.1) " +
 			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.\n\n" +
 			"A lab from the catalog (`astrona run astrona.io/ATS014/section-010/module-01/lab-02`, see `astrona labs`) " +
-			"asks for confirmation when you are not signed in: progress and results will not be tracked on Astrona. " +
+			"offers login when you are not signed in: progress and results will not be tracked on Astrona as a guest. " +
+			"Choose Log in or Continue as guest; Never ask again saves login-reminder=no. " +
 			"Use --without-login to confirm in automation. If you sign in with `astrona login`, before anything is built " +
 			"astrona starts a lab session on Astrona; once the lab is ready it prints the lab page URL. " +
 			"Your matching course page connects to it without a redirect, and setup time never counts. Labs from " +
@@ -97,6 +98,11 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 
 			// Resolve restart consent before account access or runtime changes.
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
+			release, err := labstate.LockMutation(clusterName)
+			if err != nil {
+				return err
+			}
+			defer release()
 			exists := labExists(cfg, clusterName)
 			label := clusterName
 			if len(args) > 0 && catalog.LooksLikeLabID(args[0]) {
@@ -133,7 +139,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 
 			approved := true
 			if !flags.localOnly {
-				approved, err = approveUntrackedLab(os.Stdin, promptOut, isatty.IsTerminal(os.Stdin.Fd()), withoutLogin || flags.uiStartupApproved, flags.catalogLab, acct)
+				acct, approved, err = confirmGuestLabRun(cmd, flags, acct, withoutLogin)
 			}
 			if err != nil {
 				return err
@@ -203,6 +209,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			start.done(clusterName)
+			release()
 			if workspace {
 				return runLabWorkspace(cmd.Context(), cfg, baseDir, flags)
 			}

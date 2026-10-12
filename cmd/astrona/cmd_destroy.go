@@ -12,6 +12,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/exam"
 	"astrona/internal/hypervisor"
+	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
 	"astrona/internal/runtime"
@@ -148,6 +149,16 @@ func destroyByDiscovery(rep *ui.Reporter) error {
 // still clean that up. A multi-VM qemu lab's name destroys all its VMs
 // (found by the lab recorded in each VM's handle).
 func destroyByName(name string, rep *ui.Reporter) error {
+	name = config.NormalizeClusterName(name)
+	release, err := labstate.LockMutation(name)
+	if err != nil {
+		return err
+	}
+	defer release()
+	return destroyByNameLocked(name, rep)
+}
+
+func destroyByNameLocked(name string, rep *ui.Reporter) error {
 	// Accept the lab name with or without the "astro-" prefix — `astrona
 	// list` prints the prefixed form, but a user typing the bare lab name
 	// should still hit the right lab. Idempotent, so an already-prefixed
@@ -358,6 +369,11 @@ func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir strin
 // destroyed, and what was remembered about the lab is forgotten. A lab with
 // teardown.keepCluster stays — and so do its context and memory.
 func destroyLab(info teardownInfo, baseDir string, rep *ui.Reporter) error {
+	release, err := labstate.LockMutation(config.NormalizeClusterName(info.clusterName))
+	if err != nil {
+		return err
+	}
+	defer release()
 	clusterName := config.NormalizeClusterName(info.clusterName)
 	if !info.teardown.KeepCluster {
 		// Before the delete unsets the lab's context. The record is dropped

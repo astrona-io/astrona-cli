@@ -76,3 +76,57 @@ func TestUIActivityPersistsAndStopsForReplacement(t *testing.T) {
 		t.Fatal("replacement inherited old idle dialog")
 	}
 }
+
+func TestUIOverviewStopsActivityImmediately(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	now := time.Now()
+	m := newUIPaneModel(nil, nil, 100, 30)
+	defer m.emulator.Close()
+	m.title = "TASK / astro-lab"
+	m.activity = uiActivityClock{target: uiActivityTarget{"astro-lab", now.Format(time.RFC3339), "one"}, lastInput: now, periods: []labstate.ActivityPeriod{{Start: now.Add(-time.Minute), End: now}}}
+	input := make(chan byte, 1)
+	go func() { buf := make([]byte, 1); _, _ = m.emulator.Read(buf); input <- buf[0] }()
+	m.key(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if got := <-input; got != 3 {
+		t.Fatalf("key forwarded: %d", got)
+	}
+	if !m.activity.paused || !m.activityAway {
+		t.Fatal("Ctrl+C did not pause immediately")
+	}
+	before := m.activity.total()
+	m.activity.update(now.Add(time.Hour))
+	if m.activity.total() != before {
+		t.Fatal("overview counted as activity")
+	}
+	if strings.Contains(ansi.Strip(m.View()), "IDLE · TIME PAUSED") {
+		t.Fatal("overview obstructed by idle dialog")
+	}
+}
+
+func TestUIActivityResumesAfterOverview(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	now := time.Now().UTC().Truncate(time.Second)
+	stamp := now.Format(time.RFC3339)
+	if err := labstate.Save("astro-lab", &labstate.State{StartedAt: stamp}); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "target.json")
+	t.Setenv(uiActivityEnv, path)
+	m := newUIPaneModel(nil, nil, 100, 30)
+	defer m.emulator.Close()
+	m.activityPath = path
+	stop := uiActivityStart("astro-lab", stamp)
+	m.activityTick(now)
+	m.activity.paused, m.activityAway = true, true
+	m.saveActivity(now.Add(time.Second))
+	stop()
+	// Reopening may replace the control file before the next tick sees Home.
+	defer uiActivityStart("astro-lab", stamp)()
+	m.activityTick(now.Add(2 * time.Second))
+	if m.activity.paused || m.activityAway {
+		t.Fatal("reopened lab stayed paused")
+	}
+	if active, err := labstate.HasActiveUI("astro-lab", stamp, now.Add(3*time.Second)); err != nil || !active {
+		t.Fatalf("resume not published: %v %v", active, err)
+	}
+}

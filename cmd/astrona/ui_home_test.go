@@ -20,7 +20,7 @@ import (
 )
 
 func homeKey(m uiHomeModel, key string) uiHomeModel {
-	types := map[string]tea.KeyType{"tab": tea.KeyTab, "enter": tea.KeyEnter, "esc": tea.KeyEsc, "down": tea.KeyDown, "up": tea.KeyUp}
+	types := map[string]tea.KeyType{"ctrl+d": tea.KeyCtrlD, "ctrl+c": tea.KeyCtrlC, "tab": tea.KeyTab, "enter": tea.KeyEnter, "esc": tea.KeyEsc, "down": tea.KeyDown, "up": tea.KeyUp}
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
 	if kind, ok := types[key]; ok {
 		msg.Type = kind

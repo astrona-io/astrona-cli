@@ -63,8 +63,8 @@ func TestWorkspaceActions(t *testing.T) {
 		{"submit", []string{"g"}, true, false, workspaceSubmit},
 		{"playground ignores grade", []string{"g"}, false, false, workspaceNone},
 		{"q only opens menu", []string{"q"}, true, false, workspaceNone},
-		{"interrupt opens menu", []string{"ctrl+c"}, true, false, workspaceNone},
-		{"eof opens menu", []string{"ctrl+d"}, true, false, workspaceNone},
+		{"interrupt returns home", []string{"ctrl+c"}, true, false, workspaceLeave},
+		{"control d asks before destruction", []string{"ctrl+d"}, true, false, workspaceNone},
 		{"enter returns", []string{"q", "enter"}, true, false, workspaceNone},
 		{"leave", []string{"q", "k"}, true, false, workspaceLeave},
 		{"menu submit", []string{"q", "s"}, true, false, workspaceSubmit},
@@ -571,5 +571,21 @@ func TestWorkspaceSubmissionDelivery(t *testing.T) {
 	r.OverTime = true
 	if text := workspaceSubmission(r, false, true); !strings.Contains(text, "FAIL") || !strings.Contains(text, "after the exam") {
 		t.Fatal(text)
+	}
+}
+
+func TestWorkspaceNoActionLeavesTaskScreen(t *testing.T) {
+	screens := 0
+	err := driveWorkspace(t.Context(), workspaceModel{taskTerminals: true}, workspaceDriver{
+		screen: func(_ context.Context, m workspaceModel, _ func(context.Context) workspaceSnapshot) (workspaceModel, error) {
+			screens++
+			if screens > 1 {
+				t.Fatal("no-action exit reopened task screen")
+			}
+			return m, nil
+		}, returnHome: func(string) {},
+	})
+	if err != nil || screens != 1 {
+		t.Fatalf("exit: %d %v", screens, err)
 	}
 }

@@ -248,7 +248,9 @@ func TestReviewInvalidChoiceRetriesKeepEarlierAnswers(t *testing.T) {
 			if strings.Count(out.String(), "parallel (new setting)") != 1 || !strings.Contains(out.String(), "update-check must be yes or no. Please try again") {
 				t.Fatalf("did not retry only the current question: %s", out.String())
 			}
-			if strings.Count(out.String(), "Value [yes] (yes/no, enter to keep, q to cancel):") != strings.Count(tc.answer, "\n") {
+			_, updatePrompts, _ := strings.Cut(out.String(), "update-check (new setting)")
+			updatePrompts, _, _ = strings.Cut(updatePrompts, "verbose (new setting)")
+			if strings.Count(updatePrompts, "Value [yes] (yes/no, enter to keep, q to cancel):") != strings.Count(tc.answer, "\n") {
 				t.Fatalf("unexpected number of prompts: %s", out.String())
 			}
 			rest, err := io.ReadAll(cmd.InOrStdin())

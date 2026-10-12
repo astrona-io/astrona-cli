@@ -42,7 +42,7 @@ func TestSettingsReadDoesNotCreateFiles(t *testing.T) {
 	if err := json.Unmarshal([]byte(got), &values); err != nil {
 		t.Fatalf("not one JSON document: %s, %v", got, err)
 	}
-	if len(values) != 6 || values["verbose"] != false || values["keep-context"] != false || values["parallel"] != float64(1) || values["update-check"] != true || values["cache-retention-days"] != float64(30) || values["cache-max-size-gb"] != float64(50) {
+	if len(values) != len(settingsDefinitions()) || values["verbose"] != false || values["keep-context"] != false || values["parallel"] != float64(1) || values["update-check"] != true || values["login-reminder"] != true || values["cache-retention-days"] != float64(30) || values["cache-max-size-gb"] != float64(50) {
 		t.Fatalf("unexpected defaults: %v", values)
 	}
 }
@@ -310,7 +310,7 @@ func TestSettingsCompletion(t *testing.T) {
 	for _, action := range []string{"get", "set", "unset"} {
 		cmd := &cobra.Command{Use: action}
 		keys, directive := completeSetting(cmd, nil, "")
-		if len(keys) != 6 || directive != cobra.ShellCompDirectiveNoFileComp {
+		if len(keys) != len(settingsDefinitions()) || directive != cobra.ShellCompDirectiveNoFileComp {
 			t.Fatalf("%s key completion: %v, %v", action, keys, directive)
 		}
 		values, _ := completeSetting(cmd, []string{"verbose"}, "")

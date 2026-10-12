@@ -187,6 +187,11 @@ func preferenceChangeImpact(key, value string) string {
 		return "Allow lab commands to switch your kubectl context to the lab. Subsequent kubectl commands may target that lab."
 	case "parallel":
 		return "Start up to " + value + " linked clusters at once. Higher concurrency can reduce startup time but uses more resources at once."
+	case "login-reminder":
+		if value == "true" {
+			return "Offer login before each guest lab run so catalog progress can be tracked."
+		}
+		return "Allow guest lab runs without login reminders. You can still sign in with astrona login."
 	case "update-check":
 		if value == "true" {
 			return "Allow release checks to show update notices. GitHub receives your IP address. CI, non-terminal sessions and development builds still skip checks."

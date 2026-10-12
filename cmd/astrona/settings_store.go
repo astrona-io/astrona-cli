@@ -26,6 +26,7 @@ func settingsDefinitions() []settingDefinition {
 		{"verbose", "false", "Stream full command output"},
 		{"keep-context", "false", "Leave your kubectl current-context unchanged"},
 		{"parallel", "1", "Maximum linked clusters to start at once"},
+		{"login-reminder", "true", "Ask guests to log in before starting a lab; disabling this allows guest runs without reminders"},
 		{"update-check", "true", "Check for new CLI releases and show update notices"},
 		{"cache-retention-days", strconv.Itoa(localdata.DefaultRetentionDays), "Maximum disposable-cache age in days (1–36500)"},
 		{"cache-max-size-gb", strconv.Itoa(localdata.DefaultMaxSizeGB), "Combined disposable-cache size in GB; 0 means unlimited"},
@@ -48,7 +49,7 @@ func settingsPath(flags *rootFlags) (string, error) {
 
 func parseSetting(key, value string) (json.RawMessage, error) {
 	switch key {
-	case "verbose", "keep-context", "update-check":
+	case "verbose", "keep-context", "update-check", "login-reminder":
 		switch strings.ToLower(strings.TrimSpace(value)) {
 		case "yes", "y", "true":
 			value = "true"
