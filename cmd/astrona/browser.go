@@ -77,16 +77,6 @@ func openInBrowser(rawURL string) bool {
 // browserOpener opens a URL in the browser: openInBrowser, replaced in tests.
 var browserOpener = openInBrowser
 
-// printAndOpen prints the lab page URL and opens it in the browser.
-func printAndOpen(u *url.URL) {
-	fmt.Printf("\nLab page: %s\n", u)
-	if browserOpener(u.String()) {
-		fmt.Println("Opened it in your browser — the clock starts there.")
-		return
-	}
-	fmt.Println("Open it in your browser to start the clock.")
-}
-
 // printTimeLimit says how long the attempt runs once the lab page opens,
 // when the site gave a limit.
 func printTimeLimit(sess *labstate.Session) {
