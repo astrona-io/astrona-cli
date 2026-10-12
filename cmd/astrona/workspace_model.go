@@ -271,7 +271,7 @@ func runWorkspaceScreen(ctx context.Context, m workspaceModel, refresh func(cont
 		m.polling = true
 	}
 	m.action, m.now = workspaceNone, time.Now()
-	final, err := tea.NewProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen()).Run()
+	final, err := runUIProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen())
 	if err != nil {
 		return m, fmt.Errorf("terminal workspace: %w", err)
 	}

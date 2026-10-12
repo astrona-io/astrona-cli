@@ -146,7 +146,7 @@ func runUIPaneCommand(ctx context.Context, cmd *exec.Cmd, width, height int, opt
 		_ = m.emulator.Close()
 	}()
 	options = append([]tea.ProgramOption{tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithContext(ctx)}, options...)
-	_, err = tea.NewProgram(m, options...).Run()
+	_, err = runUIProgram(m, options...)
 	m.activity.update(time.Now())
 	m.activity.paused = true
 	m.saveActivity(time.Now())

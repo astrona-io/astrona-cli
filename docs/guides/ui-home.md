@@ -13,6 +13,8 @@ It stays visible during setup, grading and shell sessions. The status fields
 show your login, account name, site, CLI version and active profile
 (Development or Release). Shortcuts change for the workspace, shell and pane
 controls. Small terminals use a compact header to leave room for content.
+The UI rechecks terminal dimensions during startup and screen changes, so a
+missed resize signal corrects itself without closing and reopening the UI.
 
 ![Astrona Home with sample labs, status fields and shortcut columns](../assets/ui-home.png)
 

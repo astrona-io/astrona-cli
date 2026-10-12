@@ -507,7 +507,7 @@ func runUIHomeScreen(ctx context.Context, m uiHomeModel) (uiHomeModel, error) {
 	m.refresh = func() tea.Msg { return readUIHome(screenCtx) }
 	m.polling, m.open, m.quit, m.destroy = true, false, false, false
 	m.editor.action = workspaceNone
-	final, err := tea.NewProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen()).Run()
+	final, err := runUIProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen())
 	if err != nil {
 		return m, fmt.Errorf("UI home: %w", err)
 	}
