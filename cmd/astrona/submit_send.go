@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"astrona/internal/account"
+	"astrona/internal/apphome"
 	"astrona/internal/labstate"
 	"astrona/internal/ui"
 )
@@ -47,13 +48,13 @@ var runningLabNames = func() []string {
 		}
 	}
 	for _, r := range kindRows {
-		if _, linked := owners[r.name]; linked || strings.HasPrefix(r.name, "astro-test-") || !isRunning(r) {
+		if _, linked := owners[r.name]; linked || strings.HasPrefix(r.name, apphome.TestClusterPrefix()) || !isRunning(r) {
 			continue
 		}
 		add(r.name)
 	}
 	for _, r := range qemuRows {
-		if strings.HasPrefix(r.name, "astro-test-") {
+		if strings.HasPrefix(r.name, apphome.TestClusterPrefix()) {
 			continue
 		}
 		add(labOfVM(r.name, known))

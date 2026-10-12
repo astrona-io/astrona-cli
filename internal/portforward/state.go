@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/config"
 )
 
@@ -99,7 +100,7 @@ func BaseDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
 	}
-	return filepath.Join(home, ".astrona", "portforward"), nil
+	return filepath.Join(home, apphome.Name(), "portforward"), nil
 }
 
 func labDir(lab string) (string, error) {

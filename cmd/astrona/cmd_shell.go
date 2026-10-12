@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strings"
 
+	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/lifecycle"
@@ -50,7 +51,7 @@ func resolveKindCluster(labArg string, flags *rootFlags) (string, error) {
 	owners := linkedClusterOwners()
 	var kindClusters []string
 	for _, r := range collectKindRows() {
-		if _, linked := owners[r.name]; !linked && !strings.HasPrefix(r.name, "astro-test-") {
+		if _, linked := owners[r.name]; !linked && !strings.HasPrefix(r.name, apphome.TestClusterPrefix()) {
 			kindClusters = append(kindClusters, r.name)
 		}
 	}
@@ -99,7 +100,7 @@ func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
 		Use:               "kubeconfig [lab-name]",
 		ValidArgsFunction: labCompletion(isKind),
 		Short:             "Print the path of a kind lab's own kubeconfig",
-		Long: "Print the path of a kind lab's isolated kubeconfig (~/.astrona/kind/<lab>/kubeconfig), " +
+		Long: "Print the path of a kind lab's isolated kubeconfig (~/" + apphome.Name() + "/kind/<lab>/kubeconfig), " +
 			"which contains only that lab's cluster.\n\n" +
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab.",
 		Example: `  export KUBECONFIG=$(astrona kubeconfig my-lab)

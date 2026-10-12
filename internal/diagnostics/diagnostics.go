@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/executor"
 	"astrona/internal/ui"
@@ -40,7 +41,7 @@ func DefaultDir(lab string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
 	}
-	return filepath.Join(home, ".astrona", "diagnostics", lab+"-"+time.Now().UTC().Format("20060102T150405Z")), nil
+	return filepath.Join(home, apphome.Name(), "diagnostics", lab+"-"+time.Now().UTC().Format("20060102T150405Z")), nil
 }
 
 // Summary is what got collected, for the caller to print.

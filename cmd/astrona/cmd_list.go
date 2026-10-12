@@ -13,6 +13,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/executor"
@@ -173,7 +174,7 @@ func collectQEMURows() ([]labRow, int, error) {
 			continue
 		}
 
-		if !strings.HasPrefix(e.Name(), "astro-") {
+		if !strings.HasPrefix(e.Name(), apphome.ClusterPrefix()) {
 			continue
 		}
 
@@ -288,7 +289,7 @@ func groupKindContainers(out string) map[string][]kindContainer {
 	clusters := map[string][]kindContainer{}
 	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
 		parts := strings.Split(strings.TrimSpace(line), "|")
-		if len(parts) != 4 || !strings.HasPrefix(parts[2], "astro-") {
+		if len(parts) != 4 || !strings.HasPrefix(parts[2], apphome.ClusterPrefix()) {
 			continue
 		}
 		clusters[parts[2]] = append(clusters[parts[2]], kindContainer{name: parts[0], state: strings.ToLower(parts[1]), role: parts[3]})

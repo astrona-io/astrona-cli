@@ -6,6 +6,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"astrona/internal/apphome"
 	"astrona/internal/config"
 	"astrona/internal/resources"
 	"astrona/internal/ui"
@@ -63,6 +64,6 @@ func resourceRiskLines(cfg *config.LabConfig, baseDir string) []string {
 		}
 		parts[i] = r.Name + " (" + how + ")"
 	}
-	return []string{sanitizeLine(fmt.Sprintf("ships %d resource(s), copied to ~/.astrona/resources — each runs %s only when you ask (astrona res run): %s",
-		len(list), where, strings.Join(parts, ", ")))}
+	return []string{sanitizeLine(fmt.Sprintf("ships %d resource(s), copied to ~/%s/resources — each runs %s only when you ask (astrona res run): %s",
+		len(list), apphome.Name(), where, strings.Join(parts, ", ")))}
 }

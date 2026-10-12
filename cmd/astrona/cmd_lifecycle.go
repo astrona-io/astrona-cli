@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/lifecycle"
@@ -45,7 +46,7 @@ func resolveLifecycleLab(labArg string, flags *rootFlags, want func(status strin
 	var matches []string
 	owners := linkedClusterOwners()
 	for _, r := range collectKindRows() {
-		if _, linked := owners[r.name]; !linked && !strings.HasPrefix(r.name, "astro-test-") && want(r.status) {
+		if _, linked := owners[r.name]; !linked && !strings.HasPrefix(r.name, apphome.TestClusterPrefix()) && want(r.status) {
 			matches = append(matches, r.name)
 		}
 	}

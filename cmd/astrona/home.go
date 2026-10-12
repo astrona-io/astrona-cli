@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/config"
 	"astrona/internal/exam"
 	"astrona/internal/proctor"
@@ -101,10 +102,10 @@ func otherRunningLabs(except string) []string {
 	owners := linkedClusterOwners()
 	var out []string
 	for _, r := range collectKindRows() {
-		if _, linked := owners[r.name]; linked || r.name == except || strings.HasPrefix(r.name, "astro-test-") || r.status == "Stopped" {
+		if _, linked := owners[r.name]; linked || r.name == except || strings.HasPrefix(r.name, apphome.TestClusterPrefix()) || r.status == "Stopped" {
 			continue
 		}
-		out = append(out, strings.TrimPrefix(r.name, "astro-"))
+		out = append(out, strings.TrimPrefix(r.name, apphome.ClusterPrefix()))
 	}
 	return out
 }

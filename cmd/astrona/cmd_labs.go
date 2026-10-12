@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/catalog"
 	"astrona/internal/gitsource"
 	"astrona/internal/ui"
@@ -29,7 +30,7 @@ func catalogStore() (catalog.Store, error) {
 	if err != nil {
 		return catalog.Store{}, err
 	}
-	return catalog.Store{Dir: filepath.Join(home, ".astrona")}, nil
+	return catalog.Store{Dir: filepath.Join(home, apphome.Name())}, nil
 }
 
 // loadCatalog returns the catalog: cached (up to an hour) unless refresh,

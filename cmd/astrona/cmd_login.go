@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	"astrona/internal/account"
+	"astrona/internal/apphome"
 
 	"github.com/spf13/cobra"
 )
@@ -26,7 +27,7 @@ func newLoginCmd() *cobra.Command {
 			"click Authorize; otherwise sign in on astrona.io first and you're brought back to that page. " +
 			"The terminal waits and finishes by itself. No password is ever typed into the terminal. On a " +
 			"machine without a browser, open the printed link on any device.\n\n" +
-			"The sign-in is saved in ~/.astrona/credentials.json (readable only by you) and renewed " +
+			"The sign-in is saved in ~/" + apphome.Name() + "/credentials.json (readable only by you) and renewed " +
 			"automatically. `astrona whoami` shows who is signed in, `astrona logout` signs out.\n\n" +
 			"The site is " + account.DefaultSite + " unless --site (or " + account.SiteEnv + ") names another, " +
 			"for example http://localhost:3000 for local development. The site is remembered with the " +

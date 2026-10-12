@@ -24,6 +24,11 @@ run_astrona() {
 
 lab=ATS013/section-010/module-01/playground
 cluster=astro-ats-013-playground-010-01
+state_dir=.astrona
+if [[ "$("$astrona" --version)" == *developer ]]; then
+  cluster=astrodev-ats-013-playground-010-01
+  state_dir=.astrona-dev
+fi
 fixture1="coexistence-$(date +%s)-$$-one"
 fixture2="coexistence-$(date +%s)-$$-two"
 fixture1_started=false
@@ -38,7 +43,7 @@ cleanup() {
     if [[ "$fixture2_started" == true ]]; then kind export logs "$artifacts/$fixture2" --name "$fixture2" || true; fi
     if [[ "$lab_started" == true ]]; then kind export logs "$artifacts/$cluster" --name "$cluster" || true; fi
     mkdir -p "$artifacts/astrona"
-    cp -R "$state_home/.astrona/logs" "$state_home/.astrona/diagnostics" "$artifacts/astrona" 2>/dev/null || true
+    cp -R "$state_home/$state_dir/logs" "$state_home/$state_dir/diagnostics" "$artifacts/astrona" 2>/dev/null || true
   fi
   if [[ "$lab_started" == true ]]; then
     run_astrona destroy "$cluster" --verbose || true
@@ -100,12 +105,12 @@ kubectl --context "kind-$cluster" run dns-probe --image=docker.io/library/busybo
   --restart=Never --command -- sh -c 'nslookup kubernetes.default.svc.cluster.local'
 kubectl --context "kind-$cluster" wait --for=jsonpath='{.status.phase}'=Succeeded pod/dns-probe --timeout=180s
 kubectl --context "kind-$cluster" logs dns-probe | tee "$artifacts/dns.log"
-test ! -e "$state_home/.astrona/credentials.json"
+test ! -e "$state_home/$state_dir/credentials.json"
 run_astrona destroy "$lab" --verbose 2>&1 | tee "$artifacts/destroy.log"
 clusters="$(kind get clusters)"
 if grep -Fxq "$cluster" <<< "$clusters"; then echo 'Destroy left the lab running' >&2; exit 1; fi
 test -z "$("$engine" ps -aq --filter "label=io.x-k8s.kind.cluster=$cluster")"
-test ! -e "$state_home/.astrona/labs/$cluster.json"
+test ! -e "$state_home/$state_dir/labs/$cluster.json"
 test "$(kubectl config current-context)" = "kind-$fixture1"
 for name in "$fixture1" "$fixture2"; do
   kubectl --context "kind-$name" get --raw='/readyz?verbose'

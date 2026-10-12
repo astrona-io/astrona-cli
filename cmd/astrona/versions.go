@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/config"
 	"astrona/internal/ui"
 	"astrona/internal/version"
@@ -38,7 +39,7 @@ func versionsDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".astrona", "bin"), nil
+	return filepath.Join(home, apphome.Name(), "bin"), nil
 }
 
 // minHandoverVersion is the oldest astrona a lab is ever handed over to
@@ -248,6 +249,9 @@ var stdinIsTerminal = func() bool { return isatty.IsTerminal(os.Stdin.Fd()) }
 // (verified download) and returns its path. A variable so tests stay
 // offline.
 var installVersion = func(v version.V) (string, error) {
+	if apphome.Development() {
+		return "", fmt.Errorf("development builds cannot install release binaries; use your installed release for astrona versions install")
+	}
 	dir, err := versionsDir()
 	if err != nil {
 		return "", err
@@ -407,14 +411,15 @@ func newVersionsCmd() *cobra.Command {
 		Short: "Install and list older astrona versions, for labs that need one",
 		Long: "A lab can say which astrona releases may run it (astronaVersion in its config, e.g. " +
 			"\"<=0.2.1\"). Older releases install side by side as astrona-<version> in " +
-			"~/.astrona/bin — the newest stays `astrona` — and `astrona` hands a lab's commands to " +
+			"~/" + apphome.Name() + "/bin — the newest stays `astrona` — and `astrona` hands a lab's commands to " +
 			"the newest installed version it allows, automatically. If none is installed, it offers " +
 			"to install the right one (at a terminal; --install-version installs without asking, " +
 			"e.g. in CI). A remote lab must be trusted (--trust) before it's handed over, and never to a " +
 			"version older than " + minHandoverVersion + " (the first with trust prompts); only " +
-			"~/.astrona/bin is searched, not PATH.\n\n" +
+			"~/" + apphome.Name() + "/bin is searched, not PATH.\n\n" +
 			"Downloads are verified against the SHA-256 digest GitHub records for each release " +
-			"binary. Add ~/.astrona/bin to your PATH to run e.g. astrona-0.2.1 directly.",
+			"binary. Add ~/" + apphome.Name() + "/bin to your PATH to run e.g. astrona-0.2.1 directly.\n\n" +
+			"Development builds do not install or hand commands to release binaries; use your installed release for version management.",
 		RunE: func(cmd *cobra.Command, args []string) error { return listVersions("") },
 	}
 	var output string

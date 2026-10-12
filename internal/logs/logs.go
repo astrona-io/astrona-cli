@@ -28,6 +28,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"astrona/internal/apphome"
 )
 
 // stampLayout is the UTC timestamp format ui.New puts in a log filename.
@@ -84,7 +86,7 @@ func Dir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("could not determine home directory: %w", err)
 	}
-	dir := filepath.Join(home, ".astrona", "logs")
+	dir := filepath.Join(home, apphome.Name(), "logs")
 	// Owner-only: run logs hold full script output and command lines. The
 	// Chmod also tightens a directory an older release created 0755.
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -172,7 +174,7 @@ func Resolve(ref string, f Filter) (Entry, error) {
 		return Entry{}, err
 	}
 	if len(entries) == 0 {
-		return Entry{}, fmt.Errorf("no run logs found under ~/.astrona/logs")
+		return Entry{}, fmt.Errorf("no run logs found under ~/%s/logs", apphome.Name())
 	}
 
 	ref = strings.TrimSpace(ref)

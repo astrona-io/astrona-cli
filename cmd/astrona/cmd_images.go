@@ -9,6 +9,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/hypervisor"
 
 	"github.com/spf13/cobra"
@@ -32,7 +33,7 @@ func newImagesListCmd() *cobra.Command {
 	var output string
 	cmd := &cobra.Command{
 		Use:          "list",
-		Short:        "List cached qemu base images (~/.astrona/cache/images)",
+		Short:        "List cached qemu base images (~/" + apphome.Name() + "/cache/images)",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := checkOutput(output); err != nil {
@@ -154,7 +155,7 @@ func listImageCache() ([]imageCacheEntry, error) {
 // table `astrona list` uses.
 func printImageCacheTable(entries []imageCacheEntry) {
 	if len(entries) == 0 {
-		fmt.Println("No cached qemu base images (~/.astrona/cache/images is empty).")
+		fmt.Println("No cached qemu base images (~/" + apphome.Name() + "/cache/images is empty).")
 		return
 	}
 

@@ -26,6 +26,7 @@ import (
 	"strings"
 	"unicode/utf16"
 
+	"astrona/internal/apphome"
 	"astrona/internal/terms"
 	"astrona/internal/version"
 	"github.com/mattn/go-isatty"
@@ -187,9 +188,14 @@ func forwardArgs(distro string, args []string) []string {
 }
 
 func main() {
+	apphome.Configure(Version)
 	args := os.Args[1:]
 	if len(args) == 0 {
 		args = []string{"--help"}
+	}
+	if apphome.Development() && args[0] != "--launcher-version" {
+		fmt.Fprintln(os.Stderr, "Development labs must run inside WSL: build with just build there and run ./astrona. This launcher will not call your installed release.")
+		os.Exit(1)
 	}
 	switch args[0] {
 	case "setup":

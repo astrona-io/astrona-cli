@@ -6,6 +6,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/localdata"
 	"github.com/spf13/cobra"
 )
@@ -19,7 +20,7 @@ func dataCommand(store func() (localdata.Store, error)) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "data",
 		Short: "Show local file usage, clean caches, or reset CLI preferences",
-		Long: "Show file counts and logical byte sizes under ~/.astrona and the Astrona Git cache. " +
+		Long: "Show file counts and logical byte sizes under ~/" + apphome.Name() + " and the Astrona Git cache. " +
 			"Symlink targets, Docker/Podman storage and account-side progress are not included. " +
 			"Sparse VM files can occupy less disk space than their logical size. Nothing is sent to Astrona.",
 		Args: cobra.NoArgs,
@@ -138,7 +139,7 @@ func dataChangeCommand(store func() (localdata.Store, error), reset bool) *cobra
 	if reset {
 		cmd.Use = "reset"
 		cmd.Short = "Preview resetting saved preferences and the selected lab"
-		cmd.Long = "Remove settings.json, settings-review.json, current.json, update-check.json and catalog.json under ~/.astrona. " +
+		cmd.Long = "Remove settings.json, settings-review.json, current.json, update-check.json and catalog.json under ~/" + apphome.Name() + ". " +
 			"Use --yes to apply; --dry-run always previews. This restores preference defaults and forgets the selected lab. " +
 			"It does not reset a lab, sign you out, revoke trust, change catalog sources, or delete results or student files. " +
 			"For sign-out use astrona logout. Finish commands running in older CLI versions before resetting."

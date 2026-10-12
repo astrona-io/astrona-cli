@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/mattn/go-isatty"
+
+	"astrona/internal/apphome"
 )
 
 const (
@@ -54,7 +56,7 @@ func updateStatePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".astrona", "update-check.json"), nil
+	return filepath.Join(home, apphome.Name(), "update-check.json"), nil
 }
 
 func loadUpdateState(path string) updateState {

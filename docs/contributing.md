@@ -11,8 +11,7 @@
 
 | Recipe | What it does |
 |---|---|
-| `just build` | `go build -o astrona ./cmd/astrona` |
-| `just install` | Build, then move the binary onto `PATH` (`~/.local/bin` by default, override with `ASTRONA_INSTALL_DIR`) |
+| `just build` | Build the development binary at `./astrona`; nothing is installed or moved |
 | `just clean` | Remove the built binary |
 | `just fmt` | Fail if any file needs `gofmt` |
 | `just fmt-fix` | Auto-fix formatting |
@@ -24,6 +23,37 @@
 | `just build-docs` | Build the static docs site (`mkdocs build --strict`) — what CI runs |
 
 Run `just` with no arguments to list every recipe.
+
+```sh
+just build
+./astrona settings path
+./astrona run ./examples/k8s-basics-01 --ui
+```
+
+Use `./astrona` to run your local build. Plain `astrona` may run the installed
+release from your `PATH`. The former `just install` recipe has been removed.
+
+Unversioned builds (including plain `go build` and `go run`) store their
+credentials, settings, acceptance receipts, lab state and caches under
+`~/.astrona-dev`. Git clones are in `~/.astrona-dev/cache/repos`. They use
+`astrodev-` cluster names (`astrodev-test-` for authoring tests), so release
+discovery and `destroy '*'` do not select development clusters, or vice versa.
+First use requires its own terms acceptance, settings review and optional login.
+Existing release data is neither copied nor migrated.
+
+Tagged releases, built with `-X main.Version=vX.Y.Z`, keep `~/.astrona`, the
+existing OS Git cache and `astro-` cluster names. Do not stamp a local test
+binary with a release version unless you intend to use release data.
+Development builds disable update checks, self-upgrade and installation of
+other release binaries; rebuild from source to update them. Background lab
+helpers run the same binary and keep the same profile.
+
+This isolates Astrona-managed state, not the machine: container engines, images,
+host ports and your kubectl configuration are still shared. Port collisions
+remain possible. Lab scripts still run on your machine. The server remains
+`astrona.io` unless you explicitly set `ASTRONA_URL`; logging in and submitting
+can affect that account. On Windows, build and run inside WSL. An unversioned
+native launcher refuses to forward commands to the installed release.
 
 ## Working on the docs
 

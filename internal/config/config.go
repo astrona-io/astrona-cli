@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/gitsource"
 
 	"gopkg.in/yaml.v3"
@@ -505,27 +506,25 @@ func (c *LabConfig) ValidateNames() error {
 	return nil
 }
 
-// NormalizeClusterName prefixes clusterName with "astro-" if it doesn't already
-// start with "astro-".
+// NormalizeClusterName puts a name in this build's cluster namespace.
 func NormalizeClusterName(clusterName string) string {
 	if clusterName == "" {
 		clusterName = "astrona-lab"
 	}
-	if !strings.HasPrefix(clusterName, "astro-") {
-		return "astro-" + clusterName
+	if !strings.HasPrefix(clusterName, apphome.ClusterPrefix()) {
+		return apphome.ClusterPrefix() + clusterName
 	}
 	return clusterName
 }
 
-// NormalizeTestClusterName prefixes clusterName with "astro-test-" after stripping
-// any existing "astro-" or "test-" prefixes to prevent nested naming.
+// NormalizeTestClusterName puts a name in this build's test cluster namespace.
 func NormalizeTestClusterName(clusterName string) string {
 	if clusterName == "" {
 		clusterName = "astrona-lab"
 	}
-	clusterName = strings.TrimPrefix(clusterName, "astro-")
+	clusterName = strings.TrimPrefix(clusterName, apphome.ClusterPrefix())
 	clusterName = strings.TrimPrefix(clusterName, "test-")
-	return "astro-test-" + clusterName
+	return apphome.TestClusterPrefix() + clusterName
 }
 
 // APIVersionV1 is the only config format this astrona understands.

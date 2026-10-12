@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"astrona/internal/apphome"
 )
 
 // currentLab is the lab `astrona use` remembers: the same inputs -c/-f/
@@ -28,7 +30,7 @@ func currentLabPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".astrona", "current.json"), nil
+	return filepath.Join(home, apphome.Name(), "current.json"), nil
 }
 
 func loadCurrentLab() (*currentLab, error) {

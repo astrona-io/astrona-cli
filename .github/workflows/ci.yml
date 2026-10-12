@@ -158,7 +158,7 @@ jobs:
         if: always()
         run: |
           export PATH="$(go env GOPATH)/bin:$PATH"
-          left="$(kind get clusters 2>/dev/null | grep '^astro-' || true)"
+          left="$(kind get clusters 2>/dev/null | grep -E '^astro(dev)?-' || true)"
           if [ -n "$left" ]; then echo "left behind: $left"; exit 1; fi
 
       - name: Upload JUnit report

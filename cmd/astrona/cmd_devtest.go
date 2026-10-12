@@ -10,6 +10,7 @@ import (
 	"sync"
 	"syscall"
 
+	"astrona/internal/apphome"
 	"astrona/internal/config"
 	"astrona/internal/junit"
 	"astrona/internal/lifecycle"
@@ -154,7 +155,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&diagMode, "diagnostics", diagnosticsOnFailure, "When to collect a diagnostics bundle before teardown: on-failure, always, or never")
 	addParallelFlag(cmd, flags)
 	cmd.Flags().IntVar(&repeat, "repeat", 1, "Run the whole lifecycle this many times (fresh environment each) and report flaky checks")
-	cmd.Flags().StringVar(&diagDir, "diagnostics-dir", "", "Write the diagnostics bundle here (default ~/.astrona/diagnostics/<lab>-<timestamp>) — point it inside your CI workspace to upload it as an artifact")
+	cmd.Flags().StringVar(&diagDir, "diagnostics-dir", "", "Write the diagnostics bundle here (default ~/"+apphome.Name()+"/diagnostics/<lab>-<timestamp>) — point it inside your CI workspace to upload it as an artifact")
 
 	return cmd
 }

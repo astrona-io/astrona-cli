@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"astrona/internal/apphome"
 )
 
 // expirySkew renews an access token this long before it expires, so it
@@ -99,7 +101,7 @@ func DefaultStore() (Store, error) {
 	if err != nil {
 		return Store{}, fmt.Errorf("finding your home directory: %w", err)
 	}
-	return Store{Path: filepath.Join(home, ".astrona", "credentials.json")}, nil
+	return Store{Path: filepath.Join(home, apphome.Name(), "credentials.json")}, nil
 }
 
 // Load reads the credentials; (nil, nil) when there are none. On Unix it

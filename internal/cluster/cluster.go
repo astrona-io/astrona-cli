@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/config"
 	"astrona/internal/ui"
 
@@ -338,7 +339,7 @@ func (c *kindCollisionOutput) Write(p []byte) (int, error) {
 func collectFailedKindCreation(kindPath, name string, env []string, rep *ui.Reporter) {
 	home, err := os.UserHomeDir()
 	if err == nil {
-		parent := filepath.Join(home, ".astrona", "diagnostics")
+		parent := filepath.Join(home, apphome.Name(), "diagnostics")
 		dirErr := os.MkdirAll(parent, 0700)
 		var dir string
 		if dirErr == nil {

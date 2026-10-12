@@ -22,6 +22,7 @@ import (
 	"sort"
 	"strings"
 
+	"astrona/internal/apphome"
 	"astrona/internal/config"
 )
 
@@ -243,7 +244,7 @@ func Dir(clusterName string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve home directory: %w", err)
 	}
-	return filepath.Join(home, ".astrona", "resources", clusterName), nil
+	return filepath.Join(home, apphome.Name(), "resources", clusterName), nil
 }
 
 // Snapshot replaces clusterName's copy with the lab's current resources

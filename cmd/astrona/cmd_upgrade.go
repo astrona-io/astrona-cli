@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"astrona/internal/apphome"
 )
 
 // newUpgradeCmd builds `astrona upgrade`: dynamically checks GitHub for the
@@ -26,9 +28,13 @@ func newUpgradeCmd() *cobra.Command {
 			"digest, and replace the running astrona with it — only when it's newer (--force reinstalls).\n\n" +
 			"Installed with Homebrew? Then this runs `brew upgrade astrona` (`brew reinstall astrona` with " +
 			"--force) instead of downloading the binary itself, so Homebrew keeps track of the install.\n\n" +
-			"DEB, RPM and Snap installs print package installation instructions; their files are managed by the package manager.",
+			"DEB, RPM and Snap installs print package installation instructions; their files are managed by the package manager.\n\n" +
+			"Development builds cannot self-upgrade. Pull the source and run just build instead.",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if apphome.Development() {
+				return fmt.Errorf("development builds cannot self-upgrade; pull the source and run just build")
+			}
 			if packageUpgradeInstruction(PackageFormat) != "" {
 				return packageUpgradeError(PackageFormat)
 			}

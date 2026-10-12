@@ -256,7 +256,7 @@ func newPortForwardStopCmd(flags *rootFlags) *cobra.Command {
 		Short:             "Stop a lab's port forwards (the cluster keeps running)",
 		Long: "Stop a lab's port forwards. The kind cluster itself keeps running.\n\n" +
 			"With a lab-name (as shown by `astrona port-forward list`, with or without the " +
-			"'astro-' prefix), stops that lab's forwards. With --all, stops every lab's. " +
+			"prefix shown in `astrona list`), stops that lab's forwards. With --all, stops every lab's. " +
 			"With neither, uses the lab config resolved from -c/--file/--git.",
 		Example: `  astrona port-forward stop my-lab
   astrona pf stop --all`,

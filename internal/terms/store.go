@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"astrona/internal/apphome"
 )
 
 // Revision identifies the notice. The digest also detects edits
@@ -49,7 +51,7 @@ func DefaultStore() (Store, error) {
 	if err != nil {
 		return Store{}, fmt.Errorf("find terms directory: %w", err)
 	}
-	return Store{Dir: filepath.Join(home, ".astrona")}, nil
+	return Store{Dir: filepath.Join(home, apphome.Name())}, nil
 }
 
 func (s Store) open() (*os.Root, error) {

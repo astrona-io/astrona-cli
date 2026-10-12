@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"astrona/internal/account"
+	"astrona/internal/apphome"
 
 	"github.com/spf13/cobra"
 )
@@ -20,7 +21,7 @@ func newLogoutCmd() *cobra.Command {
 		Use:   "logout",
 		Short: "Sign out of Astrona on this computer",
 		Long: "Sign out: revoke this computer's sign-in on the Astrona website (best effort, a few " +
-			"seconds at most) and delete ~/.astrona/credentials.json. Catalog labs then need " +
+			"seconds at most) and delete ~/" + apphome.Name() + "/credentials.json. Catalog labs then need " +
 			"`astrona login` again; labs that are already running keep running.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

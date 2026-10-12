@@ -2,6 +2,7 @@ package main
 
 import (
 	"astrona/internal/account"
+	"astrona/internal/apphome"
 	"context"
 	"fmt"
 	"net/url"
@@ -36,7 +37,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"and apply bootstrap manifests.\n\n" +
 			"Before creating Kind clusters, check the engine, resources and host ports. Memory estimates include " +
 			"running Kind clusters created outside Astrona. Estimates warn; definite environment failures block startup. " +
-			"On startup failure, collect diagnostics under ~/.astrona/diagnostics. Failed Kind creation exports " +
+			"On startup failure, collect diagnostics under ~/" + apphome.Name() + "/diagnostics. Failed Kind creation exports " +
 			"retained node logs before cleaning up that new cluster; later failures leave the lab available for diagnosis. " +
 			"CoreDNS readiness defaults to 3m; runtime.kind.dnsTimeout can override it.\n\n" +
 			"Once a kind lab is ready, kubectl points at it: its context (kind-<lab>) becomes the " +

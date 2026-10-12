@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"astrona/internal/apphome"
 )
 
 // Attempt is one `astrona submit` as recorded in the lab's history.
@@ -54,7 +56,7 @@ func historyPath(lab string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
 	}
-	return filepath.Join(home, ".astrona", "results", lab+".jsonl"), nil
+	return filepath.Join(home, apphome.Name(), "results", lab+".jsonl"), nil
 }
 
 // RecordAttempt appends a to lab's history.

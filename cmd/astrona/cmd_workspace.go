@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
@@ -60,7 +61,7 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			"q or Ctrl-C opens an exit menu: keep running, submit (graded labs), or explicitly confirm destruction. " +
 			"Closing the terminal does not submit or destroy; existing time limits still apply.\n\n" +
 			"Requires an interactive terminal outside CI. No persistent setting; QEMU is not yet supported.",
-		Example:           "  astrona ui\n  astrona ui astro-my-lab\n  astrona run ./labs/my-lab --ui",
+		Example:           "  astrona ui\n  astrona ui " + apphome.ClusterPrefix() + "my-lab\n  astrona run ./labs/my-lab --ui",
 		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: labCompletion(isKind),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -128,7 +129,7 @@ func workspaceLabNames() ([]string, error) {
 	owners := linkedClusterOwners()
 	var names []string
 	for _, row := range collectKindRows() {
-		if _, linked := owners[row.name]; !linked && isRunning(row) && slices.Contains(known, row.name) && !strings.HasPrefix(row.name, "astro-test-") {
+		if _, linked := owners[row.name]; !linked && isRunning(row) && slices.Contains(known, row.name) && !strings.HasPrefix(row.name, apphome.TestClusterPrefix()) {
 			names = append(names, row.name)
 		}
 	}

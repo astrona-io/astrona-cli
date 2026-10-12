@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/ui"
 )
 
@@ -22,7 +23,7 @@ import (
 // path-safety concern as joinWithinBaseDir in scripts.go, different
 // mechanism — here we don't need the directory name to be human-readable).
 func gitCacheDir(url, ref string) (string, error) {
-	cacheDir, err := os.UserCacheDir()
+	cacheDir, err := apphome.ReposDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user cache dir: %w", err)
 	}
@@ -30,7 +31,7 @@ func gitCacheDir(url, ref string) (string, error) {
 	sum := sha256.Sum256([]byte(url + "@" + ref))
 	key := hex.EncodeToString(sum[:])[:16]
 
-	dir := filepath.Join(cacheDir, "astrona", "repos", key)
+	dir := filepath.Join(cacheDir, key)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create git cache dir '%s': %w", dir, err)
 	}

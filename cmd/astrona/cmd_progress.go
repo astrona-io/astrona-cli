@@ -9,6 +9,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/exam"
 	"astrona/internal/proctor"
 
@@ -79,7 +80,7 @@ func printProgressTable(w io.Writer, all []proctor.LabProgress, now time.Time) {
 			fastest = exam.Round(time.Duration(p.FastestPassSeconds) * time.Second)
 		}
 		fmt.Fprintf(tw, "%s\t%s\t%d/%d (%.0f%%)\t%d\t%s\t%s\n",
-			strings.TrimPrefix(p.Lab, "astro-"), result, p.BestEarned, p.BestMax, p.BestPercent(),
+			strings.TrimPrefix(p.Lab, apphome.ClusterPrefix()), result, p.BestEarned, p.BestMax, p.BestPercent(),
 			p.Attempts, fastest, humanAgo(now.Sub(p.LastAttempt)))
 	}
 	tw.Flush()

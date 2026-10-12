@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/diagnostics"
@@ -235,6 +236,6 @@ func newDiagnoseCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&outDir, "output", "o", "", "Directory to write the bundle to (default ~/.astrona/diagnostics/<lab>-<timestamp>)")
+	cmd.Flags().StringVarP(&outDir, "output", "o", "", "Directory to write the bundle to (default ~/"+apphome.Name()+"/diagnostics/<lab>-<timestamp>)")
 	return cmd
 }

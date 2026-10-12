@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/localdata"
 )
 
@@ -42,7 +43,7 @@ func settingsPath(flags *rootFlags) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("find your settings directory: %w", err)
 	}
-	return filepath.Join(home, ".astrona", "settings.json"), nil
+	return filepath.Join(home, apphome.Name(), "settings.json"), nil
 }
 
 func parseSetting(key, value string) (json.RawMessage, error) {

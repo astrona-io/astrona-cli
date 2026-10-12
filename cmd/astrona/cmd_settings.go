@@ -6,6 +6,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+
+	"astrona/internal/apphome"
 )
 
 func newSettingsCmd(flags *rootFlags) *cobra.Command {
@@ -13,7 +15,7 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "settings",
 		Short: "View and change your saved CLI preferences",
-		Long: "View saved preferences and defaults from ~/.astrona/settings.json. " +
+		Long: "View saved preferences and defaults from ~/" + apphome.Name() + "/settings.json. " +
 			"Explicit command-line flags override saved preferences. Settings never store " +
 			"credentials or approve remote code. Viewing settings does not create a file.\n\n" +
 			"Use view for a detailed overview, review to approve settings changes, " +

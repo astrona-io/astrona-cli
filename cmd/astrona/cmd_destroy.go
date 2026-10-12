@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
@@ -93,7 +94,7 @@ func destroyByDiscovery(rep *ui.Reporter) error {
 		if _, linked := owners[r.name]; linked {
 			continue
 		}
-		if strings.HasPrefix(r.name, "astro-test-") {
+		if strings.HasPrefix(r.name, apphome.TestClusterPrefix()) {
 			test = append(test, r)
 		} else {
 			realLabs = append(realLabs, r)
@@ -228,7 +229,7 @@ func destroyByPattern(pattern string, rep *ui.Reporter) error {
 			// Also match against the name with the "astro-" prefix
 			// stripped, so `destroy 'my-lab-*'` behaves the same as
 			// `destroy 'astro-my-lab-*'`.
-			ok, _ = filepath.Match(pattern, strings.TrimPrefix(r.name, "astro-"))
+			ok, _ = filepath.Match(pattern, strings.TrimPrefix(r.name, apphome.ClusterPrefix()))
 		}
 		if ok {
 			matched = append(matched, r.name)
@@ -399,13 +400,13 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 		Long: "Tear down a lab environment (both the normal run and any leftover 'astrona test' run).\n\n" +
 			"With no lab-name, resolves the lab config the same way `run`/`submit` do (-c/--file/--git/--git-ref) " +
 			"and falls back to auto-discovering running labs if that fails.\n\n" +
-			"With a lab-name (as shown by `astrona list`, with or without the 'astro-' prefix — e.g. 'astro-my-lab' " +
+			"With a lab-name (as shown by `astrona list`, with or without the '" + apphome.ClusterPrefix() + "' prefix — e.g. '" + apphome.ClusterPrefix() + "my-lab' " +
 			"or just 'my-lab'), destroys that lab directly — no config needed, so -c/--file/--git/--git-ref are " +
 			"ignored and any teardown scripts are skipped.\n\n" +
 			"With a catalog name (astrona.io/ATS016/section-020/module-01/lab-01, or without astrona.io/ as `astrona labs` lists it), destroys that " +
 			"lab through its config, teardown scripts included.\n\n" +
 			"With a glob pattern (contains *, ?, or [), matches against all currently-running lab names " +
-			"(same list `astrona list` shows, with or without the 'astro-' prefix) and destroys every match — " +
+			"(same list `astrona list` shows, with or without the '" + apphome.ClusterPrefix() + "' prefix) and destroys every match — " +
 			"e.g. `astrona destroy 'qemu-jumphost-*'` (quote it so your shell doesn't expand the glob itself). " +
 			"No config needed, same trade-offs as a single name.\n\n" +
 			"A lab's linked clusters (runtime.kind.clusters) are destroyed with it.\n\n" +
@@ -416,7 +417,7 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			"A remote lab (--git, URL, catalog) that has teardown scripts asks for approval first, like `run` — " +
 			"--trust approves it up front. If it isn't approved (declined, or no terminal and no --trust), " +
 			"its teardown scripts are skipped and the lab is still destroyed.\n\n" +
-			"The lab's copy of its resources (~/.astrona/resources/<lab>) is removed too; " +
+			"The lab's copy of its resources (~/" + apphome.Name() + "/resources/<lab>) is removed too; " +
 			"--keep-resources keeps it.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -480,6 +481,6 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&keepResources, "keep-resources", false, "Keep the lab's resources in ~/.astrona/resources/<lab> (for reference)")
+	cmd.Flags().BoolVar(&keepResources, "keep-resources", false, "Keep the lab's resources in ~/"+apphome.Name()+"/resources/<lab> (for reference)")
 	return cmd
 }

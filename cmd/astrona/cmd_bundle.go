@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"astrona/internal/addons"
+	"astrona/internal/apphome"
 	"astrona/internal/bundle"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
@@ -281,7 +282,7 @@ func bundlesDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".astrona", "bundles"), nil
+	return filepath.Join(home, apphome.Name(), "bundles"), nil
 }
 
 func newBundleLoadCmd(flags *rootFlags) *cobra.Command {
@@ -291,7 +292,7 @@ func newBundleLoadCmd(flags *rootFlags) *cobra.Command {
 		Long: "Verify a bundle (every image and addon manifest against its recorded SHA-256, the " +
 			"CPU architecture), load its images into Docker/Podman, seed the addon cache (only " +
 			"manifests matching astrona's own pinned versions are accepted), and unpack the lab " +
-			"into ~/.astrona/bundles/. Then run it like any local lab, with no network.\n\n" +
+			"into ~/" + apphome.Name() + "/bundles/. Then run it like any local lab, with no network.\n\n" +
 			"A bundle is someone else's code: like a remote lab, you're shown what it will do and " +
 			"asked once per bundle (--trust to approve without asking).",
 		Args: cobra.ExactArgs(1),
