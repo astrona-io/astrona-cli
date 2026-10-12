@@ -149,6 +149,11 @@ nav:
               - reference/cli/astrona_data.md
               - reference/cli/astrona_data_clean.md
               - reference/cli/astrona_data_reset.md
+              - reference/cli/astrona_settings.md
+              - reference/cli/astrona_settings_get.md
+              - reference/cli/astrona_settings_set.md
+              - reference/cli/astrona_settings_unset.md
+              - reference/cli/astrona_settings_path.md
               - reference/cli/astrona_versions.md
               - reference/cli/astrona_versions_list.md
               - reference/cli/astrona_versions_install.md

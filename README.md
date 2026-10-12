@@ -25,12 +25,17 @@ Flat, podman-`run`-style verbs at the root — no noun to namespace under. `--co
 - **Manage running labs** — `list`, `stop`, `start`, `port-forward`, `net`, `kubeconfig`
 - **Write labs** — `init`, `content`, `validate`, `test`, `bundle`
 - **Troubleshoot** — `doctor`, `check`, `diagnose`, `logs`, `images`
-- **astrona itself** — `data`, `versions`, `upgrade`
+- **astrona itself** — `settings`, `data`, `versions`, `upgrade`
 
 `astrona data` shows local file counts and sizes. `astrona data clean` previews
 cache cleanup; `astrona data reset` previews resetting saved preferences and the
 selected lab. Both require `--yes` to delete anything. Sign-in details, lab state,
 results and student files are kept. See [local data management](docs/getting-started/installation.md#local-data-and-cache-cleanup).
+
+Save CLI preferences with `astrona settings set keep-context true` or
+`astrona settings set parallel 2`. `astrona settings` lists supported keys;
+explicit command-line flags override saved values. Preferences are stored in
+`~/.astrona/settings.json`. See [persistent settings](docs/getting-started/installation.md#persistent-cli-settings).
 
 `astrona submit` and `astrona test` exit 2 when the lab was graded and didn't pass, 1 on any other error. `astrona check` exits non-zero on any ✗ — a missing required dependency (`kind`, `docker`/`podman`, `kubectl`), a container engine that isn't running or is too small, or a lab (from `-c`/`--git`, `astrona use`, or `./config.yaml`) that can't be loaded or won't fit; ⚠ warnings — such as the optional qemu toolchain or `git` missing — don't fail it.
 
