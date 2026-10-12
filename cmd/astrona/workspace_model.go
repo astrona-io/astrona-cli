@@ -230,6 +230,9 @@ func (m workspaceModel) menuText() string {
 // first cancels in-flight reads; no background refresh writes to the terminal.
 func runWorkspaceScreen(ctx context.Context, m workspaceModel, refresh func(context.Context) workspaceSnapshot) (workspaceModel, error) {
 	uiPaneTitle("WORKSPACE / " + m.name)
+	if m.showPreferences {
+		uiPaneTitle("PREFERENCES")
+	}
 	if err := ctx.Err(); err != nil {
 		return m, err
 	}

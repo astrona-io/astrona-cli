@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -37,16 +38,17 @@ func workspacePanel(title, content string, width, height int, border lipgloss.St
 		return workspaceFit(content, width, height)
 	}
 	label := ansi.Truncate(" "+sanitizeLine(title)+" ", width-4, "…")
-	lines := []string{border.Render("╭─" + label + strings.Repeat("─", max(0, width-3-ansi.StringWidth(label))) + "╮")}
+	space := max(0, width-2-ansi.StringWidth(label))
+	lines := []string{border.Render("┌" + strings.Repeat("─", space/2) + label + strings.Repeat("─", space-space/2) + "┐")}
 	for _, line := range strings.Split(workspaceFit(content, width-4, height-2), "\n") {
 		lines = append(lines, border.Render("│")+" "+line+" "+border.Render("│"))
 	}
-	lines = append(lines, border.Render("╰"+strings.Repeat("─", width-2)+"╯"))
+	lines = append(lines, border.Render("└"+strings.Repeat("─", width-2)+"┘"))
 	return strings.Join(lines, "\n")
 }
 
 func workspaceSelected(text string, width int) string {
-	return lipgloss.NewStyle().Foreground(lipgloss.Color("230")).Background(lipgloss.Color("24")).Bold(true).
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("16")).Background(lipgloss.Color("117")).Bold(true).
 		Render(workspaceFit("> "+sanitizeLine(text), width, 1))
 }
 
@@ -64,30 +66,46 @@ func (m workspaceModel) frame(title, context, body string, footer []string) stri
 	if gap > 0 {
 		brand += strings.Repeat(" ", gap) + version
 	}
-	active := " LABS "
+	active := workspaceNav([]string{"Labs", "Preferences"}, []string{"<enter>", "<p>"}, 0)
 	if m.showPreferences {
-		active = " PREFERENCES "
+		active = workspaceNav([]string{"Preferences", "Back"}, []string{"", "<esc>"}, 0)
 	} else if !m.home && len(m.labs) == 0 {
-		active = " LAB / TASK "
+		selected := 0
 		if m.results {
-			active = " LAB / RESULTS "
+			selected = 1
 		}
-		if m.snapshot.tracking != "" {
-			active += " | " + ansi.Truncate(sanitizeLine(m.snapshot.tracking), max(0, w-len(active)-4), "…") + " "
+		active = workspaceNav([]string{"Task", "Results", "Shell", "Preferences"}, []string{"<enter>", "<tab>", "<s>", "<p>"}, selected)
+		if w < 72 {
+			active = workspaceNav([]string{"Task", "Results", "Shell", "Settings"}, []string{"↵", "⇥", "s", "p"}, selected)
 		}
 	}
 	if m.navigation != "" {
 		active = m.navigation
 	}
-	header := brand + "\n" + workspaceMuted.Render(" "+sanitizeLine(context)) + "\n" + workspaceFocus.Render(active) + workspaceBorder.Render(strings.Repeat("─", max(0, w-ansi.StringWidth(active))))
+	header := brand + "\n" + workspaceMuted.Render(" "+sanitizeLine(context)) + "\n" + active
 	for len(footer) < 2 {
 		footer = append(footer, "")
+	}
+	if os.Getenv(uiPaneEnv) == "1" {
+		if !m.showPreferences && !m.enteringLab && !m.exitMenu && !m.confirmDestroy {
+			footer[0] = active
+			if m.home && !strings.HasPrefix(footer[1], "pgup/pgdn") {
+				footer[1] = "↑/↓ select  enter open  n start lab  r refresh  q quit"
+			}
+		}
+		return workspaceFit(workspaceMuted.Render(" "+sanitizeLine(context))+"\n"+
+			workspaceFit(body, w, m.bodyHeight())+"\n"+footer[0]+"\n"+workspaceMuted.Render(footer[1]), w, h)
 	}
 	return workspaceFit(header, w, 3) + "\n" + workspaceFit(body, w, max(0, h-5)) + "\n" +
 		workspaceFit(workspaceFocus.Render(footer[0])+"\n"+workspaceMuted.Render(footer[1]), w, 2)
 }
 
-func (m workspaceModel) bodyHeight() int { return max(3, m.height-5) }
+func (m workspaceModel) bodyHeight() int {
+	if os.Getenv(uiPaneEnv) == "1" {
+		return max(3, m.height-3)
+	}
+	return max(3, m.height-5)
+}
 
 func (m workspaceModel) smallView() string {
 	keys := "q exit menu\np preferences"
@@ -162,6 +180,12 @@ func (m workspaceModel) labView() string {
 		clock += "  Left: " + remaining.String()
 	}
 	context := m.name + "  |  " + m.snapshot.kind + "  |  " + clock
+	if os.Getenv(uiPaneEnv) == "1" {
+		context = fmt.Sprintf("%s  ·  Clusters: %d  ·  %s", m.snapshot.kind, len(m.snapshot.clusters), clock)
+	}
+	if m.snapshot.tracking != "" {
+		context += "  |  " + m.snapshot.tracking
+	}
 	message := m.notice
 	if m.snapshot.blocked != "" {
 		message = m.snapshot.blocked

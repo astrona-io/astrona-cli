@@ -7,7 +7,25 @@ astrona ui
 ```
 
 Home opens even when no labs are running or the container engine is offline.
-It has three sections:
+The header uses a k9s-style layout: labeled status fields on the left,
+keyboard shortcuts in columns, and an Astrona wordmark on wide terminals.
+It stays visible during setup, grading and shell sessions. The status fields
+show your login, account name, site, CLI version and active profile
+(Development or Release). Shortcuts change for the workspace, shell and pane
+controls. Small terminals use a compact header to leave room for content.
+
+![Astrona Home with sample labs, status fields and shortcut columns](../assets/ui-home.png)
+
+A green **Logged in** means saved credentials have
+an unexpired access token. Red **Not logged in** means there is no saved login
+for the selected site. Expired credentials show **Login needs checking** in
+amber; use `astrona whoami` to check and renew them, or `astrona login` to sign
+in. An unreadable credentials file shows **Login unavailable**.
+
+The header rereads local credentials every five seconds. It does not contact
+the API or verify whether the server has revoked a login.
+
+Home has three sections:
 
 - **Active runs:** saved runs, their container status and elapsed time. Select
   a running Kind lab or playground and press Enter to open its workspace.
@@ -20,7 +38,10 @@ It has three sections:
 - **Help:** controls, starting a lab, the current local profile and any errors
   encountered while reading run information.
 
-Tab changes sections, arrow keys select entries, Page Up/Down scroll details,
+The tabs below the content highlight the current section. Press `1` for Active runs,
+`2` for History, `3` for Help, or `p` for Preferences. The summary below it
+shows running and saved run counts, recent history count and refresh interval.
+Tab also changes sections, arrow keys select entries, Page Up/Down scroll details,
 `r` refreshes, `?` opens Help, and `q` or Ctrl-C closes Home. The screen refreshes
 every five seconds. Closing Home leaves labs running.
 
@@ -29,8 +50,11 @@ notice. After startup, select the run and press Enter to open
 its workspace. Press `p` to edit Preferences, even with no active runs. Boolean
 settings use `yes` / `no`; blank input keeps the current value.
 
-Home and the workspace use bordered panels, highlighted selections and fixed
-keyboard hints. Errors appear in an alert panel: F1 opens the full message,
+Home shows a full-width table with Lab, Type, Status and Age columns. Narrow
+terminals retain Lab and Status. Long names are truncated within their column
+so the status remains visible. The current row has a contrasting background.
+The content has a single border, with centered titles and section tabs below.
+Errors appear in an alert panel: F1 opens the full message,
 Page Up/Down scrolls it, and Esc returns. Save confirmations use status panels.
 
 ## Work on a lab
