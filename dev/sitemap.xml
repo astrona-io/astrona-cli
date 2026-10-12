@@ -113,6 +113,18 @@
          <lastmod>2026-10-12</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_data/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_data_clean/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_data_reset/</loc>
+         <lastmod>2026-10-12</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_destroy/</loc>
          <lastmod>2026-10-12</lastmod>
     </url>
