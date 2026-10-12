@@ -23,9 +23,11 @@ The codebase is organized in a standard, logical Go folder structure:
 - **`cmd/astrona/`** — CLI commands and entrypoints (`package main`):
   - `main.go` — Entrypoint: builds the root Cobra command, owns shared persistent flags (`rootFlags` struct), and registers all subcommands.
   - `config_helper.go` — Extracts CLI flag loading logic for commands to avoid circular packages.
+  - `cmd_data.go`, `data_lock.go` — Local file usage and preview-first cleanup/reset. The entrypoint holds a shared maintenance lock during command setup and execution; confirmed maintenance takes an exclusive lock. Keep the `data` command independent of settings, lab selection and network hooks so it can repair broken local preferences.
   - `banner.go` — Prints the beautiful startup ASCII banner.
   - `cmd_*.go` — One file per top-level command (`run`, `destroy`, `submit`, `ssh`, `test` (as `cmd_devtest.go`), `check`, `list`, `images`, `upgrade`).
 - **`internal/`** — Modular business logic packages:
+  - `localdata` — Read-only file inventory and allowlisted deletion plans. Cache cleanup is blocked by saved lab state, including stopped VMs. Never treat VM disks, results, credentials, resources or bundles as disposable cache. Use bounded `os.Root` operations and preserve maintenance/settings lock inodes.
   - `config` — Lab config models and parsing (`config.go`), unverified base image downloading/caching utility (`download.go`), and directory/path guards (`path.go`).
   - `runtime` — Dispatches runtime creation and environment state (`runtime.go`).
   - `lifecycle` — The lab pipeline every command uses: `Up` (create → links → preload → addons → lab CA → DNS → bootstrap → readiness → port forwards), linked clusters (`StartLinkedClusters`, dependency order, `--parallel`), stable names and WAN, shared CA, linked-cluster teardown, `SoftReset`. Printing, prompts and flags stay in `cmd/astrona`.

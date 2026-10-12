@@ -60,6 +60,7 @@ func commandGroups(flags *rootFlags) []commandGroup {
 			newImagesCmd(),
 		}},
 		{"astrona", "astrona itself:", []*cobra.Command{
+			newDataCmd(),
 			newVersionsCmd(),
 			newUpgradeCmd(),
 		}},
