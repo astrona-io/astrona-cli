@@ -171,7 +171,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Name() != "use" {
 				applyCurrentLab(cmd, flags)
 			}
-			if flags.updateCheck && !settingsReviewExempt(cmd) {
+			if flags.updateCheck && cmd.Name() != "ui" && !settingsReviewExempt(cmd) {
 				checkLatestVersion(flags.verbose)
 			}
 			return nil
