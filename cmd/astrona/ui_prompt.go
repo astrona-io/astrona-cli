@@ -21,10 +21,10 @@ func configureUITerminalPrompt(cmd *exec.Cmd) (func(), error) {
 		}
 		return ""
 	}
-	cmd.Env = append(env, "PS1=astrona-cli @ ")
+	cmd.Env = append(env, "PS1=astrona-cli > ")
 	shell := filepath.Base(cmd.Path)
 	if shell == "fish" {
-		cmd.Args = append(cmd.Args, "--interactive", "--init-command", "function fish_prompt; printf 'astrona-cli @ '; end; function fish_right_prompt; end")
+		cmd.Args = append(cmd.Args, "--interactive", "--init-command", "function fish_prompt; printf 'astrona-cli > '; end; function fish_right_prompt; end")
 		return noop, nil
 	}
 	if shell != "zsh" && shell != "bash" && shell != "sh" && shell != "dash" && shell != "ksh" {
@@ -53,7 +53,7 @@ unset ASTRONA_UI_SHELL_DIR ASTRONA_UI_SHELL_RC_DIR
 [[ -r "$ZDOTDIR/.zshrc" ]] && source "$ZDOTDIR/.zshrc"
 function __astrona_ui_prompt() {
   local previous=$?
-  PROMPT='astrona-cli @ '
+  PROMPT='astrona-cli > '
   RPROMPT=''
   return $previous
 }
@@ -65,7 +65,7 @@ __astrona_ui_prompt
 		files["rc"] = `[[ -r "$HOME/.bashrc" ]] && source "$HOME/.bashrc"
 __astrona_ui_prompt() {
   local previous=$?
-  PS1='astrona-cli @ '
+  PS1='astrona-cli > '
   return "$previous"
 }
 __astrona_ui_hooks=("${PROMPT_COMMAND[@]}")
@@ -80,7 +80,7 @@ __astrona_ui_prompt
 		files["rc"] = `[ -n "$ASTRONA_UI_SHELL_RC" ] && [ -r "$ASTRONA_UI_SHELL_RC" ] && . "$ASTRONA_UI_SHELL_RC"
 ENV=$ASTRONA_UI_SHELL_RC
 unset ASTRONA_UI_SHELL_RC
-PS1='astrona-cli @ '
+PS1='astrona-cli > '
 `
 		cmd.Args = append(cmd.Args, "-i")
 	}

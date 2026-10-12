@@ -101,7 +101,14 @@ Start a new lab and enter its workspace:
 astrona run ./labs/my-lab --ui
 ```
 
-Startup shows one Yes/No box before downloads or lab changes. Yes accepts the
+If you omit `--ui`, an interactive run first offers the UI, before terms,
+settings review or downloads. Press Enter or type `yes` to open it; `no`
+continues with the command-line prompts. The offer explains that the UI will
+become the default in v0.5.0. Use `--ui=false` to skip it. Runs with `--yes`,
+CI jobs and redirected input/output keep the command-line flow without this
+question. The UI currently supports Kind labs.
+
+Inside the UI, startup shows one Yes/No box before downloads or lab changes. Yes accepts the
 displayed settings and CLI terms, authorizes the lab's code and required
 downloads for this invocation, and continues with setup. Saved preferences
 are kept. Catalog labs use your account when signed in; otherwise they run
@@ -185,7 +192,7 @@ vertical divider left or right to resize it for the current UI session. The
 saved setting supplies the default when you open a new UI. Small terminals
 keep enough space for the terminal, and F2 switches panes below 64 columns.
 
-Embedded terminals use the short `astrona-cli @` prompt. Bash, Zsh and Fish
+Embedded terminals use the short `astrona-cli >` prompt. Bash, Zsh and Fish
 keep their startup configuration; Astrona replaces the prompt inside each UI
 terminal without editing your shell configuration files.
 

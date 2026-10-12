@@ -41,7 +41,7 @@ func checkWorkspaceTerminal(input, output, ci bool, term string) error {
 
 func workspaceRuntime(cfg *config.LabConfig) error {
 	if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" {
-		return fmt.Errorf("the lab UI currently supports Kind labs; run without --ui and use astrona ssh for QEMU labs")
+		return fmt.Errorf("the lab UI currently supports Kind labs; run with --ui=false and use astrona ssh for QEMU labs")
 	}
 	return nil
 }

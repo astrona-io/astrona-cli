@@ -63,7 +63,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"Yes accepts the displayed terms and settings and permits the lab's downloads and code for this invocation. No cancels startup. " +
 			"If the lab already exists, the UI asks before destroying it and starting over with all work discarded. " +
 			"That replacement stays local: no account session, progress or results are sent to Astrona. Use astrona ui to reopen without restarting. " +
-			"The UI is opt-in per invocation, requires a terminal outside CI, and has no saved setting.",
+			"Interactive runs without --ui offer the UI before downloads; Enter chooses Yes. Use --ui=false to keep the command-line flow. --yes, CI and redirected input/output skip the offer. The UI will become the default in v0.5.0.",
 		Example: `  astrona run astrona.io/ATS014/section-010/module-01/lab-02   # catalog lab: no login needed
   astrona run ./labs/my-lab
   astrona run ./labs/my-lab --ui                      # terminal workspace

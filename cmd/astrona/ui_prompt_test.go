@@ -44,7 +44,7 @@ func TestUITerminalCompactPromptKeepsShellSetup(t *testing.T) {
 				t.Fatal(result.err)
 			}
 			tab := manager.snapshot()[0]
-			waitUITab(t, tab, "astrona-cli @")
+			waitUITab(t, tab, "astrona-cli >")
 			if shell != "fish" {
 				_, _ = io.WriteString(tab.terminal, "kept_alias\n")
 				waitUITab(t, tab, "setup-kept")
