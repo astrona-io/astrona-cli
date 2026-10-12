@@ -109,9 +109,41 @@ func (s userSettings) value(key string) (json.RawMessage, error) {
 // loadSettings never creates files and refuses malformed settings rather than
 // silently changing command behavior or replacing a file that needs repair.
 func loadSettings(path string) (userSettings, error) {
+	return loadSettingsWithRetired(path, nil)
+}
+
+func loadSettingsWithRetired(path string, retired map[string]bool) (userSettings, error) {
+	data, err := readSettingsFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if data == nil {
+		return userSettings{}, nil
+	}
+	var saved userSettings
+	if err := json.Unmarshal(data, &saved); err != nil {
+		return nil, fmt.Errorf("invalid settings in %s; edit the file to repair it: %w", path, err)
+	}
+	if saved == nil {
+		return nil, fmt.Errorf("settings %s must contain a JSON object", path)
+	}
+	for key, value := range saved {
+		if retired[key] {
+			continue
+		}
+		parsed, err := parseSetting(key, strings.TrimSpace(string(value)))
+		if err != nil {
+			return nil, fmt.Errorf("invalid settings in %s; edit the file to repair it: %w", path, err)
+		}
+		saved[key] = parsed
+	}
+	return saved, nil
+}
+
+func readSettingsFile(path string) ([]byte, error) {
 	info, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return userSettings{}, nil
+		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("read settings %s: %w", path, err)
@@ -139,21 +171,7 @@ func loadSettings(path string) (userSettings, error) {
 	if len(data) > maxSettingsSize {
 		return nil, fmt.Errorf("settings %s exceeds 64 KiB", path)
 	}
-	var saved userSettings
-	if err := json.Unmarshal(data, &saved); err != nil {
-		return nil, fmt.Errorf("invalid settings in %s; edit the file to repair it: %w", path, err)
-	}
-	if saved == nil {
-		return nil, fmt.Errorf("settings %s must contain a JSON object", path)
-	}
-	for key, value := range saved {
-		parsed, err := parseSetting(key, strings.TrimSpace(string(value)))
-		if err != nil {
-			return nil, fmt.Errorf("invalid settings in %s; edit the file to repair it: %w", path, err)
-		}
-		saved[key] = parsed
-	}
-	return saved, nil
+	return data, nil
 }
 
 // changeSetting serializes CLI writers with a file lock, then atomically
@@ -170,6 +188,21 @@ func changeSetting(path, key string, value *string) error {
 			return err
 		}
 	}
+	return withSettingsLock(path, func() error {
+		saved, err := loadSettings(path)
+		if err != nil {
+			return err
+		}
+		if value == nil {
+			delete(saved, key)
+		} else {
+			saved[key] = parsed
+		}
+		return writeSettingsFile(path, saved)
+	})
+}
+
+func withSettingsLock(path string, change func() error) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("create settings directory: %w", err)
@@ -184,20 +217,19 @@ func changeSetting(path, key string, value *string) error {
 	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		return fmt.Errorf("lock settings (another command may be changing them; try again): %w", err)
 	}
-	saved, err := loadSettings(path)
-	if err != nil {
+	return change()
+}
+
+// Callers hold settings.json.lock while replacing preferences or their review.
+func writeSettingsFile(path string, value any) error {
+	if _, err := readSettingsFile(path); err != nil {
 		return err
 	}
-	if value == nil {
-		delete(saved, key)
-	} else {
-		saved[key] = parsed
-	}
-	data, err := json.MarshalIndent(saved, "", "  ")
+	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		return fmt.Errorf("encode settings: %w", err)
 	}
-	tmp, err := os.CreateTemp(dir, ".settings-*.tmp") // created with mode 0600
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".settings-*.tmp") // created with mode 0600
 	if err != nil {
 		return fmt.Errorf("create settings file: %w", err)
 	}

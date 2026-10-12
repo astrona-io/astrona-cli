@@ -138,7 +138,7 @@ func dataChangeCommand(store func() (localdata.Store, error), reset bool) *cobra
 	if reset {
 		cmd.Use = "reset"
 		cmd.Short = "Preview resetting saved preferences and the selected lab"
-		cmd.Long = "Remove settings.json, current.json, update-check.json and catalog.json under ~/.astrona. " +
+		cmd.Long = "Remove settings.json, settings-review.json, current.json, update-check.json and catalog.json under ~/.astrona. " +
 			"Use --yes to apply; --dry-run always previews. This restores preference defaults and forgets the selected lab. " +
 			"It does not reset a lab, sign you out, revoke trust, change catalog sources, or delete results or student files. " +
 			"For sign-out use astrona logout. Finish commands running in older CLI versions before resetting."

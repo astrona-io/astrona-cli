@@ -44,6 +44,8 @@ if grep -Fxq "$cluster" <<< "$clusters"; then
 fi
 
 test ! -e "$HOME/.astrona/credentials.json"
+source "$(dirname "${BASH_SOURCE[0]}")/review-test-settings.sh"
+prepare_test_settings "$astrona"
 started=true
 # Headless runs must explicitly accept the lack of account tracking.
 if "$astrona" run "$lab" --accept-terms --trust --verbose < /dev/null > "$artifacts/unconfirmed.log" 2>&1; then

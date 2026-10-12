@@ -31,6 +31,14 @@ jobs:
           curl -L -o astrona "https://github.com/astrona-io/astrona-cli/releases/latest/download/astrona-linux-amd64"
           chmod +x astrona
 
+      - name: Review CLI settings
+        env:
+          ASTRONA_SETTINGS_REVIEW_ID: ${{ vars.ASTRONA_SETTINGS_REVIEW_ID }}
+        run: |
+          ./astrona settings set update-check false
+          ./astrona settings view
+          ./astrona settings review --accept "${ASTRONA_SETTINGS_REVIEW_ID:?Set the reviewed ID in repository variables first}"
+
       - name: astrona check
         run: ./astrona check --accept-terms
 
@@ -57,6 +65,7 @@ jobs:
 
 Notes:
 
+- Set the repository variable `ASTRONA_SETTINGS_REVIEW_ID` after inspecting the view from a runner with these exact settings. Keep the ID pinned: new definitions or changed saved values must stop CI for review. Do not derive approval automatically from the running binary. A fresh runner has only `update-check=false` saved at this step; an already-reviewed local profile can produce a different ID because review pins other chosen values. Pin the CLI release too if you need reproducible jobs. See [settings review](../getting-started/installation.md#review-settings-after-an-upgrade).
 - Review `astrona terms` and pass `--accept-terms` on every operational CI command. A cached receipt, `CI=true`, `--yes`, or `--trust` does not replace explicit acceptance. See [CLI usage terms](../getting-started/installation.md#cli-usage-terms).
 - `if: always()` on the upload step — a failing `astrona test` still writes the JUnit report, and you want that artifact whether the check passed or not.
 - Testing a lab from **another** repo or a URL (`--git …` / `-c https://…`) needs `--trust` in CI — remote labs must be approved before they run (see [Approving remote labs](remote-config.md#approving-remote-labs)). Testing the repo's own checkout (`-c .`) doesn't.

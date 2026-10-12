@@ -163,7 +163,7 @@ func TestCacheCleanupExemptCommands(t *testing.T) {
 	root := newRootCmd(&rootFlags{})
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd()
-	for _, args := range [][]string{{"settings", "set"}, {"data", "clean"}, {"help"}, {"completion", "bash"}, {"docgen"}, {"playground-watchdog"}} {
+	for _, args := range [][]string{{"settings", "set"}, {"data", "clean"}, {"help"}, {"completion", "bash"}, {"docgen"}, {"playground-watchdog"}, {"stop"}, {"destroy"}, {"logout"}, {"port-forward", "stop"}} {
 		cmd, _, err := root.Find(args)
 		if err != nil || cacheCleanupWanted(cmd) {
 			t.Fatalf("unexpected cleanup for %v: %v", args, err)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"astrona/internal/localdata"
@@ -17,13 +16,9 @@ func cacheCleanupWanted(cmd *cobra.Command) bool {
 			return false
 		}
 	}
-	path := strings.TrimPrefix(cmd.CommandPath(), cmd.Root().Name()+" ")
-	for _, name := range []string{"help", "completion", "__complete", "__completeNoDesc", "settings", "data", "terms"} {
-		if path == name || strings.HasPrefix(path, name+" ") {
-			return false
-		}
-	}
-	return true
+	// Cleanup commands stay usable without review. They must not apply
+	// unreviewed cache defaults as an automatic side effect.
+	return !settingsReviewExempt(cmd)
 }
 
 // Automatic maintenance runs only after command setup succeeded and the shared

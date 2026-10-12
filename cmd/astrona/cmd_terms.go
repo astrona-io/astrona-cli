@@ -50,6 +50,15 @@ func checkTerms(cmd *cobra.Command, explicit bool) error {
 // Child commands can replace Cobra's persistent hook. Wrap each resolved hook
 // at the entrypoint so adding a custom hook cannot bypass the terms check.
 func installTermsGate(root *cobra.Command, flags *rootFlags, check func(*cobra.Command, bool) error) {
+	installCommandGate(root, func(c *cobra.Command) error {
+		if !termsExempt(c) && (c.Name() != "terms" || flags.acceptTerms) {
+			return check(c, flags.acceptTerms)
+		}
+		return nil
+	})
+}
+
+func installCommandGate(root *cobra.Command, check func(*cobra.Command) error) {
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd()
 	var wrap func(*cobra.Command, func(*cobra.Command, []string) error)
@@ -62,10 +71,8 @@ func installTermsGate(root *cobra.Command, flags *rootFlags, check func(*cobra.C
 			before = func(c *cobra.Command, args []string) error { plain(c, args); return nil }
 		}
 		cmd.PersistentPreRunE = func(c *cobra.Command, args []string) error {
-			if !termsExempt(c) && (c.Name() != "terms" || flags.acceptTerms) {
-				if err := check(c, flags.acceptTerms); err != nil {
-					return err
-				}
+			if err := check(c); err != nil {
+				return err
 			}
 			if before != nil {
 				return before(c, args)

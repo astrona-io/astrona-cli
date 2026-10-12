@@ -167,17 +167,18 @@ func TestTempOnlyOldKnownPartialFiles(t *testing.T) {
 
 func TestResetMalformedSettingsPreservesUserData(t *testing.T) {
 	s := testStore(t)
-	for _, name := range []string{"settings.json", "current.json", "update-check.json", "catalog.json", "credentials.json", "trust.json", "terms.json", "catalog-sources.json", "results/lab.jsonl", "labs/active.json"} {
+	for _, name := range []string{"settings.json", "settings-review.json", "current.json", "update-check.json", "catalog.json", "credentials.json", "trust.json", "terms.json", "catalog-sources.json", "results/lab.jsonl", "labs/active.json"} {
 		put(t, filepath.Join(s.Data, name))
 	}
 	p, err := s.PlanReset(t.Context())
-	if err != nil || len(p.Items) != 4 {
+	if err != nil || len(p.Items) != 5 {
 		t.Fatalf("plan = %+v, %v", p, err)
 	}
 	if err := p.Apply(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	assertExists(t, filepath.Join(s.Data, "settings.json"), false)
+	assertExists(t, filepath.Join(s.Data, "settings-review.json"), false)
 	for _, name := range []string{"credentials.json", "trust.json", "terms.json", "catalog-sources.json", "results/lab.jsonl", "labs/active.json"} {
 		assertExists(t, filepath.Join(s.Data, name), true)
 	}

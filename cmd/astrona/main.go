@@ -165,7 +165,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Name() != "use" {
 				applyCurrentLab(cmd, flags)
 			}
-			if flags.updateCheck {
+			if flags.updateCheck && !settingsReviewExempt(cmd) {
 				checkLatestVersion(flags.verbose)
 			}
 			return nil
@@ -242,6 +242,7 @@ func main() {
 
 	flags := &rootFlags{}
 	rootCmd := newRootCmd(flags)
+	installCommandGate(rootCmd, func(cmd *cobra.Command) error { return checkSettingsReview(cmd, flags) })
 	installTermsGate(rootCmd, flags, checkTerms)
 
 	if err := executeWithDataLock(rootCmd, localdata.DefaultStore); err != nil {

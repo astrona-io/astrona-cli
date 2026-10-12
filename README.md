@@ -42,6 +42,12 @@ Save CLI preferences with `astrona settings set keep-context true` or
 explicit command-line flags override saved values. Preferences are stored in
 `~/.astrona/settings.json`. See [persistent settings](docs/getting-started/installation.md#persistent-cli-settings).
 
+`astrona settings view` explains current values, defaults and pending changes.
+The first operational command asks you to review settings, and asks again when
+a release changes their definitions. Use `astrona settings review` to choose
+values explicitly. CI needs a matching, reviewed settings ID; accepting usage
+terms does not approve settings. See [settings review](docs/getting-started/installation.md#review-settings-after-an-upgrade).
+
 Disposable caches default to 30 days and 50 GB combined. Change the limits with
 `astrona settings set cache-retention-days 60` and
 `astrona settings set cache-max-size-gb 100`; size `0` means unlimited.

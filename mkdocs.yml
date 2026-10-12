@@ -156,6 +156,8 @@ nav:
               - reference/cli/astrona_data_clean.md
               - reference/cli/astrona_data_reset.md
               - reference/cli/astrona_settings.md
+              - reference/cli/astrona_settings_view.md
+              - reference/cli/astrona_settings_review.md
               - reference/cli/astrona_settings_get.md
               - reference/cli/astrona_settings_set.md
               - reference/cli/astrona_settings_unset.md

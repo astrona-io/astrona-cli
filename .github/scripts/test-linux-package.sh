@@ -24,6 +24,8 @@ else
   executable=/usr/lib/astrona/astrona
 fi
 "$astrona" --version | grep -F "$tag"
+source "$(dirname "${BASH_SOURCE[0]}")/review-test-settings.sh"
+prepare_test_settings "$astrona"
 "$tools/kind" version
 "$tools/kubectl" version --client
 "$tools/oras" version

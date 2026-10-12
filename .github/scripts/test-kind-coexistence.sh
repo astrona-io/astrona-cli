@@ -52,6 +52,8 @@ cleanup() {
   exit "$result"
 }
 trap cleanup EXIT
+source "$(dirname "${BASH_SOURCE[0]}")/review-test-settings.sh"
+prepare_test_settings run_astrona
 
 [[ "$(id -u)" != 0 ]] || { echo 'Run as a regular user, without sudo' >&2; exit 1; }
 # Optional stronger assertion used by the macOS Docker Desktop workflow.

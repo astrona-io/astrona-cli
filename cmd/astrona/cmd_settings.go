@@ -16,7 +16,8 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 		Long: "View saved preferences and defaults from ~/.astrona/settings.json. " +
 			"Explicit command-line flags override saved preferences. Settings never store " +
 			"credentials or approve remote code. Viewing settings does not create a file.\n\n" +
-			"Use set to save a value, unset to restore its default, and path to locate the file.",
+			"Use view for a detailed overview, review to approve settings changes, " +
+			"set to save a value, unset to restore its default, and path to locate the file.",
 		Example: `  astrona settings
   astrona settings set keep-context true
   astrona settings set parallel 2
@@ -64,6 +65,7 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "text", "Output format: text or json (saved values plus defaults)")
+	cmd.AddCommand(newSettingsViewCmd(flags), newSettingsReviewCmd(flags))
 	cmd.AddCommand(&cobra.Command{
 		Use: "path", Short: "Print the settings file path", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

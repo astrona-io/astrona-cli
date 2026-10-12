@@ -375,8 +375,10 @@ including a stopped VM, **all cache eviction is deferred** to protect dependenci
 Cleanup also defers if another CLI command holds the maintenance lock. Usage can
 therefore exceed the limits while downloads or labs need it. A notice on stderr
 explains deferrals and reports removed entries without changing JSON stdout or
-the original command's exit code. Help, completions, settings, data inspection and
-internal background commands do not trigger automatic deletion.
+the original command's exit code. Help, completions, settings, data inspection,
+internal background commands, stop/destroy and logout do not trigger automatic
+deletion. Commands exempt from settings review also skip release checks, so they
+can be used for cleanup without applying unreviewed preferences.
 
 Preview or explicitly apply just the configured policy:
 
@@ -442,7 +444,7 @@ astrona data reset
 astrona data reset --yes
 ```
 
-Reset deletes only `settings.json`, `current.json`, `update-check.json`, and
+Reset deletes only `settings.json`, `settings-review.json`, `current.json`, `update-check.json`, and
 `catalog.json`. It works even if a settings file contains invalid JSON. This
 restores preference defaults and clears the `astrona use` selection; it does not
 restart or destroy a lab. Credentials, trust approvals, custom catalog sources,
@@ -466,6 +468,9 @@ separate from credentials, lab state, and remote-code approvals.
 
 ```sh
 astrona settings
+astrona settings view
+astrona settings view -o json
+astrona settings review
 astrona settings set keep-context true
 astrona settings set parallel 2
 astrona settings set cache-retention-days 30
@@ -492,7 +497,9 @@ update checks for one command; save it with
 `ASTRONA_NO_UPDATE_CHECK` environment variable, CI detection, and non-terminal
 output still suppress update checks even when the setting is true.
 
-Only saved overrides are written to the JSON file. `unset` removes one override
+Only saved choices are written to the JSON file. Review saves each chosen value,
+including a default you choose to keep, so later releases cannot silently replace
+that choice. `unset` removes one override
 without changing the others; omitted keys use the built-in defaults. Listing
 or reading settings does not create a file. The JSON output contains configured
 values plus defaults, before flags or environment-based suppression are applied.
@@ -510,6 +517,60 @@ before a normal command runs. A damaged file is never silently overwritten:
 use `astrona settings path` to find and repair it. Settings and lock files must
 not be symlinks. Remote-code trust and automatic confirmation cannot be enabled
 through settings.
+
+### Review settings after an upgrade
+
+`astrona settings view` gives each setting a readable block with its current
+value, source, built-in default and explanation. Booleans appear as On/Off;
+cache settings use days or GB when supported by your CLI version. It also lists
+pending changes and a review ID. `-o json` includes the same information;
+the existing `astrona settings -o json` remains a flat values object. Both are
+read-only and show preferences before flags or environment overrides.
+
+On first use of the review feature, Astrona asks about every setting. Later it
+asks only when a setting is added, removed, or changes its default, explanation
+or behavior revision. A CLI version change alone does not trigger another review.
+The review happens after terms acceptance but before lab loading or update checks.
+You can also start it with `astrona settings review`.
+
+For each pending setting, the prompt shows its default and current choice.
+Enter a value, press Enter to keep an ordinary preference, or type `q` to cancel.
+Network-sensitive choices require a typed value: `update-check` asks you to type
+`true` or `false` and explains that release checks contact GitHub. A final `[y/N]`
+confirms the review. Cancellation, EOF or invalid input leaves choices unchanged.
+Saved overrides stay selected unless you change them. Reviewed settings that
+have been removed are deleted from preferences only after confirmation; unknown
+keys not found in the previous review still require manual repair.
+
+The receipt lives in `~/.astrona/settings-review.json`, separate from preferences
+and usage-term acceptance. It records the reviewed definitions and CLI version,
+not a server identity or tracking token. Writes share the settings lock and use
+private atomic files. If interrupted between saving choices and the receipt,
+the next command asks again. `data reset --yes` clears both files. Unsetting an
+explicit network choice requires another review before normal use.
+
+Help, completion, settings, local data maintenance, terms display, internal
+background helpers, stop/destroy and logout remain available without review.
+Older binaries do not enforce this gate. No new telemetry or account tracking
+is enabled by this feature; existing signed-in lab progress tracking is separate.
+
+Without an interactive terminal (including CI), a pending review stops the
+command instead of assuming agreement. `--yes`, `--trust` and `--accept-terms`
+do not approve settings. Set network-sensitive choices explicitly, inspect the
+view, then acknowledge its exact ID:
+
+```sh
+astrona settings set update-check false
+astrona settings view
+astrona settings review --accept <review-id-you-inspected>
+```
+
+The ID binds to definitions and saved choices, so it changes when either changes.
+Do not pipe a newly generated ID straight into `--accept`; keep the reviewed ID
+in CI configuration and update it after inspecting changes. For a fresh runner,
+use the ID displayed with that runner's exact saved settings, before review
+pins additional defaults. An existing current receipt permits headless commands;
+it does not remove the separate per-command CI requirement for `--accept-terms`.
 
 Cache limits are local preferences, not lab flags, and are not forwarded during
 version handover. Older CLI releases that validate settings may reject these new
