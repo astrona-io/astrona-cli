@@ -242,6 +242,7 @@ func main() {
 
 	flags := &rootFlags{}
 	rootCmd := newRootCmd(flags)
+	installCommandGate(rootCmd, func(cmd *cobra.Command) error { return checkSettingsReview(cmd, flags) })
 	installTermsGate(rootCmd, flags, checkTerms)
 
 	if err := executeWithDataLock(rootCmd, localdata.DefaultStore); err != nil {

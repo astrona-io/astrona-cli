@@ -42,6 +42,12 @@ Save CLI preferences with `astrona settings set keep-context true` or
 explicit command-line flags override saved values. Preferences are stored in
 `~/.astrona/settings.json`. See [persistent settings](docs/getting-started/installation.md#persistent-cli-settings).
 
+`astrona settings view` explains current values, defaults and pending changes.
+The first operational command asks you to review settings, and asks again when
+a release changes their definitions. Use `astrona settings review` to choose
+values explicitly. CI needs a matching, reviewed settings ID; accepting usage
+terms does not approve settings. See [settings review](docs/getting-started/installation.md#review-settings-after-an-upgrade).
+
 `astrona submit` and `astrona test` exit 2 when the lab was graded and didn't pass, 1 on any other error. `astrona check` exits non-zero on any ✗ — a missing required dependency (`kind`, `docker`/`podman`, `kubectl`), a container engine that isn't running or is too small, or a lab (from `-c`/`--git`, `astrona use`, or `./config.yaml`) that can't be loaded or won't fit; ⚠ warnings — such as the optional qemu toolchain or `git` missing — don't fail it.
 
 Every command, flag and example is in the [CLI reference](https://cli.astrona.io/reference/cli/astrona/).

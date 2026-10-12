@@ -10,4 +10,4 @@ astrona submit              # record an attempt
 astrona destroy -c .        # clean up
 ```
 
-Authoring: `astrona validate -c .` checks the config; `astrona test -c .` proves the reference solution in `solution/` passes every check. `.github/workflows/lab.yml` runs both on every pull request.
+Authoring: `astrona validate -c .` checks the config; `astrona test -c .` proves the reference solution in `solution/` passes every check. `.github/workflows/lab.yml` runs both on every pull request. Before enabling it, review the CLI terms and set the repository variable `ASTRONA_SETTINGS_REVIEW_ID` from the settings view shown by the workflow. The ID must match its saved choices; inspect changes before updating it. See https://cli.astrona.io/guides/ci-integration/.

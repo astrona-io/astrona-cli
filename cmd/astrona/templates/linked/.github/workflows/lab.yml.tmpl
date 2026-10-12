@@ -31,11 +31,19 @@ jobs:
           curl -L -o astrona "https://github.com/astrona-io/astrona-cli/releases/latest/download/astrona-linux-amd64"
           chmod +x astrona
 
+      - name: Review CLI settings
+        env:
+          ASTRONA_SETTINGS_REVIEW_ID: ${{ vars.ASTRONA_SETTINGS_REVIEW_ID }}
+        run: |
+          ./astrona settings set update-check false
+          ./astrona settings view
+          ./astrona settings review --accept "${ASTRONA_SETTINGS_REVIEW_ID:?Set the reviewed ID in repository variables first}"
+
       - name: astrona validate
-        run: ./astrona validate -c .
+        run: ./astrona validate --accept-terms -c .
 
       - name: astrona test
-        run: ./astrona test -c . --junit-xml=junit-report.xml --diagnostics-dir=astrona-diagnostics
+        run: ./astrona test --accept-terms -c . --junit-xml=junit-report.xml --diagnostics-dir=astrona-diagnostics
 
       - name: Upload JUnit report
         if: always()

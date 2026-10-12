@@ -279,7 +279,7 @@ func (s Store) PlanReset(ctx context.Context) (Plan, error) {
 		return p, err
 	}
 	defer r.Close()
-	for _, name := range []string{"settings.json", "current.json", "update-check.json", "catalog.json"} {
+	for _, name := range []string{"settings.json", "settings-review.json", "current.json", "update-check.json", "catalog.json"} {
 		if err := p.addFile(ctx, r, s.Data, name); err != nil {
 			return p, err
 		}

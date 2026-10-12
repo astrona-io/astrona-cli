@@ -18,7 +18,9 @@ func executeWithDataLock(root *cobra.Command, store func() (localdata.Store, err
 	}()
 	var wrap func(*cobra.Command, func(*cobra.Command, []string) error)
 	wrap = func(cmd *cobra.Command, inherited func(*cobra.Command, []string) error) {
-		if cmd.Name() == "data" || cmd.Name() == "terms" {
+		// Settings writers share settings.json.lock with data reset. Read-only
+		// settings commands must not create the maintenance directory or lock.
+		if cmd.Name() == "data" || cmd.Name() == "terms" || cmd.Name() == "settings" {
 			return
 		}
 		before := inherited

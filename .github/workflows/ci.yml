@@ -86,6 +86,8 @@ jobs:
 
       - name: astrona check
         run: |
+          source .github/scripts/review-test-settings.sh
+          prepare_test_settings ./astrona
           export PATH="$(go env GOPATH)/bin:$PATH"
           ./astrona check --accept-terms
 
@@ -147,6 +149,8 @@ jobs:
 
       - name: astrona test (linked-labs-01)
         run: |
+          source .github/scripts/review-test-settings.sh
+          prepare_test_settings ./astrona
           export PATH="$(go env GOPATH)/bin:$PATH"
           ./astrona test --accept-terms -c examples/linked-labs-01 --junit-xml=junit-linked-labs-01.xml --diagnostics-dir=e2e-diagnostics
 

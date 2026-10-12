@@ -18,6 +18,6 @@ astrona submit              # grades both clusters (checks with cluster: backend
 astrona destroy -c .        # removes both
 ```
 
-Authoring: `astrona validate -c .` checks the config; `astrona test -c .` creates test copies of both clusters and proves the reference solution (`solution/` and `clusters/backend/testing/`) passes every check. `.github/workflows/lab.yml` runs both on every pull request.
+Authoring: `astrona validate -c .` checks the config; `astrona test -c .` creates test copies of both clusters and proves the reference solution (`solution/` and `clusters/backend/testing/`) passes every check. `.github/workflows/lab.yml` runs both on every pull request. Before enabling it, review the CLI terms and set the repository variable `ASTRONA_SETTINGS_REVIEW_ID` from the settings view shown by the workflow. The ID must match its saved choices; inspect changes before updating it. See https://cli.astrona.io/guides/ci-integration/.
 
 Guide: https://cli.astrona.io/guides/linked-labs/
