@@ -4546,8 +4546,8 @@ in. An unreadable credentials file shows <strong>Login unavailable</strong>.</p>
 the API or verify whether the server has revoked a login.</p>
 <p>Home has three sections:</p>
 <ul>
-<li><strong>Active runs:</strong> saved runs, their container status and active time. Select
-  a running Kind lab or playground and press Enter to open its workspace.
+<li><strong>Active runs:</strong> saved runs, their container or VM status and active time. Select
+  a running Kind or QEMU lab or playground and press Enter to open its workspace.
   Stopped, missing or unavailable runs remain visible but cannot be opened.</li>
 <li><strong>History:</strong> graded submission attempts, scores and completed local runs,
   including playgrounds. Select an entry and press Enter for details; Esc
@@ -4589,7 +4589,7 @@ as activity. The lab and commands keep running while the counter is paused.</p>
 <p>Ctrl+C returns to Home and pauses the counter immediately. Terminal tabs and
 background commands keep running, but their output does not add time. Reopening
 the same run resumes tracking and restores its tabs.</p>
-<p>Home shows container status separately from activity: <strong>Active</strong> means at least
+<p>Home shows container or VM status separately from activity: <strong>Active</strong> means at least
 one UI is working in that lab; <strong>Paused</strong> means none is active. Watching Home
 does not resume a timer. Other UIs refresh this state about every five seconds;
 a crashed UI stops being considered active after 15 seconds.</p>
@@ -4606,7 +4606,13 @@ up to five seconds since the last checkpoint.</p>
 <p>Start a new lab and enter its workspace:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>run<span class="w"> </span>./labs/my-lab<span class="w"> </span>--ui
 </code></pre></div>
-<p>Startup shows one Yes/No box before downloads or lab changes. Yes accepts the
+<p>If you omit <code>--ui</code>, an interactive run first offers the UI, before terms,
+settings review or downloads. Press Enter or type <code>yes</code> to open it; <code>no</code>
+continues with the command-line prompts. The offer explains that the UI will
+become the default in v0.5.0. Use <code>--ui=false</code> to skip it. Runs with <code>--yes</code>,
+CI jobs and redirected input/output keep the command-line flow without this
+question. The UI supports Kind and QEMU labs.</p>
+<p>Inside the UI, startup shows one Yes/No box before downloads or lab changes. Yes accepts the
 displayed settings and CLI terms, authorizes the lab's code and required
 downloads for this invocation, and continues with setup. Saved preferences
 are kept. Catalog labs use your account when signed in; otherwise they run
@@ -4651,8 +4657,9 @@ Version handover still requires trust for that exact source or an explicit
 <p>Development builds use <code>astrodev-</code> names and separate local data. Use the name
 displayed by Home or <code>astrona list</code>.</p>
 <p>Enter from Home opens the question/task on the left and one terminal tab on
-the right. The shell uses that lab's isolated kubeconfigs. Commands and editors
-stay inside the terminal pane.</p>
+the right. Kind shells use the lab's isolated kubeconfigs. QEMU terminals connect
+to the VM over SSH as its student user and open an interactive POSIX shell.
+Commands and editors stay inside the terminal pane.</p>
 <table>
 <thead>
 <tr>
@@ -4663,7 +4670,7 @@ stay inside the terminal pane.</p>
 <tbody>
 <tr>
 <td>Ctrl+T</td>
-<td>Name and open another terminal for the selected cluster.</td>
+<td>Name and open another terminal for the selected cluster or VM.</td>
 </tr>
 <tr>
 <td>Ctrl+N / Ctrl+P</td>
@@ -4691,7 +4698,11 @@ stay inside the terminal pane.</p>
 </tr>
 <tr>
 <td>F3</td>
-<td>Open lab details, cluster selection, results and submission controls.</td>
+<td>Open lab details, cluster or VM selection, results and submission controls.</td>
+</tr>
+<tr>
+<td>F4</td>
+<td>Toggle mouse text selection for copying.</td>
 </tr>
 </tbody>
 </table>
@@ -4700,20 +4711,27 @@ terminal views. The task pane formats Markdown headings, lists, code blocks,
 links and emphasis. Up to 12 terminal tabs are available per lab in one UI session.
 Ctrl+T opens a name dialog. Type a name (up to 24 characters), then press Enter.
 Leave it blank to use a default such as “Terminal 2”, or press Esc to cancel.
-The dialog explains how to switch tabs with the mouse or Ctrl+N / Ctrl+P.</p>
+The dialog explains how to switch tabs with the mouse or Ctrl+N / Ctrl+P.
+For QEMU labs, left/right arrows choose the VM before you open the new tab.</p>
 <p>The task pane defaults to 30% of the lab view. Change <strong>ui-task-width</strong> in
 Preferences (20–60%), or run <code>astrona settings set ui-task-width 25</code>. Drag the
 vertical divider left or right to resize it for the current UI session. The
 saved setting supplies the default when you open a new UI. Small terminals
 keep enough space for the terminal, and F2 switches panes below 64 columns.</p>
-<p>Embedded terminals use the short <code>astrona-cli @</code> prompt. Bash, Zsh and Fish
-keep their startup configuration; Astrona replaces the prompt inside each UI
-terminal without editing your shell configuration files.</p>
+<p>Embedded terminals show <code>astrona-cli &gt;</code> in light blue with white input text.
+Set <code>NO_COLOR=1</code> before starting Astrona to keep the prompt uncolored.
+Kind terminals running Bash, Zsh or Fish keep their startup configuration;
+Astrona replaces the prompt without editing your shell configuration files.</p>
 <p>Click a terminal tab to switch to it. Type <code>exit</code> to close a shell and remove
-its tab. Closing a tab frees a slot for another terminal. Returning to Home
+its tab. Closing the last shell opens a replacement on the same cluster or VM.
+If reconnection fails repeatedly, a Retry tab stays visible; press Enter to retry.
+Closing other tabs frees slots for new terminals. Returning to Home
 preserves shells and their environment until the UI closes or the run is deleted.</p>
-<p>In lab details, arrow keys select a cluster. Enter or <code>s</code> returns to the task
-and terminals; Ctrl+T then opens a terminal for that cluster. Tab switches the
+<p>Press F4 to select text with the mouse, then use your terminal’s usual Copy
+shortcut (Cmd+C on macOS, often Ctrl+Shift+C on Linux). Press F4 again to
+restore tab clicks and divider dragging.</p>
+<p>In lab details, arrow keys select a cluster or VM. Enter or <code>s</code> returns to the task
+and terminals; Ctrl+T then opens a terminal for that target. Tab switches the
 task/results panel, and Page Up/Down scrolls. <code>p</code> opens preferences. Settings
 apply to future commands; cache policy is checked after the UI closes.</p>
 <p>Press <code>g</code> in lab details to submit a graded lab and return Home. The lab stays
@@ -4730,9 +4748,9 @@ recorded under <code>~/.astrona/results/runs</code> (<code>~/.astrona-dev/result
 development builds). These records contain names, catalog identifiers and
 timestamps, without credentials or session IDs. They survive destruction and
 cache cleanup. Older destroyed runs without a record cannot be reconstructed.</p>
-<p>Home and the workspace require an interactive terminal outside CI. Workspace
-actions currently support Kind; QEMU runs may appear as saved runs, but use
-the regular CLI and <code>astrona ssh</code> to work on them.</p>
+<p>Home and the workspace require an interactive terminal outside CI. QEMU-only
+runs do not require a container engine. A multi-VM lab stays accessible while
+at least one VM is running; Home shows a degraded status when others stop.</p>
 <p>Standalone <code>astrona submit</code> and <code>astrona destroy</code> keep their normal terminal
 behavior. They do not automatically open Home. Closing a terminal never
 submits or destroys a lab; existing lab/playground time limits still apply.</p>
@@ -4740,7 +4758,7 @@ submits or destroys a lab; existing lab/playground time limits still apply.</p>
 <p>Inside a lab, the header shows CPU, memory and their averages immediately to
 the left of the Astrona logo. Narrow terminals use a compact header. Home
 keeps resource usage beneath its run list. Totals cover the selected lab,
-including its node containers and linked clusters. Averages cover valid samples
+including its node containers and linked clusters, or all its QEMU VMs. Averages cover valid samples
 collected while a UI observes the run, including time when activity is paused.
 They are sample means, not estimates for time when no UI was open. Concurrent
 UIs share the local averages and contribute at most one sample every five seconds.
@@ -4749,6 +4767,9 @@ A fresh run starts fresh averages. These measurements are not sent to Astrona.</
 cores. Memory uses the engine's reported usage. Missing, unsupported or incomplete
 stats show as unavailable; they do not count as zero. Sampling supports Docker
 and Podman Kind nodes and does not require Kubernetes Metrics Server.</p>
+<p>For QEMU, CPU is the host process percentage reported by <code>ps</code>, and memory is
+the resident host memory used by the VM processes. These are host measurements,
+not guest CPU or guest memory statistics.</p>
 <h2 id="guest-login-reminder">Guest login reminder<a class="headerlink" href="#guest-login-reminder" title="Permanent link">&para;</a></h2>
 <p>Each guest lab run offers <strong>Log in</strong> or <strong>Continue as guest</strong> before starting the
 lab. The <strong>Never ask again</strong> checkbox saves your choice to hide future reminders.

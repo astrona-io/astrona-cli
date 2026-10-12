@@ -4590,8 +4590,9 @@ current value, including the default <code>yes</code> for <code>update-check</co
 saved. Editing preferences does not approve new settings definitions or usage terms.</p>
 <p>Saved options apply to future CLI commands, not the current workspace's options
 or running lab. Cache policy is checked after the workspace closes; saving a
-cache preference does not itself delete files. Opening the UI remains opt-in
-through <code>--ui</code> or <code>astrona ui</code>, not a persistent setting.</p>
+cache preference does not itself delete files. Open the UI through <code>--ui</code>,
+<code>astrona ui</code>, or the Yes/No offer at the start of an interactive <code>astrona run</code>.
+This choice is not a persistent setting.</p>
 <h2 id="review-settings-after-an-upgrade">Review settings after an upgrade<a class="headerlink" href="#review-settings-after-an-upgrade" title="Permanent link">&para;</a></h2>
 <p><code>astrona settings view</code> gives each setting a readable block with its current
 value, source, built-in default and explanation. Booleans appear as yes/no;
