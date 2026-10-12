@@ -2,6 +2,7 @@ package gitsource
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"astrona/internal/ui"
 )
@@ -58,21 +60,82 @@ func gitRefIsRemoteBranch(gitPath, destDir, ref string) bool {
 	return cmd.Run() == nil
 }
 
+// Git stores the selected revision alongside the cached objects. This also
+// preserves the offline target when a tag moves or the default branch changes.
+const cachedRevisionRef = "refs/astrona/cached"
+
+func localGitRevision(gitPath, destDir, ref string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, gitPath, "-C", destDir, "rev-parse", "--verify", "--quiet", ref+"^{commit}").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func fullGitObjectID(value string) bool {
+	if len(value) != 40 && len(value) != 64 {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil
+}
+
+// remoteGitRevision reads ref metadata without downloading repository objects.
+// An empty revision means an expression such as HEAD~1 needs a normal fetch.
+func remoteGitRevision(gitPath, destDir, ref string) (remoteRef, revision string, err error) {
+	if fullGitObjectID(ref) {
+		return ref, strings.ToLower(ref), nil
+	}
+	refs := []string{"HEAD"}
+	if ref != "" {
+		refs = []string{"refs/heads/" + ref, "refs/tags/" + ref}
+		if strings.HasPrefix(ref, "refs/") {
+			refs = []string{ref}
+		}
+	}
+	args := []string{"-C", destDir, "ls-remote", "--", "origin"}
+	for _, name := range refs {
+		args = append(args, name, name+"^{}")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, gitPath, args...).Output()
+	if err != nil {
+		return "", "", err
+	}
+	advertised := make(map[string]string)
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fullGitObjectID(fields[0]) {
+			advertised[fields[1]] = fields[0]
+		}
+	}
+	// Branches win over tags of the same name, as in the checkout path.
+	for _, name := range refs {
+		if oid := advertised[name]; oid != "" {
+			if peeled := advertised[name+"^{}"]; peeled != "" {
+				oid = peeled // annotated tag: compare the commit, not the tag object
+			}
+			return name, oid, nil
+		}
+	}
+	return "", "", nil
+}
+
 // cloneOrUpdateGitRepo makes destDir a clean checkout of url at ref (or the
 // repo's default branch if ref is empty): clones if destDir isn't a git
-// repo yet, otherwise fetches. Either way it finishes with
+// repo yet, otherwise checks remote ref metadata and fetches only when needed.
+// Either way it finishes with
 // `checkout --force -B astrona-lab <target>` + `clean -fdx`, so destDir is
 // always left as a clean checkout — this directory is entirely
 // astrona-managed and must never be pointed at a real user directory, since
 // any local changes in it are discarded on every call.
 //
-// Offline-tolerant when a cache already exists: a failed fetch only warns
-// and falls back to whatever was cached from the last successful
-// clone/fetch — the checkout step reads git's local remote-tracking refs,
-// not the network, so a lab that worked before still works with no
-// connection. This only covers a ref that's already been fetched at least
-// once; a brand-new branch/tag/commit still needs network the first time,
-// same as a first-time clone (no cache to fall back to).
+// Offline-tolerant when a cache already exists: a failed metadata check or
+// fetch warns and uses cachedRevisionRef. Older caches fall back to their
+// remote-tracking refs. A new URL/ref cache still needs a first-time clone.
 //
 // No URL scheme restriction here (unlike downloadToTemp's https-only rule
 // in scripts.go): git itself owns the transport — https://, git@host:, or
@@ -107,32 +170,50 @@ func cloneOrUpdateGitRepo(url, ref, destDir string, verbose bool) error {
 		return fmt.Errorf("%s: %w", what, err)
 	}
 
+	target := ""
 	if _, err := os.Stat(filepath.Join(destDir, ".git")); os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "Cloning %s ...\n", url)
 		if err := runGit(gitPath, "", out, "clone", "--", url, destDir); err != nil {
 			return fail("can't clone "+url, err)
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "Updating %s ...\n", url)
-		if err := runGit(gitPath, destDir, out, "fetch", "--all", "--prune"); err != nil {
-			// Not fatal: destDir already has a cached checkout from a
-			// previous successful fetch/clone, and the checkout below reads
-			// from git's local remote-tracking refs — it doesn't need the
-			// fetch to have just succeeded, only to have succeeded at some
-			// point. Losing network here shouldn't break a lab that was
-			// already working offline.
+		target = localGitRevision(gitPath, destDir, cachedRevisionRef)
+		fmt.Fprintf(os.Stderr, "Checking %s ...\n", url)
+		remoteRef, revision, probeErr := remoteGitRevision(gitPath, destDir, ref)
+		switch {
+		case probeErr != nil:
 			ui.Warnf("could not reach %s, using the cached checkout", url)
+		case revision != "" && localGitRevision(gitPath, destDir, revision) == revision:
+			// The advertised commit is already cached. Checkout and cleanup
+			// still run below, including when local files have been modified.
+			target = revision
+			fmt.Fprintf(os.Stderr, "Using cached %s (no download needed)\n", url)
+		default:
+			fmt.Fprintf(os.Stderr, "Updating %s ...\n", url)
+			args := []string{"fetch", "--all", "--prune"}
+			if remoteRef != "" {
+				args = []string{"fetch", "origin", remoteRef}
+			}
+			if err := runGit(gitPath, destDir, out, args...); err != nil {
+				ui.Warnf("could not reach %s, using the cached checkout", url)
+			} else if remoteRef != "" {
+				target = "FETCH_HEAD"
+			} else {
+				target = "" // resolve the requested expression after fetching
+			}
 		}
 	}
 
-	target := "origin/HEAD"
-	switch {
-	case ref == "":
-		// keep origin/HEAD — the repo's default branch
-	case gitRefIsRemoteBranch(gitPath, destDir, ref):
-		target = "origin/" + ref
-	default:
-		target = ref // tag or commit sha
+	if target == "" {
+		target = "origin/HEAD"
+		switch {
+		case ref == "":
+			// keep origin/HEAD — the repo's default branch
+		case gitRefIsRemoteBranch(gitPath, destDir, ref):
+			target = "origin/" + ref
+		default:
+			target = ref // tag or commit sha
+		}
 	}
 
 	// The trailing "--" pins target as a revision, never a pathspec. A
@@ -144,6 +225,9 @@ func cloneOrUpdateGitRepo(url, ref, destDir string, verbose bool) error {
 
 	if err := runGit(gitPath, destDir, out, "clean", "-fdx"); err != nil {
 		return fail("can't clean the checkout of "+url, err)
+	}
+	if err := runGit(gitPath, destDir, out, "update-ref", cachedRevisionRef, "HEAD"); err != nil {
+		return fail("can't record the cached revision of "+url, err)
 	}
 
 	return nil
