@@ -193,11 +193,17 @@ A [`Justfile`](./Justfile) wraps the common local dev commands (requires [`just`
 | Recipe | What it does |
 |---|---|
 | `just build` | Build `./astrona` for local testing; do not install or move it |
+| `just run --help` | Build and run the local development binary; accepts CLI arguments |
 | `just check` | `fmt` + `vet` + `test` — run before committing |
 
 Run `just` with no arguments to list every recipe.
 
-Run the test binary with `./astrona`, not `astrona` from your `PATH`.
+Run the test binary with `./astrona`, or use `just run --help` to build and run
+it in one step. `./cmd/astrona` is the Go source directory; executing it directly
+produces a shell error such as `permission denied`. To run that source package
+through Go, use `go run ./cmd/astrona --help`.
+
+Plain `astrona` runs whichever binary is on your `PATH`.
 Unversioned builds use `~/.astrona-dev` for local data and Git caches, with
 `astrodev-` cluster names. Release binaries keep `~/.astrona`, their existing
 Git cache, and `astro-` names. Nothing is migrated from your release state.
