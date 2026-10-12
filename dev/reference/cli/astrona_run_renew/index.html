@@ -4084,7 +4084,7 @@
 <p>Give a running playground its full time limit again</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>A playground stops and is removed at its time limit (2 hours unless its config.yaml sets metadata.timeLimit). Still working in it? <code>astrona run renew</code> resets that timer without touching the playground: the time so far is sent to your account as playground time — just as <code>astrona destroy</code> would — and a new timer starts with the full time limit.</p>
-<p>With no name, every running playground is renewed. A name is the lab as <code>astrona list</code> shows it (with or without the 'astro-' prefix) or its catalog name:</p>
+<p>With no name, every running playground is renewed. A name is the lab as <code>astrona list</code> shows it (with or without the prefix shown in <code>astrona list</code>) or its catalog name:</p>
 <p>astrona run renew
   astrona run renew astrona-io/ATS014/section-010/module-01/playground</p>
 <p>A playground that already stopped can't be renewed — run it again.</p>
