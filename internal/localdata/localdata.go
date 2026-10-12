@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +36,7 @@ type Usage struct {
 	Files    int64  `json:"files"`
 	Bytes    int64  `json:"bytes"`
 	Symlinks int64  `json:"symlinks"`
+	modified time.Time
 }
 
 // Usage reports logical file sizes, not allocated disk blocks. Symlink targets
@@ -101,7 +103,13 @@ func measure(ctx context.Context, r *os.Root, name, path string) (Usage, error) 
 		if err != nil {
 			return err
 		}
+		if info.ModTime().After(u.modified) {
+			u.modified = info.ModTime()
+		}
 		if info.Mode().IsRegular() {
+			if info.Size() > math.MaxInt64-u.Bytes {
+				return fmt.Errorf("cache size exceeds supported range at %s", path)
+			}
 			u.Files++
 			u.Bytes += info.Size()
 		}

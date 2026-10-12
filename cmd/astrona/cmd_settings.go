@@ -20,6 +20,8 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 		Example: `  astrona settings
   astrona settings set keep-context true
   astrona settings set parallel 2
+  astrona settings set cache-retention-days 30
+  astrona settings set cache-max-size-gb 50
   astrona settings get keep-context
   astrona settings unset keep-context`,
 		Args: cobra.NoArgs,
@@ -126,8 +128,9 @@ func completeSetting(cmd *cobra.Command, args []string, toComplete string) ([]st
 		for _, def := range settingsDefinitions() {
 			values = append(values, def.key+"\t"+def.description)
 		}
-	} else if len(args) == 1 && cmd.Name() == "set" && args[0] != "parallel" {
-		if _, err := (userSettings{}).value(args[0]); err == nil {
+	} else if len(args) == 1 && cmd.Name() == "set" {
+		switch args[0] {
+		case "verbose", "keep-context", "update-check":
 			values = []string{"true", "false"}
 		}
 	}
