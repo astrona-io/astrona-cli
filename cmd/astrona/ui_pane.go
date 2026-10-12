@@ -1,6 +1,7 @@
 package main
 
 import (
+	"astrona/internal/labstate"
 	"context"
 	"errors"
 	"fmt"
@@ -165,6 +166,8 @@ type uiPaneExit struct{ err error }
 type uiPaneDrainTimeout struct{}
 
 type uiPaneModel struct {
+	usage                           labstate.ResourceUsage
+	mouseDown                       bool
 	inputError                      tea.Cmd
 	emulator                        *vt.Emulator
 	terminal                        *os.File
@@ -244,6 +247,7 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.account = msg
 		return m, uiAccountTick()
 	case tea.WindowSizeMsg:
+		m.mouseDown = false
 		m.width, m.height = msg.Width, msg.Height
 		m.resizeContent()
 	case uiPaneOutput:
@@ -288,10 +292,29 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case uiPaneDrainTimeout:
 		_ = m.terminal.Close()
 	case tea.MouseMsg:
+		if !strings.HasPrefix(m.title, "TASK / ") || m.controls || m.closing || m.ended || m.activity.paused || m.activityAway {
+			m.mouseDown = false
+			return m, nil
+		}
 		row := msg.Y - uiHeaderHeight(m.width, m.height)
-		if strings.HasPrefix(m.title, "TASK / ") && row == 0 && msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && !m.controls && !m.closing && !m.ended && !m.activity.paused && !m.activityAway {
-			m.activity.input(time.Now())
-			m.emulator.SendMouse(uv.MouseClickEvent{X: msg.X, Y: row, Button: uv.MouseLeft})
+		mouse := uv.Mouse{X: min(max(0, msg.X), max(0, m.width-1)), Y: min(max(0, row), max(0, m.emulator.Height()-1)), Button: uv.MouseLeft}
+		switch msg.Action {
+		case tea.MouseActionPress:
+			if msg.Button == tea.MouseButtonLeft && row >= 0 && row < m.emulator.Height() {
+				m.mouseDown = true
+				m.activity.input(time.Now())
+				m.emulator.SendMouse(uv.MouseClickEvent(mouse))
+			}
+		case tea.MouseActionMotion:
+			if m.mouseDown && msg.Button == tea.MouseButtonLeft {
+				m.activity.input(time.Now())
+				m.emulator.SendMouse(uv.MouseMotionEvent(mouse))
+			}
+		case tea.MouseActionRelease:
+			if m.mouseDown {
+				m.mouseDown = false
+				m.emulator.SendMouse(uv.MouseReleaseEvent(mouse))
+			}
 		}
 	case tea.KeyMsg:
 		return m, m.key(msg)

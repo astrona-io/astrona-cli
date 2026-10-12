@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"astrona/internal/account"
 	"astrona/internal/apphome"
+	"astrona/internal/labstate"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -92,7 +94,12 @@ func (m *uiPaneModel) header() string {
 		profile = "Development"
 	}
 	height := uiHeaderHeight(m.width, m.height)
+	usage := m.headerUsage()
+	inLab := strings.HasPrefix(m.title, "TASK / ") || strings.HasPrefix(m.title, "WORKSPACE / ")
 	if height == 2 {
+		if inLab {
+			return workspaceFit(style.Render("● "+status.label)+"  "+workspaceAccent.Render("ASTRONA")+"\n"+uiUsageText(usage), m.width, height)
+		}
 		return workspaceFit(style.Render("● "+status.label)+"  "+workspaceAccent.Render("ASTRONA")+"\n"+
 			workspaceMuted.Render(profile+" · "+sanitizeLine(status.site)), m.width, height)
 	}
@@ -119,11 +126,21 @@ func (m *uiPaneModel) header() string {
 	hints := m.headerShortcuts()
 	remaining := m.width - leftWidth
 	logoWidth := 39
-	showLogo := height == 7 && remaining >= 88
+	resourceWidth := 0
+	if inLab {
+		resourceWidth = 27
+	}
+	showLogo := height == 7 && remaining >= max(88, resourceWidth+logoWidth+24)
+	remaining -= resourceWidth
 	if showLogo {
 		remaining -= logoWidth
 	}
 	columns := 1
+	if inLab && remaining < 24 {
+		resourceWidth += remaining
+		remaining = 0
+		columns = 0
+	}
 	if remaining >= 48 {
 		columns = 2
 	}
@@ -137,6 +154,16 @@ func (m *uiPaneModel) header() string {
 			columnWidth += remaining % columns
 		}
 		blocks = append(blocks, workspaceFit(strings.Join(lines, "\n"), columnWidth, height-1))
+	}
+	if inLab {
+		cpu, memory, avgCPU, avgMemory := "—", "—", "—", "—"
+		if usage.Samples > 0 {
+			cpu = fmt.Sprintf("%.1f%%", usage.CPU)
+			avgCPU = fmt.Sprintf("%.1f%%", usage.AverageCPU)
+			memory, avgMemory = uiMemoryText(usage.Memory), uiMemoryText(usage.AverageMemory)
+		}
+		rows := []string{field("CPU", cpu), field("CPU avg", avgCPU), field("Memory", memory), field("Mem avg", avgMemory)}
+		blocks = append(blocks, workspaceFit(strings.Join(rows, "\n"), resourceWidth, height-1))
 	}
 	if showLogo {
 		blocks = append(blocks, workspaceFit(workspaceAccent.Render(uiWordmark)+"\n"+workspaceMuted.Render("                 LAB WORKSPACE"), logoWidth, height-1))
@@ -154,7 +181,7 @@ func (m *uiPaneModel) headerShortcuts() [][2]string {
 	section, _, _ := strings.Cut(m.title, " / ")
 	switch section {
 	case "HOME":
-		return [][2]string{{"<1>", "Active runs"}, {"<2>", "History"}, {"<3>", "Help"}, {"<p>", "Preferences"}, {"<n>", "Start lab"}, {"<enter>", "Open selected"}, {"<↑/↓>", "Select run"}, {"<ctrl-d>", "Force delete"}, {"<r>", "Refresh"}, {"<tab>", "Next section"}, {"<q>", "Quit"}}
+		return [][2]string{{"<1>", "Active runs"}, {"<2>", "History"}, {"<3>", "Help"}, {"<p>", "Preferences"}, {"<enter>", "Open selected"}, {"<↑/↓>", "Select run"}, {"<ctrl-d>", "Force delete"}, {"<r>", "Refresh"}, {"<tab>", "Next section"}, {"<q>", "Quit"}}
 	case "TASK":
 		return [][2]string{{"<ctrl-t>", "New terminal"}, {"<ctrl-n/p>", "Switch tab"}, {"<ctrl-c>", "Overview / pause"}, {"<alt-c>", "Interrupt command"}, {"<f2>", "Task / terminal"}, {"<f3>", "Lab details"}}
 	case "WORKSPACE":
@@ -196,4 +223,12 @@ func workspaceNav(labels, keys []string, active int) string {
 		items[i] = style.Render(text)
 	}
 	return strings.Join(items, " ")
+}
+
+func (m *uiPaneModel) headerUsage() labstate.ResourceUsage {
+	_, name, _ := strings.Cut(m.title, " / ")
+	if name != m.activity.target.Lab || time.Since(m.usage.Updated) > 15*time.Second {
+		return labstate.ResourceUsage{}
+	}
+	return m.usage
 }

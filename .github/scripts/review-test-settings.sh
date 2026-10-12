@@ -9,5 +9,5 @@ prepare_test_settings() {
   "$@" settings set cache-retention-days 30
   "$@" settings set cache-max-size-gb 50
   "$@" settings view
-  "$@" settings review --accept 'd02b689ae5d647c1de39fb2e6c8dcfa6cc81cb497cd015bf29aa2f009b5dbad1'
+  "$@" settings review --accept '5dcd01779335122e1e33b46c00b2d1fb5492958346f5e7e1f07eca923d9cab7c'
 }

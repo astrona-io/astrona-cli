@@ -87,10 +87,10 @@ func (m workspaceModel) frame(title, context, body string, footer []string) stri
 		footer = append(footer, "")
 	}
 	if os.Getenv(uiPaneEnv) == "1" {
-		if !m.showPreferences && !m.enteringLab && !m.exitMenu && !m.confirmDestroy {
+		if !m.showPreferences && !m.exitMenu && !m.confirmDestroy {
 			footer[0] = active
 			if m.home && !strings.HasPrefix(footer[1], "pgup/pgdn") {
-				footer[1] = "↑/↓ select  Enter open  Ctrl+D delete  n start  q quit"
+				footer[1] = "↑/↓ select  Enter open  Ctrl+D delete  q quit"
 			}
 		}
 		return workspaceFit(workspaceMuted.Render(" "+sanitizeLine(context))+"\n"+

@@ -6,29 +6,23 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-isatty"
 )
 
 func TestWorkspaceHomeKeys(t *testing.T) {
 	for _, tc := range []struct {
-		name     string
-		keys     []string
-		action   workspaceAction
-		entering bool
+		name   string
+		keys   []string
+		action workspaceAction
 	}{
-		{"quit", []string{"q"}, workspaceLeave, false},
-		{"interrupt", []string{"ctrl+c"}, workspaceLeave, false},
-		{"preferences", []string{"p"}, workspaceLoadPreferences, false},
-		{"refresh", []string{"r"}, workspaceReloadLabs, false},
-		{"new", []string{"n"}, workspaceNone, true},
-		{"empty enter", []string{"enter"}, workspaceNone, true},
-		{"blank lab", []string{"n", "enter"}, workspaceNone, true},
-		{"cancel", []string{"n", "./labs/demo", "esc"}, workspaceNone, false},
-		{"local path", []string{"n", "./labs/demo", "enter"}, workspaceStart, false},
-		{"catalog", []string{"n", "astrona.io/ATS014/section-010/module-01/lab-02", "enter"}, workspaceStart, false},
-		{"lab actions ignored", []string{"s", "g", "d", "y"}, workspaceNone, false},
+		{"quit", []string{"q"}, workspaceLeave},
+		{"interrupt", []string{"ctrl+c"}, workspaceLeave},
+		{"preferences", []string{"p"}, workspaceLoadPreferences},
+		{"refresh", []string{"r"}, workspaceReloadLabs},
+		{"new disabled", []string{"n"}, workspaceNone},
+		{"empty enter", []string{"enter"}, workspaceNone},
+		{"lab actions ignored", []string{"s", "g", "d", "y"}, workspaceNone},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			m := workspaceModel{home: true, width: 80, height: 24}
@@ -38,7 +32,7 @@ func TestWorkspaceHomeKeys(t *testing.T) {
 			for _, key := range tc.keys {
 				m = workspaceKey(m, key)
 			}
-			if m.action != tc.action || m.enteringLab != tc.entering || m.exitMenu {
+			if m.action != tc.action || m.exitMenu {
 				t.Fatalf("unexpected home state: %+v", m)
 			}
 		})
@@ -48,12 +42,7 @@ func TestWorkspaceHomeKeys(t *testing.T) {
 	if m.action != workspaceSelect || m.selected != 1 {
 		t.Fatal("could not select refreshed lab")
 	}
-	m = workspaceModel{home: true, width: 80, height: 24, enteringLab: true, labDraft: "./ø"}
-	m = preferenceKey(m, tea.KeyBackspace)
-	if m.labDraft != "./" {
-		t.Fatal("backspace corrupted the path")
-	}
-	m.width = 20
+	m.width, m.action = 20, workspaceNone
 	m = workspaceKey(m, "enter")
 	if m.action != workspaceNone {
 		t.Fatal("started a lab from an unreadable screen")
@@ -77,9 +66,9 @@ func TestWorkspaceHomeTerminalSmoke(t *testing.T) {
 
 func TestWorkspaceHomeView(t *testing.T) {
 	for _, size := range [][2]int{{48, 14}, {80, 24}, {120, 40}} {
-		for _, mode := range []string{"empty", "input", "labs"} {
+		for _, mode := range []string{"empty", "labs"} {
 			t.Run(mode, func(t *testing.T) {
-				m := workspaceModel{home: true, width: size[0], height: size[1], enteringLab: mode == "input", notice: "notice\x1b[2J\x07", labDraft: strings.Repeat("long-path/", 100)}
+				m := workspaceModel{home: true, width: size[0], height: size[1], notice: "notice\x1b[2J\x07"}
 				if mode == "labs" {
 					m.labs = strings.Fields(strings.Repeat("lab ", 100))
 					m.selected = 99

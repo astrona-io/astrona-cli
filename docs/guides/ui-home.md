@@ -52,10 +52,10 @@ Force deletion discards work in the run and its linked clusters, skips teardown
 scripts and `keepCluster`, and sends no results to Astrona. A run replaced while
 the dialog is open must be selected and confirmed again.
 
-Press `n` to enter a catalog lab ID or local path and review the startup
-notice. After startup, select the run and press Enter to open
-its workspace. Press `p` to edit Preferences, even with no active runs. Boolean
-settings use `yes` / `no`; blank input keeps the current value.
+Start a lab from the command line with `astrona run <lab> --ui`.
+Home can open existing runs; creating a run from Home is not available yet.
+Press `p` to edit Preferences, even with no active runs. Boolean settings use
+`yes` / `no`; blank input keeps the current value.
 
 Home shows a full-width table with Lab, Type, Status and Active time columns. Narrow
 terminals retain Lab and Status. Long names are truncated within their column
@@ -123,8 +123,7 @@ not submit results or destroy the lab.
 Use Tab to read the terms and setting explanations, arrow keys or Page Up/Down
 to scroll, and left/right to select Yes or No. Enter confirms the selection;
 `y` accepts directly. No, `n`, Esc or Ctrl-C cancels startup and prints a message.
-Cancellation exits with code 3; when starting from Home, it returns there with
-a cancellation notice. No leaves existing labs as they are.
+Cancellation exits with code 3. No leaves existing labs as they are.
 
 When the requested lab already exists, the box asks whether to destroy it
 and start over. Yes discards work in that lab and its linked clusters without
@@ -164,7 +163,7 @@ stay inside the terminal pane.
 
 | Key | Action |
 | --- | --- |
-| Ctrl+T | Open another terminal for the selected cluster. |
+| Ctrl+T | Name and open another terminal for the selected cluster. |
 | Ctrl+N / Ctrl+P | Switch to the next / previous terminal tab. |
 | Ctrl+C | Return to Home and pause time spent. Tabs keep running. |
 | Alt+C | Interrupt the active terminal command. |
@@ -176,6 +175,20 @@ stay inside the terminal pane.
 On terminals narrower than 64 columns, F2 switches between the task and
 terminal views. The task pane formats Markdown headings, lists, code blocks,
 links and emphasis. Up to 12 terminal tabs are available per lab in one UI session.
+Ctrl+T opens a name dialog. Type a name (up to 24 characters), then press Enter.
+Leave it blank to use a default such as “Terminal 2”, or press Esc to cancel.
+The dialog explains how to switch tabs with the mouse or Ctrl+N / Ctrl+P.
+
+The task pane defaults to 30% of the lab view. Change **ui-task-width** in
+Preferences (20–60%), or run `astrona settings set ui-task-width 25`. Drag the
+vertical divider left or right to resize it for the current UI session. The
+saved setting supplies the default when you open a new UI. Small terminals
+keep enough space for the terminal, and F2 switches panes below 64 columns.
+
+Embedded terminals use the short `astrona-cli @` prompt. Bash, Zsh and Fish
+keep their startup configuration; Astrona replaces the prompt inside each UI
+terminal without editing your shell configuration files.
+
 Click a terminal tab to switch to it. Type `exit` to close a shell and remove
 its tab. Closing a tab frees a slot for another terminal. Returning to Home
 preserves shells and their environment until the UI closes or the run is deleted.
@@ -213,7 +226,9 @@ submits or destroys a lab; existing lab/playground time limits still apply.
 
 ## CPU and memory
 
-The task view and Home show current CPU and memory totals for the selected lab,
+Inside a lab, the header shows CPU, memory and their averages immediately to
+the left of the Astrona logo. Narrow terminals use a compact header. Home
+keeps resource usage beneath its run list. Totals cover the selected lab,
 including its node containers and linked clusters. Averages cover valid samples
 collected while a UI observes the run, including time when activity is paused.
 They are sample means, not estimates for time when no UI was open. Concurrent

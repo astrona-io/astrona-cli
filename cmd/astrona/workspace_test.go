@@ -316,7 +316,7 @@ func TestWorkspaceAlertNavigation(t *testing.T) {
 	}
 	for _, key := range []string{"n", "p", "y", "d"} {
 		m = workspaceKey(m, key)
-		if m.action != workspaceNone || m.enteringLab || m.showPreferences {
+		if m.action != workspaceNone || m.showPreferences {
 			t.Fatal("alert key triggered a background action")
 		}
 	}

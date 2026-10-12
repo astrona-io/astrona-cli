@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"astrona/internal/account"
+	"astrona/internal/labstate"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -97,8 +99,8 @@ func TestUIHomeNavigationShortcuts(t *testing.T) {
 	}
 	m = homeKey(m, "n")
 	m = homeKey(m, "2")
-	if m.tab != 0 || m.editor.labDraft != "2" {
-		t.Fatal("navigation consumed the lab ID input")
+	if m.tab != 1 || m.open || m.quit {
+		t.Fatal("removed start key intercepted navigation")
 	}
 }
 
@@ -133,5 +135,59 @@ func TestUIOverviewLayout(t *testing.T) {
 			}
 		}
 		_ = pane.emulator.Close()
+	}
+}
+
+func TestUILabResourcesBeforeLogo(t *testing.T) {
+	for _, width := range []int{48, 64, 80, 100, 120, 160, 200} {
+		m := &uiPaneModel{width: width, height: 35, title: "TASK / astro-lab", account: uiAccountStatus{label: "Logged in", signedIn: true}}
+		m.activity.target.Lab = "astro-lab"
+		m.usage = labstate.ResourceUsage{CPU: 12.5, Memory: 512 * (1 << 20), AverageCPU: 10, AverageMemory: 256 * (1 << 20), Samples: 2, Updated: time.Now()}
+		view := ansi.Strip(m.header())
+		if !strings.Contains(view, "12.5%") {
+			t.Fatalf("resources missing at %d: %s", width, view)
+		}
+		if width >= 64 {
+			for _, want := range []string{"CPU avg", "Memory", "Mem avg", "512 MiB"} {
+				if !strings.Contains(view, want) {
+					t.Fatalf("missing %q at %d", want, width)
+				}
+			}
+		}
+		lines := strings.Split(view, "\n")
+		for _, line := range lines {
+			if ansi.StringWidth(line) != width {
+				t.Fatal("header width overflow")
+			}
+		}
+		if width >= 160 {
+			if cpu, logo := strings.Index(lines[0], "CPU:"), strings.Index(lines[0], "___"); cpu < 0 || logo < cpu {
+				t.Fatalf("resources are not left of logo: %s", lines[0])
+			}
+		}
+		m.title = "TASK / astro-other"
+		if strings.Contains(ansi.Strip(m.header()), "12.5%") {
+			t.Fatal("new lab inherited previous lab's resources")
+		}
+	}
+}
+
+func TestHomeHasNoStartupAction(t *testing.T) {
+	m := uiHomeModel{width: 100, height: 30}
+	for _, key := range []string{"n", "enter"} {
+		next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
+		if key == "enter" {
+			next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		}
+		m = next.(uiHomeModel)
+		if cmd != nil || m.open || m.editor.action != workspaceNone {
+			t.Fatal("Home still starts a lab")
+		}
+	}
+	for _, view := range []string{m.View(), (&uiPaneModel{title: "HOME", width: 160, height: 35}).header()} {
+		plain := ansi.Strip(view)
+		if strings.Contains(plain, "n start") || strings.Contains(plain, "Start lab") {
+			t.Fatal("Home advertises removed startup action")
+		}
 	}
 }

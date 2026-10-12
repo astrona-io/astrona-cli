@@ -26,6 +26,7 @@ func settingsDefinitions() []settingDefinition {
 		{"verbose", "false", "Stream full command output"},
 		{"keep-context", "false", "Leave your kubectl current-context unchanged"},
 		{"parallel", "1", "Maximum linked clusters to start at once"},
+		{"ui-task-width", "30", "Task pane width as a percentage of the lab view (20–60)"},
 		{"login-reminder", "true", "Ask guests to log in before starting a lab; disabling this allows guest runs without reminders"},
 		{"update-check", "true", "Check for new CLI releases and show update notices"},
 		{"cache-retention-days", strconv.Itoa(localdata.DefaultRetentionDays), "Maximum disposable-cache age in days (1–36500)"},
@@ -58,6 +59,12 @@ func parseSetting(key, value string) (json.RawMessage, error) {
 		default:
 			return nil, fmt.Errorf("%s must be yes or no", key)
 		}
+	case "ui-task-width":
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 20 || n > 60 {
+			return nil, fmt.Errorf("ui-task-width must be a whole percentage between 20 and 60")
+		}
+		value = strconv.Itoa(n)
 	case "parallel":
 		n, err := strconv.Atoi(value)
 		if err != nil {
