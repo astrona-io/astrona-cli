@@ -92,6 +92,29 @@ func pendingSettings(previous, current map[string]reviewedSetting, saved userSet
 	return changes
 }
 
+func settingsReviewReason(old, current reviewedSetting, known bool) string {
+	if !known {
+		return "This setting has not been reviewed before. Choose how it should work on your machine."
+	}
+	var reasons []string
+	if old.Default != current.Default {
+		reasons = append(reasons, fmt.Sprintf("The built-in default changed from %s to %s. Saved values are not replaced by the new default.", old.Default, current.Default))
+	}
+	if old.Description != current.Description {
+		reasons = append(reasons, "The setting's explanation changed. Previous explanation: "+sanitizeLine(old.Description))
+	}
+	if old.Revision != current.Revision {
+		reasons = append(reasons, fmt.Sprintf("The behavior revision changed from %d to %d. Review the current explanation before continuing.", old.Revision, current.Revision))
+	}
+	if old.ExplicitChoice != current.ExplicitChoice {
+		reasons = append(reasons, "The requirement for an explicit choice changed.")
+	}
+	if len(reasons) == 0 {
+		return "This setting requires an explicit saved choice, but none is saved."
+	}
+	return strings.Join(reasons, " ")
+}
+
 func loadReviewValues(path string, previous, current map[string]reviewedSetting) (userSettings, error) {
 	retired := make(map[string]bool)
 	for key := range previous {
@@ -187,7 +210,7 @@ func ensureSettingsReview(cmd *cobra.Command, path string, defs map[string]revie
 			def, exists := defs[key]
 			old, known := receipt.Definitions[key]
 			if !exists {
-				if _, err := fmt.Fprintf(out, "\n%s was removed (previous default: %s).\n", key, old.Default); err != nil {
+				if _, err := fmt.Fprintf(out, "\n%s was removed (previous default: %s).\n  Why: This CLI no longer supports this setting. Its saved override will be removed only if you approve this review.\n", key, old.Default); err != nil {
 					return err
 				}
 				delete(saved, key)
@@ -204,6 +227,10 @@ func ensureSettingsReview(cmd *cobra.Command, path string, defs map[string]revie
 			if _, err := fmt.Fprintf(out, "\n%s (%s)\n  %s\n  Default: %s; current choice: %s\n", key, previous, def.Description, def.Default, value); err != nil {
 				return err
 			}
+			if _, err := fmt.Fprintf(out, "  Why review: %s\n", settingsReviewReason(old, def, known)); err != nil {
+				return err
+			}
+			currentValue := value
 			if accept != "" {
 				if _, explicit := saved[key]; def.ExplicitChoice && !explicit {
 					return fmt.Errorf("%s needs an explicit choice: astrona settings set %s <value>; then obtain a new review ID", key, key)
@@ -245,6 +272,9 @@ func ensureSettingsReview(cmd *cobra.Command, path string, defs map[string]revie
 			}
 			parsed, err := parseSetting(key, value)
 			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(out, "  Proposed: %s -> %s (saved only after approval)\n", currentValue, parsed); err != nil {
 				return err
 			}
 			saved[key] = parsed

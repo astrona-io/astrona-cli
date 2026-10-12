@@ -20,6 +20,8 @@ const (
 	workspaceSubmit
 	workspaceDestroy
 	workspaceSelect
+	workspaceLoadPreferences
+	workspaceSavePreference
 )
 
 type workspaceCluster struct {
@@ -47,6 +49,8 @@ type workspaceModel struct {
 	now                                                   time.Time
 	nextRefresh                                           time.Time
 	refresh                                               func() tea.Msg
+	showPreferences                                       bool
+	preferences                                           workspacePreferences
 }
 
 func workspaceTickCmd() tea.Cmd {
@@ -92,6 +96,9 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.showPreferences {
+			return m.updatePreferences(msg)
+		}
 		if m.confirmDestroy {
 			switch key {
 			case "y":
@@ -124,6 +131,9 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		switch key {
+		case "p":
+			m.action = workspaceLoadPreferences
+			return m, tea.Quit
 		case "q", "esc", "ctrl+c", "ctrl+d":
 			m.exitMenu = true
 		case "up", "k":
@@ -171,6 +181,9 @@ func (m workspaceModel) View() string {
 			lines = append(lines, clip(prefix+m.labs[i]))
 		}
 		return strings.Join(append(lines, "", "↑/↓ select   enter open   q cancel"), "\n")
+	}
+	if m.showPreferences {
+		return m.preferencesView()
 	}
 	if m.width < 48 || m.height < 14 {
 		return heading + "\nTerminal too small (minimum 48 × 14).\n" + m.menuText()
@@ -244,7 +257,7 @@ func (m workspaceModel) menuText() string {
 		}
 		return "Leave workspace?\n" + choices
 	}
-	keys := "↑/↓ cluster   s shell   tab task/results   pgup/pgdn scroll"
+	keys := "↑/↓ cluster   s shell   tab task/results   pgup/pgdn scroll   p preferences"
 	if m.canSubmit {
 		keys += "\ng submit   q exit menu"
 	} else {
