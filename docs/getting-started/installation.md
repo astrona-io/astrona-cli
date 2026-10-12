@@ -529,10 +529,12 @@ start a Kind lab by catalog ID or local path, `p` for Preferences, or `r` to
 find labs started from another terminal. Select a running lab and press Enter
 to open it. Press `q` to close the home screen. Starting a lab shows one Yes/No
 notice covering terms, settings, lab code and downloads. Tab opens the details.
-Yes starts setup; No cancels with a message. Cancelling or failing returns to Home.
+Yes starts setup inside the UI; No cancels with a message. Downloads, progress
+and errors stay in the terminal pane. Cancelling or failing returns to Home.
 After startup, select the run and press Enter to open its workspace.
-Inside the workspace, Enter shows the task; `s` explicitly opens a shell.
-Type `exit` in the shell to return to the UI.
+Inside the workspace, Enter shows the task; `s` opens a shell inside the UI.
+Type `exit` in the shell to return to the workspace. Ctrl+] opens pane controls
+for scrolling recent output or closing the UI.
 
 Starting an existing lab asks whether to destroy its current work and start over.
 No keeps it running. Yes discards it without saving or submitting, then starts a

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -244,6 +245,14 @@ func main() {
 	if askpassPass := os.Getenv("ASTRONA_INTERNAL_ASKPASS"); askpassPass != "" {
 		fmt.Println(askpassPass)
 		os.Exit(0)
+	}
+	if os.Getenv(uiPaneEnv) != "1" && wantsUIPane(os.Args[1:]) {
+		code, err := runUIPane(context.Background(), os.Args[1:])
+		if err != nil {
+			ui.PrintError(err)
+			os.Exit(1)
+		}
+		os.Exit(code)
 	}
 
 	flags := &rootFlags{}

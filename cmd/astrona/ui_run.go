@@ -277,6 +277,8 @@ func confirmUIRun(cmd *cobra.Command, notice uiRunNotice) (bool, error) {
 	if err := requireWorkspaceTerminal(); err != nil {
 		return false, err
 	}
+	uiPaneTitle(notice.title)
+	defer uiPaneTitle("SETUP")
 	final, err := tea.NewProgram(uiRunModel{notice: notice}, tea.WithContext(cmd.Context()), tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()), tea.WithAltScreen()).Run()
 	if err != nil {
 		return false, fmt.Errorf("startup confirmation: %w", err)

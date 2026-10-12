@@ -47,6 +47,17 @@ downloads for this invocation, and continues with setup. Saved preferences
 are kept. Catalog labs use your account when signed in; otherwise they run
 without account progress tracking. Other labs stay running.
 
+The UI stays open after Yes. Repository downloads, setup progress, later
+confirmations, grading and teardown run inside its terminal pane. Startup
+errors stay visible until you press Enter or Esc to close the UI. The command's
+exit code is preserved.
+
+Press Ctrl+] for pane controls. Arrow keys and Page Up/Down scroll recent
+output; End returns to the latest output, and Esc resumes input to the lab.
+From pane controls, `q` asks before closing the UI and stopping its active
+command. Any lab already created remains on your machine. Closing the UI does
+not submit results or destroy the lab.
+
 Use Tab to read the terms and setting explanations, arrow keys or Page Up/Down
 to scroll, and left/right to select Yes or No. Enter confirms the selection;
 `y` accepts directly. No, `n`, Esc or Ctrl-C cancels startup and prints a message.
@@ -88,8 +99,9 @@ displayed by Home or `astrona list`.
 Within the workspace:
 
 - Arrow keys select a cluster. Enter shows the task and keeps the UI open.
-  `s` opens a shell with that lab's isolated kubeconfigs. The shell temporarily
-  replaces the UI; type `exit` to return to the workspace.
+  `s` opens a shell inside the UI, with that lab's isolated kubeconfigs.
+  Commands, editors and their output stay in the terminal pane. Ctrl+C
+  interrupts the shell's active command; type `exit` to return to the workspace.
 - Tab changes between the task and results; Page Up/Down scrolls.
 - `p` opens saved preferences. Select a setting, press Enter to edit and
   review, then `y` to save; Esc cancels. Settings apply to future commands,

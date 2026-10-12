@@ -15,7 +15,7 @@ import (
 )
 
 // Use the normal command entrypoint so startup keeps its settings, terms,
-// trust prompts and version handover. The home screen has released the terminal.
+// trust prompts and version handover. It inherits the UI's terminal pane.
 func runWorkspaceChild(ctx context.Context, command, lab string) error {
 	path, err := os.Executable()
 	if err != nil {
@@ -143,7 +143,7 @@ func (m workspaceModel) homeView() string {
 	if m.enteringLab {
 		input := ansi.TruncateLeft(sanitizeLine(m.labDraft), min(76, w-6)-11, "…")
 		body = workspaceDialog(body, "START LAB", "Catalog lab ID or local path\nExample: ./labs/my-lab\n\nLab: "+input+"_", w, h, false)
-		footer = []string{"enter start   Ctrl+u clear   Esc cancel", "The usual startup and trust prompts follow."}
+		footer = []string{"enter start   Ctrl+u clear   Esc cancel", "Review startup, then follow setup inside the UI."}
 	}
 	if m.notice != "" {
 		body += "\n" + workspaceAlert(m.notice, w)

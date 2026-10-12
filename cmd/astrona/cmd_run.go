@@ -58,6 +58,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"labs are running, it also offers to destroy them first — only when asked in a terminal; " +
 			"--yes never touches other labs.\n\n" +
 			"--ui shows one startup notice with Yes/No choices, then opens a Kind lab's terminal workspace once it is ready. " +
+			"Downloads, setup, errors and interactive shells stay inside the UI's terminal pane. " +
 			"Yes accepts the displayed terms and settings and permits the lab's downloads and code for this invocation. No cancels startup. " +
 			"If the lab already exists, the UI asks before destroying it and starting over with all work discarded. " +
 			"That replacement stays local: no account session, progress or results are sent to Astrona. Use astrona ui to reopen without restarting. " +

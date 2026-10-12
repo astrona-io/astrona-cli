@@ -395,6 +395,7 @@ func (m uiHomeModel) View() string {
 }
 
 func runUIHomeScreen(ctx context.Context, m uiHomeModel) (uiHomeModel, error) {
+	uiPaneTitle("HOME")
 	screenCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	m.refresh = func() tea.Msg { return readUIHome(screenCtx) }
