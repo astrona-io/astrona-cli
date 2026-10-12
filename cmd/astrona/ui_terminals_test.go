@@ -388,3 +388,51 @@ func TestUITaskDividerDrag(t *testing.T) {
 		}
 	}
 }
+
+func TestUITerminalLastExitReopensSameTarget(t *testing.T) {
+	manager := testUITerminals(t)
+	if msg := manager.start("server", 60, 20)().(uiTerminalStarted); msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	m := &uiTaskModel{workspace: workspaceModel{width: 120, height: 35, snapshot: workspaceSnapshot{clusters: []workspaceCluster{{alias: "client"}, {alias: "server"}}}}, terminals: manager, tabs: manager.snapshot(), sized: true}
+	for range 2 {
+		if _, err := io.WriteString(m.tabs[0].terminal, "exit\n"); err != nil {
+			t.Fatal(err)
+		}
+		deadline := time.Now().Add(5 * time.Second)
+		for len(manager.snapshot()) != 0 && time.Now().Before(deadline) {
+			time.Sleep(10 * time.Millisecond)
+		}
+		_, start := m.Update(uiTerminalChanged{})
+		if start == nil || !m.starting || m.workspace.selected != 1 {
+			t.Fatal("last tab did not restart on its original target")
+		}
+		result := start().(uiTerminalStarted)
+		if result.err != nil {
+			t.Fatal(result.err)
+		}
+		m.Update(result)
+		m.Update(uiTerminalChanged{})
+		if len(m.tabs) != 1 || m.tabs[0].alias != "server" {
+			t.Fatal("replacement terminal missing")
+		}
+		waitUITab(t, m.tabs[0], "tabs-test>")
+		m.lastReplacement = time.Now()
+	}
+}
+
+func TestUITerminalFailedReconnectLeavesRetryTab(t *testing.T) {
+	manager := testUITerminals(t)
+	m := &uiTaskModel{workspace: workspaceModel{width: 120, height: 35}, terminals: manager, tabs: []*uiTerminalTab{{}}, sized: true, lastReplacement: time.Now()}
+	_, cmd := m.Update(uiTerminalChanged{})
+	if cmd != nil || m.starting || !strings.Contains(m.View(), "retry") {
+		t.Fatal("failed terminal did not leave a retry tab")
+	}
+	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil || !m.starting {
+		t.Fatal("retry did not start a terminal")
+	}
+	if msg := cmd().(uiTerminalStarted); msg.err != nil {
+		t.Fatal(msg.err)
+	}
+}

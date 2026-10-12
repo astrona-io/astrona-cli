@@ -83,10 +83,21 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 	if err != nil {
 		warn(err)
 	}
+	qemu, err := readUIQEMUVMs()
+	if err != nil {
+		warn(err)
+	}
+	qemuSamples := readUIQEMUUsage(ctx, qemu)
+	needEngine := false
+	for _, name := range names {
+		if len(qemu[name]) == 0 {
+			needEngine = true
+		}
+	}
 	containers := map[string][]kindContainer{}
 	engineAvailable := false
 	var usageSamples map[string]uiContainerUsage
-	if len(names) > 0 {
+	if needEngine {
 		readCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		live, provider, err := readHomeEngine(readCtx)
 		if err == nil {
@@ -127,11 +138,14 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 		if st.Session.IsPlayground() || isPlaygroundName(st.Source.Catalog) {
 			run.kind = "Playground"
 		}
-		if cs := containers[name]; len(cs) > 0 {
+		if vms := qemu[name]; len(vms) > 0 {
+			run.status, run.openable = uiQEMUStatus(vms)
+			run.kind += " / QEMU"
+		} else if cs := containers[name]; len(cs) > 0 {
 			run.status = containerStatus(cs)
 			run.openable = run.status == "Running" || strings.HasPrefix(run.status, "Degraded")
 		} else if engineAvailable {
-			run.status = "Not found / non-Kind run"
+			run.status = "Not found"
 		}
 		run.activity = "—"
 		if run.openable {
@@ -143,7 +157,11 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 				run.activity = "Active"
 			}
 		}
-		run.usage = uiRunUsage(name, st.StartedAt, containers, usageSamples)
+		if len(qemu[name]) > 0 {
+			run.usage = uiQEMURunUsage(name, st.StartedAt, qemu[name], qemuSamples)
+		} else {
+			run.usage = uiRunUsage(name, st.StartedAt, containers, usageSamples)
+		}
 		data.runs = append(data.runs, run)
 	}
 	labs, err := proctor.HistoryLabs()
@@ -391,7 +409,7 @@ func (m uiHomeModel) View() string {
 	title, content := "ACTIVE RUNS", ""
 	if m.tab == 2 {
 		title = "HELP"
-		content = "1 Active runs · 2 History · 3 Help · p Preferences\nSelect a running Kind lab and press Enter for its task and terminal tabs.\nCtrl+D opens a force-delete confirmation for the selected run.\nCtrl+C returns from a lab to Home and pauses time spent.\nCtrl+T names a new terminal; mouse clicks or Ctrl+N/P change tabs. F3 opens lab details.\nHistory includes submission attempts and completed labs/playgrounds.\nOnly the latest 100 persistent entries are shown; astrona progress summarizes all graded attempts.\nF1 opens alert details. Esc closes dialogs.\nLogin status uses saved credentials; it does not check the API.\nUse astrona login to sign in, or astrona whoami to check an expired login.\nLocal profile: ~/" + apphome.Name() + "\n" + m.data.warning
+		content = "1 Active runs · 2 History · 3 Help · p Preferences\nSelect a running lab and press Enter for its task and terminal tabs.\nCtrl+D opens a force-delete confirmation for the selected run.\nCtrl+C returns from a lab to Home and pauses time spent.\nCtrl+T names a new terminal; mouse clicks or Ctrl+N/P change tabs. F3 opens lab details.\nHistory includes submission attempts and completed labs/playgrounds.\nOnly the latest 100 persistent entries are shown; astrona progress summarizes all graded attempts.\nF1 opens alert details. Esc closes dialogs.\nLogin status uses saved credentials; it does not check the API.\nUse astrona login to sign in, or astrona whoami to check an expired login.\nLocal profile: ~/" + apphome.Name() + "\n" + m.data.warning
 		content = workspacePage(content, w-4, h-2, m.scroll)
 	} else if m.tab == 1 && m.detail && m.count() > 0 {
 		title = "HISTORY / DETAILS"

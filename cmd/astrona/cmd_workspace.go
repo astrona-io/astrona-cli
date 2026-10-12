@@ -40,8 +40,8 @@ func checkWorkspaceTerminal(input, output, ci bool, term string) error {
 }
 
 func workspaceRuntime(cfg *config.LabConfig) error {
-	if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" {
-		return fmt.Errorf("the lab UI currently supports Kind labs; run without --ui and use astrona ssh for QEMU labs")
+	if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" && cfg.Runtime.Type != "qemu" {
+		return fmt.Errorf("the lab UI does not support runtime %q", cfg.Runtime.Type)
 	}
 	return nil
 }
@@ -51,10 +51,10 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 		Use:   "ui [lab-name]",
 		Short: "Open the UI home with active runs and history",
 		Long: "Open Home to browse saved runs, submission history and completed labs/playgrounds, even when no lab or engine is running. " +
-			"Enter opens a running Kind lab; name one to open its workspace directly. " +
+			"Enter opens a running lab; name one to open its workspace directly. " +
 			"Press p for preferences. Start labs from the command line with astrona run <lab> --ui. Opening the workspace never restarts a lab or its timer.\n\n" +
 			"Downloads, setup, grading, teardown and errors stay inside the UI's terminal pane. Ctrl+] opens pane controls and scrollback. " +
-			"Enter opens the task on the left and an isolated lab terminal on the right. Ctrl-T opens a name dialog for a new terminal; mouse clicks or Ctrl-N/P switch tabs. " +
+			"Enter opens the task on the left and an isolated lab terminal on the right. Ctrl-T names a new terminal and selects a VM for QEMU labs; mouse clicks or Ctrl-N/P switch tabs. F4 toggles mouse text selection for copying. " +
 			"F2 focuses the task for scrolling. Drag the divider to resize it; ui-task-width in Preferences sets the default percentage. F3 opens lab details, cluster selection and submission results. " +
 			"Ctrl-C returns Home and pauses time spent; terminal tabs keep running until the UI closes. Alt-C interrupts a terminal command. " +
 			"p opens saved preferences: select a setting, Enter to edit and review, then y to save. " +
@@ -64,10 +64,20 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			"Ctrl-D on Home opens a red force-delete confirmation. Select Yes and press Enter to discard the selected run without saving or submitting it. " +
 			"In lab details, q opens the exit menu: keep running, submit, or confirm normal teardown. " +
 			"Closing the terminal does not submit or destroy; existing time limits still apply.\n\n" +
-			"Requires an interactive terminal outside CI. Opening the UI is opt-in, not a saved setting; QEMU is not yet supported.",
-		Example:           "  astrona ui\n  astrona ui " + apphome.ClusterPrefix() + "my-lab\n  astrona run ./labs/my-lab --ui",
-		Args:              cobra.MaximumNArgs(1),
-		ValidArgsFunction: labCompletion(isKind),
+			"Requires an interactive terminal outside CI. Opening the UI is opt-in, not a saved setting; Kind and QEMU labs are supported.",
+		Example: "  astrona ui\n  astrona ui " + apphome.ClusterPrefix() + "my-lab\n  astrona run ./labs/my-lab --ui",
+		Args:    cobra.MaximumNArgs(1),
+		ValidArgsFunction: func(_ *cobra.Command, args []string, prefix string) ([]cobra.Completion, cobra.ShellCompDirective) {
+			if len(args) > 0 {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			names, _ := workspaceLabNames()
+			rows := make([]labRow, 0, len(names))
+			for _, name := range names {
+				rows = append(rows, labRow{name: name, status: "Running"})
+			}
+			return labNameCandidates(rows, nil, prefix), cobra.ShellCompDirectiveNoFileComp
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requireWorkspaceTerminal(); err != nil {
 				return err
@@ -81,7 +91,7 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			}
 			name := config.NormalizeClusterName(args[0])
 			if !slices.Contains(names, name) {
-				return fmt.Errorf("no saved, running Kind lab named %s; use astrona ui to view saved runs and history", name)
+				return fmt.Errorf("no saved, running lab named %s; use astrona ui to view saved runs and history", name)
 			}
 			st, err := labstate.Load(name)
 			if err != nil {
@@ -104,8 +114,8 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 	}
 }
 
-// Only remembered primary Kind labs belong in the picker, never an unrelated
-// Kubernetes context or a linked cluster that belongs to a different lab.
+// Only remembered primary labs belong in the picker, never unrelated clusters
+// or individual VMs belonging to another lab.
 func workspaceLabNames() ([]string, error) {
 	known, err := labstate.Names()
 	if err != nil {
@@ -119,6 +129,12 @@ func workspaceLabNames() ([]string, error) {
 	for _, row := range collectKindRows() {
 		if _, linked := owners[row.name]; !linked && isRunning(row) && slices.Contains(known, row.name) && !strings.HasPrefix(row.name, apphome.TestClusterPrefix()) {
 			names = append(names, row.name)
+		}
+	}
+	groups, _ := readUIQEMUVMs()
+	for name, vms := range groups {
+		if _, running := uiQEMUStatus(vms); running && slices.Contains(known, name) && !slices.Contains(names, name) {
+			names = append(names, name)
 		}
 	}
 	slices.Sort(names)
@@ -173,8 +189,10 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		return "", err
 	}
 	name := config.NormalizeClusterName(cfg.Metadata.Name)
-	if err := requireRunningKindLab(cfg, name); err != nil {
-		return "", err
+	if cfg.Runtime.Type != "qemu" {
+		if err := requireRunningKindLab(cfg, name); err != nil {
+			return "", err
+		}
 	}
 	st, err := labstate.Load(name)
 	if err != nil {
@@ -197,14 +215,39 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 	for _, link := range links {
 		clusters = append(clusters, workspaceCluster{name: link.Cluster, alias: link.Name, status: "Checking…"})
 	}
+	selected := 0
+	if cfg.Runtime.Type == "qemu" {
+		clusters, err = workspaceQEMUTargets(cfg, name)
+		if err != nil {
+			return "", err
+		}
+		selected = -1
+		for i, target := range clusters {
+			if strings.HasPrefix(workspaceQEMUHealth(name, target.name), "Running") {
+				selected = i
+				break
+			}
+		}
+		if selected < 0 {
+			return "", fmt.Errorf("no VMs are running in lab %s", name)
+		}
+	}
 	playground := st.Session.IsPlayground() || isPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground"
 	path, err := settingsPath(flags)
 	if err != nil {
 		return "", err
 	}
-	m := workspaceModel{settingsPath: path, runID: runID, taskTerminals: true, terminalCommand: func(alias string) (*exec.Cmd, error) {
+	m := workspaceModel{selected: selected, settingsPath: path, runID: runID, taskTerminals: true, terminalCommand: func(alias string) (*exec.Cmd, error) {
 		if err := workspaceGuard(name, runID); err != nil {
 			return nil, err
+		}
+		if cfg.Runtime.Type == "qemu" {
+			for _, target := range clusters {
+				if target.alias == alias {
+					return workspaceQEMUCommand(ctx, name, target.name)
+				}
+			}
+			return nil, fmt.Errorf("no VM named %q in lab %s", alias, name)
 		}
 		cmd, _, err := labShellCommand(name, alias, nil)
 		return cmd, err
@@ -465,11 +508,16 @@ func readWorkspaceSnapshot(ctx context.Context, name, runID string, clusters []w
 			}
 		}
 	}
-	if st != nil && snap.blocked == "" {
+	qemu := len(clusters) > 0 && clusters[0].runtime == "qemu"
+	if st != nil && snap.blocked == "" && !qemu {
 		containers, provider, err := readHomeEngine(ctx)
 		if err == nil {
 			snap.usage = uiRunUsage(name, st.StartedAt, containers, readUIContainerUsage(ctx, provider, containers))
 		}
+	}
+	if st != nil && snap.blocked == "" && qemu {
+		groups, _ := readUIQEMUVMs()
+		snap.usage = uiQEMURunUsage(name, st.StartedAt, groups[name], readUIQEMUUsage(ctx, groups))
 	}
 	// A bounded worker pool keeps a lab with many linked clusters responsive.
 	var wg sync.WaitGroup
@@ -477,7 +525,11 @@ func readWorkspaceSnapshot(ctx context.Context, name, runID string, clusters []w
 	for range min(4, len(snap.clusters)) {
 		wg.Go(func() {
 			for i := range jobs {
-				snap.clusters[i].status = workspaceClusterHealth(ctx, snap.clusters[i].name)
+				if qemu {
+					snap.clusters[i].status = workspaceQEMUHealth(name, snap.clusters[i].name)
+				} else {
+					snap.clusters[i].status = workspaceClusterHealth(ctx, snap.clusters[i].name)
+				}
 			}
 		})
 	}
@@ -489,6 +541,15 @@ func readWorkspaceSnapshot(ctx context.Context, name, runID string, clusters []w
 	}
 	close(jobs)
 	wg.Wait()
+	if qemu && snap.blocked == "" {
+		running := false
+		for _, vm := range snap.clusters {
+			running = running || strings.HasPrefix(vm.status, "Running")
+		}
+		if !running {
+			snap.blocked = "No VMs are running in this lab. Start the lab again to reconnect."
+		}
+	}
 	return snap
 }
 

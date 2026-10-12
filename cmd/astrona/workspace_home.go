@@ -74,7 +74,7 @@ func (m workspaceModel) homeView() string {
 		footer[1] = "No lab is required for preferences."
 	}
 	if !m.home {
-		footer = []string{"↑/↓ select   enter open   q cancel", "Choose a running Kind lab"}
+		footer = []string{"↑/↓ select   enter open   q cancel", "Choose a running lab"}
 	}
 	if m.notice != "" {
 		body += "\n" + workspaceAlert(m.notice, w)

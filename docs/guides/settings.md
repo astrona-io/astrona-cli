@@ -104,8 +104,9 @@ saved. Editing preferences does not approve new settings definitions or usage te
 
 Saved options apply to future CLI commands, not the current workspace's options
 or running lab. Cache policy is checked after the workspace closes; saving a
-cache preference does not itself delete files. Opening the UI remains opt-in
-through `--ui` or `astrona ui`, not a persistent setting.
+cache preference does not itself delete files. Open the UI through `--ui`,
+`astrona ui`, or the Yes/No offer at the start of an interactive `astrona run`.
+This choice is not a persistent setting.
 
 ## Review settings after an upgrade
 

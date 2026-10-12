@@ -26,6 +26,7 @@ import (
 // retains the screen and scrollback without counting output as user activity.
 type uiTerminalTab struct {
 	label                       string
+	alias                       string
 	mu                          sync.Mutex
 	id                          int
 	terminal                    *os.File
@@ -120,8 +121,11 @@ func (t *uiTerminals) startNamed(alias, label string, width, height int) tea.Cmd
 		t.nextID++
 		if label == "" {
 			label = fmt.Sprintf("Terminal %d", t.nextID)
+			if alias != "" {
+				label = fmt.Sprintf("%s %d", alias, t.nextID)
+			}
 		}
-		tab := &uiTerminalTab{label: label, id: t.nextID, terminal: terminal, cmd: cmd, emulator: vt.NewEmulator(width, height), done: make(chan struct{}), inputDone: make(chan struct{}), outputDone: make(chan struct{})}
+		tab := &uiTerminalTab{label: label, alias: alias, id: t.nextID, terminal: terminal, cmd: cmd, emulator: vt.NewEmulator(width, height), done: make(chan struct{}), inputDone: make(chan struct{}), outputDone: make(chan struct{})}
 		tab.emulator.SetScrollbackSize(2000)
 		t.tabs = append(t.tabs, tab)
 		t.workers.Go(func() {
@@ -294,6 +298,7 @@ type uiTaskModel struct {
 	dragging            bool
 	namingTab           bool
 	tabName             string
+	lastReplacement     time.Time
 	workspace           workspaceModel
 	terminals           *uiTerminals
 	tabs                []*uiTerminalTab
@@ -349,6 +354,7 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case uiTerminalChanged:
 		tabs := m.terminals.snapshot()
+		lostLast := len(m.tabs) > 0 && len(tabs) == 0
 		var selected *uiTerminalTab
 		if m.active < len(m.tabs) {
 			selected = m.tabs[m.active]
@@ -364,6 +370,20 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tabs = tabs
 		m.active = min(m.active, max(0, len(tabs)-1))
 		m.resize()
+		cleanExit := lostLast && selected != nil && selected.cmd != nil && selected.cmd.ProcessState != nil && selected.cmd.ProcessState.Success()
+		if lostLast && !m.starting && (cleanExit || time.Since(m.lastReplacement) >= 3*time.Second) {
+			m.lastReplacement = time.Now()
+			m.tabName = ""
+			if selected != nil {
+				for i, target := range m.workspace.snapshot.clusters {
+					if target.alias == selected.alias {
+						m.workspace.selected = i
+						break
+					}
+				}
+			}
+			return m, tea.Batch(m.next, m.start())
+		}
 		return m, m.next
 	case tea.WindowSizeMsg:
 		m.dragging = false
@@ -421,6 +441,10 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if !msg.Paste {
 			switch msg.String() {
+			case "enter":
+				if len(m.tabs) == 0 {
+					return m, m.start()
+				}
 			case "ctrl+c":
 				m.workspace.action = workspaceLeave
 				return m, tea.Quit
@@ -531,6 +555,8 @@ func (m *uiTaskModel) navigation() (string, []uiTabHit) {
 	}
 	if m.starting {
 		nav += " Opening terminal…"
+	} else if len(m.tabs) == 0 {
+		nav += workspaceNav([]string{"Terminal · retry"}, []string{"1"}, 0)
 	}
 	return nav, hits
 }
@@ -551,7 +577,7 @@ func (m *uiTaskModel) taskPage(width, height int) string {
 func (m *uiTaskModel) View() string {
 	left, w, h := m.size()
 	nav, _ := m.navigation()
-	screen := "Press Ctrl+T to open a terminal."
+	screen := "Terminal unavailable. Press Enter to reconnect, or Ctrl+T to choose another terminal."
 	terminalStatus := ""
 	if len(m.tabs) > 0 {
 		tab := m.tabs[m.active]
@@ -583,7 +609,7 @@ func (m *uiTaskModel) View() string {
 	} else if m.taskFocus {
 		body = workspacePanel("QUESTION / TASK", m.taskPage(w, h), w+4, h+2, taskStyle)
 	}
-	footer := "Ctrl+T new · Ctrl+N/P tabs · F2 task · F3 lab · Ctrl+C overview"
+	footer := "Ctrl+T new · Ctrl+N/P tabs · F2 task · F3 lab · F4 copy · Ctrl+C overview"
 	if terminalStatus != "" {
 		footer = terminalStatus
 	}
@@ -593,6 +619,10 @@ func (m *uiTaskModel) View() string {
 	view := workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render("Alt+C interrupts a command · Ctrl+C pauses time; tabs keep running"), m.workspace.width, m.workspace.height)
 	if m.namingTab {
 		text := "Name: " + sanitizeLine(m.tabName) + "_\n\nEnter opens the tab; leave blank for a default name.\nSwitch tabs with a mouse click or Ctrl+N / Ctrl+P.\n\nEnter opens · Esc cancels · Ctrl+U clears"
+		if len(m.workspace.snapshot.clusters) > 0 && m.workspace.snapshot.clusters[0].runtime == "qemu" {
+			target := m.workspace.snapshot.clusters[m.workspace.selected]
+			text = "VM: " + sanitizeLine(target.name) + " (←/→ choose)\n" + text
+		}
 		if m.workspace.width < 48 || m.workspace.height < 14 {
 			text = "Resize to 48 × 14 to name a terminal. Esc cancels."
 		}
@@ -604,6 +634,16 @@ func (m *uiTaskModel) View() string {
 func (m *uiTaskModel) nameTab(key tea.KeyMsg) tea.Cmd {
 	if !key.Paste {
 		switch key.String() {
+		case "left", "right":
+			targets := m.workspace.snapshot.clusters
+			if len(targets) > 0 && targets[0].runtime == "qemu" {
+				step := 1
+				if key.String() == "left" {
+					step = -1
+				}
+				m.workspace.selected = (m.workspace.selected + step + len(targets)) % len(targets)
+			}
+			return nil
 		case "esc":
 			m.namingTab = false
 			return nil

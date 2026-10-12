@@ -26,7 +26,7 @@ const (
 )
 
 type workspaceCluster struct {
-	name, alias, status string
+	name, alias, status, runtime string
 }
 
 type workspaceSnapshot struct {

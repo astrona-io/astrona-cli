@@ -168,6 +168,7 @@ type uiPaneDrainTimeout struct{}
 type uiPaneModel struct {
 	usage                           labstate.ResourceUsage
 	mouseDown                       bool
+	selectText                      bool
 	inputError                      tea.Cmd
 	emulator                        *vt.Emulator
 	terminal                        *os.File
@@ -292,6 +293,9 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case uiPaneDrainTimeout:
 		_ = m.terminal.Close()
 	case tea.MouseMsg:
+		if m.selectText {
+			return m, nil
+		}
 		if !strings.HasPrefix(m.title, "TASK / ") || m.controls || m.closing || m.ended || m.activity.paused || m.activityAway {
 			m.mouseDown = false
 			return m, nil
@@ -326,6 +330,13 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *uiPaneModel) key(key tea.KeyMsg) tea.Cmd {
+	if !key.Paste && key.Type == tea.KeyF4 {
+		m.selectText, m.mouseDown = !m.selectText, false
+		if m.selectText {
+			return tea.DisableMouse
+		}
+		return tea.EnableMouseCellMotion
+	}
 	now := time.Now()
 	m.activity.update(now)
 	if !key.Paste && key.Type == tea.KeyCtrlC && !m.controls && !m.closing && !m.ended && (strings.HasPrefix(m.title, "TASK / ") || strings.HasPrefix(m.title, "WORKSPACE / ")) {
@@ -424,6 +435,9 @@ func (m *uiPaneModel) View() string {
 	}
 	if m.closing {
 		content = workspaceDialog(content, "CLOSE UI", "Close the UI and stop its active command?\nAny lab already created stays on this machine.\n\ny close / Enter or Esc return", m.width, m.emulator.Height(), false)
+	}
+	if m.selectText {
+		footer = "Select text with the mouse; use your terminal's Copy shortcut · F4 restores mouse controls"
 	}
 	_, contentHeight := uiPaneSize(m.width, m.height)
 	return workspaceFit(header+"\n"+workspaceFit(content, m.width, contentHeight)+"\n"+workspaceMuted.Render(footer), m.width, m.height)

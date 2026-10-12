@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -296,5 +297,26 @@ func TestUIPaneCloseStopsAndReapsChild(t *testing.T) {
 	}
 	if cmd.ProcessState == nil {
 		t.Fatal("pane left its child process unreaped")
+	}
+}
+
+func TestUIPaneNativeTextSelection(t *testing.T) {
+	m := newUIPaneModel(nil, nil, 120, 30)
+	defer m.emulator.Close()
+	m.mouseDown = true
+	cmd := m.key(tea.KeyMsg{Type: tea.KeyF4})
+	if !m.selectText || m.mouseDown || cmd == nil || reflect.TypeOf(cmd()) != reflect.TypeOf(tea.DisableMouse()) {
+		t.Fatal("F4 did not enable native selection")
+	}
+	m.Update(tea.MouseMsg{X: 2, Y: 12, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+	if m.mouseDown {
+		t.Fatal("selection forwarded a mouse click")
+	}
+	if !strings.Contains(m.View(), "Copy shortcut") {
+		t.Fatal("copy instructions missing")
+	}
+	cmd = m.key(tea.KeyMsg{Type: tea.KeyF4})
+	if m.selectText || cmd == nil || reflect.TypeOf(cmd()) != reflect.TypeOf(tea.EnableMouseCellMotion()) {
+		t.Fatal("F4 did not restore mouse controls")
 	}
 }

@@ -171,6 +171,10 @@ func workspaceDialog(background, title, content string, width, height int, dange
 
 func (m workspaceModel) labView() string {
 	w, h := m.width, m.bodyHeight()
+	targets, target := "Clusters", "cluster"
+	if len(m.snapshot.clusters) > 0 && m.snapshot.clusters[0].runtime == "qemu" {
+		targets, target = "VMs", "VM"
+	}
 	clock := "Elapsed: unknown"
 	if !m.snapshot.started.IsZero() {
 		clock = "Elapsed: " + max(time.Duration(0), m.now.Sub(m.snapshot.started)).Round(time.Second).String()
@@ -184,7 +188,7 @@ func (m workspaceModel) labView() string {
 	}
 	context := m.name + "  |  " + m.snapshot.kind + "  |  " + clock
 	if os.Getenv(uiPaneEnv) == "1" {
-		context = fmt.Sprintf("%s  ·  Clusters: %d  ·  %s", m.snapshot.kind, len(m.snapshot.clusters), clock)
+		context = fmt.Sprintf("%s  ·  %s: %d  ·  %s", m.snapshot.kind, targets, len(m.snapshot.clusters), clock)
 	}
 	if m.snapshot.tracking != "" {
 		context += "  |  " + m.snapshot.tracking
@@ -212,7 +216,7 @@ func (m workspaceModel) labView() string {
 		}
 		rows = append(rows, name, workspaceMuted.Render("  "+sanitizeLine(c.status)))
 	}
-	left := workspacePanel(fmt.Sprintf("CLUSTERS [%d]", len(m.snapshot.clusters)), strings.Join(rows, "\n"), leftWidth, h, workspaceFocus)
+	left := workspacePanel(fmt.Sprintf("%s [%d]", strings.ToUpper(targets), len(m.snapshot.clusters)), strings.Join(rows, "\n"), leftWidth, h, workspaceFocus)
 	content, title := m.task, "THE TASK"
 	if m.results {
 		content, title = m.snapshot.result, "SUBMISSION RESULTS"
@@ -228,7 +232,7 @@ func (m workspaceModel) labView() string {
 	if message != "" {
 		body += "\n" + workspaceAlert(message, w)
 	}
-	footer := []string{"↑/↓ cluster  s shell  tab view  p preferences", "q exit menu  Ctrl+C overview  enter task"}
+	footer := []string{"↑/↓ " + target + "  s shell  tab view  p preferences", "q exit menu  Ctrl+C overview  enter task"}
 	if m.canSubmit {
 		footer[1] = "g submit   " + footer[1]
 	}

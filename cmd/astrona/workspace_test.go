@@ -191,8 +191,12 @@ func TestWorkspaceRuntimeAndGrading(t *testing.T) {
 		t.Fatal("grading availability")
 	}
 	cfg.Runtime.Type = "qemu"
+	if err := workspaceRuntime(cfg); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Runtime.Type = "unknown"
 	if err := workspaceRuntime(cfg); err == nil {
-		t.Fatal("QEMU accepted")
+		t.Fatal("unsupported runtime accepted")
 	}
 }
 

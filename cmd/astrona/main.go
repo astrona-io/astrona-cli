@@ -246,8 +246,17 @@ func main() {
 		fmt.Println(askpassPass)
 		os.Exit(0)
 	}
-	if os.Getenv(uiPaneEnv) != "1" && wantsUIPane(os.Args[1:]) {
-		code, err := runUIPane(context.Background(), os.Args[1:])
+	args := os.Args[1:]
+	if os.Getenv(uiPaneEnv) != "1" {
+		var err error
+		args, err = offerRunUI(args, os.Stdin, os.Stdout, requireWorkspaceTerminal() == nil)
+		if err != nil {
+			ui.PrintError(err)
+			os.Exit(1)
+		}
+	}
+	if os.Getenv(uiPaneEnv) != "1" && wantsUIPane(args) {
+		code, err := runUIPane(context.Background(), args)
 		if err != nil {
 			ui.PrintError(err)
 			os.Exit(1)
@@ -257,6 +266,7 @@ func main() {
 
 	flags := &rootFlags{}
 	rootCmd := newRootCmd(flags)
+	rootCmd.SetArgs(args)
 	installCommandGate(rootCmd, func(cmd *cobra.Command) error { return checkSettingsReview(cmd, flags) })
 	installTermsGate(rootCmd, flags, checkTerms)
 	installUIRunGate(rootCmd, flags, confirmUIRun)
