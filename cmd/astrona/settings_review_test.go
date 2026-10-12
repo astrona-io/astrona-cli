@@ -180,6 +180,75 @@ func TestReviewDeclineAndInvalidInputDoNotSave(t *testing.T) {
 	}
 }
 
+func TestReviewExplicitChoiceRetriesKeepEarlierAnswers(t *testing.T) {
+	for _, tc := range []struct{ name, answer, want string }{
+		{"blank then false", "\nfalse\n", "false"},
+		{"blank then true", "\ntrue\n", "true"},
+		{"whitespace and invalid", " \t\r\nyes\n1\nfalse\n", "false"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "settings.json")
+			input := strings.Replace(initialReviewInput(), "false\n", tc.answer, 1) + "next prompt\n"
+			cmd, out := reviewCommand(input)
+			if err := ensureSettingsReview(cmd, path, reviewDefinitions(), true, ""); err != nil {
+				t.Fatalf("review failed: %v\n%s", err, out.String())
+			}
+			saved, err := loadSettings(path)
+			if err != nil || string(saved["parallel"]) != "2" || string(saved["update-check"]) != tc.want {
+				t.Fatalf("lost choices: %v, %v", saved, err)
+			}
+			if strings.Count(out.String(), "parallel (new setting)") != 1 || !strings.Contains(out.String(), "update-check must be true or false. Please try again") {
+				t.Fatalf("did not retry only the current question: %s", out.String())
+			}
+			if strings.Count(out.String(), "Type your value explicitly (true/false, q to cancel):") != strings.Count(tc.answer, "\n") {
+				t.Fatalf("unexpected number of prompts: %s", out.String())
+			}
+			rest, err := io.ReadAll(cmd.InOrStdin())
+			if err != nil || string(rest) != "next prompt\n" {
+				t.Fatalf("consumed later input: %q, %v", rest, err)
+			}
+			receipt, err := loadSettingsReceipt(path)
+			if err != nil || len(pendingSettings(receipt.Definitions, reviewDefinitions(), saved)) != 0 {
+				t.Fatalf("review not recorded: %v", err)
+			}
+		})
+	}
+}
+
+func TestReviewExplicitChoiceRetryCanStillCancel(t *testing.T) {
+	for _, answer := range []string{"\nq\n", "\n", "\ntrue"} {
+		t.Run(answer, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "settings.json")
+			value := "3"
+			if err := changeSetting(path, "parallel", &value); err != nil {
+				t.Fatal(err)
+			}
+			before, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			prefix, _, found := strings.Cut(initialReviewInput(), "false\n")
+			if !found {
+				t.Fatal("missing explicit choice in test input")
+			}
+			cmd, out := reviewCommand(prefix + answer)
+			if err := ensureSettingsReview(cmd, path, reviewDefinitions(), true, ""); err == nil {
+				t.Fatal("blank input approved the default")
+			}
+			if !strings.Contains(out.String(), "Please try again") {
+				t.Fatal("did not retry the blank answer")
+			}
+			after, err := os.ReadFile(path)
+			if err != nil || !bytes.Equal(before, after) {
+				t.Fatalf("cancel saved earlier answers: %q, %v", after, err)
+			}
+			if _, err := os.Stat(settingsReceiptPath(path)); !errors.Is(err, os.ErrNotExist) {
+				t.Fatal("cancel saved a review receipt")
+			}
+		})
+	}
+}
+
 func TestReviewDetectsSchemaChangesAndPreservesChoices(t *testing.T) {
 	for _, kind := range []string{"default", "description", "revision", "added", "removed", "privacy"} {
 		t.Run(kind, func(t *testing.T) {

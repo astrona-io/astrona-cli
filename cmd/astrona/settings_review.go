@@ -212,19 +212,35 @@ func ensureSettingsReview(cmd *cobra.Command, path string, defs map[string]revie
 				prompt := fmt.Sprintf("  Value [%s] (enter to keep, q to cancel): ", value)
 				if def.ExplicitChoice {
 					prompt = "  Type your value explicitly (q to cancel): "
+					if def.Default == "true" || def.Default == "false" {
+						prompt = "  Type your value explicitly (true/false, q to cancel): "
+					}
 				}
-				if _, err := fmt.Fprint(out, prompt); err != nil {
-					return err
-				}
-				answer, err := readSettingsAnswer(cmd.Context(), cmd.InOrStdin())
-				if err != nil {
-					return err
-				}
-				if answer == "q" || (answer == "" && def.ExplicitChoice) {
-					return fmt.Errorf("settings review cancelled; no choices saved")
-				}
-				if answer != "" {
-					value = answer
+				for {
+					if _, err := fmt.Fprint(out, prompt); err != nil {
+						return err
+					}
+					answer, err := readSettingsAnswer(cmd.Context(), cmd.InOrStdin())
+					if err != nil {
+						return err
+					}
+					if answer == "q" {
+						return fmt.Errorf("settings review cancelled; no choices saved")
+					}
+					if def.ExplicitChoice {
+						// Blank input must not accept a sensitive default or discard
+						// earlier answers. Validate this answer before moving on.
+						if _, err := parseSetting(key, answer); err != nil {
+							if _, err := fmt.Fprintf(out, "  %s. Please try again, or type q to cancel.\n", err); err != nil {
+								return err
+							}
+							continue
+						}
+					}
+					if answer != "" {
+						value = answer
+					}
+					break
 				}
 			}
 			parsed, err := parseSetting(key, value)
