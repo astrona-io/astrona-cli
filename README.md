@@ -192,11 +192,17 @@ A [`Justfile`](./Justfile) wraps the common local dev commands (requires [`just`
 
 | Recipe | What it does |
 |---|---|
-| `just build` | `go build -o astrona .` |
-| `just install` | Build, then move the binary onto `PATH` (`~/.local/bin` by default, override with `ASTRONA_INSTALL_DIR`) |
+| `just build` | Build `./astrona` for local testing; do not install or move it |
 | `just check` | `fmt` + `vet` + `test` — run before committing |
 
 Run `just` with no arguments to list every recipe.
+
+Run the test binary with `./astrona`, not `astrona` from your `PATH`.
+Unversioned builds use `~/.astrona-dev` for local data and Git caches, with
+`astrodev-` cluster names. Release binaries keep `~/.astrona`, their existing
+Git cache, and `astro-` names. Nothing is migrated from your release state.
+See [local development](docs/contributing.md#justfile-recipes) for the limits
+of this separation.
 
 ## Requirements
 

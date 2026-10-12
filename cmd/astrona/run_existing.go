@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"astrona/internal/apphome"
 	"astrona/internal/config"
 )
 
@@ -42,7 +43,7 @@ func chooseRun(in io.Reader, out io.Writer, tty, yes, exists bool, label string,
 	if tty && !yes && len(others) > 0 {
 		names := make([]string, len(others))
 		for i, o := range others {
-			names[i] = strings.TrimPrefix(o, "astro-")
+			names[i] = strings.TrimPrefix(o, apphome.ClusterPrefix())
 		}
 		if confirmYes(in, out, fmt.Sprintf("Also running: %s. Destroy %s first? Everything done in %s is lost.",
 			strings.Join(names, ", "), pick(len(others), "it", "them"), pick(len(others), "it", "them"))) {
@@ -92,7 +93,7 @@ func otherQEMULabs(clusterName string, rows []labRow) []string {
 			}
 			lab = r.name
 		}
-		if lab == clusterName || strings.HasPrefix(lab, "astro-test-") || seen[lab] {
+		if lab == clusterName || strings.HasPrefix(lab, apphome.TestClusterPrefix()) || seen[lab] {
 			continue
 		}
 		seen[lab] = true

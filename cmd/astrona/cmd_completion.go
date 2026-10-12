@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 
+	"astrona/internal/apphome"
 	"astrona/internal/config"
 	"astrona/internal/lifecycle"
 
@@ -29,7 +30,7 @@ func labCompletion(keep func(labRow) bool) func(*cobra.Command, []string, string
 }
 
 func labNameCandidates(rows []labRow, keep func(labRow) bool, toComplete string) []cobra.Completion {
-	unprefixed := toComplete != "" && !strings.HasPrefix("astro-", toComplete) && !strings.HasPrefix(toComplete, "astro-")
+	unprefixed := toComplete != "" && !strings.HasPrefix(apphome.ClusterPrefix(), toComplete) && !strings.HasPrefix(toComplete, apphome.ClusterPrefix())
 	seen := map[string]bool{}
 	var out []cobra.Completion
 	for _, r := range rows {
@@ -38,7 +39,7 @@ func labNameCandidates(rows []labRow, keep func(labRow) bool, toComplete string)
 		}
 		name := r.name
 		if unprefixed {
-			name = strings.TrimPrefix(name, "astro-")
+			name = strings.TrimPrefix(name, apphome.ClusterPrefix())
 		}
 		if seen[name] || !strings.HasPrefix(name, toComplete) {
 			continue

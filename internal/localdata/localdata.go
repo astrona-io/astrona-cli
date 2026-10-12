@@ -12,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"astrona/internal/apphome"
 )
 
 type Store struct {
@@ -24,11 +26,11 @@ func DefaultStore() (Store, error) {
 	if err != nil {
 		return Store{}, err
 	}
-	cache, err := os.UserCacheDir()
+	repos, err := apphome.ReposDir()
 	if err != nil {
 		return Store{}, err
 	}
-	return Store{Data: filepath.Join(home, ".astrona"), Repos: filepath.Join(cache, "astrona", "repos")}, nil
+	return Store{Data: filepath.Join(home, apphome.Name()), Repos: repos}, nil
 }
 
 type Usage struct {
@@ -43,7 +45,12 @@ type Usage struct {
 // and container-engine storage are never inspected.
 func (s Store) Usage(ctx context.Context) ([]Usage, error) {
 	result := []Usage{}
-	for _, base := range []string{s.Data, s.Repos} {
+	bases := []string{s.Data}
+	// Development Git caches are already counted beneath Data/cache.
+	if rel, err := filepath.Rel(s.Data, s.Repos); err != nil || !filepath.IsLocal(rel) {
+		bases = append(bases, s.Repos)
+	}
+	for _, base := range bases {
 		var r *os.Root
 		var err error
 		if base == s.Repos {

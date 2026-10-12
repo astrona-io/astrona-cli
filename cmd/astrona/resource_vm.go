@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"astrona/internal/apphome"
 	"fmt"
 	"io"
 	"io/fs"
@@ -74,7 +75,7 @@ func vmTarget(lab string, r resources.Resource, vmFlag string) (string, error) {
 		if qemuStateExists(lab + "-" + vm) {
 			return lab + "-" + vm, nil
 		}
-		return "", fmt.Errorf("lab %s has no running VM %q", strings.TrimPrefix(lab, "astro-"), vm)
+		return "", fmt.Errorf("lab %s has no running VM %q", strings.TrimPrefix(lab, apphome.ClusterPrefix()), vm)
 	}
 	if qemuStateExists(lab) {
 		return lab, nil
@@ -88,9 +89,9 @@ func vmTarget(lab string, r resources.Resource, vmFlag string) (string, error) {
 		}
 	}
 	if len(vms) == 0 {
-		return "", fmt.Errorf("lab %s isn't running — start it with `astrona run`", strings.TrimPrefix(lab, "astro-"))
+		return "", fmt.Errorf("lab %s isn't running — start it with `astrona run`", strings.TrimPrefix(lab, apphome.ClusterPrefix()))
 	}
-	return "", fmt.Errorf("lab %s has several VMs (%s) — pick one: --vm <name>", strings.TrimPrefix(lab, "astro-"), strings.Join(vms, ", "))
+	return "", fmt.Errorf("lab %s has several VMs (%s) — pick one: --vm <name>", strings.TrimPrefix(lab, apphome.ClusterPrefix()), strings.Join(vms, ", "))
 }
 
 // runResourceInVM copies r into the VM as the student account (the one
@@ -152,7 +153,7 @@ func runResourceInVM(lab, dir string, r resources.Resource, args []string, vmFla
 	}
 	c := exec.Command(sshPath, append(runArgs, remoteCmd)...)
 	fmt.Fprintf(os.Stderr, "→ %s  (lab %s, VM %s, as %s, in ~/%s/%s)\n", sanitizeLine(strings.Join(append([]string{r.Command()}, args...), " ")),
-		strings.TrimPrefix(lab, "astro-"), strings.TrimPrefix(target, "astro-"), handle.SSHUser, vmResourceDir, r.Name)
+		strings.TrimPrefix(lab, apphome.ClusterPrefix()), strings.TrimPrefix(target, apphome.ClusterPrefix()), handle.SSHUser, vmResourceDir, r.Name)
 	return runAttached(c)
 }
 

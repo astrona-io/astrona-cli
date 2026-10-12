@@ -40,7 +40,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.2.0
 
       - name: Generate CLI reference
-        run: go run ./cmd/astrona docgen --output docs/reference/cli
+        run: go run -ldflags "-X main.Version=0.0.0" ./cmd/astrona docgen --output docs/reference/cli
 
       - name: Configure git for mike
         run: |
@@ -86,7 +86,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.2.0
 
       - name: Generate CLI reference
-        run: go run ./cmd/astrona docgen --output docs/reference/cli
+        run: go run -ldflags "-X main.Version=0.0.0" ./cmd/astrona docgen --output docs/reference/cli
 
       - name: Configure git for mike
         run: |

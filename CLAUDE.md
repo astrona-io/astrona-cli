@@ -32,6 +32,7 @@ The codebase is organized in a standard, logical Go folder structure:
   - `banner.go` — Prints the beautiful startup ASCII banner.
   - `cmd_*.go` — One file per top-level command (`run`, `destroy`, `submit`, `ssh`, `test` (as `cmd_devtest.go`), `check`, `list`, `images`, `upgrade`).
 - **`internal/`** — Modular business logic packages:
+  - `apphome` — Build profile selected once at entrypoint startup from `main.Version`, before any state access or background work. Unversioned builds use `~/.astrona-dev`, Git caches beneath `cache/repos`, and `astrodev-` / `astrodev-test-` cluster names. Releases retain their original paths and prefixes. All managed paths and discovery must use this package; never hardcode a release path in operational code. Do not migrate credentials, settings or consent between profiles. Developer binaries must not self-upgrade or hand commands to release binaries. This is state isolation, not a host or server sandbox.
   - `terms` — Bundled CLI usage notice and a private, atomically replaced `~/.astrona/terms.json` receipt. Match both revision and content digest. CI requires `--accept-terms` on every operational invocation, even with a receipt; missing noninteractive consent must fail without reading stdin. Notice updates require a CLI release. Update `notice.txt` and `Revision` together after legal review; this acknowledgement does not change Apache-2.0 or provide a server audit. Native Windows setup and WSL use separate receipts.
   - `localdata` — Read-only file inventory and allowlisted deletion plans. Cache cleanup is blocked by saved lab state, including stopped VMs. Never treat VM disks, results, credentials, resources or bundles as disposable cache. Use bounded `os.Root` operations and preserve maintenance/settings lock inodes.
     `PlanPolicy` uses the same safety boundary: default 30 days and 50 decimal GB, configured by `cache-retention-days` and `cache-max-size-gb` (0 disables only the size cap). Evict by newest filesystem modification time per entry, expiry first and oldest first for size; group image data and sidecars. These are between-command limits, not hard disk quotas. Do not relax saved-state protection just to meet a limit.
@@ -91,7 +92,12 @@ strict docs build and desktop/mobile browser checks; see `docs/contributing.md`.
 Never make documentation depend on animation or JavaScript to be readable.
 
 ```sh
-just build (or go build -o astrona ./cmd/astrona)
+just build # creates ./astrona only; development data goes to ~/.astrona-dev
+./astrona --help
 go vet ./...
 go test ./...
 ```
+
+Plain `go build -o astrona ./cmd/astrona` also produces a development build.
+Release packaging sets `-X main.Version=vX.Y.Z` and uses release state. There is
+no Justfile install recipe; never move local test binaries onto the user's PATH.

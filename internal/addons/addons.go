@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/executor"
@@ -287,7 +288,7 @@ func cacheDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
 	}
-	dir := filepath.Join(home, ".astrona", "cache", "addons")
+	dir := filepath.Join(home, apphome.Name(), "cache", "addons")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create addon cache '%s': %w", dir, err)
 	}

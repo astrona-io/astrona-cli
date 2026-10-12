@@ -1,21 +1,14 @@
 set shell := ["bash", "-uc"]
 
 bin := "astrona"
-install_dir := env_var_or_default("ASTRONA_INSTALL_DIR", env_var("HOME") / ".local/bin")
 
 # List available recipes
 default:
     @just --list
 
-# Build the astrona binary
+# Build ./astrona for local testing (state: ~/.astrona-dev; nothing installed)
 build:
-    go build -o {{bin}} ./cmd/astrona
-
-# Build and move the binary onto PATH (default: ~/.local/bin, override with ASTRONA_INSTALL_DIR)
-install: build
-    mkdir -p {{install_dir}}
-    mv {{bin}} {{install_dir}}/{{bin}}
-    @echo "Installed to {{install_dir}}/{{bin}}"
+    go build -ldflags "-X main.Version=developer" -o {{bin}} ./cmd/astrona
 
 # Remove the built binary
 clean:
@@ -47,9 +40,9 @@ test:
 # Format check, vet, lint, and test — run before committing
 check: fmt vet lint test
 
-# Generate the CLI reference markdown (docs/reference/cli/) from the actual command tree
+# Generate reference docs with release paths; docgen does not write user state
 docs-gen-cli:
-    go run ./cmd/astrona docgen --output docs/reference/cli
+    go run -ldflags "-X main.Version=0.0.0" ./cmd/astrona docgen --output docs/reference/cli
 
 # Serve the docs site locally with live reload (uses uv — no persistent venv to manage)
 docs: docs-gen-cli

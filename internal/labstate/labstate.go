@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 
+	"astrona/internal/apphome"
 	"astrona/internal/config"
 )
 
@@ -82,7 +83,7 @@ func Dir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
 	}
-	return filepath.Join(home, ".astrona", "labs"), nil
+	return filepath.Join(home, apphome.Name(), "labs"), nil
 }
 
 // Path is lab's state file. The name is validated so it can't escape

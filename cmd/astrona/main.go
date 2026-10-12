@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"astrona/internal/apphome"
 	"astrona/internal/localdata"
 	"astrona/internal/ui"
 	"astrona/internal/version"
@@ -84,7 +85,7 @@ func newerRelease(latest, current string) bool {
 }
 
 func checkLatestVersion(verbose bool) {
-	if !updateCheckWanted() {
+	if apphome.Development() || !updateCheckWanted() {
 		return
 	}
 	path, err := updateStatePath()
@@ -175,7 +176,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	// Setting this on rootCmd alone is enough: Cobra falls back to a
 	// parent's HelpTemplate for any subcommand that doesn't set its own,
 	// so this banner shows on every `--help` screen in the tree.
-	rootCmd.SetHelpTemplate(banner() + "\nVersion: " + Version + "\n\n" + helpTemplateBody)
+	rootCmd.SetHelpTemplate(banner() + "\nVersion: " + Version + "\nLocal data: ~/" + apphome.Name() + "\n\n" + helpTemplateBody)
 
 	// A RunE error (a real runtime failure — bad config, a broken image, a
 	// failed exec.Command) has nothing to do with how the command was
@@ -231,6 +232,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 }
 
 func main() {
+	apphome.Configure(Version)
 	if err := configurePackageTools(); err != nil {
 		ui.PrintError(err)
 		os.Exit(1)

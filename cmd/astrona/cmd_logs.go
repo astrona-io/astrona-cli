@@ -13,6 +13,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/logs"
 
 	"github.com/mattn/go-isatty"
@@ -32,12 +33,12 @@ func newLogsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "logs",
 		Aliases: []string{"log"},
-		Short:   "Inspect the per-run logs astrona writes under ~/.astrona/logs",
-		Long: "Inspect the per-run logs astrona writes under ~/.astrona/logs.\n\n" +
+		Short:   "Inspect the per-run logs astrona writes under ~/" + apphome.Name() + "/logs",
+		Long: "Inspect the per-run logs astrona writes under ~/" + apphome.Name() + "/logs.\n\n" +
 			"Every `run`, `test`, `submit`, and `destroy` tees its full output to a " +
 			"timestamped log file. `astrona logs` lists those runs, shows one through " +
 			"your pager, prints a log's path for scripting, exports logs out of " +
-			"~/.astrona, and prunes old ones.",
+			"~/" + apphome.Name() + ", and prunes old ones.",
 	}
 	cmd.AddCommand(
 		newLogsListCmd(),
@@ -119,7 +120,7 @@ func renderEntries(w io.Writer, entries []logs.Entry, format string) error {
 // `astrona list` / `astrona images list` use.
 func printLogTable(w io.Writer, entries []logs.Entry) {
 	if len(entries) == 0 {
-		fmt.Fprintln(w, "No run logs found (~/.astrona/logs is empty).")
+		fmt.Fprintln(w, "No run logs found (~/"+apphome.Name()+"/logs is empty).")
 		return
 	}
 
@@ -353,9 +354,9 @@ func newLogsExportCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "export [ref]",
-		Short: "Copy one or more run logs out of ~/.astrona to a file or directory",
+		Short: "Copy one or more run logs out of ~/" + apphome.Name() + " to a file or directory",
 		Args:  cobra.MaximumNArgs(1),
-		Long: "Copy run logs out of ~/.astrona.\n\n" +
+		Long: "Copy run logs out of ~/" + apphome.Name() + ".\n\n" +
 			"Exporting a single log writes --output as a file (or, if --output is an " +
 			"existing directory, a file inside it). --all, or any multi-log filter, " +
 			"writes one file per log into the --output directory.\n\n" +
@@ -481,7 +482,7 @@ func newLogsCleanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clean",
 		Short: "Delete old run logs",
-		Long: "Delete run logs under ~/.astrona/logs.\n\n" +
+		Long: "Delete run logs under ~/" + apphome.Name() + "/logs.\n\n" +
 			"Without --yes, clean only previews what it would remove. --keep always " +
 			"retains the N newest matching logs; --older-than restricts deletion to " +
 			"logs older than the given duration.",

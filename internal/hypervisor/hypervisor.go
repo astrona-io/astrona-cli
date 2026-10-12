@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/config"
 	"astrona/internal/ui"
 )
@@ -82,7 +83,7 @@ func QEMUBaseDir() (string, error) {
 		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
 	}
 
-	dir := filepath.Join(home, ".astrona", "qemu")
+	dir := filepath.Join(home, apphome.Name(), "qemu")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create qemu base dir '%s': %w", dir, err)
 	}
@@ -531,7 +532,7 @@ func ImageCacheDir() (string, error) {
 		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
 	}
 
-	dir := filepath.Join(home, ".astrona", "cache", "images")
+	dir := filepath.Join(home, apphome.Name(), "cache", "images")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create image cache dir '%s': %w", dir, err)
 	}
@@ -2480,7 +2481,7 @@ func StateExists(name string) bool {
 	if err != nil {
 		return false
 	}
-	dir, err := labDirWithin(filepath.Join(home, ".astrona", "qemu"), name)
+	dir, err := labDirWithin(filepath.Join(home, apphome.Name(), "qemu"), name)
 	if err != nil {
 		return false
 	}
@@ -2496,7 +2497,7 @@ func MultiVMs(labName string) []string {
 	if err != nil {
 		return nil
 	}
-	base := filepath.Join(home, ".astrona", "qemu")
+	base := filepath.Join(home, apphome.Name(), "qemu")
 	entries, err := os.ReadDir(base)
 	if err != nil {
 		return nil

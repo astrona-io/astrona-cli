@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/config"
 	"astrona/internal/executor"
 	"astrona/internal/ui"
@@ -35,7 +36,7 @@ func KindStateDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
 	}
-	return filepath.Join(home, ".astrona", "kind"), nil
+	return filepath.Join(home, apphome.Name(), "kind"), nil
 }
 
 func labStateDir(lab string) (string, error) {

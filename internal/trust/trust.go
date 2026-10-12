@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"astrona/internal/apphome"
 )
 
 // Source identifies remote lab content and pins its exact version.
@@ -47,7 +49,7 @@ func storePath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
 	}
-	return filepath.Join(home, ".astrona", "trust.json"), nil
+	return filepath.Join(home, apphome.Name(), "trust.json"), nil
 }
 
 func load() (map[string]Record, error) {

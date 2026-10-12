@@ -27,7 +27,7 @@ func newRunRenewCmd() *cobra.Command {
 			"the playground: the time so far is sent to your account as playground time — just as " +
 			"`astrona destroy` would — and a new timer starts with the full time limit.\n\n" +
 			"With no name, every running playground is renewed. A name is the lab as `astrona list` shows it " +
-			"(with or without the 'astro-' prefix) or its catalog name:\n\n" +
+			"(with or without the prefix shown in `astrona list`) or its catalog name:\n\n" +
 			"  astrona run renew\n" +
 			"  astrona run renew astrona-io/ATS014/section-010/module-01/playground\n\n" +
 			"A playground that already stopped can't be renewed — run it again.",

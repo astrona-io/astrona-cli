@@ -5,6 +5,11 @@ set -euo pipefail
 astrona="$(realpath "${1:-./astrona}")"
 lab=ATS000/section-010/module-01/lab-01
 cluster=astro-ats-000-lab-010-01
+state_dir=.astrona
+if [[ "$("$astrona" --version)" == *developer ]]; then
+  cluster=astrodev-ats-000-lab-010-01
+  state_dir=.astrona-dev
+fi
 artifacts="$(realpath -m "${2:-catalog-e2e-diagnostics}")"
 mkdir -p "$artifacts"
 # Isolate credentials, lab state and kubectl contexts from the caller.
@@ -27,7 +32,7 @@ cleanup() {
     kind export logs "$artifacts/kind" --name "$cluster" || true
     kubectl --context "kind-$cluster" get pods -A -o wide > "$artifacts/pods.txt" 2>&1 || true
     kubectl --context "kind-$cluster" describe pods -n first-lab > "$artifacts/describe.txt" 2>&1 || true
-    cp -R "$HOME/.astrona" "$artifacts/astrona" 2>/dev/null || true
+    cp -R "$HOME/$state_dir" "$artifacts/astrona" 2>/dev/null || true
     # Only this test's cluster is eligible for failure cleanup.
     "$astrona" destroy "$cluster" --verbose || true
     kind delete cluster --name "$cluster" || true
@@ -43,7 +48,7 @@ if grep -Fxq "$cluster" <<< "$clusters"; then
   exit 1
 fi
 
-test ! -e "$HOME/.astrona/credentials.json"
+test ! -e "$HOME/$state_dir/credentials.json"
 source "$(dirname "${BASH_SOURCE[0]}")/review-test-settings.sh"
 prepare_test_settings "$astrona"
 started=true
@@ -84,6 +89,6 @@ if grep -Fxq "kind-$cluster" <<< "$contexts"; then
   echo "Destroy left the lab's kubeconfig context" >&2
   exit 1
 fi
-test ! -e "$HOME/.astrona/labs/$cluster.json"
-test ! -e "$HOME/.astrona/credentials.json"
+test ! -e "$HOME/$state_dir/labs/$cluster.json"
+test ! -e "$HOME/$state_dir/credentials.json"
 echo "PASS: anonymous ATS000 lab ready, Alpine preload verified, destroy verified."

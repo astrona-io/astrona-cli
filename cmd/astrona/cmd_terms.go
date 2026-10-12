@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"astrona/internal/apphome"
 	"astrona/internal/terms"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
@@ -13,7 +14,7 @@ import (
 func newTermsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "terms", Short: "Read the CLI usage terms and data-loss risk notice", Args: cobra.NoArgs,
-		Long:              "Read the exact usage terms shipped with this CLI, without network access.\nPass --accept-terms to record your acceptance in ~/.astrona/terms.json.",
+		Long:              "Read the exact usage terms shipped with this CLI, without network access.\nPass --accept-terms to record your acceptance in ~/" + apphome.Name() + "/terms.json.",
 		PersistentPreRunE: func(*cobra.Command, []string) error { return nil },
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			_, err := fmt.Fprintf(cmd.OutOrStdout(), "%s\nSHA-256: %s\n", terms.Document(), terms.Digest())

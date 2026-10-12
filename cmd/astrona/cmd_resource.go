@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/lifecycle"
@@ -29,7 +30,7 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 		Short:   "Show, copy or run the files a lab ships for you (its resources)",
 		Long: "A lab can ship files you need — a setup script, a YAML file to fix, a small program — " +
 			"in its resources/ folder instead of asking you to paste them from the docs. `astrona run` " +
-			"copies them to ~/.astrona/resources/<lab> and lists them; nothing runs until you ask.\n\n" +
+			"copies them to ~/" + apphome.Name() + "/resources/<lab> and lists them; nothing runs until you ask.\n\n" +
 			"  astrona res                       list the lab's resources\n" +
 			"  astrona res show <name>           print one (a folder: its files)\n" +
 			"  astrona res copy <name> [dest]    copy it here (or to dest) to edit\n" +
@@ -239,7 +240,7 @@ func labNameFromConfig(flags *rootFlags) (string, error) {
 func trimAstro(names []string) []string {
 	out := make([]string, len(names))
 	for i, n := range names {
-		out[i] = strings.TrimPrefix(n, "astro-")
+		out[i] = strings.TrimPrefix(n, apphome.ClusterPrefix())
 	}
 	return out
 }
@@ -319,7 +320,7 @@ func runResource(lab, dir string, r resources.Resource, args []string, vmFlag st
 		return runResourceInVM(lab, dir, r, args, vmFlag) // qemu, or not running: it says so
 	}
 	if vmFlag != "" {
-		return fmt.Errorf("--vm is for qemu labs; %s is a kind lab", strings.TrimPrefix(lab, "astro-"))
+		return fmt.Errorf("--vm is for qemu labs; %s is a kind lab", strings.TrimPrefix(lab, apphome.ClusterPrefix()))
 	}
 	name, argv, workDir, err := resourceCommand(dir, r, args)
 	if err != nil {
@@ -341,7 +342,7 @@ func runResource(lab, dir string, r resources.Resource, args []string, vmFlag st
 	c := exec.Command(name, argv...)
 	c.Dir = workDir
 	c.Env = env
-	fmt.Fprintf(os.Stderr, "→ %s  (lab %s)\n", sanitizeLine(strings.Join(append([]string{r.Command()}, args...), " ")), strings.TrimPrefix(lab, "astro-"))
+	fmt.Fprintf(os.Stderr, "→ %s  (lab %s)\n", sanitizeLine(strings.Join(append([]string{r.Command()}, args...), " ")), strings.TrimPrefix(lab, apphome.ClusterPrefix()))
 	return runAttached(c)
 }
 

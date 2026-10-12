@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"time"
+
+	"astrona/internal/apphome"
 )
 
 // State is one running exam attempt.
@@ -54,7 +56,7 @@ func statePath(lab string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
 	}
-	return filepath.Join(home, ".astrona", "exams", lab+".json"), nil
+	return filepath.Join(home, apphome.Name(), "exams", lab+".json"), nil
 }
 
 // Start (re)starts lab's exam clock at now.

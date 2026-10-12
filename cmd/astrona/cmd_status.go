@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
@@ -72,7 +73,7 @@ func resolveStatusLab(labArg string, flags *rootFlags) (string, *config.LabConfi
 	qemu, _, _ := collectQEMURows()
 	var names []string
 	for _, r := range append(qemu, collectKindRows()...) {
-		if !strings.HasPrefix(r.name, "astro-test-") {
+		if !strings.HasPrefix(r.name, apphome.TestClusterPrefix()) {
 			names = append(names, r.name)
 		}
 	}
