@@ -544,6 +544,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cli-usage-terms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI usage terms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-short-way-astrona-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3462,6 +3473,8 @@
       
         
       
+        
+      
     
     
     
@@ -3506,6 +3519,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_terms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona terms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3987,6 +4028,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cli-usage-terms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI usage terms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-short-way-astrona-setup" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4248,11 +4300,51 @@
 </tr>
 </tbody>
 </table>
+<h2 id="cli-usage-terms">CLI usage terms<a class="headerlink" href="#cli-usage-terms" title="Permanent link">&para;</a></h2>
+<p>The first operational command, including plain <code>astrona</code>, displays the CLI usage
+terms and data-loss risk notice on stderr. Answer <code>y</code> or <code>yes</code> to continue.
+Blank input, <code>no</code>, or EOF cancels the command before lab downloads, sign-in or
+setup. Read the notice without accepting it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona<span class="w"> </span>terms
+</code></pre></div>
+<p>To accept explicitly, including in automation:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>terms<span class="w"> </span>--accept-terms
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--accept-terms<span class="w"> </span>-c<span class="w"> </span>./labs/my-lab
+</code></pre></div>
+<p>Acceptance is saved in <code>~/.astrona/terms.json</code> with the notice revision, SHA-256,
+UTC timestamp, CLI version and acceptance method. This is local state, not a
+server-side audit or account record. A newer CLI asks again if its bundled
+notice changes, even if its revision was not bumped. Updating only the website
+does not change an installed CLI's notice. CLI updates with unchanged terms do
+not ask again.</p>
+<p>Without a terminal, missing or outdated acceptance fails with instructions;
+piping <code>yes</code> is not sufficient. Detected CI requires <code>--accept-terms</code> on every
+operational command, even with a saved receipt. The flag accepts the terms in
+the binary being run, so review them when upgrading a pipeline's pinned CLI.
+<code>--yes</code>, <code>--trust</code>, and saved settings never imply terms acceptance.</p>
+<p>Help, version output, completions and <code>astrona terms</code> remain available without
+acceptance. So do <code>settings</code>, <code>data</code>, <code>logout</code>, <code>stop</code>, <code>destroy</code>, and
+<code>port-forward stop</code>, so declining cannot prevent cleanup or preference repair.
+Their other safety checks still apply. Internal documentation generators and
+already-started background supervisors do not prompt.</p>
+<p>Cache cleanup and <code>data reset</code> preserve the receipt. To forget it, remove only
+<code>~/.astrona/terms.json</code>; the next operational command will ask again. A malformed
+receipt also needs fresh acceptance. A symlink or directory at that path is
+refused rather than replaced. Failure to save acceptance stops the command.</p>
+<p>On Windows, native setup records acceptance in the Windows user's <code>.astrona</code>
+directory before changing WSL. Labs keep a separate receipt inside the chosen
+WSL distribution. Read the launcher's notice with <code>astrona setup --terms</code>, even
+before WSL is installed; <code>astrona terms</code> shows the Linux CLI's notice in WSL.
+<code>astrona setup --yes --accept-terms</code> supplies both approvals;
+without the flag, first-time setup can ask once on each side.</p>
+<p>The CLI remains Apache-2.0 licensed. This notice describes risks and points to
+the existing license; it does not guarantee immunity from liability. Maintainers
+should obtain legal review before relying on the wording as a legal agreement.</p>
 <h2 id="the-short-way-astrona-setup">The short way: <code>astrona setup</code><a class="headerlink" href="#the-short-way-astrona-setup" title="Permanent link">&para;</a></h2>
 <p>After installing astrona (below), one command gets the rest of the machine ready:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona<span class="w"> </span>setup<span class="w">             </span><span class="c1"># shows each step and asks before doing it</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>astrona<span class="w"> </span>setup<span class="w"> </span>--dry-run<span class="w">   </span><span class="c1"># only show the plan</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>astrona<span class="w"> </span>setup<span class="w"> </span>--yes<span class="w">       </span><span class="c1"># approve every step (no questions)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>setup<span class="w">             </span><span class="c1"># shows each step and asks before doing it</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>astrona<span class="w"> </span>setup<span class="w"> </span>--dry-run<span class="w">   </span><span class="c1"># only show the plan</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>astrona<span class="w"> </span>setup<span class="w"> </span>--yes<span class="w"> </span>--accept-terms<span class="w">  </span><span class="c1"># explicitly approve steps and CLI terms</span>
 </code></pre></div>
 <p>It looks at what <a href="#verify"><code>astrona check</code></a> would report and fixes what it can:</p>
 <table>
@@ -4290,8 +4382,8 @@
 <p>Kind labs, including playgrounds, need a reachable container engine. A failed
 <code>podman info</code> check can mean the Podman machine is stopped, but it can also mean
 the connection is misconfigured. Run these commands to see which:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>podman<span class="w"> </span>machine<span class="w"> </span>list
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>podman<span class="w"> </span>info
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>podman<span class="w"> </span>machine<span class="w"> </span>list
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>podman<span class="w"> </span>info
 </code></pre></div>
 <p>If your machine is stopped, start it with <code>podman machine start</code> (add its name
 if you use a non-default machine). If no machine exists, run <code>astrona setup</code> to
@@ -4307,8 +4399,8 @@ and signing in does not repair a container connection.</p>
 <p>Labs need Linux, so on Windows astrona runs inside <a href="https://learn.microsoft.com/windows/wsl/">WSL 2</a> (Linux inside Windows). <code>astrona.exe</code> is a small launcher that sets that up and then forwards every command into it — you keep typing <code>astrona …</code> in PowerShell.</p>
 <p>Requirements: Windows 10 22H2 or Windows 11, virtualization turned on in your BIOS/UEFI, and <a href="https://www.docker.com/products/docker-desktop/">Docker Desktop</a>.</p>
 <p>In PowerShell:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">irm </span><span class="n">https</span><span class="p">://</span><span class="n">github</span><span class="p">.</span><span class="n">com</span><span class="p">/</span><span class="n">astrona-io</span><span class="p">/</span><span class="n">astrona-cli</span><span class="p">/</span><span class="n">releases</span><span class="p">/</span><span class="n">latest</span><span class="p">/</span><span class="n">download</span><span class="p">/</span><span class="n">astrona-windows-amd64</span><span class="p">.</span><span class="n">exe</span> <span class="n">-OutFile</span> <span class="nv">$env:LOCALAPPDATA</span><span class="p">\</span><span class="n">astrona</span><span class="p">.</span><span class="n">exe</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="p">&amp;</span> <span class="nv">$env:LOCALAPPDATA</span><span class="p">\</span><span class="n">astrona</span><span class="p">.</span><span class="n">exe</span> <span class="n">setup</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">irm </span><span class="n">https</span><span class="p">://</span><span class="n">github</span><span class="p">.</span><span class="n">com</span><span class="p">/</span><span class="n">astrona-io</span><span class="p">/</span><span class="n">astrona-cli</span><span class="p">/</span><span class="n">releases</span><span class="p">/</span><span class="n">latest</span><span class="p">/</span><span class="n">download</span><span class="p">/</span><span class="n">astrona-windows-amd64</span><span class="p">.</span><span class="n">exe</span> <span class="n">-OutFile</span> <span class="nv">$env:LOCALAPPDATA</span><span class="p">\</span><span class="n">astrona</span><span class="p">.</span><span class="n">exe</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="p">&amp;</span> <span class="nv">$env:LOCALAPPDATA</span><span class="p">\</span><span class="n">astrona</span><span class="p">.</span><span class="n">exe</span> <span class="n">setup</span>
 </code></pre></div>
 <p>(<code>astrona-windows-arm64.exe</code> on ARM PCs.) <code>astrona setup</code> on Windows, one step at a time — run it again after a restart or a manual step, and finished steps are skipped:</p>
 <ol>
@@ -4321,7 +4413,7 @@ and signing in does not repair a container connection.</p>
 </ol>
 <p>After that, any command — <code>astrona labs</code>, <code>astrona run …</code>, <code>astrona submit …</code> — runs inside Ubuntu, with the same output and exit codes (<code>astrona submit</code> still exits 2 for "graded, didn't pass"). Your arguments are passed through as they are, never re-parsed by a shell (the launcher uses <code>wsl --exec</code>, which skips the distribution's default shell). <code>astrona --launcher-version</code> prints the launcher's own version.</p>
 <h2 id="homebrew-macos-linux">Homebrew (macOS &amp; Linux)<a class="headerlink" href="#homebrew-macos-linux" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>brew<span class="w"> </span>install<span class="w"> </span>astrona-io/tap/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>brew<span class="w"> </span>install<span class="w"> </span>astrona-io/tap/astrona
 </code></pre></div>
 <p>The <a href="https://github.com/astrona-io/homebrew-tap">tap</a> is updated by every release, pinned to the same binaries and SHA-256 values as the GitHub release. CI installs the formula with real Homebrew on macOS and Linux for every change that could affect it, and again from the tap right after each release. Upgrade with <code>brew upgrade astrona</code>, or <code>astrona upgrade</code> — on a Homebrew install it runs <code>brew upgrade astrona</code> for you instead of downloading the binary itself.</p>
 <p>What the Homebrew install gives you on top of the binary:</p>
@@ -4338,33 +4430,6 @@ and signing in does not repair a container connection.</p>
 </ul>
 <h2 id="apt-debian-ubuntu">APT (Debian &amp; Ubuntu)<a class="headerlink" href="#apt-debian-ubuntu" title="Permanent link">&para;</a></h2>
 <p>Download the latest stable <code>.deb</code>, verify its SHA-256 checksum, and install it. This detects <code>amd64</code> (Intel/AMD) or <code>arm64</code> (ARM) automatically. You need <code>curl</code>, <code>sha256sum</code>, and permission to use <code>sudo</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="o">(</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nb">set</span><span class="w"> </span>-eu
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="s2">"</span><span class="k">$(</span>uname<span class="w"> </span>-m<span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="k">in</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">    </span>x86_64<span class="o">)</span><span class="w"> </span><span class="nv">arch</span><span class="o">=</span>amd64<span class="w"> </span><span class="p">;;</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span>aarch64<span class="p">|</span>arm64<span class="o">)</span><span class="w"> </span><span class="nv">arch</span><span class="o">=</span>arm64<span class="w"> </span><span class="p">;;</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span>*<span class="o">)</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"Unsupported CPU architecture"</span><span class="w"> </span>&gt;<span class="p">&amp;</span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="p">;;</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="k">esac</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="nv">release_url</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>curl<span class="w"> </span>-fsSLI<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-w<span class="w"> </span><span class="s1">'%{url_effective}'</span><span class="w"> </span>https://github.com/astrona-io/astrona-cli/releases/latest<span class="k">)</span><span class="s2">"</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nv">tag</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">release_url</span><span class="p">##*/</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="nv">package</span><span class="o">=</span><span class="s2">"astrona-</span><span class="si">${</span><span class="nv">tag</span><span class="p">#v</span><span class="si">}</span><span class="s2">-linux-</span><span class="nv">$arch</span><span class="s2">.deb"</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span><span class="nv">base</span><span class="o">=</span><span class="s2">"https://github.com/astrona-io/astrona-cli/releases/download/</span><span class="nv">$tag</span><span class="s2">"</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">  </span><span class="nv">download_dir</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span><span class="s2">"</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">  </span><span class="nb">cd</span><span class="w"> </span><span class="s2">"</span><span class="nv">$download_dir</span><span class="s2">"</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="w">  </span>curl<span class="w"> </span>-fSL<span class="w"> </span><span class="s2">"</span><span class="nv">$base</span><span class="s2">/</span><span class="nv">$package</span><span class="s2">"</span><span class="w"> </span>-o<span class="w"> </span><span class="s2">"</span><span class="nv">$package</span><span class="s2">"</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="w">  </span>curl<span class="w"> </span>-fsSL<span class="w"> </span><span class="s2">"</span><span class="nv">$base</span><span class="s2">/SHA256SUMS"</span><span class="w"> </span>-o<span class="w"> </span>SHA256SUMS
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="w">  </span>awk<span class="w"> </span>-v<span class="w"> </span><span class="nv">file</span><span class="o">=</span><span class="s2">"</span><span class="nv">$package</span><span class="s2">"</span><span class="w"> </span><span class="s1">'$2 == file { print }'</span><span class="w"> </span>SHA256SUMS<span class="w"> </span><span class="p">|</span><span class="w"> </span>sha256sum<span class="w"> </span>-c<span class="w"> </span>-
-<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a><span class="w">  </span>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span><span class="s2">"./</span><span class="nv">$package</span><span class="s2">"</span>
-<a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a><span class="w">  </span>astrona<span class="w"> </span>--version
-<a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a><span class="o">)</span>
-</code></pre></div>
-<p>The commands below for DNF and Snap use the same download and verification process. Each resolves a single release tag so the package and its checksums come from the same release. These packages become available after the first release containing the Linux packaging feature; a missing asset stops the commands before installation. Downloaded files remain in the temporary directory; the subshell keeps your current directory unchanged.</p>
-<p>APT installs Git and CA certificates automatically. The package includes pinned, checksum-verified <strong>Kind, kubectl and ORAS</strong>, installed privately under <code>/usr/lib/astrona/tools</code>. Astrona and its lab scripts use those tools without replacing tools you already have on your shell's PATH. <code>astrona shell</code> also inherits them.</p>
-<p>Install and start <strong>Docker or Podman</strong> separately. For optional VM labs on Debian/Ubuntu:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>qemu-system-x86<span class="w"> </span>qemu-system-arm<span class="w"> </span>qemu-utils<span class="w"> </span>genisoimage<span class="w"> </span>openssh-client
-</code></pre></div>
-<h2 id="dnf-fedora-red-hat-compatible-distributions">DNF (Fedora &amp; Red Hat compatible distributions)<a class="headerlink" href="#dnf-fedora-red-hat-compatible-distributions" title="Permanent link">&para;</a></h2>
-<p>Download, verify and install the latest stable <code>.rpm</code> for your CPU:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="o">(</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nb">set</span><span class="w"> </span>-eu
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="s2">"</span><span class="k">$(</span>uname<span class="w"> </span>-m<span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="k">in</span>
@@ -4374,52 +4439,79 @@ and signing in does not repair a container connection.</p>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="k">esac</span>
 <a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span><span class="nv">release_url</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>curl<span class="w"> </span>-fsSLI<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-w<span class="w"> </span><span class="s1">'%{url_effective}'</span><span class="w"> </span>https://github.com/astrona-io/astrona-cli/releases/latest<span class="k">)</span><span class="s2">"</span>
 <a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span><span class="nv">tag</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">release_url</span><span class="p">##*/</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span><span class="nv">package</span><span class="o">=</span><span class="s2">"astrona-</span><span class="si">${</span><span class="nv">tag</span><span class="p">#v</span><span class="si">}</span><span class="s2">-linux-</span><span class="nv">$arch</span><span class="s2">.rpm"</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span><span class="nv">package</span><span class="o">=</span><span class="s2">"astrona-</span><span class="si">${</span><span class="nv">tag</span><span class="p">#v</span><span class="si">}</span><span class="s2">-linux-</span><span class="nv">$arch</span><span class="s2">.deb"</span>
 <a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">  </span><span class="nv">base</span><span class="o">=</span><span class="s2">"https://github.com/astrona-io/astrona-cli/releases/download/</span><span class="nv">$tag</span><span class="s2">"</span>
 <a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">  </span><span class="nv">download_dir</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span><span class="s2">"</span>
 <a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">  </span><span class="nb">cd</span><span class="w"> </span><span class="s2">"</span><span class="nv">$download_dir</span><span class="s2">"</span>
 <a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">  </span>curl<span class="w"> </span>-fSL<span class="w"> </span><span class="s2">"</span><span class="nv">$base</span><span class="s2">/</span><span class="nv">$package</span><span class="s2">"</span><span class="w"> </span>-o<span class="w"> </span><span class="s2">"</span><span class="nv">$package</span><span class="s2">"</span>
 <a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">  </span>curl<span class="w"> </span>-fsSL<span class="w"> </span><span class="s2">"</span><span class="nv">$base</span><span class="s2">/SHA256SUMS"</span><span class="w"> </span>-o<span class="w"> </span>SHA256SUMS
 <a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">  </span>awk<span class="w"> </span>-v<span class="w"> </span><span class="nv">file</span><span class="o">=</span><span class="s2">"</span><span class="nv">$package</span><span class="s2">"</span><span class="w"> </span><span class="s1">'$2 == file { print }'</span><span class="w"> </span>SHA256SUMS<span class="w"> </span><span class="p">|</span><span class="w"> </span>sha256sum<span class="w"> </span>-c<span class="w"> </span>-
-<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">  </span>sudo<span class="w"> </span>dnf<span class="w"> </span>install<span class="w"> </span><span class="s2">"./</span><span class="nv">$package</span><span class="s2">"</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">  </span>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span><span class="s2">"./</span><span class="nv">$package</span><span class="s2">"</span>
 <a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">  </span>astrona<span class="w"> </span>--version
 <a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="o">)</span>
+</code></pre></div>
+<p>The commands below for DNF and Snap use the same download and verification process. Each resolves a single release tag so the package and its checksums come from the same release. These packages become available after the first release containing the Linux packaging feature; a missing asset stops the commands before installation. Downloaded files remain in the temporary directory; the subshell keeps your current directory unchanged.</p>
+<p>APT installs Git and CA certificates automatically. The package includes pinned, checksum-verified <strong>Kind, kubectl and ORAS</strong>, installed privately under <code>/usr/lib/astrona/tools</code>. Astrona and its lab scripts use those tools without replacing tools you already have on your shell's PATH. <code>astrona shell</code> also inherits them.</p>
+<p>Install and start <strong>Docker or Podman</strong> separately. For optional VM labs on Debian/Ubuntu:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>sudo<span class="w"> </span>apt-get<span class="w"> </span>install<span class="w"> </span>qemu-system-x86<span class="w"> </span>qemu-system-arm<span class="w"> </span>qemu-utils<span class="w"> </span>genisoimage<span class="w"> </span>openssh-client
+</code></pre></div>
+<h2 id="dnf-fedora-red-hat-compatible-distributions">DNF (Fedora &amp; Red Hat compatible distributions)<a class="headerlink" href="#dnf-fedora-red-hat-compatible-distributions" title="Permanent link">&para;</a></h2>
+<p>Download, verify and install the latest stable <code>.rpm</code> for your CPU:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="o">(</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nb">set</span><span class="w"> </span>-eu
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="s2">"</span><span class="k">$(</span>uname<span class="w"> </span>-m<span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="k">in</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span>x86_64<span class="o">)</span><span class="w"> </span><span class="nv">arch</span><span class="o">=</span>amd64<span class="w"> </span><span class="p">;;</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">    </span>aarch64<span class="p">|</span>arm64<span class="o">)</span><span class="w"> </span><span class="nv">arch</span><span class="o">=</span>arm64<span class="w"> </span><span class="p">;;</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">    </span>*<span class="o">)</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"Unsupported CPU architecture"</span><span class="w"> </span>&gt;<span class="p">&amp;</span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="p">;;</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="k">esac</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">  </span><span class="nv">release_url</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>curl<span class="w"> </span>-fsSLI<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-w<span class="w"> </span><span class="s1">'%{url_effective}'</span><span class="w"> </span>https://github.com/astrona-io/astrona-cli/releases/latest<span class="k">)</span><span class="s2">"</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">  </span><span class="nv">tag</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">release_url</span><span class="p">##*/</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">  </span><span class="nv">package</span><span class="o">=</span><span class="s2">"astrona-</span><span class="si">${</span><span class="nv">tag</span><span class="p">#v</span><span class="si">}</span><span class="s2">-linux-</span><span class="nv">$arch</span><span class="s2">.rpm"</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">  </span><span class="nv">base</span><span class="o">=</span><span class="s2">"https://github.com/astrona-io/astrona-cli/releases/download/</span><span class="nv">$tag</span><span class="s2">"</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">  </span><span class="nv">download_dir</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span><span class="s2">"</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">  </span><span class="nb">cd</span><span class="w"> </span><span class="s2">"</span><span class="nv">$download_dir</span><span class="s2">"</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="w">  </span>curl<span class="w"> </span>-fSL<span class="w"> </span><span class="s2">"</span><span class="nv">$base</span><span class="s2">/</span><span class="nv">$package</span><span class="s2">"</span><span class="w"> </span>-o<span class="w"> </span><span class="s2">"</span><span class="nv">$package</span><span class="s2">"</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="w">  </span>curl<span class="w"> </span>-fsSL<span class="w"> </span><span class="s2">"</span><span class="nv">$base</span><span class="s2">/SHA256SUMS"</span><span class="w"> </span>-o<span class="w"> </span>SHA256SUMS
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="w">  </span>awk<span class="w"> </span>-v<span class="w"> </span><span class="nv">file</span><span class="o">=</span><span class="s2">"</span><span class="nv">$package</span><span class="s2">"</span><span class="w"> </span><span class="s1">'$2 == file { print }'</span><span class="w"> </span>SHA256SUMS<span class="w"> </span><span class="p">|</span><span class="w"> </span>sha256sum<span class="w"> </span>-c<span class="w"> </span>-
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="w">  </span>sudo<span class="w"> </span>dnf<span class="w"> </span>install<span class="w"> </span><span class="s2">"./</span><span class="nv">$package</span><span class="s2">"</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="w">  </span>astrona<span class="w"> </span>--version
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="o">)</span>
 </code></pre></div>
 <p>DNF resolves Git and CA certificate dependencies. The RPM includes the same private Kind, kubectl and ORAS tools as the DEB. Install and start Docker or Podman separately. QEMU, SSH and an ISO builder are optional VM dependencies; their package names and availability depend on your distribution and enabled repositories. CI checks installation on Fedora and AlmaLinux 9; a Red Hat subscription and enabled repositories may be needed on RHEL.</p>
 <p>These are local release packages. A hosted APT/DNF repository has not been configured, so <code>apt-get install astrona</code> or <code>dnf install astrona</code> without the downloaded file will not find Astrona. Run the download-and-install block again to install the latest stable release, or install a newer release file manually. Remove with <code>sudo apt-get remove astrona</code> or <code>sudo dnf remove astrona</code>.</p>
 <h2 id="snap-ubuntu">Snap (Ubuntu)<a class="headerlink" href="#snap-ubuntu" title="Permanent link">&para;</a></h2>
 <p>Download, verify and install the latest stable <code>.snap</code> for your CPU. Snap must already be installed on your system:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="o">(</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nb">set</span><span class="w"> </span>-eu
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="s2">"</span><span class="k">$(</span>uname<span class="w"> </span>-m<span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="k">in</span>
-<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">    </span>x86_64<span class="o">)</span><span class="w"> </span><span class="nv">arch</span><span class="o">=</span>amd64<span class="w"> </span><span class="p">;;</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">    </span>aarch64<span class="p">|</span>arm64<span class="o">)</span><span class="w"> </span><span class="nv">arch</span><span class="o">=</span>arm64<span class="w"> </span><span class="p">;;</span>
-<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">    </span>*<span class="o">)</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"Unsupported CPU architecture"</span><span class="w"> </span>&gt;<span class="p">&amp;</span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="p">;;</span>
-<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="k">esac</span>
-<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span><span class="nv">release_url</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>curl<span class="w"> </span>-fsSLI<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-w<span class="w"> </span><span class="s1">'%{url_effective}'</span><span class="w"> </span>https://github.com/astrona-io/astrona-cli/releases/latest<span class="k">)</span><span class="s2">"</span>
-<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span><span class="nv">tag</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">release_url</span><span class="p">##*/</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span><span class="nv">package</span><span class="o">=</span><span class="s2">"astrona-</span><span class="si">${</span><span class="nv">tag</span><span class="p">#v</span><span class="si">}</span><span class="s2">-linux-</span><span class="nv">$arch</span><span class="s2">.snap"</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">  </span><span class="nv">base</span><span class="o">=</span><span class="s2">"https://github.com/astrona-io/astrona-cli/releases/download/</span><span class="nv">$tag</span><span class="s2">"</span>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">  </span><span class="nv">download_dir</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span><span class="s2">"</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">  </span><span class="nb">cd</span><span class="w"> </span><span class="s2">"</span><span class="nv">$download_dir</span><span class="s2">"</span>
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">  </span>curl<span class="w"> </span>-fSL<span class="w"> </span><span class="s2">"</span><span class="nv">$base</span><span class="s2">/</span><span class="nv">$package</span><span class="s2">"</span><span class="w"> </span>-o<span class="w"> </span><span class="s2">"</span><span class="nv">$package</span><span class="s2">"</span>
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="w">  </span>curl<span class="w"> </span>-fsSL<span class="w"> </span><span class="s2">"</span><span class="nv">$base</span><span class="s2">/SHA256SUMS"</span><span class="w"> </span>-o<span class="w"> </span>SHA256SUMS
-<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">  </span>awk<span class="w"> </span>-v<span class="w"> </span><span class="nv">file</span><span class="o">=</span><span class="s2">"</span><span class="nv">$package</span><span class="s2">"</span><span class="w"> </span><span class="s1">'$2 == file { print }'</span><span class="w"> </span>SHA256SUMS<span class="w"> </span><span class="p">|</span><span class="w"> </span>sha256sum<span class="w"> </span>-c<span class="w"> </span>-
-<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a><span class="w">  </span>sudo<span class="w"> </span>snap<span class="w"> </span>install<span class="w"> </span>--dangerous<span class="w"> </span>--classic<span class="w"> </span><span class="s2">"./</span><span class="nv">$package</span><span class="s2">"</span>
-<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a><span class="w">  </span>/snap/bin/astrona<span class="w"> </span>--version
-<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="o">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="o">(</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nb">set</span><span class="w"> </span>-eu
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="k">case</span><span class="w"> </span><span class="s2">"</span><span class="k">$(</span>uname<span class="w"> </span>-m<span class="k">)</span><span class="s2">"</span><span class="w"> </span><span class="k">in</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span>x86_64<span class="o">)</span><span class="w"> </span><span class="nv">arch</span><span class="o">=</span>amd64<span class="w"> </span><span class="p">;;</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span>aarch64<span class="p">|</span>arm64<span class="o">)</span><span class="w"> </span><span class="nv">arch</span><span class="o">=</span>arm64<span class="w"> </span><span class="p">;;</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span>*<span class="o">)</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"Unsupported CPU architecture"</span><span class="w"> </span>&gt;<span class="p">&amp;</span><span class="m">2</span><span class="p">;</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="p">;;</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="k">esac</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="nv">release_url</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>curl<span class="w"> </span>-fsSLI<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-w<span class="w"> </span><span class="s1">'%{url_effective}'</span><span class="w"> </span>https://github.com/astrona-io/astrona-cli/releases/latest<span class="k">)</span><span class="s2">"</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">  </span><span class="nv">tag</span><span class="o">=</span><span class="s2">"</span><span class="si">${</span><span class="nv">release_url</span><span class="p">##*/</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">  </span><span class="nv">package</span><span class="o">=</span><span class="s2">"astrona-</span><span class="si">${</span><span class="nv">tag</span><span class="p">#v</span><span class="si">}</span><span class="s2">-linux-</span><span class="nv">$arch</span><span class="s2">.snap"</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">  </span><span class="nv">base</span><span class="o">=</span><span class="s2">"https://github.com/astrona-io/astrona-cli/releases/download/</span><span class="nv">$tag</span><span class="s2">"</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">  </span><span class="nv">download_dir</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span><span class="s2">"</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">  </span><span class="nb">cd</span><span class="w"> </span><span class="s2">"</span><span class="nv">$download_dir</span><span class="s2">"</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">  </span>curl<span class="w"> </span>-fSL<span class="w"> </span><span class="s2">"</span><span class="nv">$base</span><span class="s2">/</span><span class="nv">$package</span><span class="s2">"</span><span class="w"> </span>-o<span class="w"> </span><span class="s2">"</span><span class="nv">$package</span><span class="s2">"</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">  </span>curl<span class="w"> </span>-fsSL<span class="w"> </span><span class="s2">"</span><span class="nv">$base</span><span class="s2">/SHA256SUMS"</span><span class="w"> </span>-o<span class="w"> </span>SHA256SUMS
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="w">  </span>awk<span class="w"> </span>-v<span class="w"> </span><span class="nv">file</span><span class="o">=</span><span class="s2">"</span><span class="nv">$package</span><span class="s2">"</span><span class="w"> </span><span class="s1">'$2 == file { print }'</span><span class="w"> </span>SHA256SUMS<span class="w"> </span><span class="p">|</span><span class="w"> </span>sha256sum<span class="w"> </span>-c<span class="w"> </span>-
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">  </span>sudo<span class="w"> </span>snap<span class="w"> </span>install<span class="w"> </span>--dangerous<span class="w"> </span>--classic<span class="w"> </span><span class="s2">"./</span><span class="nv">$package</span><span class="s2">"</span>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">  </span>/snap/bin/astrona<span class="w"> </span>--version
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="o">)</span>
 </code></pre></div>
 <p>The Snap bundles Kind, kubectl, ORAS, Git and CA certificates. Classic confinement lets lab scripts use your host files, kubeconfig and Docker/Podman sockets. Install and start a host container engine separately; optional VM tools also come from the host.</p>
 <p><code>--dangerous</code> is Snap's option for installing a local file without a Store assertion. Check the downloaded package against the release's <code>SHA256SUMS</code> first. This builds a local-installable Snap; publishing <code>snap install astrona --classic</code> requires registration of the Store name and approval for classic confinement. Locally installed Snaps do not update automatically. Installing a newer local file with the command above updates it. Remove with <code>sudo snap remove astrona</code>.</p>
 <p>All three formats preserve <code>~/.astrona</code> on removal. Destroy running labs before uninstalling. CI builds packages for both architectures, installs and reinstalls them with real package managers, checks bundled tool discovery and upgrade protection, then verifies removal preserves user data.</p>
 <h2 id="quick-install-macos-linux">Quick install (macOS &amp; Linux)<a class="headerlink" href="#quick-install-macos-linux" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.local/bin<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nv">OS</span><span class="o">=</span><span class="k">$(</span>uname<span class="w"> </span>-s<span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span><span class="s1">'[:upper:]'</span><span class="w"> </span><span class="s1">'[:lower:]'</span><span class="k">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nv">ARCH</span><span class="o">=</span><span class="k">$(</span>uname<span class="w"> </span>-m<span class="k">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$ARCH</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"x86_64"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">ARCH</span><span class="o">=</span><span class="s2">"amd64"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">true</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$ARCH</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"aarch64"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$ARCH</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"arm64"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">ARCH</span><span class="o">=</span><span class="s2">"arm64"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">true</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>curl<span class="w"> </span>-L<span class="w"> </span>-o<span class="w"> </span>~/.local/bin/astrona<span class="w"> </span><span class="s2">"https://github.com/astrona-io/astrona-cli/releases/latest/download/astrona-</span><span class="si">${</span><span class="nv">OS</span><span class="si">}</span><span class="s2">-</span><span class="si">${</span><span class="nv">ARCH</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>chmod<span class="w"> </span>+x<span class="w"> </span>~/.local/bin/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>~/.local/bin<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nv">OS</span><span class="o">=</span><span class="k">$(</span>uname<span class="w"> </span>-s<span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span><span class="s1">'[:upper:]'</span><span class="w"> </span><span class="s1">'[:lower:]'</span><span class="k">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nv">ARCH</span><span class="o">=</span><span class="k">$(</span>uname<span class="w"> </span>-m<span class="k">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$ARCH</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"x86_64"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">ARCH</span><span class="o">=</span><span class="s2">"amd64"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">true</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$ARCH</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"aarch64"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="o">[</span><span class="w"> </span><span class="s2">"</span><span class="nv">$ARCH</span><span class="s2">"</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"arm64"</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nv">ARCH</span><span class="o">=</span><span class="s2">"arm64"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">true</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>curl<span class="w"> </span>-L<span class="w"> </span>-o<span class="w"> </span>~/.local/bin/astrona<span class="w"> </span><span class="s2">"https://github.com/astrona-io/astrona-cli/releases/latest/download/astrona-</span><span class="si">${</span><span class="nv">OS</span><span class="si">}</span><span class="s2">-</span><span class="si">${</span><span class="nv">ARCH</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>chmod<span class="w"> </span>+x<span class="w"> </span>~/.local/bin/astrona
 </code></pre></div>
 <p>Make sure <code>~/.local/bin</code> is on your shell's <code>PATH</code>.</p>
 <h2 id="manual-install">Manual install<a class="headerlink" href="#manual-install" title="Permanent link">&para;</a></h2>
@@ -4428,16 +4520,16 @@ and signing in does not repair a container connection.</p>
 <li>Download the binary for your platform: <code>astrona-darwin-arm64</code>, <code>astrona-darwin-amd64</code>, <code>astrona-linux-arm64</code>, or <code>astrona-linux-amd64</code>.</li>
 <li>Make it executable and move it onto your <code>PATH</code>:</li>
 </ol>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>chmod<span class="w"> </span>+x<span class="w"> </span>astrona-&lt;os&gt;-&lt;arch&gt;
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>mv<span class="w"> </span>astrona-&lt;os&gt;-&lt;arch&gt;<span class="w"> </span>~/.local/bin/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>chmod<span class="w"> </span>+x<span class="w"> </span>astrona-&lt;os&gt;-&lt;arch&gt;
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>mv<span class="w"> </span>astrona-&lt;os&gt;-&lt;arch&gt;<span class="w"> </span>~/.local/bin/astrona
 </code></pre></div>
 <h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>astrona<span class="w"> </span>check
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>astrona<span class="w"> </span>check
 </code></pre></div>
 <p>This prints a ✓/⚠/✗ per item and exits non-zero only on a ✗. It checks three things:</p>
 <p><strong>Dependencies.</strong> A missing <em>required</em> tool is a ✗; optional ones (qemu toolchain, <code>git</code>) only warn, since they're only needed for specific runtimes or flags. Each missing tool says how to install it — with Homebrew installed that's the <code>brew install</code> command, and the end of the list gives one line for everything missing:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>Install what's required: brew install kind podman kubernetes-cli
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>Optional tools, all at once: brew install git qemu oras cdrtools
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>Install what's required: brew install kind podman kubernetes-cli
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>Optional tools, all at once: brew install git qemu oras cdrtools
 </code></pre></div>
 <p><code>astrona doctor</code> prints the same line for missing required tools.</p>
 <p><strong>Container engine.</strong> Whether Docker/Podman is actually running (a stopped <code>podman machine</code> or Docker daemon is the most common cause of confusing kind errors), and whether it has enough resources — for Docker Desktop and <code>podman machine</code> that's the VM's memory/CPUs, not your Mac's:</p>
@@ -4479,13 +4571,13 @@ and signing in does not repair a container connection.</p>
 </table>
 <p>Each ⚠/✗ prints the command that fixes it, e.g. <code>podman machine stop &amp;&amp; podman machine set --memory 8192 --cpus 4 &amp;&amp; podman machine start</code>.</p>
 <p><strong>Your lab</strong> — when a lab config is found (<code>-c</code>/<code>--git</code>, the lab picked with <code>astrona use</code>, else <code>./config.yaml</code>). No config in the current directory just means no lab section; a config that is there but can't be loaded (malformed YAML, a lab picked with <code>astrona use</code> that has moved) is a ✗ under <code>Lab</code>, with the error:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>astrona<span class="w"> </span>check<span class="w"> </span>-c<span class="w"> </span>./labs/my-lab
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>astrona<span class="w"> </span>check<span class="w"> </span>-c<span class="w"> </span>./labs/my-lab
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>Lab astro-my-lab:
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>  ✓  lab memory estimate                    ~6.9 GiB for this lab of 9.7 GiB
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>  ✓  host port 8080                         gateway http, free
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>  ✗  host port 18290                        port forward 'web', in use
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>        fix: find the user with `lsof -nP -iTCP:18290 -sTCP:LISTEN`, or change the port in the lab config
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>Lab astro-my-lab:
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>  ✓  lab memory estimate                    ~6.9 GiB for this lab of 9.7 GiB
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>  ✓  host port 8080                         gateway http, free
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>  ✗  host port 18290                        port forward 'web', in use
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>        fix: find the user with `lsof -nP -iTCP:18290 -sTCP:LISTEN`, or change the port in the lab config
 </code></pre></div>
 <ul>
 <li><strong>Memory estimate</strong> — a rough figure from the lab's nodes and addons, plus astrona kind labs already running; ⚠ when it's over 75% of the engine's memory.</li>
@@ -4494,21 +4586,21 @@ and signing in does not repair a container connection.</p>
 </ul>
 <h3 id="when-something-isnt-working-astrona-doctor">When something isn't working: <code>astrona doctor</code><a class="headerlink" href="#when-something-isnt-working-astrona-doctor" title="Permanent link">&para;</a></h3>
 <p><code>astrona doctor</code> runs all of the above <strong>and</strong> looks at the running lab, then says what's wrong and how to fix it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>Running lab astro-linked-labs-01:
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>  ✓  nodes                                  Ready (1/1)
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>  ✓  linked cluster idp                     Ready (1/1) · idp.astrona.internal
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>  ✗  port forward idp                       Stopped · http://127.0.0.1:30080
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>        fix: astrona port-forward start
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>  ⚠  pods in astro-linked-labs-01-idp       1 unhealthy: auth/broken: ErrImagePull (…)
-<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>        fix: astrona diagnose collects their logs and events
-<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>
-<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>Error: 1 problem(s) found — the ✗ lines above say how to fix each
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>Running lab astro-linked-labs-01:
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>  ✓  nodes                                  Ready (1/1)
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>  ✓  linked cluster idp                     Ready (1/1) · idp.astrona.internal
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>  ✗  port forward idp                       Stopped · http://127.0.0.1:30080
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>        fix: astrona port-forward start
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>  ⚠  pods in astro-linked-labs-01-idp       1 unhealthy: auth/broken: ErrImagePull (…)
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>        fix: astrona diagnose collects their logs and events
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>
+<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>Error: 1 problem(s) found — the ✗ lines above say how to fix each
 </code></pre></div>
 <p>It checks this machine (tools, container engine, inotify), the lab (its config, whether this astrona may run it, memory and free ports when it isn't running) and the running lab (nodes, linked clusters, port forwards, unhealthy pods, exam clock). It only reads — nothing is started or changed — and exits non-zero on any ✗ — including a lab you named (argument, <code>-c</code>, <code>--file</code>, <code>--git</code>, <code>astrona use</code> — <code>astrona doctor .</code> counts) that isn't there or whose config doesn't parse; only when no lab is named and the current directory has none does it check the machine alone. <code>--bundle</code> also writes the full <a href="../../guides/ci-integration/#diagnostics-on-failure">diagnostics bundle</a>. Unhealthy pods are ⚠, not ✗: in a lab they may be the exercise.</p>
 <h2 id="local-data-and-cache-cleanup">Local data and cache cleanup<a class="headerlink" href="#local-data-and-cache-cleanup" title="Permanent link">&para;</a></h2>
 <p>Inspect local files without connecting to Astrona or starting a container engine:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>astrona<span class="w"> </span>data
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>-o<span class="w"> </span>json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>astrona<span class="w"> </span>data
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>-o<span class="w"> </span>json
 </code></pre></div>
 <p>The report lists file counts and logical byte sizes under <code>~/.astrona</code> and the
 Astrona Git cache (<code>~/Library/Caches/astrona/repos</code> on macOS, normally
@@ -4517,10 +4609,10 @@ installed CLI versions, but does not read their contents or follow symlinks.
 Logical sizes can exceed actual disk use for sparse VM disks. Docker/Podman
 storage and progress saved to your account are outside this report.</p>
 <p>Preview cleanup before applying it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--yes
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--temp-only
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--temp-only<span class="w"> </span>--yes
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--yes
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--temp-only
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>astrona<span class="w"> </span>data<span class="w"> </span>clean<span class="w"> </span>--temp-only<span class="w"> </span>--yes
 </code></pre></div>
 <p>Cleanup removes downloaded image/addon caches, cached Git checkouts, and the
 catalog/update-check metadata. Those files will need to be downloaded again;
@@ -4539,8 +4631,8 @@ maintenance. The <code>.maintenance.lock</code> and <code>settings.json.lock</co
 their presence does not mean a process is running. Never delete them to unlock
 the CLI.</p>
 <p>Reset saved CLI preferences and the selected lab:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>astrona<span class="w"> </span>data<span class="w"> </span>reset
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>reset<span class="w"> </span>--yes
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>astrona<span class="w"> </span>data<span class="w"> </span>reset
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>astrona<span class="w"> </span>data<span class="w"> </span>reset<span class="w"> </span>--yes
 </code></pre></div>
 <p>Reset deletes only <code>settings.json</code>, <code>current.json</code>, <code>update-check.json</code>, and
 <code>catalog.json</code>. It works even if a settings file contains invalid JSON. This
@@ -4551,20 +4643,20 @@ results, resources, bundles, logs and installed tools are preserved. Use
 <p>Both commands accept <code>-o json</code>. Without <code>--yes</code> they only preview; <code>--dry-run</code>
 always prevents deletion, even when combined with <code>--yes</code>. The CLI cannot restore
 deleted files. To remove old logs or unused CLI releases, use the existing commands:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>astrona<span class="w"> </span>logs<span class="w"> </span>clean<span class="w"> </span>--older-than<span class="w"> </span>168h<span class="w"> </span>--keep<span class="w"> </span><span class="m">10</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>astrona<span class="w"> </span>versions<span class="w"> </span>list
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>astrona<span class="w"> </span>logs<span class="w"> </span>clean<span class="w"> </span>--older-than<span class="w"> </span>168h<span class="w"> </span>--keep<span class="w"> </span><span class="m">10</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>astrona<span class="w"> </span>versions<span class="w"> </span>list
 </code></pre></div>
 <h2 id="persistent-cli-settings">Persistent CLI settings<a class="headerlink" href="#persistent-cli-settings" title="Permanent link">&para;</a></h2>
 <p><code>astrona settings</code> lists your preferences and shows whether each value is saved
 or comes from the default. Preferences live in <code>~/.astrona/settings.json</code>,
 separate from credentials, lab state, and remote-code approvals.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>astrona<span class="w"> </span>settings
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>keep-context<span class="w"> </span><span class="nb">true</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parallel<span class="w"> </span><span class="m">2</span>
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>astrona<span class="w"> </span>settings<span class="w"> </span>get<span class="w"> </span>keep-context
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>keep-context
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>astrona<span class="w"> </span>settings<span class="w"> </span>path
-<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>astrona<span class="w"> </span>settings<span class="w"> </span>-o<span class="w"> </span>json
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>astrona<span class="w"> </span>settings
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>keep-context<span class="w"> </span><span class="nb">true</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parallel<span class="w"> </span><span class="m">2</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>astrona<span class="w"> </span>settings<span class="w"> </span>get<span class="w"> </span>keep-context
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>keep-context
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>astrona<span class="w"> </span>settings<span class="w"> </span>path
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>astrona<span class="w"> </span>settings<span class="w"> </span>-o<span class="w"> </span>json
 </code></pre></div>
 <table>
 <thead>
@@ -4629,21 +4721,21 @@ through settings.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">zsh</label><label for="__tabbed_1_2">bash</label><label for="__tabbed_1_3">fish</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>zsh<span class="w"> </span>&gt;<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">fpath</span><span class="p">[1]</span><span class="si">}</span><span class="s2">/_astrona"</span><span class="w">   </span><span class="c1"># then start a new shell</span>
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>bash<span class="w"> </span>&gt;<span class="w"> </span>~/.local/share/bash-completion/completions/astrona
 </code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>astrona<span class="w"> </span>completion<span class="w"> </span>fish<span class="w"> </span>&gt;<span class="w"> </span>~/.config/fish/completions/astrona.fish
 </code></pre></div>
 </div>
 </div>
 </div>
 <h2 id="staying-up-to-date">Staying up to date<a class="headerlink" href="#staying-up-to-date" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>astrona<span class="w"> </span>upgrade
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>astrona<span class="w"> </span>upgrade
 </code></pre></div>
 <p><code>astrona upgrade</code> checks GitHub for the latest release, downloads the binary for your OS/architecture, verifies it against the SHA-256 digest GitHub records for it (and its <a href="../../guides/astrona-versions/#build-provenance">build provenance</a> when the GitHub CLI is installed), and atomically replaces the currently running executable — only when the release is newer than yours. On a <a href="#homebrew-macos-linux">Homebrew</a> install it runs <code>brew upgrade astrona</code> instead (<code>brew reinstall astrona</code> with <code>--force</code>), so Homebrew keeps track of the install.</p>
 <p>On DEB, RPM and Snap installs, <code>astrona upgrade</code> prints the package installation command and exits without modifying package-owned files, including with <code>--force</code>. Download and install the newer package using the instructions above.</p>

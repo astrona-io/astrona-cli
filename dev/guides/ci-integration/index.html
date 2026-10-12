@@ -3318,6 +3318,8 @@
       
         
       
+        
+      
     
     
     
@@ -3362,6 +3364,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_terms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona terms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3941,13 +3971,13 @@
 <a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="w">          </span><span class="no">chmod +x astrona</span>
 <a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>
 <a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">astrona check</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./astrona check</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./astrona check --accept-terms</span>
 <a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>
 <a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">astrona validate</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./astrona validate -c .</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./astrona validate --accept-terms -c .</span>
 <a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>
 <a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">astrona test</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./astrona test -c . --junit-xml=junit-report.xml --diagnostics-dir=astrona-diagnostics</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="w">        </span><span class="nt">run</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./astrona test --accept-terms -c . --junit-xml=junit-report.xml --diagnostics-dir=astrona-diagnostics</span>
 <a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>
 <a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Upload JUnit report</span>
 <a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="w">        </span><span class="nt">if</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">always()</span>
@@ -3965,6 +3995,7 @@
 </code></pre></div>
 <p>Notes:</p>
 <ul>
+<li>Review <code>astrona terms</code> and pass <code>--accept-terms</code> on every operational CI command. A cached receipt, <code>CI=true</code>, <code>--yes</code>, or <code>--trust</code> does not replace explicit acceptance. See <a href="../../getting-started/installation/#cli-usage-terms">CLI usage terms</a>.</li>
 <li><code>if: always()</code> on the upload step — a failing <code>astrona test</code> still writes the JUnit report, and you want that artifact whether the check passed or not.</li>
 <li>Testing a lab from <strong>another</strong> repo or a URL (<code>--git …</code> / <code>-c https://…</code>) needs <code>--trust</code> in CI — remote labs must be approved before they run (see <a href="../remote-config/#approving-remote-labs">Approving remote labs</a>). Testing the repo's own checkout (<code>-c .</code>) doesn't.</li>
 <li>Docker is already available on GitHub-hosted <code>ubuntu-latest</code> runners, which is all the <code>kind</code> runtime needs. A <code>qemu</code> runtime lab needs <code>/dev/kvm</code> for real hardware acceleration — GitHub-hosted runners don't have it, so a qemu-backed <code>astrona test</code> there would fall back to slow software emulation. Run qemu labs' CI on a self-hosted runner with KVM, or a GitHub-hosted runner that provides it.</li>
@@ -4123,7 +4154,7 @@
 </tbody>
 </table>
 <p>So a pipeline can treat them differently, e.g. retry a <code>1</code> (infrastructure) but not a <code>2</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>.<span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="nv">code</span><span class="o">=</span><span class="nv">$?</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--accept-terms<span class="w"> </span>-c<span class="w"> </span>.<span class="w"> </span><span class="p">;</span><span class="w"> </span><span class="nv">code</span><span class="o">=</span><span class="nv">$?</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="o">[</span><span class="w"> </span><span class="nv">$code</span><span class="w"> </span>-eq<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">"::error::the reference solution doesn't pass its own checks"</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nb">exit</span><span class="w"> </span><span class="nv">$code</span>
 </code></pre></div>
