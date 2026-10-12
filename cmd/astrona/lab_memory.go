@@ -5,6 +5,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"astrona/internal/cluster"
 	"astrona/internal/labstate"
@@ -70,6 +71,7 @@ func rememberLab(clusterName string, flags *rootFlags, sess *labstate.Session) {
 	err := labstate.Update(clusterName, func(s *labstate.State) {
 		s.Source = rememberedSource(flags)
 		s.Session = sess
+		s.StartedAt = time.Now().UTC().Format(time.RFC3339)
 	})
 	if err != nil {
 		ui.Warnf("could not remember this lab (%s) — `astrona submit` needs it named, and results won't reach the lab page", err)
