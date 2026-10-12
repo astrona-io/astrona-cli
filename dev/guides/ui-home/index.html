@@ -1263,6 +1263,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#cpu-and-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU and memory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guest-login-reminder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guest login reminder
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4456,6 +4478,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#cpu-and-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CPU and memory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guest-login-reminder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guest login reminder
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4502,7 +4546,7 @@ in. An unreadable credentials file shows <strong>Login unavailable</strong>.</p>
 the API or verify whether the server has revoked a login.</p>
 <p>Home has three sections:</p>
 <ul>
-<li><strong>Active runs:</strong> saved runs, their container status and elapsed time. Select
+<li><strong>Active runs:</strong> saved runs, their container status and active time. Select
   a running Kind lab or playground and press Enter to open its workspace.
   Stopped, missing or unavailable runs remain visible but cannot be opened.</li>
 <li><strong>History:</strong> graded submission attempts, scores and completed local runs,
@@ -4518,7 +4562,13 @@ the API or verify whether the server has revoked a login.</p>
 shows running and saved run counts, recent history count and refresh interval.
 Tab also changes sections, arrow keys select entries, Page Up/Down scroll details,
 <code>r</code> refreshes, <code>?</code> opens Help, and <code>q</code> or Ctrl-C closes Home. The screen refreshes
-every five seconds. Closing Home leaves labs running.</p>
+every five seconds. Closing Home leaves labs running and closes the UI's terminal tabs.</p>
+<p>Ctrl+D on Active runs opens a red <strong>Force delete</strong> dialog for the selected
+lab or playground. <strong>No, keep running</strong> is selected by default. Choose <strong>Yes,
+delete</strong> with Tab, arrows or <code>y</code>, then press Enter to confirm. Esc or <code>n</code> cancels.
+Force deletion discards work in the run and its linked clusters, skips teardown
+scripts and <code>keepCluster</code>, and sends no results to Astrona. A run replaced while
+the dialog is open must be selected and confirmed again.</p>
 <p>Press <code>n</code> to enter a catalog lab ID or local path and review the startup
 notice. After startup, select the run and press Enter to open
 its workspace. Press <code>p</code> to edit Preferences, even with no active runs. Boolean
@@ -4536,6 +4586,13 @@ without input, an idle dialog pauses the counter and excludes the idle interval
 back to your last input. Press Enter on <strong>Continue</strong> to resume; that keypress is
 consumed by the dialog. Output, polling and background commands do not count
 as activity. The lab and commands keep running while the counter is paused.</p>
+<p>Ctrl+C returns to Home and pauses the counter immediately. Terminal tabs and
+background commands keep running, but their output does not add time. Reopening
+the same run resumes tracking and restores its tabs.</p>
+<p>Home shows container status separately from activity: <strong>Active</strong> means at least
+one UI is working in that lab; <strong>Paused</strong> means none is active. Watching Home
+does not resume a timer. Other UIs refresh this state about every five seconds;
+a crashed UI stops being considered active after 15 seconds.</p>
 <p>The footer shows active time and whether it is paused. Home's Active column
 and finished-run history retain the recorded time. Checkpoints are saved every
 five seconds and on pause, resume and exit. Time with the UI closed is not
@@ -4594,23 +4651,65 @@ Version handover still requires trust for that exact source or an explicit
 </code></pre></div>
 <p>Development builds use <code>astrodev-</code> names and separate local data. Use the name
 displayed by Home or <code>astrona list</code>.</p>
-<p>Within the workspace:</p>
-<ul>
-<li>Arrow keys select a cluster. Enter shows the task and keeps the UI open.
-  <code>s</code> opens a shell inside the UI, with that lab's isolated kubeconfigs.
-  Commands, editors and their output stay in the terminal pane. Ctrl+C
-  interrupts the shell's active command; type <code>exit</code> to return to the workspace.</li>
-<li>Tab changes between the task and results; Page Up/Down scrolls.</li>
-<li><code>p</code> opens saved preferences. Select a setting, press Enter to edit and
-  review, then <code>y</code> to save; Esc cancels. Settings apply to future commands,
-  and cache policy is checked after the complete UI session closes.</li>
-<li><code>g</code> submits a graded lab through the Proctor and returns to Home. The lab
-  stays running after either PASS or FAIL, so you can reopen it or destroy it.
-  Playground workspaces do not offer submission.</li>
-<li><code>q</code> or Ctrl-C opens the exit menu. Keep the run active and return Home, submit
-  a graded lab, or choose destruction and confirm with <code>y</code>. Enter cancels the
-  destruction confirmation.</li>
-</ul>
+<p>Enter from Home opens the question/task on the left and one terminal tab on
+the right. The shell uses that lab's isolated kubeconfigs. Commands and editors
+stay inside the terminal pane.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ctrl+T</td>
+<td>Open another terminal for the selected cluster.</td>
+</tr>
+<tr>
+<td>Ctrl+N / Ctrl+P</td>
+<td>Switch to the next / previous terminal tab.</td>
+</tr>
+<tr>
+<td>Ctrl+C</td>
+<td>Return to Home and pause time spent. Tabs keep running.</td>
+</tr>
+<tr>
+<td>Alt+C</td>
+<td>Interrupt the active terminal command.</td>
+</tr>
+<tr>
+<td>F2</td>
+<td>Switch focus between the task and terminal.</td>
+</tr>
+<tr>
+<td>Page Up/Down, arrows</td>
+<td>Scroll the task when it has focus.</td>
+</tr>
+<tr>
+<td>Shift+Page Up/Down</td>
+<td>Scroll the active terminal's output.</td>
+</tr>
+<tr>
+<td>F3</td>
+<td>Open lab details, cluster selection, results and submission controls.</td>
+</tr>
+</tbody>
+</table>
+<p>On terminals narrower than 64 columns, F2 switches between the task and
+terminal views. The task pane formats Markdown headings, lists, code blocks,
+links and emphasis. Up to 12 terminal tabs are available per lab in one UI session.
+Click a terminal tab to switch to it. Type <code>exit</code> to close a shell and remove
+its tab. Closing a tab frees a slot for another terminal. Returning to Home
+preserves shells and their environment until the UI closes or the run is deleted.</p>
+<p>In lab details, arrow keys select a cluster. Enter or <code>s</code> returns to the task
+and terminals; Ctrl+T then opens a terminal for that cluster. Tab switches the
+task/results panel, and Page Up/Down scrolls. <code>p</code> opens preferences. Settings
+apply to future commands; cache policy is checked after the UI closes.</p>
+<p>Press <code>g</code> in lab details to submit a graded lab and return Home. The lab stays
+running after PASS or FAIL. Playgrounds do not offer submission. <code>q</code> opens the
+exit menu, where you can leave running, submit, or request normal teardown.
+Confirm normal teardown with <code>y</code>; Enter cancels that confirmation.</p>
 <p>After a completed submission or successful destruction, Home shows the result
 and refreshed runs/history. Errors before grading completes, failed
 destruction, and <code>teardown.keepCluster</code> keep you in the workspace with an
@@ -4627,6 +4726,29 @@ the regular CLI and <code>astrona ssh</code> to work on them.</p>
 <p>Standalone <code>astrona submit</code> and <code>astrona destroy</code> keep their normal terminal
 behavior. They do not automatically open Home. Closing a terminal never
 submits or destroys a lab; existing lab/playground time limits still apply.</p>
+<h2 id="cpu-and-memory">CPU and memory<a class="headerlink" href="#cpu-and-memory" title="Permanent link">&para;</a></h2>
+<p>The task view and Home show current CPU and memory totals for the selected lab,
+including its node containers and linked clusters. Averages cover valid samples
+collected while a UI observes the run, including time when activity is paused.
+They are sample means, not estimates for time when no UI was open. Concurrent
+UIs share the local averages and contribute at most one sample every five seconds.
+A fresh run starts fresh averages. These measurements are not sent to Astrona.</p>
+<p>CPU uses the container engine's reported percentage and can exceed 100% across
+cores. Memory uses the engine's reported usage. Missing, unsupported or incomplete
+stats show as unavailable; they do not count as zero. Sampling supports Docker
+and Podman Kind nodes and does not require Kubernetes Metrics Server.</p>
+<h2 id="guest-login-reminder">Guest login reminder<a class="headerlink" href="#guest-login-reminder" title="Permanent link">&para;</a></h2>
+<p>Each guest lab run offers <strong>Log in</strong> or <strong>Continue as guest</strong> before starting the
+lab. The <strong>Never ask again</strong> checkbox saves your choice to hide future reminders.
+Tab or arrow keys move between the buttons and checkbox; Space checks it and
+Enter accepts. Esc cancels startup without saving the checkbox.</p>
+<p>Login opens the existing browser sign-in flow and resumes startup when complete.
+With <code>--ui</code>, the reminder and sign-in progress stay in the UI. Catalog labs can
+track account progress after login; local labs stay local. Explicit local-only
+restarts keep API tracking disabled and skip the reminder.</p>
+<p>Restore reminders with <code>astrona settings set login-reminder yes</code>, or change
+<strong>login-reminder</strong> in Preferences. Noninteractive catalog runs still require
+<code>--without-login</code> when signed out.</p>
 
 
 
