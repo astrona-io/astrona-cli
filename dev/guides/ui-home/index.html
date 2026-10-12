@@ -4569,10 +4569,10 @@ delete</strong> with Tab, arrows or <code>y</code>, then press Enter to confirm.
 Force deletion discards work in the run and its linked clusters, skips teardown
 scripts and <code>keepCluster</code>, and sends no results to Astrona. A run replaced while
 the dialog is open must be selected and confirmed again.</p>
-<p>Press <code>n</code> to enter a catalog lab ID or local path and review the startup
-notice. After startup, select the run and press Enter to open
-its workspace. Press <code>p</code> to edit Preferences, even with no active runs. Boolean
-settings use <code>yes</code> / <code>no</code>; blank input keeps the current value.</p>
+<p>Start a lab from the command line with <code>astrona run &lt;lab&gt; --ui</code>.
+Home can open existing runs; creating a run from Home is not available yet.
+Press <code>p</code> to edit Preferences, even with no active runs. Boolean settings use
+<code>yes</code> / <code>no</code>; blank input keeps the current value.</p>
 <p>Home shows a full-width table with Lab, Type, Status and Active time columns. Narrow
 terminals retain Lab and Status. Long names are truncated within their column
 so the status remains visible. The current row has a contrasting background.
@@ -4625,8 +4625,7 @@ not submit results or destroy the lab.</p>
 <p>Use Tab to read the terms and setting explanations, arrow keys or Page Up/Down
 to scroll, and left/right to select Yes or No. Enter confirms the selection;
 <code>y</code> accepts directly. No, <code>n</code>, Esc or Ctrl-C cancels startup and prints a message.
-Cancellation exits with code 3; when starting from Home, it returns there with
-a cancellation notice. No leaves existing labs as they are.</p>
+Cancellation exits with code 3. No leaves existing labs as they are.</p>
 <p>When the requested lab already exists, the box asks whether to destroy it
 and start over. Yes discards work in that lab and its linked clusters without
 saving or submitting it. The old account session is detached locally and its
@@ -4664,7 +4663,7 @@ stay inside the terminal pane.</p>
 <tbody>
 <tr>
 <td>Ctrl+T</td>
-<td>Open another terminal for the selected cluster.</td>
+<td>Name and open another terminal for the selected cluster.</td>
 </tr>
 <tr>
 <td>Ctrl+N / Ctrl+P</td>
@@ -4699,7 +4698,18 @@ stay inside the terminal pane.</p>
 <p>On terminals narrower than 64 columns, F2 switches between the task and
 terminal views. The task pane formats Markdown headings, lists, code blocks,
 links and emphasis. Up to 12 terminal tabs are available per lab in one UI session.
-Click a terminal tab to switch to it. Type <code>exit</code> to close a shell and remove
+Ctrl+T opens a name dialog. Type a name (up to 24 characters), then press Enter.
+Leave it blank to use a default such as “Terminal 2”, or press Esc to cancel.
+The dialog explains how to switch tabs with the mouse or Ctrl+N / Ctrl+P.</p>
+<p>The task pane defaults to 30% of the lab view. Change <strong>ui-task-width</strong> in
+Preferences (20–60%), or run <code>astrona settings set ui-task-width 25</code>. Drag the
+vertical divider left or right to resize it for the current UI session. The
+saved setting supplies the default when you open a new UI. Small terminals
+keep enough space for the terminal, and F2 switches panes below 64 columns.</p>
+<p>Embedded terminals use the short <code>astrona-cli @</code> prompt. Bash, Zsh and Fish
+keep their startup configuration; Astrona replaces the prompt inside each UI
+terminal without editing your shell configuration files.</p>
+<p>Click a terminal tab to switch to it. Type <code>exit</code> to close a shell and remove
 its tab. Closing a tab frees a slot for another terminal. Returning to Home
 preserves shells and their environment until the UI closes or the run is deleted.</p>
 <p>In lab details, arrow keys select a cluster. Enter or <code>s</code> returns to the task
@@ -4727,7 +4737,9 @@ the regular CLI and <code>astrona ssh</code> to work on them.</p>
 behavior. They do not automatically open Home. Closing a terminal never
 submits or destroys a lab; existing lab/playground time limits still apply.</p>
 <h2 id="cpu-and-memory">CPU and memory<a class="headerlink" href="#cpu-and-memory" title="Permanent link">&para;</a></h2>
-<p>The task view and Home show current CPU and memory totals for the selected lab,
+<p>Inside a lab, the header shows CPU, memory and their averages immediately to
+the left of the Astrona logo. Narrow terminals use a compact header. Home
+keeps resource usage beneath its run list. Totals cover the selected lab,
 including its node containers and linked clusters. Averages cover valid samples
 collected while a UI observes the run, including time when activity is paused.
 They are sample means, not estimates for time when no UI was open. Concurrent
