@@ -4124,6 +4124,10 @@
 <td>Build the development binary at <code>./astrona</code>; nothing is installed or moved</td>
 </tr>
 <tr>
+<td><code>just run &lt;args&gt;</code></td>
+<td>Build and run <code>./astrona</code>, forwarding CLI arguments</td>
+</tr>
+<tr>
 <td><code>just clean</code></td>
 <td>Remove the built binary</td>
 </tr>
@@ -4163,9 +4167,18 @@
 </table>
 <p>Run <code>just</code> with no arguments to list every recipe.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>just<span class="w"> </span>build
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>./astrona<span class="w"> </span>settings<span class="w"> </span>path
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>./astrona<span class="w"> </span>run<span class="w"> </span>./examples/k8s-basics-01<span class="w"> </span>--ui
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>./astrona<span class="w"> </span>--help
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>./astrona<span class="w"> </span>settings<span class="w"> </span>path
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>./astrona<span class="w"> </span>run<span class="w"> </span>./examples/k8s-basics-01<span class="w"> </span>--ui
 </code></pre></div>
+<p>Or build and run in one step:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>just<span class="w"> </span>run<span class="w"> </span>--help
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>just<span class="w"> </span>run<span class="w"> </span>settings<span class="w"> </span>path
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>just<span class="w"> </span>run<span class="w"> </span>run<span class="w"> </span>./examples/k8s-basics-01<span class="w"> </span>--ui
+</code></pre></div>
+<p><code>./cmd/astrona</code> is the Go source directory, not the executable. Running it
+directly can report <code>permission denied</code>; use <code>./astrona</code> after <code>just build</code>,
+<code>just run &lt;args&gt;</code>, or <code>go run ./cmd/astrona &lt;args&gt;</code> instead.</p>
 <p>Use <code>./astrona</code> to run your local build. Plain <code>astrona</code> may run the installed
 release from your <code>PATH</code>. The former <code>just install</code> recipe has been removed.</p>
 <p>Unversioned builds (including plain <code>go build</code> and <code>go run</code>) store their
@@ -4189,7 +4202,7 @@ can affect that account. On Windows, build and run inside WSL. An unversioned
 native launcher refuses to forward commands to the installed release.</p>
 <h2 id="working-on-the-docs">Working on the docs<a class="headerlink" href="#working-on-the-docs" title="Permanent link">&para;</a></h2>
 <p>This site is <a href="https://www.mkdocs.org/">MkDocs</a> + <a href="https://squidfunk.github.io/mkdocs-material/">Material for MkDocs</a>, versioned with <a href="https://github.com/jimporter/mike">mike</a>. Source lives under <code>docs/</code>, config at the repo root <code>mkdocs.yml</code>.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>just<span class="w"> </span>docs
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>just<span class="w"> </span>docs
 </code></pre></div>
 <p>opens a live-reloading local copy. The CLI reference under <code>docs/reference/cli/</code> is <strong>generated</strong> (via <code>astrona docgen</code>, a hidden command wired into <code>just docs</code>/<code>just build-docs</code>) — don't hand-edit it, edit the command's <code>Short</code>/<code>Long</code>/flag descriptions in <code>cmd/astrona/cmd_*.go</code> instead.</p>
 <p><strong>Adding a command:</strong> put it in a help group in <code>cmd/astrona/groups.go</code> (<code>astrona --help</code> lists commands by group, in workflow order) and add its generated page(s) to the matching group of the CLI Reference in <code>mkdocs.yml</code>. Unit tests fail if either is missing.</p>
@@ -4209,10 +4222,10 @@ JavaScript. Motion must respect <code>prefers-reduced-motion</code> and the save
 choice in <code>docs/javascripts/motion.js</code>; do not make animation part of navigation
 or hide content until an animation runs.</p>
 <p>Build the site, then check it in Chromium:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>just<span class="w"> </span>build-docs
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>run<span class="w"> </span>--with<span class="w"> </span>playwright<span class="w"> </span>playwright<span class="w"> </span>install<span class="w"> </span>chromium
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>uv<span class="w"> </span>run<span class="w"> </span>--with<span class="w"> </span>playwright<span class="w"> </span>python<span class="w"> </span>.github/scripts/check-docs-theme.py<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span>--site-dir<span class="w"> </span>site<span class="w"> </span>--screenshots<span class="w"> </span>/tmp/astrona-docs-screenshots
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>just<span class="w"> </span>build-docs
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>uv<span class="w"> </span>run<span class="w"> </span>--with<span class="w"> </span>playwright<span class="w"> </span>playwright<span class="w"> </span>install<span class="w"> </span>chromium
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>uv<span class="w"> </span>run<span class="w"> </span>--with<span class="w"> </span>playwright<span class="w"> </span>python<span class="w"> </span>.github/scripts/check-docs-theme.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span>--site-dir<span class="w"> </span>site<span class="w"> </span>--screenshots<span class="w"> </span>/tmp/astrona-docs-screenshots
 </code></pre></div>
 <p>Use <code>--browser /path/to/chromium</code> to reuse an installed browser. The check starts
 a temporary localhost server under <code>/dev/</code> and checks desktop/375px layouts,
@@ -4223,12 +4236,12 @@ repository. Also check the deployed mike version selector after a release.</p>
 <h2 id="security-sensitive-areas">Security-sensitive areas<a class="headerlink" href="#security-sensitive-areas" title="Permanent link">&para;</a></h2>
 <p>If your change touches remote script execution, QEMU base image handling, remote config fetching, git config sources, or path resolution, read the "Security-sensitive areas" section of <a href="https://github.com/astrona-io/astrona-cli/blob/main/CLAUDE.md"><code>CLAUDE.md</code></a> first — these are explicit trust boundaries with existing conventions (HTTPS-only, size caps, path containment) that new code should follow.</p>
 <h2 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>just<span class="w"> </span>check<span class="w">                                          </span><span class="c1"># fmt + vet + unit tests</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span>astrona<span class="w"> </span>./cmd/astrona
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>./astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml<span class="w">   </span><span class="c1"># e2e against a real kind cluster</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>just<span class="w"> </span>check<span class="w">                                          </span><span class="c1"># fmt + vet + unit tests</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span>astrona<span class="w"> </span>./cmd/astrona
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>./astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>examples/k8s-basics-01<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml<span class="w">   </span><span class="c1"># e2e against a real kind cluster</span>
 </code></pre></div>
 <p>The Ubuntu catalog integration test runs the first published lab without logging in:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>bash<span class="w"> </span>.github/scripts/test-catalog-lab.sh<span class="w"> </span>./astrona<span class="w"> </span>/tmp/astrona-catalog-diagnostics
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>bash<span class="w"> </span>.github/scripts/test-catalog-lab.sh<span class="w"> </span>./astrona<span class="w"> </span>/tmp/astrona-catalog-diagnostics
 </code></pre></div>
 <p>For Podman, pass <code>podman</code> as the third argument and run with rootful Podman (for example, <code>sudo env "PATH=$PATH" bash .github/scripts/test-catalog-lab.sh ./astrona /tmp/astrona-catalog-diagnostics podman</code>). The script explicitly selects the requested engine using <code>KIND_EXPERIMENTAL_PROVIDER</code>.</p>
 <p>It needs Linux, Docker or Podman, Kind and kubectl, plus network access to GitHub and Docker Hub. It isolates credentials and kubeconfig, explicitly accepts running without account tracking via <code>--without-login</code>, verifies node readiness, repairs the first lab's intentional image typo with <code>imagePullPolicy: Never</code> to confirm the Alpine preload, then destroys the lab and checks that its cluster, containers, context and saved state are gone. Failures retain logs and diagnostics and trigger cleanup. CI runs it on Ubuntu 24.04 with Docker's classic and containerd image stores and with rootful Podman.</p>
