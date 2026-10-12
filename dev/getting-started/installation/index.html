@@ -4922,7 +4922,7 @@ separate from credentials, lab state, and remote-code approvals.</p>
 <a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>astrona<span class="w"> </span>settings<span class="w"> </span>view
 <a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>astrona<span class="w"> </span>settings<span class="w"> </span>view<span class="w"> </span>-o<span class="w"> </span>json
 <a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>astrona<span class="w"> </span>settings<span class="w"> </span>review
-<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>keep-context<span class="w"> </span><span class="nb">true</span>
+<a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>keep-context<span class="w"> </span>yes
 <a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>parallel<span class="w"> </span><span class="m">2</span>
 <a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>cache-retention-days<span class="w"> </span><span class="m">30</span>
 <a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>cache-max-size-gb<span class="w"> </span><span class="m">50</span>
@@ -4942,12 +4942,12 @@ separate from credentials, lab state, and remote-code approvals.</p>
 <tbody>
 <tr>
 <td><code>verbose</code></td>
-<td><code>false</code></td>
+<td><code>no</code></td>
 <td>Stream full command output instead of the compact step view</td>
 </tr>
 <tr>
 <td><code>keep-context</code></td>
-<td><code>false</code></td>
+<td><code>no</code></td>
 <td>Leave kubectl's current-context unchanged on commands with <code>--keep-context</code></td>
 </tr>
 <tr>
@@ -4957,7 +4957,7 @@ separate from credentials, lab state, and remote-code approvals.</p>
 </tr>
 <tr>
 <td><code>update-check</code></td>
-<td><code>true</code></td>
+<td><code>yes</code></td>
 <td>Check for new CLI releases and show update notices</td>
 </tr>
 <tr>
@@ -4972,12 +4972,14 @@ separate from credentials, lab state, and remote-code approvals.</p>
 </tr>
 </tbody>
 </table>
+<p><code>settings</code>, <code>settings get</code> and <code>settings view</code> display booleans as <code>yes</code> / <code>no</code>.
+JSON output and saved files retain <code>true</code> / <code>false</code>.</p>
 <p>Explicit flags override saved values, including <code>--verbose=false</code>,
 <code>--keep-context=false</code>, and <code>--parallel=1</code>. <code>--update-check=false</code> disables
 update checks for one command; save it with
-<code>astrona settings set update-check false</code> to keep that preference. The existing
+<code>astrona settings set update-check no</code> to keep that preference. The existing
 <code>ASTRONA_NO_UPDATE_CHECK</code> environment variable, CI detection, and non-terminal
-output still suppress update checks even when the setting is true.</p>
+output still suppress update checks even when the setting is yes.</p>
 <p>Only saved choices are written to the JSON file. Review saves each chosen value,
 including a default you choose to keep, so later releases cannot silently replace
 that choice. <code>unset</code> removes one override
@@ -4998,7 +5000,17 @@ not be symlinks. Remote-code trust and automatic confirmation cannot be enabled
 through settings.</p>
 <h3 id="change-settings-inside-the-lab-workspace">Change settings inside the lab workspace<a class="headerlink" href="#change-settings-inside-the-lab-workspace" title="Permanent link">&para;</a></h3>
 <p>In <code>astrona ui</code> or a lab started with <code>--ui</code>, press <code>p</code> to open Preferences.
-Use the arrow keys to select a setting. The editor shows its current value,
+With no running labs, <code>astrona ui</code> opens a home screen. Press <code>n</code> or Enter to
+start a Kind lab by catalog ID or local path, <code>p</code> for Preferences, or <code>r</code> to
+find labs started from another terminal. Select a running lab and press Enter
+to open it. Press <code>q</code> to close the home screen. Starting a lab uses the usual
+startup and trust prompts; cancelling or failing returns to the home screen.
+After startup, select the run and press Enter to open its workspace.</p>
+<p>The workspace keeps its header and keyboard hints visible around bordered panels.
+Starting a lab, editing a preference and confirming destruction use dialogs.
+Errors appear in an alert panel; press F1 to read the full message, Page Up/Down
+to scroll it, and Esc to return. Save confirmations appear as status messages.</p>
+<p>Use the arrow keys to select a setting. The editor shows its current value,
 whether it is saved or a default, its built-in default and an explanation.
 Press Enter, type a value, then Enter to review the current and proposed values,
 why the change is being proposed, its effect and when it applies. Changes you
@@ -5008,16 +5020,16 @@ the edit without saving; another Esc returns to the lab. Page Up/Down scrolls
 long descriptions. Press <code>r</code> in the list to reload choices saved by another command.</p>
 <p>The editor uses the same file as <code>astrona settings path</code>. It validates values
 before saving and refuses to overwrite a setting changed elsewhere while you
-were editing it. <code>update-check</code> requires an explicit <code>true</code> or <code>false</code>; a blank
-answer never accepts network access. Editing preferences does not approve new
-settings definitions or usage terms.</p>
+were editing it. Boolean settings use <code>yes</code> / <code>no</code>. A blank answer keeps the
+current value, including the default <code>yes</code> for <code>update-check</code> when no value is
+saved. Editing preferences does not approve new settings definitions or usage terms.</p>
 <p>Saved options apply to future CLI commands, not the current workspace's options
 or running lab. Cache policy is checked after the workspace closes; saving a
 cache preference does not itself delete files. Opening the UI remains opt-in
 through <code>--ui</code> or <code>astrona ui</code>, not a persistent setting.</p>
 <h3 id="review-settings-after-an-upgrade">Review settings after an upgrade<a class="headerlink" href="#review-settings-after-an-upgrade" title="Permanent link">&para;</a></h3>
 <p><code>astrona settings view</code> gives each setting a readable block with its current
-value, source, built-in default and explanation. Booleans appear as On/Off;
+value, source, built-in default and explanation. Booleans appear as yes/no;
 cache settings use days or GB when supported by your CLI version. It also lists
 pending changes and a review ID. <code>-o json</code> includes the same information;
 the existing <code>astrona settings -o json</code> remains a flat values object. Both are
@@ -5033,14 +5045,13 @@ behavior revision or explicit-choice requirement. A new default does not replace
 a saved value. Each chosen value is shown as current → proposed before the final
 approval prompt. Declining leaves both preferences and the review receipt unchanged;
 commands that require review stay blocked until it is approved.
-Enter a value, press Enter to keep an ordinary preference, or type <code>q</code> to cancel.
-Network-sensitive choices require a typed value: <code>update-check</code> asks you to type
-<code>true</code> or <code>false</code> and explains that release checks contact GitHub. A blank or
-invalid answer at an explicit-choice prompt shows the valid input and asks again,
-keeping your earlier answers. It never accepts the default on your behalf.
+Enter a value, press Enter to keep the current choice, or type <code>q</code> to cancel.
+Boolean settings use <code>yes</code> / <code>no</code>; <code>y</code> / <code>n</code> and <code>true</code> / <code>false</code> also work.
+<code>update-check</code> defaults to <code>yes</code> when no value is saved; a saved <code>no</code> stays selected.
+Its explanation states that release checks contact GitHub.
+Invalid answers show an error and ask again, keeping your earlier answers.
 A final <code>[y/N]</code> confirms the review. Nothing is saved before that confirmation;
-<code>q</code> or EOF cancels without saving. Invalid input for an ordinary preference still
-ends the review without saving.
+<code>q</code> or EOF cancels without saving.
 Saved overrides stay selected unless you change them. Reviewed settings that
 have been removed are deleted from preferences only after confirmation; unknown
 keys not found in the previous review still require manual repair.</p>
@@ -5048,17 +5059,17 @@ keys not found in the previous review still require manual repair.</p>
 and usage-term acceptance. It records the reviewed definitions and CLI version,
 not a server identity or tracking token. Writes share the settings lock and use
 private atomic files. If interrupted between saving choices and the receipt,
-the next command asks again. <code>data reset --yes</code> clears both files. Unsetting an
-explicit network choice requires another review before normal use.</p>
+the next command asks again. <code>data reset --yes</code> clears both files. Unsetting
+<code>update-check</code> restores its default <code>yes</code> without requiring another review.</p>
 <p>Help, completion, settings, local data maintenance, terms display, internal
 background helpers, stop/destroy and logout remain available without review.
 Older binaries do not enforce this gate. No new telemetry or account tracking
 is enabled by this feature; existing signed-in lab progress tracking is separate.</p>
 <p>Without an interactive terminal (including CI), a pending review stops the
 command instead of assuming agreement. <code>--yes</code>, <code>--trust</code> and <code>--accept-terms</code>
-do not approve settings. Set network-sensitive choices explicitly, inspect the
-view, then acknowledge its exact ID:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>update-check<span class="w"> </span><span class="nb">false</span>
+do not approve settings. Set any overrides, inspect the view, then acknowledge
+its exact ID:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>update-check<span class="w"> </span>no
 <a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>astrona<span class="w"> </span>settings<span class="w"> </span>view
 <a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>astrona<span class="w"> </span>settings<span class="w"> </span>review<span class="w"> </span>--accept<span class="w"> </span>&lt;review-id-you-inspected&gt;
 </code></pre></div>
