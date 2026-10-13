@@ -97,7 +97,7 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cfg, baseDir, cleanup, err := loadUILab(name, st, flags)
+			cfg, baseDir, cleanup, err := loadSavedLab(name, st, flags)
 			if err != nil {
 				return err
 			}

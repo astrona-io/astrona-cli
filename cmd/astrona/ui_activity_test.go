@@ -66,6 +66,39 @@ func activityTestPane(t *testing.T, now time.Time) *uiPaneModel {
 	return m
 }
 
+func TestUIObservesCLISubmissionWithoutBlockingTerminal(t *testing.T) {
+	start := time.Now().UTC().Truncate(time.Second)
+	m := activityTestPane(t, start)
+	m.activityInput(start.Add(time.Minute))
+	if err := labstate.SaveSubmission("astro-lab", m.activity.target.Started, false, start.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	m.activityTick(start.Add(2 * time.Minute))
+	for minute := 3; minute < 10; minute++ {
+		now := start.Add(time.Duration(minute) * time.Minute)
+		m.activityInput(now)
+		m.activityTick(now)
+		if m.finished == nil || m.timeSpent() != time.Minute {
+			t.Fatalf("completion not synchronized: %+v, %s", m.finished, m.timeSpent())
+		}
+		view := ansi.Strip(m.View())
+		if strings.Contains(view, "IDLE · TIME PAUSED") || !strings.Contains(view, "Submitted · FAIL") {
+			t.Fatalf("submitted lab shows an idle dialog or no result: %s", view)
+		}
+	}
+	read := make(chan byte, 1)
+	go func() { buf := make([]byte, 1); _, _ = io.ReadFull(m.emulator, buf); read <- buf[0] }()
+	m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")}, start.Add(10*time.Minute))
+	select {
+	case got := <-read:
+		if got != 'x' {
+			t.Fatalf("terminal received %q", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("submission blocked terminal input")
+	}
+}
+
 func TestUIIdleDeadlineIgnoresOutputAndRefresh(t *testing.T) {
 	start := time.Now().UTC().Truncate(time.Second)
 	m := activityTestPane(t, start)

@@ -187,6 +187,7 @@ type uiPaneModel struct {
 	controls, closing, ended, eof     bool
 	account                           uiAccountStatus
 	activity                          uiActivityClock
+	finished                          *labstate.Submission
 	labProgress                       uiLabProgress
 	activityPath, activityError       string
 	activityAway                      bool
@@ -337,7 +338,7 @@ func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		workspace := m.taskPane() || strings.HasPrefix(m.title, "WORKSPACE / ")
-		if !workspace || m.controls || m.closing || m.ended || m.activity.paused || m.activityAway {
+		if !workspace || m.controls || m.closing || m.ended || m.activity.paused && m.finished == nil || m.activityAway {
 			m.mouseDown = false
 			return m, restoreMouse
 		}
@@ -364,7 +365,7 @@ func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if msg.Button == tea.MouseButtonWheelUp {
 					mouse.Button = uv.MouseWheelUp
 				}
-				m.activity.input(time.Now())
+				m.activityInput(time.Now())
 				m.emulator.SendMouse(uv.MouseWheelEvent(mouse))
 			}
 			return m, restoreMouse
@@ -373,12 +374,12 @@ func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.MouseActionPress:
 			if (msg.Button == tea.MouseButtonLeft || msg.Button == tea.MouseButtonRight || msg.Button == tea.MouseButtonMiddle) && row >= 0 && row < m.emulator.Height() {
 				m.mouseDown = true
-				m.activity.input(time.Now())
+				m.activityInput(time.Now())
 				m.emulator.SendMouse(uv.MouseClickEvent(mouse))
 			}
 		case tea.MouseActionMotion:
 			if m.mouseDown {
-				m.activity.input(time.Now())
+				m.activityInput(time.Now())
 				m.emulator.SendMouse(uv.MouseMotionEvent(mouse))
 			}
 		case tea.MouseActionRelease:
@@ -402,11 +403,11 @@ func (m *uiPaneModel) key(key tea.KeyMsg) tea.Cmd {
 }
 
 func (m *uiPaneModel) handleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
-	if !m.activityAway && m.activity.paused && !m.ended {
+	if !m.activityAway && m.activity.paused && m.finished == nil && !m.ended {
 		return m.idleKey(key, now)
 	}
 	if !m.activityAway && !m.activity.paused {
-		m.activity.input(now)
+		m.activityInput(now)
 	}
 	if !key.Paste && key.Type == tea.KeyCtrlY && (!m.taskPane() || m.selectText || m.controls || m.ended) {
 		m.selectText, m.mouseDown = !m.selectText, false
@@ -506,7 +507,7 @@ func (m *uiPaneModel) View() string {
 	if m.failure != "" {
 		header = workspaceFit(header, m.width, uiHeaderHeight(m.width, m.height)-1) + "\n" + workspaceDanger.Render(m.failure)
 	}
-	if !m.activityAway && m.activity.paused && !m.controls && !m.ended {
+	if !m.activityAway && m.activity.paused && m.finished == nil && !m.controls && !m.ended {
 		if m.clockSync == clockSending {
 			// The dialog says what Astrona did with the pause: wait for its answer.
 			footer = "Idle — pausing the lab clock on Astrona…"
@@ -521,6 +522,9 @@ func (m *uiPaneModel) View() string {
 		state := "Active"
 		if m.activity.paused {
 			state = "Paused"
+		}
+		if m.finished != nil {
+			state = submissionLabel(m.finished)
 		}
 		footer = "Time spent: " + formatUptime(m.timeSpent()) + " · " + state + " · " + footer
 		if progress := m.labTimeProgress(); progress != "" && uiHeaderHeight(m.width, m.height) < 5 {

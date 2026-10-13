@@ -128,7 +128,8 @@ func TestAutomaticCleanupDefersForOtherCommandsAndBadSettings(t *testing.T) {
 			var out bytes.Buffer
 			cmd.SetErr(&out)
 			enforceCachePolicy(cmd, s)
-			if _, err := os.Stat(path); err != nil || !strings.Contains(out.String(), "deferred") {
+			wantNotice := cause != "lock"
+			if _, err := os.Stat(path); err != nil || strings.Contains(out.String(), "deferred") != wantNotice {
 				t.Fatalf("not safely deferred: %v, %q", err, out.String())
 			}
 		})

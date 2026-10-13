@@ -196,7 +196,7 @@ func (m *uiPaneModel) headerShortcuts() [][2]string {
 	if m.ended {
 		return [][2]string{{"<enter>", "Close"}, {"<↑/↓>", "Scroll output"}}
 	}
-	if m.activity.paused && !m.activityAway {
+	if m.activity.paused && m.finished == nil && !m.activityAway {
 		return [][2]string{{"<enter>", "Confirm choice"}, {"<←/→>", "Continue / overview"}, {"<tab>", "Next choice"}, {"<esc>", "Overview / stay paused"}}
 	}
 	if m.controls || m.closing {

@@ -156,12 +156,12 @@ var errNotTrusted = errors.New("not trusted — nothing was run")
 // has approved this exact version of it — once per version. --trust
 // approves without asking (CI); without a terminal it refuses.
 func requireTrust(flags *rootFlags, cfg *config.LabConfig, baseDir string) error {
-	if flags.uiStartupApproved {
-		return nil // The startup notice grants code execution for this invocation only.
-	}
 	src, err := labSource(flags, cfg, baseDir)
 	if err != nil || src == nil {
 		return err
+	}
+	if flags.uiStartupApproved {
+		return trust.Approve(*src, time.Now())
 	}
 	return approveParsedSource(flags.trust, !flags.headless && isatty.IsTerminal(os.Stdin.Fd()), *src, func() []string {
 		return append(labRiskSummary(cfg), resourceRiskLines(cfg, baseDir)...)

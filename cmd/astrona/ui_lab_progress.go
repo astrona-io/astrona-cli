@@ -41,7 +41,9 @@ func (m *uiPaneModel) labTimeProgress() string {
 			text += " · +" + formatUptime(used-expected) + " over estimate"
 		}
 	}
-	if m.activity.paused {
+	if m.finished != nil {
+		text += " · " + submissionLabel(m.finished)
+	} else if m.activity.paused {
 		text += " · Paused"
 	}
 	if expected <= 0 {

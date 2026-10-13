@@ -38,6 +38,8 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			"runs, a failed one shows its hint (if the lab author wrote one), and you get a score. " +
 			"Every attempt is recorded — `astrona submit --history` lists them. `--watch` re-grades " +
 			"continuously while you work, without recording attempts.\n\n" +
+			"Saved runs use their local config and cached repository without checking GitHub or " +
+			"downloading again. Approval of the same source revision is reused.\n\n" +
 			"Passing means every check passes, or — when the lab sets validation.passPercent — " +
 			"reaching that score.\n\n" +
 			"With no lab named, none picked with `astrona use` and no lab config in the current " +
@@ -46,15 +48,13 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			"A catalog lab started while signed in (`astrona run ATS…`) sends each result to its lab " +
 			"page on Astrona as well. After a passing result is sent, submit asks whether to delete " +
 			"the lab cluster now (Enter deletes it, exactly like `astrona destroy`); --keep, --headless, -o json " +
-			"or no terminal keep it. A failing result never asks — fix it and submit again.\n\n" +
+			"or no terminal keep it. A failing result keeps the environment. Both PASS and FAIL " +
+			"finish the attempt and stop its timer; start a new run for another tracked attempt.\n\n" +
 			"Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong. Sending the " +
 			"result to Astrona never changes it.",
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
-				return err
-			}
 			if err := checkOutput(output); err != nil {
 				return err
 			}
@@ -67,13 +67,22 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			if output == "json" {
 				status = os.Stderr
 			}
+			name, saved, err := savedSubmission(args, flags)
+			if err != nil {
+				return err
+			}
+			if saved == nil {
+				if err := labArg(args, flags); err != nil {
+					return err
+				}
+			}
 			// No lab named, none picked with `astrona use`, none here: the
 			// only running lab, if there is exactly one.
-			if len(args) == 0 && !flags.fromCurrent && !cmd.Flags().Changed("config") && !cmd.Flags().Changed("git") &&
+			if saved == nil && len(args) == 0 && !flags.fromCurrent && !cmd.Flags().Changed("config") && !cmd.Flags().Changed("git") &&
 				!cmd.Flags().Changed("file") && !labConfigHere(flags) {
-				name, src, err := pickRunningLab(runningLabNames(), labstate.Load)
-				if err != nil {
-					return err
+				selectedName, src, pickErr := pickRunningLab(runningLabNames(), labstate.Load)
+				if pickErr != nil {
+					return pickErr
 				}
 				if src != nil {
 					applySource(flags, src)
@@ -81,8 +90,20 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 					if history {
 						verb = "Attempts for"
 					}
-					fmt.Fprintf(status, "%s %s (the only running lab).\n", verb, name)
+					fmt.Fprintf(status, "%s %s (the only running lab).\n", verb, selectedName)
 				}
+				name, saved, err = savedSubmission(nil, flags)
+				if err != nil {
+					return err
+				}
+			}
+			if saved != nil {
+				cfg, baseDir, cleanup, err := loadSavedLab(name, saved, flags)
+				if err != nil {
+					return err
+				}
+				defer cleanup()
+				return submitLoadedLab(flags, cfg, baseDir, submitOptions{runID: workspaceRunID(saved), junitPath: junitPath, output: output, noHints: noHints, history: history, watch: watch, keep: keep, watchInterval: watchInterval}, status)
 			}
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
@@ -104,6 +125,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 }
 
 type submitOptions struct {
+	runID                         string
 	junitPath, output             string
 	noHints, history, watch, keep bool
 	watchInterval                 time.Duration
@@ -117,6 +139,10 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 	noHints, history, watch, keep, watchInterval := options.noHints, options.history, options.watch, options.keep, options.watchInterval
 
 	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
+	before, err := labstate.Load(clusterName)
+	if err != nil {
+		return err
+	}
 
 	if history {
 		attempts, err := proctor.LoadAttempts(clusterName)
@@ -137,6 +163,11 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 	// (exit 1), not a failed grade (exit 2) — and isn't recorded.
 	if err := lifecycle.Validate(cfg); err != nil {
 		return err
+	}
+	if options.runID != "" {
+		if err := workspaceGuard(clusterName, options.runID); err != nil {
+			return err
+		}
 	}
 
 	// Grading runs validation scripts and command checks on this
@@ -195,6 +226,11 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 	if err != nil {
 		return err
 	}
+	if before != nil {
+		if err := workspaceGuard(clusterName, workspaceRunID(before)); err != nil {
+			return err
+		}
+	}
 
 	now := time.Now()
 	overTime := false
@@ -220,6 +256,11 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 	if recordErr != nil {
 		rep.Warn("could not record this attempt: %s", recordErr)
 	}
+	if recordErr == nil && before != nil && before.StartedAt != "" && sameSource(before.Source, rememberedSource(flags)) && !before.Session.IsPlayground() {
+		if err := labstate.SaveSubmission(clusterName, before.StartedAt, pass, now); err != nil {
+			rep.Warn("could not mark this run submitted: %s", err)
+		}
+	}
 	result := submissionJSON(cfg, clusterName, results, pass, overTime, len(previous)+1, pr.HintsHidden(), now)
 	if junitPath != "" {
 		if err := junit.WriteJUnitReport(junitPath, clusterName, results); err != nil {
@@ -243,6 +284,7 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 		options.completed(result, sent, recordErr == nil)
 	}
 	if !pass {
+		fmt.Fprintln(status, "Submission complete: FAIL. The lab stays available; start a new run for another tracked attempt.")
 		return notPassed("submission did not pass grading")
 	}
 	follow := submitFollowUp(pass, sent, keep, output == "json", !flags.headless && stdinIsTerminal(), cfg.Teardown.KeepCluster)

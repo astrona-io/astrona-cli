@@ -52,7 +52,7 @@ func TestUIResumeUsesLocalFilesWithoutGit(t *testing.T) {
 				}
 				flags := &rootFlags{trust: true, installVersion: true}
 				for range 2 {
-					cfg, base, cleanup, err := loadUILab("astro-demo", st, flags)
+					cfg, base, cleanup, err := loadSavedLab("astro-demo", st, flags)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -90,7 +90,7 @@ func TestUIResumeDoesNotFetchMissingSources(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests.Add(1) }))
 	defer server.Close()
 	for _, src := range []*labstate.Source{{Git: server.URL, Config: "labs/demo"}, {Config: server.URL + "/config.yaml"}, {Config: filepath.Join(t.TempDir(), "missing")}, {Git: server.URL, Config: "../escape"}} {
-		_, _, cleanup, err := loadUILab("astro-demo", &labstate.State{Source: src}, &rootFlags{})
+		_, _, cleanup, err := loadSavedLab("astro-demo", &labstate.State{Source: src}, &rootFlags{})
 		cleanup()
 		if err == nil {
 			t.Fatal("accepted unavailable or escaping source")
@@ -119,7 +119,7 @@ func TestUIResumeRejectsChangedNameAndVersion(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(body), 0600); err != nil {
 			t.Fatal(err)
 		}
-		_, _, cleanup, err := loadUILab("astro-demo", &labstate.State{Source: &labstate.Source{Config: dir}}, &rootFlags{installVersion: true, trust: true})
+		_, _, cleanup, err := loadSavedLab("astro-demo", &labstate.State{Source: &labstate.Source{Config: dir}}, &rootFlags{installVersion: true, trust: true})
 		cleanup()
 		if err == nil {
 			t.Fatal("accepted changed lab name or incompatible version")

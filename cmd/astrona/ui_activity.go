@@ -111,6 +111,9 @@ func (c *uiActivityClock) save(now time.Time) error {
 // Check inactivity before file reads or input handling, so neither a delayed
 // refresh nor a failed read can postpone the idle dialog.
 func (m *uiPaneModel) advanceActivity(now time.Time) tea.Cmd {
+	if m.finished != nil {
+		return nil
+	}
 	wasPaused := m.activity.paused
 	m.activity.update(now)
 	if wasPaused || !m.activity.paused || m.activityAway {
@@ -179,6 +182,7 @@ func (m *uiPaneModel) activityTick(now time.Time) tea.Cmd {
 			m.failure = m.activityError
 		}
 		m.activity = uiActivityClock{target: target, lastInput: now}
+		m.finished = nil
 		m.activityAway = false
 		m.activityTimeFrozen, m.idleOverview = false, false
 		m.activityTotal, m.activitySavedOwn = 0, 0
@@ -186,6 +190,24 @@ func (m *uiPaneModel) activityTick(now time.Time) tea.Cmd {
 			m.activity.periods = []labstate.ActivityPeriod{{Start: now, End: now}}
 		}
 	}
+	finished, err := labstate.ReadSubmission(target.Lab, target.Started)
+	if err != nil {
+		m.activityError = "Could not read submission status: " + err.Error()
+		return restoreMouse
+	}
+	if finished != nil && m.finished == nil {
+		m.finished = finished
+		for i := range m.activity.periods {
+			p := &m.activity.periods[i]
+			if p.End.After(finished.At) {
+				p.End = maxTime(p.Start, finished.At)
+			}
+		}
+		m.activity.paused, m.activityTimeFrozen = true, false
+		m.taskTerminalFocus(false)
+		m.saveActivity(now)
+	}
+	m.finished = finished
 	m.refreshSyncStatus(now)
 	m.usage, _ = labstate.ReadUsage(target.Lab, target.Started)
 	if time.Since(m.usage.Updated) > 15*time.Second {
@@ -195,6 +217,26 @@ func (m *uiPaneModel) activityTick(now time.Time) tea.Cmd {
 		m.saveActivity(now)
 	}
 	return restoreMouse
+}
+
+func maxTime(a, b time.Time) time.Time {
+	if a.After(b) {
+		return a
+	}
+	return b
+}
+
+func (m *uiPaneModel) activityInput(now time.Time) {
+	if m.finished == nil {
+		m.activity.input(now)
+	}
+}
+
+func submissionLabel(result *labstate.Submission) string {
+	if result.Pass {
+		return "Submitted · PASS"
+	}
+	return "Submitted · FAIL"
 }
 
 func (m *uiPaneModel) saveActivity(now time.Time) {
