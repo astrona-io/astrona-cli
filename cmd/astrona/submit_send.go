@@ -266,7 +266,7 @@ const (
 // the lab page offers to delete the lab — asked in a terminal, a hint
 // under -o json or without one; --keep, or a lab with
 // teardown.keepCluster, leaves it be. A failing result never asks: the
-// clock keeps running, fix it and submit again.
+// environment stays available after its attempt finishes.
 func submitFollowUp(pass, sent, keep, jsonOut, tty, keepCluster bool) followUp {
 	switch {
 	case !pass || !sent || keep || keepCluster:

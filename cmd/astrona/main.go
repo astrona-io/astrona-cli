@@ -282,7 +282,9 @@ func main() {
 			fmt.Fprintln(os.Stdout, "Lab startup cancelled. No lab was started or changed.")
 			os.Exit(uiRunDeclinedExitCode)
 		}
-		ui.PrintError(err)
+		if exitCodeFor(err) != exitNotPassed {
+			ui.PrintError(err)
+		}
 		os.Exit(exitCodeFor(err))
 	}
 }

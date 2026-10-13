@@ -158,6 +158,11 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 				run.activity = "Active"
 			}
 		}
+		if finished, err := labstate.ReadSubmission(name, st.StartedAt); err != nil {
+			warn(err)
+		} else if finished != nil {
+			run.status, run.activity = submissionLabel(finished), "Finished"
+		}
 		if len(qemu[name]) > 0 {
 			run.usage = uiQEMURunUsage(name, st.StartedAt, qemu[name], qemuSamples)
 		} else {
@@ -592,7 +597,7 @@ func runUIHome(ctx context.Context, flags *rootFlags, notice string) error {
 				return "", err
 			}
 			localFlags := *flags
-			cfg, baseDir, cleanup, err := loadUILab(run.name, st, &localFlags)
+			cfg, baseDir, cleanup, err := loadSavedLab(run.name, st, &localFlags)
 			if err != nil {
 				return "", err
 			}

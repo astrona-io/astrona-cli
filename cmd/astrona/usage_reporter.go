@@ -103,6 +103,9 @@ func reportUsage(ctx context.Context, clusterName string, tick time.Duration) er
 		if st == nil || st.LocalOnly || st.Session == nil || st.StartedAt == "" {
 			return nil
 		}
+		if finished, err := labstate.ReadSubmission(clusterName, st.StartedAt); err != nil || finished != nil {
+			return err
+		}
 		// Another run of the lab started its own reporter.
 		if pid := st.Session.ReporterPID; pid != 0 && pid != os.Getpid() {
 			return nil

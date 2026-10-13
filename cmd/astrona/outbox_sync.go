@@ -155,6 +155,9 @@ func signalClock(ctx context.Context, lab, started string, paused bool, at time.
 	if err != nil || st == nil || st.LocalOnly || st.Session == nil || st.Session.ID == "" || st.StartedAt != started {
 		return clockLocal, outbox.Status{}, err
 	}
+	if finished, err := labstate.ReadSubmission(lab, started); err != nil || finished != nil {
+		return clockLocal, outbox.Status{}, err
+	}
 	changed, err := labstate.SetRemotePaused(lab, started, st.Session.ID, paused, at)
 	if err != nil {
 		return clockLocal, outbox.Status{}, err

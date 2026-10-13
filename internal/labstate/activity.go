@@ -93,6 +93,21 @@ func ActiveTime(lab, started string) (time.Duration, bool, error) {
 		periods = append(periods, saved...)
 		tracked = true
 	}
+	finished, err := ReadSubmission(lab, started)
+	if err != nil {
+		return 0, false, err
+	}
+	if finished != nil {
+		if finished.WallClock || !tracked {
+			start, _ := time.Parse(time.RFC3339, started)
+			return max(time.Duration(0), finished.At.Sub(start)), true, nil
+		}
+		for i := range periods {
+			if periods[i].End.After(finished.At) {
+				periods[i].End = finished.At
+			}
+		}
+	}
 	return activityTotal(periods), tracked, nil
 }
 

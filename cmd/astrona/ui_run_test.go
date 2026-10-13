@@ -11,6 +11,7 @@ import (
 
 	"astrona/internal/config"
 	"astrona/internal/terms"
+	"astrona/internal/trust"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
@@ -129,17 +130,27 @@ func TestUIRunGate(t *testing.T) {
 	}
 }
 
-func TestUIRunCodeApprovalIsNotSaved(t *testing.T) {
+func TestUIRunCodeApprovalIsSavedForExactRevision(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
-	flags := &rootFlags{uiStartupApproved: true}
 	cfg := &config.LabConfig{SourcePath: "https://example.test/config.yaml", SourceSHA256: "abc"}
-	if err := requireTrust(flags, cfg, dir); err != nil {
+	if err := requireTrust(&rootFlags{uiStartupApproved: true}, cfg, dir); err != nil {
 		t.Fatal(err)
 	}
-	entries, err := os.ReadDir(dir)
-	if err != nil || len(entries) != 0 {
-		t.Fatal("invocation approval wrote persistent trust")
+	src, err := labSource(&rootFlags{}, cfg, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, _, err := trust.Check(*src)
+	if err != nil || status != trust.Trusted {
+		t.Fatalf("approval not saved: %v %v", status, err)
+	}
+	if err := requireTrust(&rootFlags{headless: true}, cfg, dir); err != nil {
+		t.Fatal("CLI asked again:", err)
+	}
+	cfg.SourceSHA256 = "changed"
+	if err := requireTrust(&rootFlags{headless: true}, cfg, dir); err == nil {
+		t.Fatal("approved another revision")
 	}
 }
 

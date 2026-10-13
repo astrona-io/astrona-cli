@@ -171,7 +171,9 @@ not choose which lab to replace; the command's lab argument or selected config
 does. Startup leaves that shell's Kubernetes context unchanged. To continue
 working on an existing lab without restarting, use `astrona ui <lab-name>`.
 
-The startup notice cannot approve a remote config this CLI cannot parse.
+Accepting startup saves approval for the parsed source revision. A later CLI
+submission reuses it without another trust prompt. Changed revisions still
+require approval. The startup notice cannot approve a remote config this CLI cannot parse.
 Version handover still requires trust for that exact source or an explicit
 `--trust` supplied after reviewing it.
 

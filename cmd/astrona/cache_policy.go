@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"astrona/internal/localdata"
@@ -28,6 +30,9 @@ func enforceCachePolicy(cmd *cobra.Command, s localdata.Store) {
 		return
 	}
 	err := pruneCache(cmd.Context(), cmd, s)
+	if errors.Is(err, syscall.EWOULDBLOCK) {
+		return // A UI or another command still uses the cache; try on a later command.
+	}
 	if err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Cache limits deferred: %v. Retry with astrona data clean --policy.\n", err)
 	}

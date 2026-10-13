@@ -11,9 +11,9 @@ import (
 	"astrona/internal/version"
 )
 
-// Resume reads the saved source locally. The normal run loader may fetch,
+// Read the saved source locally. The normal run loader may fetch,
 // reset the checkout or install another CLI, so it must not be used here.
-func loadUILab(name string, st *labstate.State, flags *rootFlags) (*config.LabConfig, string, func(), error) {
+func loadSavedLab(name string, st *labstate.State, flags *rootFlags) (*config.LabConfig, string, func(), error) {
 	noop := func() {}
 	if st == nil || st.Source == nil {
 		return nil, "", noop, fmt.Errorf("run %s has no saved config source", name)
@@ -31,7 +31,7 @@ func loadUILab(name string, st *labstate.State, flags *rootFlags) (*config.LabCo
 		}
 	}
 	if strings.HasPrefix(path, "https://") || strings.HasPrefix(path, "http://") {
-		return nil, "", noop, fmt.Errorf("run %s has only a remote config URL; no local copy is available to resume in the UI. The lab is still running", name)
+		return nil, "", noop, fmt.Errorf("run %s has only a remote config URL; no local copy is available to reuse. The lab is still running", name)
 	}
 	path, err := config.ResolveConfigPath(path, flags.fileName, "", "", false)
 	if err != nil {

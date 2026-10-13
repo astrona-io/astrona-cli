@@ -28,7 +28,7 @@ func (m *uiPaneModel) taskControl(data []byte) bool {
 	case "777;astrona;ready":
 		m.taskFocusProtocol, m.terminalLocked = true, false
 	case "777;astrona;locked":
-		m.terminalLocked = !m.activity.paused || m.activityAway
+		m.terminalLocked = !m.activity.paused || m.finished != nil || m.activityAway
 	case "777;astrona;unlocked":
 		m.terminalLocked = false
 	case "777;astrona;overview":
@@ -37,13 +37,13 @@ func (m *uiPaneModel) taskControl(data []byte) bool {
 		m.activity.paused, m.activityAway, m.terminalLocked = true, true, false
 		m.saveActivity(now)
 	case "777;astrona;copy":
-		if !m.activity.paused && !m.activityAway && !m.ended {
+		if (!m.activity.paused || m.finished != nil) && !m.activityAway && !m.ended {
 			m.selectText, m.mouseDown = true, false
 			m.selectionView = ""
 			m.taskMouseCmd = tea.DisableMouse
 		}
 	case "777;astrona;controls":
-		if !m.activity.paused && !m.activityAway && !m.ended {
+		if (!m.activity.paused || m.finished != nil) && !m.activityAway && !m.ended {
 			m.controls, m.scroll = true, 0
 		}
 	default:

@@ -41,6 +41,10 @@ func (m *uiPaneModel) queueClock(target uiActivityTarget, paused bool, at time.T
 }
 
 func (m *uiPaneModel) clockSignal(target uiActivityTarget, paused bool, at time.Time) tea.Cmd {
+	if finished, err := labstate.ReadSubmission(target.Lab, target.Started); err == nil && finished != nil {
+		m.clockSync = clockLocal
+		return nil
+	}
 	// A local run (no lab session) has no clock on Astrona: nothing to tell.
 	if st, err := labstate.Load(target.Lab); err != nil || st == nil || st.LocalOnly || st.Session == nil || st.Session.ID == "" {
 		m.clockSync = clockLocal

@@ -41,6 +41,9 @@ func HasActiveUI(lab, started string, now time.Time) (bool, error) {
 	if started == "" {
 		return false, nil
 	}
+	if finished, err := ReadSubmission(lab, started); err != nil || finished != nil {
+		return false, err
+	}
 	dir, err := activityDir(lab, started)
 	if err != nil {
 		return false, err
