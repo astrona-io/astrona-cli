@@ -80,9 +80,9 @@ func TestUITerminalTabsKeepSeparateShellsAndResize(t *testing.T) {
 	if m.active != 0 {
 		t.Fatal("previous tab did not select first shell")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m.Update(tea.KeyMsg{Type: tea.KeyCtrlB})
 	if m.workspace.action != workspaceLeave {
-		t.Fatal("Ctrl+C did not return to overview")
+		t.Fatal("Ctrl+B did not return to overview")
 	}
 	// Returning to Home leaves the shells alive and their output draining.
 	_, err = io.WriteString(tabs[0].terminal, "printf 'home-%s\\n' \"$TAB_VALUE\"\n")
@@ -183,7 +183,7 @@ func TestUITaskKeepsTabsAcrossOverview(t *testing.T) {
 	_, _ = fmt.Fprintf(keys, "\x1b[<0;40;%dM", uiHeaderHeight(120, 40)+1) // Click the first terminal tab.
 	_, _ = io.WriteString(keys, "sleep 30\r")
 	time.Sleep(100 * time.Millisecond)
-	_, _ = io.WriteString(keys, "\x1bc") // Alt+C interrupts the foreground command.
+	_, _ = io.WriteString(keys, "\x03") // Ctrl+C interrupts the foreground command.
 	_, _ = io.WriteString(keys, "printf 'interrupt-%s\\n' works\r")
 	waitUIPaneOutput(t, out, "interrupt-works")
 	row := uiHeaderHeight(120, 40) + 5
@@ -191,14 +191,14 @@ func TestUITaskKeepsTabsAcrossOverview(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	_, _ = io.WriteString(keys, "printf 'width-%s\\n' \"$(stty size | cut -d' ' -f2)\"\r")
 	waitUIPaneOutput(t, out, "width-68")
-	_, _ = io.WriteString(keys, "\x03")
+	_, _ = io.WriteString(keys, "\x02") // Ctrl+B returns to overview.
 	waitUIPaneOutput(t, out, "Time paused; terminal tabs retained")
 	_, _ = io.WriteString(keys, "\r")
 	time.Sleep(100 * time.Millisecond)
 	_, _ = io.WriteString(keys, "printf 'reopened-%s\\n' \"$KEEP_TAB\"\r")
 	waitUIPaneOutput(t, out, "reopened-retained")
 
-	_, _ = io.WriteString(keys, "\x03")
+	_, _ = io.WriteString(keys, "\x02") // Ctrl+B returns to overview.
 	time.Sleep(100 * time.Millisecond)
 	_, _ = io.WriteString(keys, "q")
 	if err := <-done; err != nil {
@@ -279,7 +279,7 @@ func TestUITerminalBlockedInputDoesNotBlockNavigation(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(strings.Repeat("x", 1024*1024)), Paste: true})
-		m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+		m.Update(tea.KeyMsg{Type: tea.KeyCtrlB})
 		close(done)
 	}()
 	select {

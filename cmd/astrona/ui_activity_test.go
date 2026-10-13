@@ -187,7 +187,7 @@ func TestUIIdleOverviewChoice(t *testing.T) {
 			if !m.idleOverview || !strings.Contains(ansi.Strip(m.View()), "[ Overview ]") {
 				t.Fatal("Overview could not be selected")
 			}
-			want := "\x03"
+			want := "\x02"
 			if title == "PREFERENCES" {
 				want = "\x1b\x0f"
 			}
@@ -258,12 +258,12 @@ func TestUIOverviewStopsActivityImmediately(t *testing.T) {
 	m.activity = uiActivityClock{target: uiActivityTarget{"astro-lab", now.Format(time.RFC3339), "one"}, lastInput: now, periods: []labstate.ActivityPeriod{{Start: now.Add(-time.Minute), End: now}}}
 	input := make(chan byte, 1)
 	go func() { buf := make([]byte, 1); _, _ = m.emulator.Read(buf); input <- buf[0] }()
-	m.key(tea.KeyMsg{Type: tea.KeyCtrlC})
-	if got := <-input; got != 3 {
+	m.key(tea.KeyMsg{Type: tea.KeyCtrlB})
+	if got := <-input; got != 2 {
 		t.Fatalf("key forwarded: %d", got)
 	}
 	if !m.activity.paused || !m.activityAway {
-		t.Fatal("Ctrl+C did not pause immediately")
+		t.Fatal("Ctrl+B did not pause immediately")
 	}
 	before := m.activity.total()
 	m.activity.update(now.Add(time.Hour))

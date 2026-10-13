@@ -238,7 +238,7 @@ func (m *uiPaneModel) idleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
 			return nil
 		}
 		m.leaveActivity(now)
-	case "esc", "ctrl+c":
+	case "esc", "ctrl+c", "ctrl+b":
 		m.leaveActivity(now)
 	}
 	return nil
@@ -247,7 +247,7 @@ func (m *uiPaneModel) idleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
 func (m *uiPaneModel) leaveActivity(now time.Time) {
 	m.activity.paused, m.activityAway = true, true
 	m.saveActivity(now)
-	key := tea.KeyMsg{Type: tea.KeyCtrlC}
+	key := tea.KeyMsg{Type: tea.KeyCtrlB}
 	if m.title == "PREFERENCES" {
 		key = tea.KeyMsg{Type: tea.KeyCtrlO, Alt: true}
 	}

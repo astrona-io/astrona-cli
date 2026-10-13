@@ -8,14 +8,15 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func TestUIFunctionKeysReachTerminal(t *testing.T) {
+func TestUITerminalKeysReachTerminal(t *testing.T) {
 	for _, tc := range []struct {
 		key  tea.KeyType
 		want string
-	}{{tea.KeyF1, "\x1bOP"}, {tea.KeyF2, "\x1bOQ"}, {tea.KeyF3, "\x1bOR"}, {tea.KeyF4, "\x1bOS"}} {
+	}{{tea.KeyF1, "\x1bOP"}, {tea.KeyF2, "\x1bOQ"}, {tea.KeyF3, "\x1bOR"}, {tea.KeyF4, "\x1bOS"}, {tea.KeyCtrlC, "\x03"}} {
 		for _, task := range []bool{false, true} {
 			t.Run(tea.KeyMsg{Type: tc.key}.String()+map[bool]string{false: "/pane", true: "/task"}[task], func(t *testing.T) {
 				pane := newUIPaneModel(nil, nil, 120, 30)
+				pane.title = "TASK / astro-lab"
 				defer pane.emulator.Close()
 				m := &uiTaskModel{tabs: []*uiTerminalTab{{emulator: pane.emulator}}}
 				read := make(chan string, 1)
@@ -36,10 +37,10 @@ func TestUIFunctionKeysReachTerminal(t *testing.T) {
 						t.Fatalf("terminal received %q, want %q", got, tc.want)
 					}
 				case <-time.After(time.Second):
-					t.Fatal("function key was intercepted")
+					t.Fatal("terminal key was intercepted")
 				}
-				if m.taskFocus || m.workspace.action != workspaceNone || pane.selectText {
-					t.Fatal("function key changed UI state")
+				if m.taskFocus || m.workspace.action != workspaceNone || pane.selectText || pane.activityAway || pane.activity.paused {
+					t.Fatal("terminal key changed UI state")
 				}
 			})
 		}
@@ -80,5 +81,13 @@ func TestUIFunctionKeysDoNotOpenDialogs(t *testing.T) {
 		if next.(uiRunModel).details {
 			t.Fatal("function key opened startup details")
 		}
+	}
+}
+
+func TestUITabNameInterruptCancelsDialog(t *testing.T) {
+	m := &uiTaskModel{namingTab: true, tabName: "Monitor"}
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if cmd != nil || m.namingTab || m.workspace.action != workspaceNone {
+		t.Fatal("Ctrl+C left the lab instead of cancelling the tab name")
 	}
 }

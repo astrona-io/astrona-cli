@@ -536,7 +536,7 @@ func (m *uiTaskModel) View() string {
 	} else if m.taskFocus {
 		body = workspacePanel("QUESTION / TASK", taskPage, w+4, h+2, taskStyle)
 	}
-	footer := "Ctrl+T new · Ctrl+N/P tabs · Ctrl+O task · Ctrl+G lab · Ctrl+Y copy · Ctrl+C overview"
+	footer := "Ctrl+T new · Ctrl+N/P tabs · Ctrl+O task · Ctrl+G lab · Ctrl+Y copy · Ctrl+B overview"
 	if terminalStatus != "" {
 		footer = terminalStatus
 	}
@@ -549,7 +549,7 @@ func (m *uiTaskModel) View() string {
 			footer = m.selection.status
 		}
 	}
-	view := workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render("Drag text to copy · Alt+C interrupts a command · Ctrl+C pauses time"), m.workspace.width, m.workspace.height)
+	view := workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render("Drag text to copy · Ctrl+C interrupts a command · Ctrl+B pauses time"), m.workspace.width, m.workspace.height)
 	if m.namingTab {
 		text := "Name: " + sanitizeLine(m.tabName) + "_\n\nEnter opens the tab; leave blank for a default name.\nSwitch tabs with a mouse click or Ctrl+N / Ctrl+P.\n\nEnter opens · Esc cancels · Ctrl+U clears"
 		if len(m.workspace.snapshot.clusters) > 0 && m.workspace.snapshot.clusters[0].runtime == "qemu" {
@@ -577,7 +577,7 @@ func (m *uiTaskModel) nameTab(key tea.KeyMsg) tea.Cmd {
 				m.workspace.selected = (m.workspace.selected + step + len(targets)) % len(targets)
 			}
 			return nil
-		case "esc":
+		case "esc", "ctrl+c":
 			m.namingTab = false
 			return nil
 		case "enter":
