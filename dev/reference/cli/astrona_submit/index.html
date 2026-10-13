@@ -4578,9 +4578,10 @@
 <p>Submit the lab to the Proctor for grading</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Submit the running lab to the Proctor for grading: every validation check and script runs, a failed one shows its hint (if the lab author wrote one), and you get a score. Every attempt is recorded — <code>astrona submit --history</code> lists them. <code>--watch</code> re-grades continuously while you work, without recording attempts.</p>
+<p>Saved runs use their local config and cached repository without checking GitHub or downloading again. Approval of the same source revision is reused.</p>
 <p>Passing means every check passes, or — when the lab sets validation.passPercent — reaching that score.</p>
 <p>With no lab named, none picked with <code>astrona use</code> and no lab config in the current directory, the only running lab is submitted; with several running, it lists them and how to name each.</p>
-<p>A catalog lab started while signed in (<code>astrona run ATS…</code>) sends each result to its lab page on Astrona as well. After a passing result is sent, submit asks whether to delete the lab cluster now (Enter deletes it, exactly like <code>astrona destroy</code>); --keep, --headless, -o json or no terminal keep it. A failing result never asks — fix it and submit again.</p>
+<p>A catalog lab started while signed in (<code>astrona run ATS…</code>) sends each result to its lab page on Astrona as well. After a passing result is sent, submit asks whether to delete the lab cluster now (Enter deletes it, exactly like <code>astrona destroy</code>); --keep, --headless, -o json or no terminal keep it. A failing result keeps the environment. Both PASS and FAIL finish the attempt and stop its timer; start a new run for another tracked attempt.</p>
 <p>Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong. Sending the result to Astrona never changes it.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona submit [lab] [flags]
 </code></pre></div>

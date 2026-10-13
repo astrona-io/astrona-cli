@@ -4689,7 +4689,9 @@ dialog is open must be reviewed again. <code>--yes --ui</code> does not bypass t
 not choose which lab to replace; the command's lab argument or selected config
 does. Startup leaves that shell's Kubernetes context unchanged. To continue
 working on an existing lab without restarting, use <code>astrona ui &lt;lab-name&gt;</code>.</p>
-<p>The startup notice cannot approve a remote config this CLI cannot parse.
+<p>Accepting startup saves approval for the parsed source revision. A later CLI
+submission reuses it without another trust prompt. Changed revisions still
+require approval. The startup notice cannot approve a remote config this CLI cannot parse.
 Version handover still requires trust for that exact source or an explicit
 <code>--trust</code> supplied after reviewing it.</p>
 <p>Or open an existing lab directly:</p>
