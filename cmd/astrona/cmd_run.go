@@ -228,6 +228,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	addParallelFlag(cmd, flags)
 	addKeepContextFlag(cmd, flags)
 	cmd.Flags().BoolVar(&workspace, "ui", false, "Open the terminal workspace (Kind or QEMU labs); confirm a local-only restart if the lab already exists")
+	cmd.Flags().BoolVar(&flags.headless, "test-mode", false, "Deprecated alias for --headless")
+	legacy := cmd.Flags().Lookup("test-mode")
+	legacy.Hidden, legacy.Deprecated = true, "use --headless instead"
 	cmd.Flags().BoolVar(&uiStartup, "ui-startup", false, "Confirm startup in the UI and return to Home")
 	cmd.Flags().Lookup("ui-startup").Hidden = true
 	cmd.Flags().BoolVar(&withoutLogin, "without-login", false, "Confirm running a catalog lab without signing in or tracking progress on Astrona")

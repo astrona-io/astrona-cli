@@ -306,6 +306,9 @@ func handoverArgs(args []string, flags *rootFlags) []string {
 			}
 			continue
 		}
+		if a == "--test-mode" || strings.HasPrefix(a, "--test-mode=") {
+			a = strings.Replace(a, "--test-mode", "--headless", 1)
+		}
 		out = append(out, a)
 	}
 	out = append(out, "-c", flags.configPath, "-f", flags.fileName)

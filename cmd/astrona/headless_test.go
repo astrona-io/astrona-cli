@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"os"
@@ -17,52 +18,54 @@ import (
 )
 
 func TestHeadlessOverridesUIBeforeGates(t *testing.T) {
-	for _, option := range []string{"", "--ui=false", "--ui", "--ui-startup"} {
-		t.Run(option, func(t *testing.T) {
-			t.Setenv("HOME", t.TempDir())
-			flags := &rootFlags{}
-			root := newRootCmd(flags)
-			root.SetOut(io.Discard)
-			root.SetErr(io.Discard)
-			called := false
-			root.PersistentPreRunE = func(*cobra.Command, []string) error { called = true; return nil }
-			run, _, err := root.Find([]string{"run"})
-			if err != nil {
-				t.Fatal(err)
-			}
-			// Model the future UI default without marking it as explicitly requested.
-			if err := run.Flags().Lookup("ui").Value.Set("true"); err != nil {
-				t.Fatal(err)
-			}
-			ran := false
-			run.RunE = func(cmd *cobra.Command, _ []string) error {
-				ran = true
-				for _, name := range []string{"ui", "ui-startup"} {
-					if enabled, _ := cmd.Flags().GetBool(name); enabled {
-						t.Fatalf("%s enabled in headless mode", name)
+	for _, mode := range []string{"--headless", "--test-mode"} {
+		for _, option := range []string{"", "--ui=false", "--ui", "--ui-startup"} {
+			t.Run(mode+"/"+option, func(t *testing.T) {
+				t.Setenv("HOME", t.TempDir())
+				flags := &rootFlags{}
+				root := newRootCmd(flags)
+				root.SetOut(io.Discard)
+				root.SetErr(io.Discard)
+				called := false
+				root.PersistentPreRunE = func(*cobra.Command, []string) error { called = true; return nil }
+				run, _, err := root.Find([]string{"run"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				// Model the future UI default without marking it as explicitly requested.
+				if err := run.Flags().Lookup("ui").Value.Set("true"); err != nil {
+					t.Fatal(err)
+				}
+				ran := false
+				run.RunE = func(cmd *cobra.Command, _ []string) error {
+					ran = true
+					for _, name := range []string{"ui", "ui-startup"} {
+						if enabled, _ := cmd.Flags().GetBool(name); enabled {
+							t.Fatalf("%s enabled in headless mode", name)
+						}
 					}
+					return nil
 				}
-				return nil
-			}
-			installUIRunGate(root, flags, func(*cobra.Command, uiRunNotice) (bool, error) {
-				t.Fatal("headless mode opened a UI notice")
-				return false, nil
+				installUIRunGate(root, flags, func(*cobra.Command, uiRunNotice) (bool, error) {
+					t.Fatal("headless mode opened a UI notice")
+					return false, nil
+				})
+				args := []string{"run", "./lab", mode}
+				if option != "" {
+					args = append(args, option)
+				}
+				root.SetArgs(args)
+				err = root.Execute()
+				conflict := option == "--ui" || option == "--ui-startup"
+				if conflict {
+					if err == nil || !strings.Contains(err.Error(), "cannot be combined") || called || ran {
+						t.Fatalf("conflict reached setup: called=%v ran=%v err=%v", called, ran, err)
+					}
+				} else if err != nil || !called || !ran || !flags.headless {
+					t.Fatalf("headless run: called=%v ran=%v err=%v", called, ran, err)
+				}
 			})
-			args := []string{"run", "./lab", "--headless"}
-			if option != "" {
-				args = append(args, option)
-			}
-			root.SetArgs(args)
-			err = root.Execute()
-			conflict := option == "--ui" || option == "--ui-startup"
-			if conflict {
-				if err == nil || !strings.Contains(err.Error(), "cannot be combined") || called || ran {
-					t.Fatalf("conflict reached setup: called=%v ran=%v err=%v", called, ran, err)
-				}
-			} else if err != nil || !called || !ran || !flags.headless {
-				t.Fatalf("headless run: called=%v ran=%v err=%v", called, ran, err)
-			}
-		})
+		}
 	}
 }
 
@@ -224,6 +227,8 @@ func TestHeadlessSetupAndBundleRequireApproval(t *testing.T) {
 func TestHeadlessLoginDoesNotOpenBrowser(t *testing.T) {
 	srv := fakeAstrona(t, http.StatusCreated, nil)
 	_, _ = withAccount(t, srv.URL)
+	previousOpener := browserOpener
+	t.Cleanup(func() { browserOpener = previousOpener })
 	browserOpener = func(string) bool { t.Fatal("headless login opened a browser"); return false }
 	root := newRootCmd(&rootFlags{})
 	root.PersistentPreRunE = func(*cobra.Command, []string) error { return nil }
@@ -238,14 +243,49 @@ func TestHeadlessLoginDoesNotOpenBrowser(t *testing.T) {
 	}
 }
 
-func TestHeadlessReplacesTestModeFlag(t *testing.T) {
-	root := newRootCmd(&rootFlags{})
-	cmd, _, err := root.Find([]string{"run"})
-	if err != nil {
-		t.Fatal(err)
+func TestHeadlessLegacyAlias(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want bool
+	}{
+		{[]string{"--test-mode"}, true},
+		{[]string{"--test-mode=true"}, true},
+		{[]string{"--test-mode=false"}, false},
+		{[]string{"--test-mode", "--headless=false"}, false},
+		{[]string{"--headless=false", "--test-mode"}, true},
+	} {
+		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
+			flags := &rootFlags{}
+			root := newRootCmd(flags)
+			var warnings bytes.Buffer
+			root.SetOut(&warnings)
+			root.SetErr(&warnings)
+			cmd, _, err := root.Find([]string{"run"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := cmd.ParseFlags(tc.args); err != nil {
+				t.Fatal(err)
+			}
+			if flags.headless != tc.want || commandHeadless(cmd) != tc.want {
+				t.Fatalf("legacy alias did not set headless=%v", tc.want)
+			}
+			if !strings.Contains(warnings.String(), "deprecated") || !strings.Contains(warnings.String(), "--headless") {
+				t.Fatalf("missing migration notice: %s", warnings.String())
+			}
+			if strings.Contains(cmd.UsageString(), "--test-mode") || !strings.Contains(cmd.UsageString(), "--headless") {
+				t.Fatal("help does not prefer --headless")
+			}
+		})
 	}
-	if err := cmd.ParseFlags([]string{"--test-mode"}); err == nil || !strings.Contains(err.Error(), "unknown flag") {
-		t.Fatalf("old flag still accepted: %v", err)
+}
+
+func TestHeadlessLegacyAliasHandover(t *testing.T) {
+	for _, option := range []string{"--test-mode", "--test-mode=true", "--test-mode=false"} {
+		args := handoverArgs([]string{"run", option, "--", "--test-mode"}, &rootFlags{configPath: ".", fileName: "config.yaml"})
+		if args[1] != strings.Replace(option, "--test-mode", "--headless", 1) || args[3] != "--test-mode" {
+			t.Fatalf("handover changed a literal argument or retained the hidden flag: %v", args)
+		}
 	}
 }
 

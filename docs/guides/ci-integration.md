@@ -41,7 +41,8 @@ using `astrona test`. That command also remains headless in v0.5.0 and later.
 ## Headless commands
 
 `--headless` is a global flag: place it before the command or alongside its
-other flags. It replaces `--test-mode`.
+other flags. Use it instead of `run --test-mode`; the old name remains a hidden,
+deprecated alias for existing scripts and prints a migration notice.
 
 | Commands | Headless behavior |
 | --- | --- |

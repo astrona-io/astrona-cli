@@ -12,6 +12,8 @@ func offerRunUI(args []string, in io.Reader, out io.Writer, interactive bool) ([
 		return args, nil
 	}
 	root := newRootCmd(&rootFlags{})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
 	cmd, rest, err := root.Find(args)
 	if err != nil || cmd.Name() != "run" || cmd.Parent() != root {
 		return args, nil

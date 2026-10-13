@@ -40,6 +40,8 @@ func TestWantsUIPane(t *testing.T) {
 		{[]string{"run", "--git", "--ui"}, false},
 		{[]string{"run", "lab"}, false},
 		{[]string{"shell", "lab"}, false},
+		{[]string{"run", "lab", "--test-mode"}, false},
+		{[]string{"run", "lab", "--test-mode", "--ui"}, false},
 		{[]string{"run", "lab", "--headless"}, false},
 		{[]string{"run", "lab", "--headless", "--ui"}, false},
 		{[]string{"test", "./lab"}, false},

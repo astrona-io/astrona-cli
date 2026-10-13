@@ -27,6 +27,8 @@ const uiPaneEnv = "ASTRONA_INTERNAL_UI_PANE"
 // their usual meaning. The child owns all command gates and data locks.
 func wantsUIPane(args []string) bool {
 	root := newRootCmd(&rootFlags{})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
 	cmd, rest, err := root.Find(args)
 	if err != nil {
 		return false
