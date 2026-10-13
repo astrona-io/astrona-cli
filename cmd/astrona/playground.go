@@ -216,7 +216,7 @@ func endRunSession(clusterName string) {
 	}
 	if !st.Session.IsPlayground() {
 		if !st.LocalOnly {
-			endLabSession(context.Background(), st.Session, runUsageReport(clusterName, st))
+			endLabSession(context.Background(), st.Session)
 		}
 		return
 	}
@@ -229,7 +229,7 @@ func endRunSession(clusterName string) {
 // endLabSession tells the site a lab was destroyed, so the attempt stops
 // showing as running; it never counts unless it passed before. A failure is a
 // warning: the attempt then ends at its time limit.
-func endLabSession(ctx context.Context, sess *labstate.Session, usage *account.UsageReport) {
+func endLabSession(ctx context.Context, sess *labstate.Session) {
 	client, store, _, err := accountDeps()
 	if err != nil {
 		ui.Warnf("couldn't tell Astrona the lab was destroyed: %s", err)
@@ -242,7 +242,7 @@ func endLabSession(ctx context.Context, sess *labstate.Session, usage *account.U
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	if err := client.StopLabSession(ctx, store, creds, sess.ID, "destroyed", usage); err != nil && !errors.Is(err, account.ErrSessionGone) {
+	if err := client.StopLabSession(ctx, store, creds, sess.ID, "destroyed", nil); err != nil && !errors.Is(err, account.ErrSessionGone) {
 		ui.Warnf("couldn't tell %s the lab was destroyed: %s — the attempt ends at its time limit", sess.Site, err)
 	}
 }

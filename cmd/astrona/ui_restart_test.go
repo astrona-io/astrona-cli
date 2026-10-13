@@ -65,7 +65,7 @@ func TestUIRestartMatchesRequestedLab(t *testing.T) {
 					t.Fatal("inherited shell selected a different lab")
 				}
 				flags.uiRestart, flags.localOnly = restart, true
-				notice := buildUIRunNotice(cmd, flags, settingsView{}, false)
+				notice := buildUIRunNotice(cmd, flags, false)
 				for _, want := range []string{"astro-demo", "will be lost", "local only", "No cancels"} {
 					if !strings.Contains(notice.summary, want) {
 						t.Fatalf("missing %q", want)

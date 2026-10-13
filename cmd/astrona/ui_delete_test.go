@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -81,5 +83,96 @@ func TestUIForceDeleteRejectsReplacedRun(t *testing.T) {
 	after, err := labstate.Load("astro-lab")
 	if err != nil || workspaceRunID(after) != workspaceRunID(st) || after.LocalOnly {
 		t.Fatal("stale confirmation modified replacement")
+	}
+}
+
+func TestDeletionReportsPlaygroundsWithoutSubmittingLabs(t *testing.T) {
+	for _, mode := range []string{"cli", "ui"} {
+		for _, kind := range []string{"lab", "playground", "local playground", "guest playground"} {
+			t.Run(mode+"/"+kind, func(t *testing.T) {
+				site := newPlaygroundSite(t)
+				site.signIn(t)
+				started := time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)
+				st := &labstate.State{StartedAt: started, Session: &labstate.Session{Site: site.srv.URL, ID: "session", Kind: "playground"}}
+				if kind == "lab" {
+					st.Session.Kind = "lab"
+				}
+				if kind == "local playground" {
+					st.LocalOnly = true
+				}
+				if kind == "guest playground" {
+					st.Session = nil
+				}
+				if err := labstate.Save("astro-play", st); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := labstate.RecordUsage("astro-play", started, 50, 1024, time.Now()); err != nil {
+					t.Fatal(err)
+				}
+				// Fake the runtime so deletion exercises the real cleanup and API paths.
+				bin := t.TempDir()
+				for name, script := range map[string]string{
+					"docker": "#!/bin/sh\nif [ \"$1\" = ps ]; then echo astro-play-control-plane; fi\n",
+					"kind":   "#!/bin/sh\nexit 0\n",
+				} {
+					if err := os.WriteFile(filepath.Join(bin, name), []byte(script), 0700); err != nil {
+						t.Fatal(err)
+					}
+				}
+				t.Setenv("PATH", bin)
+				t.Setenv("KIND_EXPERIMENTAL_PROVIDER", "docker")
+				if mode == "ui" {
+					if err := forceDeleteUIRun(context.Background(), uiHomeRun{name: "astro-play", runID: workspaceRunID(st)}, false); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					forgetLab("astro-play")
+				}
+				if saved, err := labstate.Load("astro-play"); err != nil || saved != nil {
+					t.Fatalf("deleted state remains: %+v, %v", saved, err)
+				}
+				site.mu.Lock()
+				defer site.mu.Unlock()
+				wantStop := kind == "playground" || (kind == "lab" && mode == "cli")
+				if !wantStop {
+					if len(site.stopBodies) != 0 {
+						t.Fatalf("discarded run sent data: %v", site.stopBodies)
+					}
+					return
+				}
+				if len(site.stopBodies) != 1 {
+					t.Fatalf("stop requests = %v", site.stopBodies)
+				}
+				body := site.stopBodies[0]
+				if body["reason"] != "destroyed" {
+					t.Fatalf("stop reason: %v", body)
+				}
+				if kind == "lab" {
+					if len(body) != 1 {
+						t.Fatalf("unsubmitted lab sent data beyond session closure: %v", body)
+					}
+				} else {
+					usage, ok := body["usage"].(map[string]any)
+					if !ok || usage["samples"] != float64(1) {
+						t.Fatalf("playground usage missing: %v", body)
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestUIDeleteExplainsTracking(t *testing.T) {
+	for _, tc := range []struct {
+		run  uiHomeRun
+		want string
+	}{
+		{uiHomeRun{kind: "Lab"}, "No results will be submitted"},
+		{uiHomeRun{kind: "Playground", reportPlayground: true}, "resource usage will be reported"},
+		{uiHomeRun{kind: "Playground / QEMU"}, "No data will be sent"},
+	} {
+		if got := uiDeleteMessage(tc.run, false); !strings.Contains(got, tc.want) {
+			t.Fatalf("warning = %s", got)
+		}
 	}
 }
