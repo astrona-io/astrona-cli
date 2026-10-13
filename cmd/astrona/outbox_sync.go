@@ -63,7 +63,7 @@ func (s *siteSender) classify(err error) error {
 	case errors.Is(err, account.ErrSignedOut):
 		return fmt.Errorf("%w: %w", outbox.ErrSignedOut, err)
 	case account.Permanent(err):
-		return &outbox.Permanent{Err: err}
+		return &outbox.PermanentError{Err: err}
 	}
 	return err
 }

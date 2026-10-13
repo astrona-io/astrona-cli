@@ -62,7 +62,7 @@ The session is remembered with the lab in `~/.astrona/labs/<lab>.json` (mode 060
 
 When the result can't be sent, the grade still stands: an expired session (or one that isn't yours) says to run the lab again for a new attempt, an attempt that's already finished shows Astrona's message, a session whose time ran out shows Astrona's message plus how to start a new attempt (`astrona reset <lab>`, or `astrona destroy <lab>` then `astrona run <lab>`) and never offers to delete the lab, and a network or server error is a warning. Signed out, submit says to `astrona login` and run the lab again. Under `-o json` these lines go to stderr, so stdout stays exactly one JSON document.
 
-`astrona destroy` of a lab that hasn't passed tells Astrona too: the attempt ends as *destroyed* — it stops showing as running on your labs page and never counts. A lab that already passed stays passed. (`astrona reset` and a fresh `astrona run` close the old attempt the same way.)
+`astrona destroy` of a lab that hasn't passed tells Astrona too: the attempt ends as *destroyed* — it stops showing as running on your labs page and never counts. Deletion sends only the session-closure reason, with no grading result or final usage summary. Unsubmitted work is discarded; a lab that already passed stays passed. (`astrona reset` and a fresh `astrona run` close the old attempt the same way.)
 
 Labs from your own files or repositories (`-c ./my-lab`, `--git <url>`) are not tied to an account: they run without signing in, and no page is opened.
 
@@ -111,7 +111,7 @@ A playground that already stopped can't be renewed — run it again. `astrona re
 
 While a signed-in lab or playground runs, `astrona run` also starts a **usage reporter** — another detached `astrona` process — that measures what the lab uses on your computer and sends it to the lab session every 15 seconds: CPU in cores and memory in bytes, for the kind cluster and its linked clusters (`docker stats` / `podman stats`) or the lab's QEMU VMs (`ps`). Nothing else is sent: no command output, no file contents, no process names. Astrona uses it to show what labs really cost to run, and what practising locally saves against the cloud.
 
-The reporter ends on its own when the lab is destroyed or run again, when its session is gone or expired, or when the site stops taking samples (a lab that passed). It follows `astrona run renew`. Its output goes to `~/.astrona/labs/<lab>.usage.log`. `astrona submit` and `astrona destroy` also send a short summary (average and peak CPU and memory), which the site uses when no sample reached it. A local-only run, or one not signed in, sends nothing.
+The reporter ends on its own when the lab is destroyed or run again, when its session is gone or expired, or when the site stops taking samples (a lab that passed). It follows `astrona run renew`. Its output goes to `~/.astrona/labs/<lab>.usage.log`. `astrona submit` and playground deletion also send a short summary (average and peak CPU and memory), which the site uses when no sample reached it. A local-only run, or one not signed in, sends nothing.
 
 ## Paused time and working offline
 

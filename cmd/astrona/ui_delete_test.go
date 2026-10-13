@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"astrona/internal/labstate"
+	"astrona/internal/outbox"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -81,5 +84,145 @@ func TestUIForceDeleteRejectsReplacedRun(t *testing.T) {
 	after, err := labstate.Load("astro-lab")
 	if err != nil || workspaceRunID(after) != workspaceRunID(st) || after.LocalOnly {
 		t.Fatal("stale confirmation modified replacement")
+	}
+}
+
+func TestDeletionReportsPlaygroundsWithoutSubmittingLabs(t *testing.T) {
+	for _, mode := range []string{"cli", "ui"} {
+		for _, kind := range []string{"lab", "playground", "local playground", "guest playground"} {
+			t.Run(mode+"/"+kind, func(t *testing.T) {
+				site := newPlaygroundSite(t)
+				site.signIn(t)
+				started := time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)
+				st := &labstate.State{StartedAt: started, Session: &labstate.Session{Site: site.srv.URL, ID: "session", Kind: "playground"}}
+				if kind == "lab" {
+					st.Session.Kind = "lab"
+				}
+				if kind == "local playground" {
+					st.LocalOnly = true
+				}
+				if kind == "guest playground" {
+					st.Session = nil
+				}
+				if err := labstate.Save("astro-play", st); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := labstate.RecordUsage("astro-play", started, 50, 1024, time.Now()); err != nil {
+					t.Fatal(err)
+				}
+				// Fake the runtime so deletion exercises the real cleanup and API paths.
+				bin := t.TempDir()
+				for name, script := range map[string]string{
+					"docker": "#!/bin/sh\nif [ \"$1\" = ps ]; then echo astro-play-control-plane; fi\n",
+					"kind":   "#!/bin/sh\nexit 0\n",
+				} {
+					if err := os.WriteFile(filepath.Join(bin, name), []byte(script), 0700); err != nil {
+						t.Fatal(err)
+					}
+				}
+				t.Setenv("PATH", bin)
+				t.Setenv("KIND_EXPERIMENTAL_PROVIDER", "docker")
+				if mode == "ui" {
+					if err := forceDeleteUIRun(context.Background(), uiHomeRun{name: "astro-play", runID: workspaceRunID(st)}, false); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					forgetLab("astro-play")
+				}
+				if saved, err := labstate.Load("astro-play"); err != nil || saved != nil {
+					t.Fatalf("deleted state remains: %+v, %v", saved, err)
+				}
+				site.mu.Lock()
+				defer site.mu.Unlock()
+				wantStop := kind == "playground" || (kind == "lab" && mode == "cli")
+				if !wantStop {
+					if len(site.stopBodies) != 0 {
+						t.Fatalf("discarded run sent data: %v", site.stopBodies)
+					}
+					return
+				}
+				if len(site.stopBodies) != 1 {
+					t.Fatalf("stop requests = %v", site.stopBodies)
+				}
+				body := site.stopBodies[0]
+				if body["reason"] != "destroyed" {
+					t.Fatalf("stop reason: %v", body)
+				}
+				if kind == "lab" {
+					if len(body) != 2 || body["at"] == nil {
+						t.Fatalf("unsubmitted lab sent data beyond session closure: %v", body)
+					}
+				} else {
+					usage, ok := body["usage"].(map[string]any)
+					if !ok || usage["samples"] != float64(1) {
+						t.Fatalf("playground usage missing: %v", body)
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestUIDeleteExplainsTracking(t *testing.T) {
+	for _, tc := range []struct {
+		run  uiHomeRun
+		want string
+	}{
+		{uiHomeRun{kind: "Lab"}, "No results will be submitted"},
+		{uiHomeRun{kind: "Playground", reportPlayground: true}, "resource usage will be reported"},
+		{uiHomeRun{kind: "Playground / QEMU"}, "No data will be sent"},
+	} {
+		if got := uiDeleteMessage(tc.run, false); !strings.Contains(got, tc.want) {
+			t.Fatalf("warning = %s", got)
+		}
+	}
+}
+
+func TestOfflineDeletionReplaysOnlyPlaygroundUsage(t *testing.T) {
+	for _, kind := range []string{"lab", "playground"} {
+		t.Run(kind, func(t *testing.T) {
+			site := newPlaygroundSite(t)
+			site.signIn(t)
+			started := time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)
+			st := &labstate.State{StartedAt: started, Session: &labstate.Session{Site: site.srv.URL, ID: "offline-session", Kind: kind}}
+			if err := labstate.Save("astro-offline", st); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := labstate.RecordUsage("astro-offline", started, 50, 1024, time.Now()); err != nil {
+				t.Fatal(err)
+			}
+			previous := flushOutbox
+			t.Cleanup(func() { flushOutbox = previous })
+			flushOutbox = func(context.Context, time.Duration) (outbox.Status, error) {
+				return outbox.Status{State: outbox.Offline, Pending: 1}, nil
+			}
+			forgetLab("astro-offline")
+			if pending, err := outbox.PendingFor(st.Session.ID); err != nil || pending != 1 {
+				t.Fatalf("queued stops = %d, %v", pending, err)
+			}
+			if len(site.stopped()) != 0 {
+				t.Fatal("stop sent while offline")
+			}
+			flushOutbox = previous
+			status, err := flushOutbox(t.Context(), signalTimeout)
+			if err != nil || status.Pending != 0 || status.State != outbox.Online {
+				t.Fatalf("replay: %+v, %v", status, err)
+			}
+			site.mu.Lock()
+			defer site.mu.Unlock()
+			if len(site.stopBodies) != 1 {
+				t.Fatalf("replayed stops = %v", site.stopBodies)
+			}
+			body := site.stopBodies[0]
+			if body["reason"] != "destroyed" || body["at"] == nil {
+				t.Fatalf("closure missing reason or time: %v", body)
+			}
+			if kind == "lab" && len(body) != 2 {
+				t.Fatalf("unsubmitted lab replayed usage or results: %v", body)
+			}
+			if kind == "playground" && body["usage"] == nil {
+				t.Fatalf("playground usage missing from replay: %v", body)
+			}
+		})
 	}
 }

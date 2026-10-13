@@ -52,8 +52,11 @@ Ctrl+D on Active runs opens a red **Force delete** dialog for the selected
 lab or playground. **No, keep running** is selected by default. Choose **Yes,
 delete** with Tab, arrows or `y`, then press Enter to confirm. Esc or `n` cancels.
 Force deletion discards work in the run and its linked clusters, skips teardown
-scripts and `keepCluster`, and sends no results to Astrona. A run replaced while
-the dialog is open must be selected and confirmed again.
+scripts and `keepCluster`. Deleting a tracked playground closes its session and
+reports its resource usage to Astrona; no evaluation or submission is needed.
+Deleting a lab discards unsubmitted work and sends no grading results. Guest
+and local-only playgrounds send no data. A run replaced while the dialog is
+open must be selected and confirmed again.
 
 Start a lab from the command line with `astrona run <lab> --ui`.
 Home can open existing runs; creating a run from Home is not available yet.
@@ -121,11 +124,14 @@ become the default in v0.5.0. Use `--ui=false` to skip it. Runs with `--yes`,
 CI jobs and redirected input/output keep the command-line flow without this
 question. The UI supports Kind and QEMU labs.
 
-Inside the UI, startup shows one Yes/No box before downloads or lab changes. Yes accepts the
-displayed settings and CLI terms, authorizes the lab's code and required
-downloads for this invocation, and continues with setup. Saved preferences
-are kept. Catalog labs use your account when signed in; otherwise they run
-without account progress tracking. Other labs stay running.
+Inside the UI, startup shows one Yes/No box before downloads or lab changes.
+Yes authorizes the lab's code and required downloads for this invocation and
+continues with setup. The first run also asks you to accept the CLI terms;
+that agreement is saved and only needs renewal if the terms change. Later runs
+show that the agreement is saved. The box does not list settings: saved choices
+are kept, and you can change them in **Preferences** (`p` in the overview).
+Catalog labs use your account when signed in; otherwise they run without account
+progress tracking. Other labs stay running.
 
 The UI stays open after Yes, with the dashboard behind a setup dialog.
 Repository downloads, setup progress, later confirmations, grading and teardown
@@ -140,7 +146,7 @@ From pane controls, `q` asks before closing the UI and stopping its active
 command. Any lab already created remains on your machine. Closing the UI does
 not submit results or destroy the lab.
 
-Use Tab to read the terms and setting explanations, arrow keys or Page Up/Down
+Use Tab to read the CLI terms, arrow keys or Page Up/Down
 to scroll, and left/right to select Yes or No. Enter confirms the selection;
 `y` accepts directly. No, `n`, Esc or Ctrl-C cancels startup and prints a message.
 Cancellation exits with code 3. No leaves existing labs as they are.

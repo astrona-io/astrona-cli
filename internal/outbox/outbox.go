@@ -65,10 +65,8 @@ type Status struct {
 	Error   string    `json:"error,omitempty"`
 }
 
-// Sender delivers signals to the site. Its errors decide what happens to the
-// signal: a Permanent one is dropped (the site will never take it), ErrSignedOut
-// keeps everything until `astrona login`, anything else means offline — keep it
-// and try again later.
+// Sender delivers signals to the site. PermanentError drops the signal;
+// ErrSignedOut keeps it until `astrona login`. Other errors keep it for retry.
 type Sender interface {
 	Pause(ctx context.Context, site, session string, at time.Time) error
 	Resume(ctx context.Context, site, session string, at time.Time) error
@@ -76,12 +74,12 @@ type Sender interface {
 	Usage(ctx context.Context, site, session string, samples []account.UsageSample) error
 }
 
-// Permanent marks an error the site gave for good (a session that is gone, a
+// PermanentError marks an error the site gave for good (a session that is gone, a
 // request it refuses): the signal is dropped instead of retried.
-type Permanent struct{ Err error }
+type PermanentError struct{ Err error }
 
-func (p *Permanent) Error() string { return p.Err.Error() }
-func (p *Permanent) Unwrap() error { return p.Err }
+func (p *PermanentError) Error() string { return p.Err.Error() }
+func (p *PermanentError) Unwrap() error { return p.Err }
 
 // ErrSignedOut: no usable sign-in for the site; signals wait for `astrona login`.
 var ErrSignedOut = errors.New("signed out")
@@ -307,7 +305,7 @@ func Flush(ctx context.Context, s Sender) (Status, error) {
 		stop := false
 		for len(q.Events) > 0 && !stop {
 			n, err := sendNext(ctx, s, q)
-			var permanent *Permanent
+			var permanent *PermanentError
 			switch {
 			case err == nil:
 				sent = true

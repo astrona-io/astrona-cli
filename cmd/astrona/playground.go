@@ -201,7 +201,7 @@ func endRunSession(clusterName string) {
 	}
 	if !st.Session.IsPlayground() {
 		if !st.LocalOnly {
-			endLabSession(context.Background(), st.Session, runUsageReport(clusterName, st))
+			endLabSession(context.Background(), st.Session)
 		}
 		return
 	}
@@ -213,9 +213,9 @@ func endRunSession(clusterName string) {
 
 // endLabSession tells the site a lab was destroyed, so the attempt stops
 // showing as running; it never counts unless it passed before. Offline, the
-// stop is kept and sent later with the time it happened.
-func endLabSession(ctx context.Context, sess *labstate.Session, usage *account.UsageReport) {
-	stopSession(ctx, sess, "destroyed", usage, "the lab's end")
+// closure is kept for later delivery, without usage or grading results.
+func endLabSession(ctx context.Context, sess *labstate.Session) {
+	stopSession(ctx, sess, "destroyed", nil, "the lab's end")
 }
 
 // endOldSession runs before a lab is built again under the same name (run's
