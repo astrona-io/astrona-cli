@@ -328,6 +328,17 @@ func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		row := msg.Y - uiHeaderHeight(m.width, m.height)
 		mouse := uv.Mouse{X: min(max(0, msg.X), max(0, m.width-1)), Y: min(max(0, row), max(0, m.emulator.Height()-1)), Button: uv.MouseLeft}
+		if msg.Action == tea.MouseActionPress && (msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown) {
+			if row >= 0 && row < m.emulator.Height() && msg.X >= 0 && msg.X < m.width {
+				mouse.Button = uv.MouseWheelDown
+				if msg.Button == tea.MouseButtonWheelUp {
+					mouse.Button = uv.MouseWheelUp
+				}
+				m.activity.input(time.Now())
+				m.emulator.SendMouse(uv.MouseWheelEvent(mouse))
+			}
+			return m, restoreMouse
+		}
 		switch msg.Action {
 		case tea.MouseActionPress:
 			if msg.Button == tea.MouseButtonLeft && row >= 0 && row < m.emulator.Height() {

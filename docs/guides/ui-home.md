@@ -204,9 +204,18 @@ Commands and editors stay inside the terminal pane.
 | Ctrl+C | Interrupt the active terminal command; cancel a dialog when one is open. |
 | Ctrl+O | Switch focus between the task and terminal. |
 | Page Up/Down, arrows | Scroll the task when it has focus. |
+| Home / End | Jump to the start / end of the focused task. |
+| Mouse wheel over the task | Scroll the task without changing keyboard focus. |
 | Shift+Page Up/Down | Scroll the active terminal's output. |
 | Ctrl+G | Open lab details, cluster or VM selection, results and submission controls. |
 | Ctrl+Y | Toggle mouse text selection for copying. |
+
+Click inside the task or terminal pane to give it keyboard focus, or press
+**Ctrl+O** to switch between them. The focused pane has a highlighted border.
+Use the mouse wheel over the task to scroll, or click it and use Up/Down,
+Page Up/Down, Home or End. The footer shows the visible task lines and scroll
+shortcuts. Click the terminal to send arrow keys to your shell again.
+Dragging still selects and copies text.
 
 Function keys pass through to programs in the terminal; Astrona does not bind them.
 

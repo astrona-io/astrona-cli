@@ -487,6 +487,7 @@ func (m *uiTaskModel) taskPage(width, height int) string {
 		m.markdownLines = strings.Split(ansi.Wrap(rendered, max(1, width), ""), "\n")
 	}
 	start := min(max(0, m.workspace.scroll), max(0, len(m.markdownLines)-height))
+	m.workspace.scroll = start
 	return strings.Join(m.markdownLines[start:min(len(m.markdownLines), start+max(0, height))], "\n")
 }
 
@@ -515,11 +516,11 @@ func (m *uiTaskModel) View() string {
 	if m.selection != nil && !m.selection.task {
 		screen = m.selection.render()
 	}
-	terminal := workspacePanel("TERMINALS", screen, w+4, h+2, workspaceFocus)
-	taskStyle := workspaceBorder
+	taskStyle, terminalStyle := workspaceBorder, workspaceFocus
 	if m.taskFocus {
-		taskStyle = workspaceFocus
+		taskStyle, terminalStyle = workspaceFocus, workspaceBorder
 	}
+	terminal := workspacePanel("TERMINALS", screen, w+4, h+2, terminalStyle)
 
 	body := terminal
 	taskWidth := w
@@ -536,7 +537,10 @@ func (m *uiTaskModel) View() string {
 	} else if m.taskFocus {
 		body = workspacePanel("QUESTION / TASK", taskPage, w+4, h+2, taskStyle)
 	}
-	footer := "Ctrl+T new · Ctrl+N/P tabs · Ctrl+O task · Ctrl+G lab · Ctrl+Y copy · Ctrl+B overview"
+	footer := "Ctrl+O panes · Ctrl+T new · Ctrl+N/P tabs · Ctrl+G lab · Ctrl+Y copy · Ctrl+B overview"
+	if m.taskFocus {
+		footer = "Ctrl+O terminal · ↑/↓ scroll · PgUp/PgDn page · Home/End · Ctrl+B overview"
+	}
 	if terminalStatus != "" {
 		footer = terminalStatus
 	}
@@ -549,7 +553,11 @@ func (m *uiTaskModel) View() string {
 			footer = m.selection.status
 		}
 	}
-	view := workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render("Drag text to copy · Ctrl+C interrupts a command · Ctrl+B pauses time"), m.workspace.width, m.workspace.height)
+	hint := "Click a pane to focus · Drag text to copy · Ctrl+C interrupts a command"
+	if left > 0 || m.taskFocus {
+		hint = fmt.Sprintf("Task %d–%d/%d · Wheel scrolls task · Click pane to focus · Ctrl+O switches panes", m.workspace.scroll+1, min(len(m.markdownLines), m.workspace.scroll+h), len(m.markdownLines))
+	}
+	view := workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render(hint), m.workspace.width, m.workspace.height)
 	if m.namingTab {
 		text := "Name: " + sanitizeLine(m.tabName) + "_\n\nEnter opens the tab; leave blank for a default name.\nSwitch tabs with a mouse click or Ctrl+N / Ctrl+P.\n\nEnter opens · Esc cancels · Ctrl+U clears"
 		if len(m.workspace.snapshot.clusters) > 0 && m.workspace.snapshot.clusters[0].runtime == "qemu" {

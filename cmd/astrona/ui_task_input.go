@@ -7,6 +7,19 @@ func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
 		return nil
 	}
 	left, _, height := m.size()
+	inPanel := msg.X >= 0 && msg.X < m.workspace.width && msg.Y >= 1 && msg.Y < height+3
+	overTask := inPanel && (left > 0 && msg.X < left || left == 0 && m.taskFocus)
+	if msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown {
+		if overTask && !m.dragging {
+			m.selection = nil
+			delta := 3
+			if msg.Button == tea.MouseButtonWheelUp {
+				delta = -delta
+			}
+			m.scrollTask(delta)
+		}
+		return nil
+	}
 	if msg.Action == tea.MouseActionRelease {
 		m.dragging = false
 		if m.selection != nil && m.selection.dragging {
@@ -43,6 +56,9 @@ func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
 	if msg.Button == tea.MouseButtonLeft {
 		switch msg.Action {
 		case tea.MouseActionPress:
+			if inPanel {
+				m.taskFocus = overTask
+			}
 			m.beginSelection(msg.X, msg.Y)
 		case tea.MouseActionMotion:
 			if m.selection != nil && m.selection.dragging {
@@ -95,15 +111,24 @@ func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
 		}
 	}
 	if m.taskFocus {
+		if msg.Paste {
+			return nil
+		}
+		_, _, height := m.size()
 		switch msg.String() {
 		case "down", "j":
-			m.workspace.scroll++
+			m.scrollTask(1)
 		case "up", "k":
-			m.workspace.scroll = max(0, m.workspace.scroll-1)
+			m.scrollTask(-1)
 		case "pgdown":
-			m.workspace.scroll += max(1, m.workspace.height/2)
+			m.scrollTask(height)
 		case "pgup":
-			m.workspace.scroll = max(0, m.workspace.scroll-max(1, m.workspace.height/2))
+			m.scrollTask(-height)
+		case "home":
+			m.workspace.scroll = 0
+		case "end":
+			m.scrollTask(0)
+			m.workspace.scroll = max(0, len(m.markdownLines)-height)
 		}
 		return nil
 	}
@@ -133,4 +158,13 @@ func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
 		}
 	}
 	return nil
+}
+
+func (m *uiTaskModel) scrollTask(delta int) {
+	left, width, height := m.size()
+	if left > 0 {
+		width = left - 4
+	}
+	m.taskPage(width, height)
+	m.workspace.scroll = min(max(0, m.workspace.scroll+delta), max(0, len(m.markdownLines)-height))
 }
