@@ -266,8 +266,8 @@ func newSetupCmd() *cobra.Command {
 			if goruntime.GOOS != "darwin" && goruntime.GOOS != "linux" {
 				return fmt.Errorf("astrona setup supports macOS and Linux; on Windows use astrona.exe setup")
 			}
-			if !yes && !dryRun && !isatty.IsTerminal(os.Stdin.Fd()) {
-				return errors.New("astrona setup asks before each step and there is no terminal to ask on — pass --yes to approve every step, or --dry-run to see the plan")
+			if !yes && !dryRun && (commandHeadless(cmd) || !isatty.IsTerminal(os.Stdin.Fd())) {
+				return errors.New("astrona setup requires explicit approval in headless mode or without a terminal — pass --yes to approve every step, or --dry-run to see the plan")
 			}
 			env := gatherSetupEnv()
 			steps := planSetup(env)

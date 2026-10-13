@@ -64,19 +64,19 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"If the lab already exists, the UI asks before destroying it and starting over with all work discarded. " +
 			"That replacement stays local: no account session, progress or results are sent to Astrona. Use astrona ui to reopen without restarting. " +
 			"Interactive runs without --ui offer the UI before downloads; Enter chooses Yes. Use --ui=false to keep the command-line flow. --yes, CI and redirected input/output skip the offer. The UI will become the default in v0.5.0.\n\n" +
-			"--test-mode keeps Kind and QEMU setup headless, including in v0.5.0 and later. It skips the UI, login reminder and new account sessions, " +
+			"--headless keeps Kind and QEMU setup headless, including in v0.5.0 and later. It skips the UI, login reminder and new account sessions, " +
 			"then returns after setup with the lab still running for external validation. Missing approvals fail instead of prompting, even in a terminal. " +
 			"Terms, settings review, remote-code trust and --yes for replacing an existing run still apply. This uses the normal lab name and setup; " +
 			"it does not grade or clean up automatically. Use astrona destroy when finished, or astrona test for the full setup, reference solution, grading and cleanup pipeline.",
 		Example: `  astrona run astrona.io/ATS014/section-010/module-01/lab-02   # catalog lab: no login needed
   astrona run ./labs/my-lab
   astrona run ./labs/my-lab --ui                      # terminal workspace
-  astrona run ./labs/my-lab --test-mode --accept-terms # setup for external checks
+  astrona run ./labs/my-lab --headless --accept-terms # setup for external checks
   astrona run --git https://github.com/org/labs -c labs/net-01
   astrona run renew                                  # a running playground: its full time limit again`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := configureRunTestMode(cmd); err != nil {
+			if err := configureHeadless(cmd); err != nil {
 				return err
 			}
 			if workspace || uiStartup {
@@ -127,7 +127,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("the lab changed after the restart notice; nothing was started. Run the command again")
 				}
 			} else {
-				choice, err = chooseRun(os.Stdin, promptOut, !flags.testMode && isatty.IsTerminal(os.Stdin.Fd()), yes,
+				choice, err = chooseRun(os.Stdin, promptOut, !flags.headless && isatty.IsTerminal(os.Stdin.Fd()), yes,
 					exists, label, otherRunningLabNames(clusterName))
 			}
 			if err != nil {
@@ -176,7 +176,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			defer start.abandon()
 			start.progress("preparing", "Preparing your lab environment")
 
-			rep, err := ui.NewReporter("run", cfg.Metadata.Name, flags.verbose)
+			rep, err := ui.New("run", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}
@@ -228,7 +228,6 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	addParallelFlag(cmd, flags)
 	addKeepContextFlag(cmd, flags)
 	cmd.Flags().BoolVar(&workspace, "ui", false, "Open the terminal workspace (Kind or QEMU labs); confirm a local-only restart if the lab already exists")
-	cmd.Flags().BoolVar(&flags.testMode, "test-mode", false, "Run setup without UI, prompts or a new account session; leave the lab running for external tests")
 	cmd.Flags().BoolVar(&uiStartup, "ui-startup", false, "Confirm startup in the UI and return to Home")
 	cmd.Flags().Lookup("ui-startup").Hidden = true
 	cmd.Flags().BoolVar(&withoutLogin, "without-login", false, "Confirm running a catalog lab without signing in or tracking progress on Astrona")

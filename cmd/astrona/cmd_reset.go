@@ -72,7 +72,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			"The config is validated before anything is destroyed, so a broken config never leaves " +
 			"you without a lab. teardown.keepCluster is ignored — reset always recreates.\n\n" +
 			"Asks for confirmation (everything done in the lab is lost); --yes skips it and is " +
-			"required when not running in a terminal.\n\n" +
+			"required with --headless or when not running in a terminal. --headless also skips the login reminder and new account sessions.\n\n" +
 			"--cluster <name> rebuilds only that linked cluster (runtime.kind.clusters) of a running lab: " +
 			"its teardown scripts, destroy, then create and bootstrap it again (with the addresses of " +
 			"the clusters it dependsOn). The lab and its other clusters are left alone; port forwards " +
@@ -126,15 +126,15 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 					what = "linked cluster " + clusterFlag + " of " + clusterName
 				}
 				if !yes {
-					if !isatty.IsTerminal(os.Stdin.Fd()) {
-						return fmt.Errorf("refusing to reset '%s' without confirmation — pass --yes when not running in a terminal", clusterName)
+					if flags.headless || !isatty.IsTerminal(os.Stdin.Fd()) {
+						return fmt.Errorf("refusing to reset '%s' without confirmation — pass --yes in headless mode or when not running in a terminal", clusterName)
 					}
 					if !confirmYes(os.Stdin, promptOut, fmt.Sprintf("Soft-reset %s? Its lab namespaces and what's in default are deleted, then its bootstrap runs again.", what)) {
 						fmt.Println("Reset cancelled — nothing was changed.")
 						return nil
 					}
 				}
-				rep, err := ui.NewReporter("reset", cfg.Metadata.Name, flags.verbose)
+				rep, err := ui.New("reset", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 				if err != nil {
 					return err
 				}
@@ -173,8 +173,8 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			exists := labExists(cfg, clusterName)
 
 			if exists && !yes {
-				if !isatty.IsTerminal(os.Stdin.Fd()) {
-					return fmt.Errorf("refusing to reset '%s' without confirmation — pass --yes when not running in a terminal", clusterName)
+				if flags.headless || !isatty.IsTerminal(os.Stdin.Fd()) {
+					return fmt.Errorf("refusing to reset '%s' without confirmation — pass --yes in headless mode or when not running in a terminal", clusterName)
 				}
 				if !confirmReset(os.Stdin, promptOut, clusterName) {
 					fmt.Println("Reset cancelled — nothing was changed.")
@@ -187,7 +187,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer start.abandon()
 
-			rep, err := ui.NewReporter("reset", cfg.Metadata.Name, flags.verbose)
+			rep, err := ui.New("reset", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}
@@ -251,8 +251,8 @@ func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string
 	l, target := order[idx], states[idx].Cluster
 
 	if !yes {
-		if !isatty.IsTerminal(os.Stdin.Fd()) {
-			return fmt.Errorf("refusing to reset '%s' without confirmation — pass --yes when not running in a terminal", target)
+		if flags.headless || !isatty.IsTerminal(os.Stdin.Fd()) {
+			return fmt.Errorf("refusing to reset '%s' without confirmation — pass --yes in headless mode or when not running in a terminal", target)
 		}
 		if !confirmYes(os.Stdin, promptOut, fmt.Sprintf("Reset linked cluster %s? Everything done in it is lost; it's recreated from the config.", target)) {
 			fmt.Println("Reset cancelled — nothing was changed.")
@@ -260,7 +260,7 @@ func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string
 		}
 	}
 
-	rep, err := ui.NewReporter("reset", cfg.Metadata.Name, flags.verbose)
+	rep, err := ui.New("reset", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 	if err != nil {
 		return err
 	}

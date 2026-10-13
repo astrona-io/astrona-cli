@@ -96,7 +96,7 @@ func vmTarget(lab string, r resources.Resource, vmFlag string) (string, error) {
 
 // runResourceInVM copies r into the VM as the student account (the one
 // `astrona ssh` uses) and runs it there.
-func runResourceInVM(lab, dir string, r resources.Resource, args []string, vmFlag string) error {
+func runResourceInVM(lab, dir string, r resources.Resource, args []string, vmFlag string, headless bool) error {
 	remoteCmd, err := vmResourceCommand(r, args)
 	if err != nil {
 		return err
@@ -148,7 +148,9 @@ func runResourceInVM(lab, dir string, r resources.Resource, args []string, vmFla
 
 	// 2. Run it there; a terminal is passed through when there is one.
 	runArgs := base
-	if isatty.IsTerminal(os.Stdin.Fd()) {
+	if headless {
+		runArgs = append([]string{"-T", "-o", "BatchMode=yes"}, base...)
+	} else if isatty.IsTerminal(os.Stdin.Fd()) {
 		runArgs = append([]string{"-t"}, base...)
 	}
 	c := exec.Command(sshPath, append(runArgs, remoteCmd)...)

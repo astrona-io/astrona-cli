@@ -163,7 +163,7 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 	var vmFlag string
 	runCmd := withResource("run <name> [args...]", "Run a resource against the lab (in a qemu lab: inside its VM)", cobra.MinimumNArgs(1),
 		func(_ *cobra.Command, lab, dir string, r resources.Resource, rest []string) error {
-			return runResource(lab, dir, r, rest, vmFlag)
+			return runResource(lab, dir, r, rest, vmFlag, flags.headless)
 		})
 	runCmd.Flags().StringVar(&vmFlag, "vm", "", "qemu labs: the VM to run it in (default: the resource's vm:, else the lab's only VM)")
 	cmd.AddCommand(runCmd)
@@ -315,9 +315,9 @@ func resourceCommand(dir string, r resources.Resource, args []string) (name stri
 
 // runResource runs r against lab: for a kind lab with KUBECONFIG pointing at
 // the lab's own kubeconfig (and its linked clusters'), like `astrona shell`.
-func runResource(lab, dir string, r resources.Resource, args []string, vmFlag string) error {
+func runResource(lab, dir string, r resources.Resource, args []string, vmFlag string, headless bool) error {
 	if !kindClusterExists(lab) {
-		return runResourceInVM(lab, dir, r, args, vmFlag) // qemu, or not running: it says so
+		return runResourceInVM(lab, dir, r, args, vmFlag, headless) // qemu, or not running: it says so
 	}
 	if vmFlag != "" {
 		return fmt.Errorf("--vm is for qemu labs; %s is a kind lab", strings.TrimPrefix(lab, apphome.ClusterPrefix()))

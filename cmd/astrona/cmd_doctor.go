@@ -90,7 +90,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 
 			if bundle {
 				if env, err := runtime.LoadEnvironment(clusterName, cfg.Runtime); err == nil {
-					opts := ui.Options{Verbose: flags.verbose}
+					opts := ui.Options{Verbose: flags.verbose, Plain: flags.headless}
 					if rep.json {
 						opts.Raw = os.Stderr // stdout is the JSON report
 					}

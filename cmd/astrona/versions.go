@@ -213,7 +213,7 @@ func releaseFor(c version.Constraint, cur version.V) (version.V, error) {
 func offerInstall(c version.Constraint, cur, want version.V, flags *rootFlags) (installedVersion, error) {
 	needs := fmt.Sprintf("this lab needs astrona %s, and this is %s", c, cur)
 	if !flags.installVersion {
-		if flags.testMode || !stdinIsTerminal() {
+		if flags.headless || !stdinIsTerminal() {
 			return installedVersion{}, fmt.Errorf("%s\ninstall it: astrona versions install %s (or pass --install-version to install it without asking)", needs, want)
 		}
 		q := fmt.Sprintf("This lab needs astrona %s (this is %s). Download and install astrona %s, verified against GitHub's SHA-256 digest?", c, cur, want)

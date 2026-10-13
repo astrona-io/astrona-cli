@@ -69,7 +69,7 @@ func newNetCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			rep, err := ui.NewReporter("net", lab, flags.verbose)
+			rep, err := ui.New("net", lab, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}

@@ -15,7 +15,7 @@ A catalog name works wherever a command takes a lab: `astrona use astrona.io/ATS
 
 ## Your Astrona account
 
-Catalog labs run locally without a login, including `astrona run ATS000/section-010/module-01/lab-01` and full resets. When signed out, astrona asks whether you want to continue without tracking progress and results on your Astrona account. The default answer is no; run `astrona login` to enable tracking. Pass `--without-login` to explicitly accept running without tracking, including in automation (a command without a terminal requires this flag). No account session is created and no lab page is opened. Sign in optionally to track your time and results on astrona.io:
+Catalog labs run locally without a login, including `astrona run ATS000/section-010/module-01/lab-01` and full resets. When signed out, astrona asks whether you want to continue without tracking progress and results on your Astrona account. The default answer is no; run `astrona login` to enable tracking. Pass `--without-login` to explicitly accept running without tracking, including in automation (a command without a terminal requires this flag). For automation, `--headless` skips the reminder and starts no new account session, even if you are signed in. See [headless commands](ci-integration.md#headless-commands). When running without tracking, no account session is created and no lab page is opened. Sign in optionally to track your time and results on astrona.io:
 
 ```sh
 astrona login      # opens astrona.io in your browser; click Authorize there

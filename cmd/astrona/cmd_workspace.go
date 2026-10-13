@@ -275,7 +275,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		},
 		destroy: func() (bool, error) {
 			closeUITerminals(ctx, name)
-			rep, err := ui.NewReporter("destroy", name, flags.verbose)
+			rep, err := ui.New("destroy", name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return false, err
 			}

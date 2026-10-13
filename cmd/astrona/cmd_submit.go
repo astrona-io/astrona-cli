@@ -45,7 +45,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			"how to name each.\n\n" +
 			"A catalog lab started while signed in (`astrona run ATS…`) sends each result to its lab " +
 			"page on Astrona as well. After a passing result is sent, submit asks whether to delete " +
-			"the lab cluster now (Enter deletes it, exactly like `astrona destroy`); --keep, -o json " +
+			"the lab cluster now (Enter deletes it, exactly like `astrona destroy`); --keep, --headless, -o json " +
 			"or no terminal keep it. A failing result never asks — fix it and submit again.\n\n" +
 			"Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong. Sending the " +
 			"result to Astrona never changes it.",
@@ -159,7 +159,7 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 	env.WithLinks(links)
 	env.AddEnv(lifecycle.CAEnv(clusterName)...)
 
-	opts := ui.Options{Verbose: flags.verbose}
+	opts := ui.Options{Verbose: flags.verbose, Plain: flags.headless}
 	if output == "json" {
 		opts.Raw = os.Stderr // stdout is the JSON result
 	}
@@ -183,7 +183,7 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 	}
 	if watch {
 		rep.Close()
-		return watchGrading(pr, cfg, clusterName, watchInterval, examState)
+		return watchGrading(pr, cfg, clusterName, watchInterval, examState, flags.headless)
 	}
 	previous, _ := proctor.LoadAttempts(clusterName)
 	grade := pr.Grade
@@ -245,14 +245,14 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 	if !pass {
 		return notPassed("submission did not pass grading")
 	}
-	follow := submitFollowUp(pass, sent, keep, output == "json", stdinIsTerminal(), cfg.Teardown.KeepCluster)
+	follow := submitFollowUp(pass, sent, keep, output == "json", !flags.headless && stdinIsTerminal(), cfg.Teardown.KeepCluster)
 	if follow != followNothing {
 		name := clusterName
 		if flags.catalogLab != "" {
 			name = flags.catalogLab
 		}
 		offerDestroy(promptIn, promptOut, status, follow == followAsk, name, func() error {
-			drep, err := ui.NewReporter("destroy", cfg.Metadata.Name, flags.verbose)
+			drep, err := ui.New("destroy", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}

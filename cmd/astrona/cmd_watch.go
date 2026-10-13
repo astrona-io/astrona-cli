@@ -26,7 +26,7 @@ const minWatchInterval = 2 * time.Second
 //
 // On a terminal the board is redrawn in place; otherwise (piped, CI) a
 // new board is printed only when a result changes.
-func watchGrading(pr *proctor.Proctor, cfg *config.LabConfig, lab string, interval time.Duration, examState *exam.State) error {
+func watchGrading(pr *proctor.Proctor, cfg *config.LabConfig, lab string, interval time.Duration, examState *exam.State, headless bool) error {
 	if interval < minWatchInterval {
 		interval = minWatchInterval
 	}
@@ -34,7 +34,7 @@ func watchGrading(pr *proctor.Proctor, cfg *config.LabConfig, lab string, interv
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	tty := isatty.IsTerminal(os.Stdout.Fd())
+	tty := !headless && isatty.IsTerminal(os.Stdout.Fd())
 	var last string
 	for {
 		results, pass, err := pr.Evaluate(cfg)

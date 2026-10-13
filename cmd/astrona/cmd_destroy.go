@@ -441,7 +441,7 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			if len(args) == 1 {
 				labName = args[0]
 			}
-			rep, err := ui.NewReporter("destroy", labName, flags.verbose)
+			rep, err := ui.New("destroy", labName, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}

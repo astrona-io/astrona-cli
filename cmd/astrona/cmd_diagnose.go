@@ -192,7 +192,7 @@ func newDiagnoseCmd(flags *rootFlags) *cobra.Command {
 				lab = config.NormalizeClusterName(args[0])
 			}
 
-			rep, err := ui.NewReporter("diagnose", firstArg(args), flags.verbose)
+			rep, err := ui.New("diagnose", firstArg(args), ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}

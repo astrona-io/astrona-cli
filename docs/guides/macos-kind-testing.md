@@ -9,7 +9,7 @@ code automatically. Do not use sudo to run the test.
 
 The test creates two ordinary Kind clusters (one with a worker), then runs
 `ATS013/section-010/module-01/playground` signed out with explicit
-`--without-login` confirmation. It verifies API-server health, node readiness,
+`--headless` setup. It verifies API-server health, node readiness,
 CoreDNS rollout and a service DNS lookup from a pod. After destroying the lab,
 it checks that its containers and lab state are gone, the prior kubectl context
 is restored, and both existing fixture clusters are still healthy with the same

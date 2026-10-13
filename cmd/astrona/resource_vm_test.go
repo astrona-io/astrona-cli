@@ -79,7 +79,7 @@ func TestRunResourceInVM(t *testing.T) {
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	tool, _ := resources.Find(list, "tool")
-	if err := runResourceInVM("astro-vmlab", dir, tool, []string{"--rps", "50"}, ""); err != nil {
+	if err := runResourceInVM("astro-vmlab", dir, tool, []string{"--rps", "50"}, "", true); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(calls)
@@ -92,6 +92,9 @@ func TestRunResourceInVM(t *testing.T) {
 		if !strings.Contains(lines[0], want) {
 			t.Errorf("upload call lacks %q:\n%s", want, lines[0])
 		}
+	}
+	if !strings.HasPrefix(lines[1], "-T -o BatchMode=yes ") {
+		t.Fatalf("headless resource requested interactive SSH: %s", lines[1])
 	}
 	if !strings.HasSuffix(lines[1], `cd 'astrona-resources/tool/tool' && 'go' 'run' '.' '--rps' '50'`) || !strings.Contains(lines[1], "student@127.0.0.1") {
 		t.Errorf("run call:\n%s", lines[1])

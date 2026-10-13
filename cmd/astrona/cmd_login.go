@@ -27,7 +27,7 @@ func newLoginCmd() *cobra.Command {
 			"If you're already signed in there, check that the code matches the one in the terminal and " +
 			"click Authorize; otherwise sign in on that site first and you're brought back to that page. " +
 			"The terminal waits and finishes by itself. No password is ever typed into the terminal. On a " +
-			"machine without a browser, open the printed link on any device.\n\n" +
+			"machine without a browser, open the printed link on any device. --headless prints the link without opening a browser.\n\n" +
 			"The sign-in is saved in ~/" + apphome.Name() + "/credentials.json (readable only by you) and renewed " +
 			"automatically. `astrona whoami` shows who is signed in, `astrona logout` signs out.\n\n" +
 			"The default site is " + defaultSite + " unless --site (or " + account.SiteEnv + ") names another, " +
@@ -50,7 +50,7 @@ func newLoginCmd() *cobra.Command {
 			}
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
-			return login(ctx, client, store, site, thisDevice())
+			return loginWithBrowser(ctx, client, store, site, thisDevice(), !commandHeadless(cmd))
 		},
 	}
 	cmd.Flags().StringVar(&siteFlag, "site", "", "Sign in to this Astrona site (e.g. http://localhost:3000) instead of "+defaultSite+"; it's remembered for later commands")
@@ -74,6 +74,10 @@ func deviceOS(goos string, getenv func(string) string) string {
 // login signs in through the site: the student authorizes this computer on
 // the site's own page, and the site issues the tokens, which are saved.
 func login(ctx context.Context, client *account.Client, store account.Store, site string, device account.Device) error {
+	return loginWithBrowser(ctx, client, store, site, device, true)
+}
+
+func loginWithBrowser(ctx context.Context, client *account.Client, store account.Store, site string, device account.Device, openBrowser bool) error {
 	// An earlier sign-in is replaced; its refresh token is revoked once the
 	// new one is saved. One that can't be read is simply overwritten.
 	previous, _ := store.Load()
@@ -92,9 +96,13 @@ func login(ctx context.Context, client *account.Client, store account.Store, sit
 		return err
 	}
 
-	fmt.Printf("\nOpening your browser to sign in… If it doesn't open, go to %s\n", dc.VerificationURIComplete)
+	if openBrowser {
+		fmt.Printf("\nOpening your browser to sign in… If it doesn't open, go to %s\n", dc.VerificationURIComplete)
+	} else {
+		fmt.Printf("\nTo sign in, open %s on any device.\n", dc.VerificationURIComplete)
+	}
 	fmt.Printf("Confirm the code %s matches the one in your browser.\n", dc.UserCode)
-	if !browserOpener(dc.VerificationURIComplete) {
+	if openBrowser && !browserOpener(dc.VerificationURIComplete) {
 		fmt.Println("(No browser here — open that link on any device; this terminal waits for you.)")
 	}
 	fmt.Println("Waiting for you to authorize this computer… (Ctrl+C cancels)")

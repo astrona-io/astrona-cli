@@ -97,7 +97,9 @@ func newPortForwardListCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				fmt.Print("\033[H\033[2J")
+				if !commandHeadless(cmd) {
+					fmt.Print("\033[H\033[2J")
+				}
 				fmt.Printf("Every 2s: astrona port-forward list (Ctrl-C to quit)    %s\n\n", time.Now().Format(time.TimeOnly))
 				printPortForwardTable(os.Stdout, fs, wide)
 				select {
@@ -220,7 +222,7 @@ func newPortForwardStartCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("no kind cluster '%s' is running — start the lab with `astrona run` first", clusterName)
 			}
 
-			rep, err := ui.NewReporter("port-forward", cfg.Metadata.Name, flags.verbose)
+			rep, err := ui.New("port-forward", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}

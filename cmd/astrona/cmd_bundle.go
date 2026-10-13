@@ -161,7 +161,7 @@ func newBundleCreateCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("can't bundle %s: %s", cfg.Metadata.Name, reason)
 			}
 
-			rep, err := ui.NewReporter("bundle", cfg.Metadata.Name, flags.verbose)
+			rep, err := ui.New("bundle", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}
@@ -334,7 +334,7 @@ func newBundleLoadCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			rep, err := ui.NewReporter("bundle-load", m.Lab, flags.verbose)
+			rep, err := ui.New("bundle-load", m.Lab, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}
@@ -395,7 +395,7 @@ func trustBundle(flags *rootFlags, src, sum string, cfg *config.LabConfig, m *bu
 	if flags.trust {
 		return trust.Approve(tsrc, time.Now())
 	}
-	if !isatty.IsTerminal(os.Stdin.Fd()) {
+	if flags.headless || !isatty.IsTerminal(os.Stdin.Fd()) {
 		return fmt.Errorf("bundle %s (%s) hasn't been approved — review it, then pass --trust", tsrc.Location, shortPin(tsrc.Pin))
 	}
 	summary := labRiskSummary(cfg)

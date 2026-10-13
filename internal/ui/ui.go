@@ -90,6 +90,8 @@ func Discard() *Reporter {
 // os.Stderr, log path derived under ~/.astrona/logs.
 type Options struct {
 	Verbose bool
+	// Plain disables progress animation and styling, including on a terminal.
+	Plain bool
 	// Screen is where the spinner and status lines are written. Defaults
 	// to os.Stderr when nil.
 	Screen io.Writer
@@ -143,7 +145,7 @@ func New(cmdName, labName string, opts Options) (*Reporter, error) {
 
 	r := &Reporter{
 		verbose: opts.Verbose,
-		color:   screenIsColorTTY(screen),
+		color:   !opts.Plain && screenIsColorTTY(screen),
 		screen:  screen,
 		raw:     raw,
 		logW:    f,

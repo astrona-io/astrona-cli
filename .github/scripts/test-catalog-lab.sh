@@ -34,7 +34,7 @@ cleanup() {
     kubectl --context "kind-$cluster" describe pods -n first-lab > "$artifacts/describe.txt" 2>&1 || true
     cp -R "$HOME/$state_dir" "$artifacts/astrona" 2>/dev/null || true
     # Only this test's cluster is eligible for failure cleanup.
-    "$astrona" destroy "$cluster" --verbose || true
+    "$astrona" destroy --headless "$cluster" --verbose || true
     kind delete cluster --name "$cluster" || true
   fi
   exit "$result"
@@ -63,7 +63,7 @@ if grep -Fxq "$cluster" <<< "$clusters"; then
   echo "Unconfirmed run created a cluster" >&2
   exit 1
 fi
-"$astrona" run "$lab" --accept-terms --test-mode --trust --verbose 2>&1 | tee "$artifacts/run.log"
+"$astrona" run "$lab" --accept-terms --headless --trust --verbose 2>&1 | tee "$artifacts/run.log"
 clusters="$(kind get clusters)"
 grep -Fx "$cluster" <<< "$clusters"
 kubectl --context "kind-$cluster" wait --for=condition=Ready nodes --all --timeout=120s
@@ -76,7 +76,7 @@ kubectl --context "kind-$cluster" -n first-lab patch deployment hello --type=str
 kubectl --context "kind-$cluster" -n first-lab rollout status deployment/hello --timeout=180s
 test "$(kubectl --context "kind-$cluster" -n first-lab get deployment hello -o jsonpath='{.status.readyReplicas}')" = 2
 
-"$astrona" destroy "$lab" --verbose 2>&1 | tee "$artifacts/destroy.log"
+"$astrona" destroy --headless "$lab" --verbose 2>&1 | tee "$artifacts/destroy.log"
 clusters="$(kind get clusters)"
 if grep -Fxq "$cluster" <<< "$clusters"; then
   echo "Destroy left the Kind cluster running" >&2

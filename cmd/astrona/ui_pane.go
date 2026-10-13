@@ -38,7 +38,7 @@ func wantsUIPane(args []string) bool {
 	if help, _ := cmd.Flags().GetBool("help"); help {
 		return false
 	}
-	if runTestMode(cmd) {
+	if commandHeadless(cmd) {
 		return false
 	}
 	if cmd.Name() == "ui" {
