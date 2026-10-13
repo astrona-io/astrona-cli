@@ -179,6 +179,25 @@ astrona docs solution        # docs.solution (solution.md) — shown with a "ful
 
 They're rendered for the terminal (headings, code blocks, lists, inline code, bold, links) and paged; `astrona run` ends with "Your task: astrona docs question" when the lab has a question. Write them as plain Markdown — tables and HTML are shown as-is. A YAML front-matter block at the very top of a doc (a `---` line, YAML such as `estimated_duration: 20m`, a `---` line) is hidden; if it has a `title`, that's shown as the doc's heading. A `---` further down is still a horizontal rule. Doc paths can't point outside the lab directory, and control characters (terminal escape sequences) are stripped before anything is printed. Name the cluster context as `kind-astro-<metadata.name>` in your docs — or point students at `astrona shell <lab>`.
 
+Set an expected working time in the question document's front matter to show
+the UI's lab progress bar:
+
+```markdown
+---
+title: Configure a deployment
+estimated_duration: 20m
+---
+
+Create a deployment with three replicas.
+```
+
+Use a positive duration with units, such as `45m` or `1h30m`. The UI compares
+this estimate with active time spent and pauses it during idle periods.
+Exceeding it does not stop the lab or change its grade. Missing or invalid
+estimates show as unavailable. This display applies to labs, not playgrounds;
+exam deadlines and playground expiry remain separate.
+
+
 ## 2. Pick a runtime
 
 Omit `runtime:` entirely for a `kind` cluster (the default), or see [Runtimes](../concepts/runtimes.md) for a `qemu` VM-backed lab.

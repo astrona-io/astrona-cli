@@ -150,9 +150,7 @@ func (m workspaceModel) alertView(background string) string {
 
 // Draw a dialog over the current screen without changing its navigation state.
 func workspaceDialog(background, title, content string, width, height int, danger bool) string {
-	w := min(76, max(4, width-6))
-	lines := strings.Split(ansi.Wrap(sanitizeTerminalText(content), max(1, w-4), ""), "\n")
-	h := min(height, len(lines)+2)
+	x, y, w, h, lines := workspaceDialogLayout(content, width, height)
 	style := workspaceFocus
 	if danger {
 		style = workspaceDanger
@@ -162,11 +160,17 @@ func workspaceDialog(background, title, content string, width, height int, dange
 		background = ""
 	}
 	base := strings.Split(workspaceFit(background, width, height), "\n")
-	x, y := (width-w)/2, (height-h)/2
 	for i, line := range dialog {
 		base[y+i] = ansi.Cut(base[y+i], 0, x) + line + ansi.Cut(base[y+i], x+w, width)
 	}
 	return strings.Join(base, "\n")
+}
+
+func workspaceDialogLayout(content string, width, height int) (x, y, w, h int, lines []string) {
+	w = min(76, max(4, width-6))
+	lines = strings.Split(ansi.Wrap(sanitizeTerminalText(content), max(1, w-4), ""), "\n")
+	h = min(height, len(lines)+2)
+	return (width - w) / 2, (height - h) / 2, w, h, lines
 }
 
 func (m workspaceModel) labView() string {

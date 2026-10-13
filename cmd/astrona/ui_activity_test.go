@@ -289,13 +289,13 @@ func TestUIActivityResumesAfterOverview(t *testing.T) {
 	m := newUIPaneModel(nil, nil, 100, 30)
 	defer m.emulator.Close()
 	m.activityPath = path
-	stop := uiActivityStart("astro-lab", stamp)
+	stop := uiActivityStart("astro-lab", stamp, uiLabProgress{})
 	m.activityTick(now)
 	m.activity.paused, m.activityAway = true, true
 	m.saveActivity(now.Add(time.Second))
 	stop()
 	// Reopening may replace the control file before the next tick sees Home.
-	defer uiActivityStart("astro-lab", stamp)()
+	defer uiActivityStart("astro-lab", stamp, uiLabProgress{})()
 	m.activityTick(now.Add(2 * time.Second))
 	if m.activity.paused || m.activityAway {
 		t.Fatal("reopened lab stayed paused")

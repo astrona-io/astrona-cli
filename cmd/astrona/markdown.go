@@ -45,9 +45,17 @@ func sanitizeLine(s string) string {
 // it has one. A "---" anywhere else is a horizontal rule and stays, as does
 // a leading block that isn't YAML. Input must be sanitized first.
 func stripFrontMatter(src string) (title, body string) {
+	meta, body := docFrontMatter(src)
+	if t, ok := meta["title"].(string); ok {
+		title = sanitizeLine(strings.TrimSpace(t))
+	}
+	return title, body
+}
+
+func docFrontMatter(src string) (map[string]any, string) {
 	lines := strings.Split(src, "\n")
 	if len(lines) < 2 || strings.TrimRight(lines[0], " ") != "---" {
-		return "", src
+		return nil, src
 	}
 	end := -1
 	for i := 1; i < len(lines); i++ {
@@ -57,16 +65,13 @@ func stripFrontMatter(src string) (title, body string) {
 		}
 	}
 	if end < 0 {
-		return "", src
+		return nil, src
 	}
 	var meta map[string]any
 	if err := yaml.Unmarshal([]byte(strings.Join(lines[1:end], "\n")), &meta); err != nil {
-		return "", src
+		return nil, src
 	}
-	if t, ok := meta["title"].(string); ok {
-		title = sanitizeLine(strings.TrimSpace(t))
-	}
-	return title, strings.TrimLeft(strings.Join(lines[end+1:], "\n"), "\n")
+	return meta, strings.TrimLeft(strings.Join(lines[end+1:], "\n"), "\n")
 }
 
 var (

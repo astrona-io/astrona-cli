@@ -227,7 +227,8 @@ The Astrona shortcuts below apply while focus is released:
 | Home / End | Jump to the start / end of the focused task. |
 | Mouse wheel over the task | Scroll the task without changing keyboard focus. |
 | Shift+Page Up/Down | Scroll the active terminal's output. |
-| Ctrl+G | Open lab details, cluster or VM selection, results and submission controls. |
+| Ctrl+G | Open lab details, cluster or VM selection and results. |
+| Ctrl+S | Ask to submit a graded lab. |
 | Ctrl+Y | Toggle mouse text selection for copying. |
 
 With focus released, click inside the task or terminal pane to give it keyboard focus, or press
@@ -292,8 +293,16 @@ and terminals; Ctrl+T then opens a terminal for that target. Tab switches the
 task/results panel, and Page Up/Down scrolls. `p` opens preferences. Settings
 apply to future commands; cache policy is checked after the UI closes.
 
-Press `g` in lab details to submit a graded lab and return Home. The lab stays
-running after PASS or FAIL. Playgrounds do not offer submission. `q` opens the
+For a graded lab, release terminal focus with **Ctrl+Alt+]**, then click
+**Submit lab** above the task or press **Ctrl+S**. The Yes/No dialog asks before
+running validation. No is selected initially; choose Yes with the arrow keys
+and Enter, press `y`, or click Yes. No, Esc or Ctrl+C returns to your work.
+While terminal focus is locked, Ctrl+S goes to the terminal app.
+
+You can also press `g` in lab details for the same confirmation. Submitting
+returns Home after PASS or FAIL and keeps the lab and terminal tabs running.
+Results use the run's existing account or local-only tracking settings.
+Playgrounds and labs without validation do not offer submission. `q` opens the
 exit menu, where you can leave running, submit, or request normal teardown.
 Confirm normal teardown with `y`; Enter cancels that confirmation.
 
@@ -317,6 +326,20 @@ at least one VM is running; Home shows a degraded status when others stop.
 Standalone `astrona submit` and `astrona destroy` keep their normal terminal
 behavior. They do not automatically open Home. Closing a terminal never
 submits or destroys a lab; existing lab/playground time limits still apply.
+
+## Lab time progress
+
+While working in a lab, the header shows a progress bar with **Used** active
+time and **Expected** time. Small terminals show it in the footer. The estimate
+comes from `estimated_duration` in the task document's YAML front matter, such
+as `20m` or `1h30m`. If no valid positive estimate is provided, the UI says
+**Expected time not provided** and still shows time used.
+
+The bar uses the same clock as time spent. Idle pauses and returning to Home
+stop it; reopening the lab retains accumulated active time. Going over the
+estimate fills the bar and shows the extra time. It does not stop the lab or
+affect grading. Exam deadlines still apply separately. Playgrounds keep their
+existing timing display and do not show this lab progress bar.
 
 ## CPU and memory
 

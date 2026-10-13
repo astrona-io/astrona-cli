@@ -6,6 +6,11 @@ import (
 )
 
 func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
+	if m.workspace.confirmSubmit {
+		var cmd tea.Cmd
+		m.workspace, cmd = m.workspace.submitMouse(msg)
+		return cmd
+	}
 	if m.terminalLocked {
 		return m.terminalMouse(msg)
 	}
@@ -51,6 +56,10 @@ func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
 		return nil
 	}
 	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && msg.Y == 0 {
+		if m.workspace.canSubmit && msg.X >= 0 && msg.X < m.submitButtonWidth() {
+			m.workspace.askSubmit()
+			return nil
+		}
 		_, hits := m.navigation()
 		for _, hit := range hits {
 			if msg.X >= hit.start && msg.X < hit.end {
@@ -76,6 +85,14 @@ func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
 }
 
 func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
+	if m.workspace.confirmSubmit {
+		var cmd tea.Cmd
+		m.workspace, cmd = m.workspace.submitKey(msg)
+		if m.workspace.action == workspaceLeave {
+			uiPaneControl("overview")
+		}
+		return cmd
+	}
 	if !msg.Paste && msg.Type == tea.KeyCtrlCloseBracket && msg.Alt {
 		m.setTerminalLocked(false)
 		return nil
@@ -95,6 +112,11 @@ func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
 	}
 	if !msg.Paste {
 		switch msg.String() {
+		case "ctrl+s":
+			if m.workspace.canSubmit {
+				m.workspace.askSubmit()
+				return nil
+			}
 		case "enter":
 			if len(m.tabs) == 0 {
 				return m.start()

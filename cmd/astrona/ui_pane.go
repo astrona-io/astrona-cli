@@ -187,6 +187,7 @@ type uiPaneModel struct {
 	controls, closing, ended, eof     bool
 	account                           uiAccountStatus
 	activity                          uiActivityClock
+	labProgress                       uiLabProgress
 	activityPath, activityError       string
 	activityAway                      bool
 	activityTimeFrozen                bool
@@ -335,7 +336,8 @@ func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.selectText {
 			return m, nil
 		}
-		if !strings.HasPrefix(m.title, "TASK / ") || m.controls || m.closing || m.ended || m.activity.paused || m.activityAway {
+		workspace := m.taskPane() || strings.HasPrefix(m.title, "WORKSPACE / ")
+		if !workspace || m.controls || m.closing || m.ended || m.activity.paused || m.activityAway {
 			m.mouseDown = false
 			return m, restoreMouse
 		}
@@ -521,6 +523,9 @@ func (m *uiPaneModel) View() string {
 			state = "Paused"
 		}
 		footer = "Time spent: " + formatUptime(m.timeSpent()) + " · " + state + " · " + footer
+		if progress := m.labTimeProgress(); progress != "" && uiHeaderHeight(m.width, m.height) < 5 {
+			footer = progress
+		}
 	}
 	if m.closing {
 		content = workspaceDialog(content, "CLOSE UI", "Close the UI and stop its active command?\nAny lab already created stays on this machine.\n\ny close / Enter or Esc return", m.width, m.emulator.Height(), false)

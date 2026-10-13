@@ -64,6 +64,7 @@ type workspaceModel struct {
 	navigation                                            string
 	showAlert                                             bool
 	alertScroll                                           int
+	confirmSubmit, submitYes                              bool
 }
 
 func workspaceTickCmd() tea.Cmd {
@@ -79,6 +80,10 @@ func (m workspaceModel) Init() tea.Cmd {
 
 func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.MouseMsg:
+		if m.confirmSubmit {
+			return m.submitMouse(msg)
+		}
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 	case workspaceSnapshot:
@@ -94,6 +99,9 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, workspaceTickCmd()
 	case tea.KeyMsg:
 		key := msg.String()
+		if m.confirmSubmit {
+			return m.submitKey(msg)
+		}
 		// The outer idle dialog can return Home even from a settings dialog.
 		if !msg.Paste && !m.home && len(m.labs) == 0 && (key == "alt+ctrl+o" || key == "ctrl+b" || key == "ctrl+c" && !m.showPreferences) {
 			m.action = workspaceLeave
@@ -159,10 +167,7 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.confirmDestroy = true
 				}
 			case "s":
-				if m.canSubmit && m.snapshot.blocked == "" {
-					m.action = workspaceSubmit
-					return m, tea.Quit
-				}
+				m.askSubmit()
 			}
 			return m, nil
 		}
@@ -205,10 +210,7 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 		case "g":
-			if m.canSubmit && m.snapshot.blocked == "" {
-				m.action = workspaceSubmit
-				return m, tea.Quit
-			}
+			m.askSubmit()
 		}
 	}
 	return m, nil
@@ -216,6 +218,9 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m workspaceModel) View() string {
 	if m.width < 48 || m.height < 14 {
+		if m.confirmSubmit {
+			return m.submitView(m.smallView())
+		}
 		return m.smallView()
 	}
 	var view string
@@ -228,6 +233,9 @@ func (m workspaceModel) View() string {
 	}
 	if m.showAlert {
 		return m.alertView(view)
+	}
+	if m.confirmSubmit {
+		return m.submitView(view)
 	}
 	return view
 }
@@ -272,7 +280,7 @@ func runWorkspaceScreen(ctx context.Context, m workspaceModel, refresh func(cont
 		m.polling = true
 	}
 	m.action, m.now = workspaceNone, time.Now()
-	final, err := runUIProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen())
+	final, err := runUIProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if err != nil {
 		return m, fmt.Errorf("terminal workspace: %w", err)
 	}

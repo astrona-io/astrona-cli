@@ -21,14 +21,19 @@ type uiActivityTarget struct {
 	Lab, Started, Session string
 }
 
+type uiActivityRecord struct {
+	uiActivityTarget
+	Progress uiLabProgress
+}
+
 // Lifecycle code identifies the primary lab through a private control file.
 // Terminal titles and shell output cannot select a lab for time tracking.
-func uiActivityStart(lab, started string) func() {
+func uiActivityStart(lab, started string, progress uiLabProgress) func() {
 	path := os.Getenv(uiActivityEnv)
 	if path == "" || started == "" {
 		return func() {}
 	}
-	write := func(target uiActivityTarget) {
+	write := func(target uiActivityRecord) {
 		data, _ := json.Marshal(target)
 		file, err := os.CreateTemp(filepath.Dir(path), ".activity-")
 		if err == nil {
@@ -46,8 +51,8 @@ func uiActivityStart(lab, started string) func() {
 			fmt.Fprintf(os.Stderr, "Could not update activity tracking: %v\n", err)
 		}
 	}
-	write(uiActivityTarget{Lab: lab, Started: started, Session: rand.Text()})
-	return func() { write(uiActivityTarget{}) }
+	write(uiActivityRecord{uiActivityTarget{Lab: lab, Started: started, Session: rand.Text()}, progress})
+	return func() { write(uiActivityRecord{}) }
 }
 
 type uiActivityClock struct {
@@ -131,15 +136,16 @@ func (m *uiPaneModel) activityTick(now time.Time) tea.Cmd {
 	if m.activityPath == "" {
 		return restoreMouse
 	}
-	var target uiActivityTarget
+	var record uiActivityRecord
 	data, err := os.ReadFile(m.activityPath)
 	if err == nil {
-		err = json.Unmarshal(data, &target)
+		err = json.Unmarshal(data, &record)
 	}
 	if err != nil && !os.IsNotExist(err) {
 		m.activityError = "Could not read activity tracking: " + err.Error()
 		return restoreMouse
 	}
+	target := record.uiActivityTarget
 	if target.Lab != "" {
 		st, loadErr := labstate.Load(target.Lab)
 		if loadErr != nil {
@@ -149,6 +155,10 @@ func (m *uiPaneModel) activityTick(now time.Time) tea.Cmd {
 		if st == nil || st.StartedAt != target.Started {
 			target = uiActivityTarget{}
 		}
+	}
+	m.labProgress = record.Progress
+	if target.Lab == "" {
+		m.labProgress = uiLabProgress{}
 	}
 	if target != m.activity.target {
 		m.activity.update(now)
