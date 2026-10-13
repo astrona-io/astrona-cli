@@ -59,6 +59,9 @@ type Session struct {
 	Kind        string `json:"kind,omitempty"`
 	DeadlineAt  string `json:"deadlineAt,omitempty"`
 	WatchdogPID int    `json:"watchdogPid,omitempty"`
+	// ReporterPID is the detached `astrona usage-reporter` that posts the
+	// lab's CPU and memory to the session every 15 seconds.
+	ReporterPID int `json:"reporterPid,omitempty"`
 }
 
 // IsPlayground reports whether s is a timed playground run.

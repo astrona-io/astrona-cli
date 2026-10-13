@@ -11,13 +11,17 @@ import (
 	"time"
 )
 
-// ResourceUsage holds container totals and sample means for an observed run.
-// These local measurements are not part of account submissions.
+// ResourceUsage holds container totals, sample means and peaks for an
+// observed run. CPU is a percentage (100 is one core), memory in bytes. The
+// usage reporter sends the samples to the lab session, and submit and
+// destroy send this summary.
 type ResourceUsage struct {
 	CPU           float64   `json:"cpu"`
 	Memory        float64   `json:"memory"`
 	AverageCPU    float64   `json:"averageCpu"`
 	AverageMemory float64   `json:"averageMemory"`
+	PeakCPU       float64   `json:"peakCpu,omitempty"`
+	PeakMemory    float64   `json:"peakMemory,omitempty"`
 	Samples       uint64    `json:"samples"`
 	Updated       time.Time `json:"updated"`
 }
@@ -61,6 +65,7 @@ func RecordUsage(lab, started string, cpu, memory float64, now time.Time) (Resou
 	usage.CPU, usage.Memory, usage.Updated = cpu, memory, now
 	usage.AverageCPU += (cpu - usage.AverageCPU) / float64(usage.Samples)
 	usage.AverageMemory += (memory - usage.AverageMemory) / float64(usage.Samples)
+	usage.PeakCPU, usage.PeakMemory = max(usage.PeakCPU, cpu), max(usage.PeakMemory, memory)
 	data, err := json.Marshal(usage)
 	if err != nil {
 		return usage, err

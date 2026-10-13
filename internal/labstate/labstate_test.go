@@ -72,8 +72,8 @@ func TestSessionTokenIsNeverStored(t *testing.T) {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(filepath.Join(home, ".astrona", "labs", "astro-x.json"))
-	// 9: kind, deadlineAt and watchdogPid (a playground's timer) are not secrets.
-	if reflect.TypeOf(Session{}).NumField() != 9 {
+	// 10: kind, deadlineAt and watchdogPid (a playground's timer) and reporterPid (the usage reporter) are not secrets.
+	if reflect.TypeOf(Session{}).NumField() != 10 {
 		t.Fatal("Session gained a field — make sure it isn't a secret, then update this test")
 	}
 	if s := strings.ToLower(string(data)); strings.Contains(s, "token") {

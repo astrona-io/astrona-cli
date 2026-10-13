@@ -171,7 +171,7 @@ func sendResult(ctx context.Context, w io.Writer, clusterName string, src *labst
 	}
 
 	noticeOtherSite(creds.Site, "your lab results")
-	lr, err := client.SendLabResult(ctx, store, creds, sess.ID, capCheckTexts(result))
+	lr, err := client.SendLabResult(ctx, store, creds, sess.ID, capCheckTexts(result), runUsageReport(clusterName, st))
 	switch {
 	case err == nil:
 		fmt.Fprintf(w, "Sent to your lab page (attempt %d): %s\n", lr.Attempt, resultPage(lr.URL, sess, site))

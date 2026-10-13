@@ -408,7 +408,7 @@ func (ls *labStart) abandon() {
 	if !ls.sess.IsPlayground() {
 		return
 	}
-	stopPlaygroundClock(context.Background(), ls.sess, "destroyed")
+	stopPlaygroundClock(context.Background(), ls.sess, "destroyed", nil)
 }
 
 // done follows a lab that is ready: a playground's watchdog starts (its
@@ -416,6 +416,9 @@ func (ls *labStart) abandon() {
 func (ls *labStart) done(clusterName string) {
 	ls.ready = true
 	ls.progress("ready", "Lab environment is ready")
+	if ls.sess != nil && ls.sess.ID != "" {
+		startUsageReporter(clusterName)
+	}
 	if ls.sess.IsPlayground() {
 		startPlaygroundWatchdog(clusterName, ls.sess)
 		return

@@ -105,6 +105,12 @@ it now stops and is removed at 18:35 (in 2h0m0s).
 
 A playground that already stopped can't be renewed — run it again. `astrona reset` of a playground does what `run` does: a fresh playground session with a new clock and watchdog once it is rebuilt. If a playground fails to build, its session is stopped, so no time is counted for it.
 
+## Resource usage
+
+While a signed-in lab or playground runs, `astrona run` also starts a **usage reporter** — another detached `astrona` process — that measures what the lab uses on your computer and sends it to the lab session every 15 seconds: CPU in cores and memory in bytes, for the kind cluster and its linked clusters (`docker stats` / `podman stats`) or the lab's QEMU VMs (`ps`). Nothing else is sent: no command output, no file contents, no process names. Astrona uses it to show what labs really cost to run, and what practising locally saves against the cloud.
+
+The reporter ends on its own when the lab is destroyed or run again, when its session is gone or expired, or when the site stops taking samples (a lab that passed). It follows `astrona run renew`. Its output goes to `~/.astrona/labs/<lab>.usage.log`. `astrona submit` and `astrona destroy` also send a short summary (average and peak CPU and memory), which the site uses when no sample reached it. A local-only run, or one not signed in, sends nothing.
+
 ## Where the catalog comes from
 
 - **Published trainings** — repositories in the [astrona-io](https://github.com/astrona-io) organization with the `astrona-training` topic. astrona finds them with one GitHub search.

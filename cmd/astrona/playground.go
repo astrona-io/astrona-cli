@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"astrona/internal/account"
 	"astrona/internal/config"
 	"astrona/internal/hypervisor"
 	"astrona/internal/labstate"
@@ -86,6 +87,12 @@ func startPlaygroundWatchdog(clusterName string, sess *labstate.Session) {
 // session (Setsid), so closing the terminal doesn't end it. Its output goes
 // to a log next to the lab's state. Replaced in tests.
 var spawnWatchdog = func(clusterName string) (int, error) {
+	return spawnDetached("playground-watchdog", clusterName, ".watchdog.log")
+}
+
+// spawnDetached runs `astrona <command> <cluster>` in its own session,
+// logging to <cluster><logSuffix> in the lab state directory.
+func spawnDetached(command, clusterName, logSuffix string) (int, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return 0, err
@@ -94,12 +101,12 @@ var spawnWatchdog = func(clusterName string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	logF, err := os.OpenFile(filepath.Join(dir, clusterName+".watchdog.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	logF, err := os.OpenFile(filepath.Join(dir, clusterName+logSuffix), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return 0, err
 	}
 	defer logF.Close()
-	cmd := exec.Command(exe, "playground-watchdog", clusterName)
+	cmd := exec.Command(exe, command, clusterName)
 	cmd.Stdout, cmd.Stderr = logF, logF
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
@@ -165,7 +172,7 @@ func watchPlayground(ctx context.Context, clusterName string, tick time.Duration
 		return nil
 	}
 	fmt.Printf("%s time limit reached: stopping %s\n", time.Now().Format(time.RFC3339), clusterName)
-	stopPlaygroundClock(ctx, &sess, "time_limit")
+	stopPlaygroundClock(ctx, &sess, "time_limit", runUsageReport(clusterName, current))
 	rep, err := ui.NewReporter("destroy", clusterName, false)
 	if err != nil {
 		return err
@@ -177,8 +184,8 @@ func watchPlayground(ctx context.Context, clusterName string, tick time.Duration
 // stopPlaygroundClock tells the site the playground ended. The site keeps
 // the first stop, so the watchdog's "time_limit" stands even if destroy
 // reports again. Failures are warnings: the site stops the clock at the
-// deadline anyway.
-func stopPlaygroundClock(ctx context.Context, sess *labstate.Session, reason string) {
+// deadline anyway. usage (may be nil) is what the playground used.
+func stopPlaygroundClock(ctx context.Context, sess *labstate.Session, reason string, usage *account.UsageReport) {
 	client, store, _, err := accountDeps()
 	if err != nil {
 		ui.Warnf("couldn't stop the playground's clock: %s", err)
@@ -192,7 +199,7 @@ func stopPlaygroundClock(ctx context.Context, sess *labstate.Session, reason str
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	noticeOtherSite(creds.Site, "the playground time")
-	if err := client.StopLabSession(ctx, store, creds, sess.ID, reason); err != nil {
+	if err := client.StopLabSession(ctx, store, creds, sess.ID, reason, usage); err != nil {
 		ui.Warnf("couldn't stop the playground's clock on %s: %s — it stops by itself at the time limit", sess.Site, err)
 	}
 }
@@ -207,7 +214,7 @@ func endPlayground(clusterName string) {
 	}
 	stopWatchdog(st.Session.WatchdogPID, clusterName)
 	if !st.LocalOnly {
-		stopPlaygroundClock(context.Background(), st.Session, "destroyed")
+		stopPlaygroundClock(context.Background(), st.Session, "destroyed", runUsageReport(clusterName, st))
 	}
 }
 
