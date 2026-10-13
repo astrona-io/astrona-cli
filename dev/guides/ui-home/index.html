@@ -4595,7 +4595,7 @@ to return there while remaining paused. Esc or Ctrl+C also returns to the
 overview. Other keys and pasted text do not resume the timer or reach the shell.
 The dialog also appears during native copy mode or pane controls. The lab and
 commands keep running while time tracking is paused.</p>
-<p>Ctrl+C returns to Home and pauses the counter immediately. Terminal tabs and
+<p>Ctrl+B returns to Home and pauses the counter immediately. Terminal tabs and
 background commands keep running, but their output does not add time. Reopening
 the same run resumes tracking and restores its tabs.</p>
 <p>Home shows container or VM status separately from activity: <strong>Active</strong> means at least
@@ -4696,12 +4696,12 @@ Commands and editors stay inside the terminal pane.</p>
 <td>Switch to the next / previous terminal tab.</td>
 </tr>
 <tr>
-<td>Ctrl+C</td>
+<td>Ctrl+B</td>
 <td>Return to Home and pause time spent. Tabs keep running.</td>
 </tr>
 <tr>
-<td>Alt+C</td>
-<td>Interrupt the active terminal command.</td>
+<td>Ctrl+C</td>
+<td>Interrupt the active terminal command; cancel a dialog when one is open.</td>
 </tr>
 <tr>
 <td>Ctrl+O</td>
@@ -4812,6 +4812,7 @@ restarts keep API tracking disabled and skip the reminder.</p>
 <p>Restore reminders with <code>astrona settings set login-reminder yes</code>, or change
 <strong>login-reminder</strong> in Preferences. Noninteractive catalog runs still require
 <code>--without-login</code> when signed out.</p>
+<p>For automation, use <a href="../ci-integration/#headless-setup-for-external-checks">headless test mode</a>: <code>astrona run &lt;lab&gt; --test-mode</code> skips the UI and returns after setup.</p>
 
 
 
