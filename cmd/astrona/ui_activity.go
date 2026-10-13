@@ -112,6 +112,7 @@ func (m *uiPaneModel) advanceActivity(now time.Time) tea.Cmd {
 		return nil
 	}
 	m.idleOverview = false
+	m.taskTerminalFocus(false)
 	m.controls, m.closing, m.mouseDown = false, false, false
 	restoreMouse := m.selectText
 	m.selectText, m.selectionView = false, ""
@@ -250,6 +251,7 @@ func (m *uiPaneModel) idleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
 	case "enter":
 		if !m.idleOverview {
 			m.activity.input(now)
+			m.taskTerminalFocus(true)
 			m.saveActivity(now)
 			return nil
 		}
@@ -261,6 +263,7 @@ func (m *uiPaneModel) idleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
 }
 
 func (m *uiPaneModel) leaveActivity(now time.Time) {
+	m.taskTerminalFocus(false)
 	m.activity.paused, m.activityAway = true, true
 	m.saveActivity(now)
 	key := tea.KeyMsg{Type: tea.KeyCtrlB}

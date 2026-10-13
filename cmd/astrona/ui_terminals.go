@@ -320,6 +320,7 @@ type uiTaskModel struct {
 	tabs                []*uiTerminalTab
 	active              int
 	starting, taskFocus bool
+	terminalLocked      bool
 	next                tea.Cmd
 	sized               bool
 	markdownSource      string
@@ -357,11 +358,25 @@ func (m *uiTaskModel) start() tea.Cmd {
 }
 
 func (m *uiTaskModel) Init() tea.Cmd {
+	uiPaneControl("ready")
 	return tea.Batch(m.next, workspaceTickCmd(), m.workspace.refresh)
 }
 
 func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.BlurMsg:
+		m.setTerminalLocked(false)
+		return m, nil
+	case tea.FocusMsg:
+		if m.active >= 0 && m.active < len(m.tabs) {
+			tab := m.tabs[m.active]
+			tab.mu.Lock()
+			if !tab.disposed && !tab.ended {
+				m.setTerminalLocked(true)
+			}
+			tab.mu.Unlock()
+		}
+		return m, nil
 	case uiTerminalStarted:
 		m.starting = false
 		if msg.err != nil {
@@ -387,6 +402,7 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.active = min(m.active, max(0, len(tabs)-1))
 		if m.active >= len(tabs) || tabs[m.active] != selected {
 			m.selection = nil
+			m.setTerminalLocked(false)
 		}
 		m.resize()
 		cleanExit := lostLast && selected != nil && selected.cmd != nil && selected.cmd.ProcessState != nil && selected.cmd.ProcessState.Success()
@@ -535,7 +551,11 @@ func (m *uiTaskModel) View() string {
 	if m.taskFocus {
 		taskStyle, terminalStyle = workspaceFocus, workspaceBorder
 	}
-	terminal := workspacePanel("TERMINALS", screen, w+4, h+2, terminalStyle)
+	terminalTitle := "TERMINALS"
+	if m.terminalLocked {
+		terminalStyle, terminalTitle = workspaceDanger, "TERMINALS · LOCKED"
+	}
+	terminal := workspacePanel(terminalTitle, screen, w+4, h+2, terminalStyle)
 
 	body := terminal
 	taskWidth := w
@@ -572,9 +592,15 @@ func (m *uiTaskModel) View() string {
 	if left > 0 || m.taskFocus {
 		hint = fmt.Sprintf("Task %d–%d/%d · Wheel scrolls task · Click pane to focus · Ctrl+O switches panes", m.workspace.scroll+1, min(len(m.markdownLines), m.workspace.scroll+h), len(m.markdownLines))
 	}
+	if m.terminalLocked {
+		footer = "LOCKED · Ctrl+Alt+] releases focus"
+		hint = "Keys and mouse go to the terminal app. Release focus for Astrona shortcuts."
+	} else if !m.taskFocus {
+		hint = "Type in the terminal to lock focus (red) · Ctrl+Alt+] releases it (blue)"
+	}
 	view := workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render(hint), m.workspace.width, m.workspace.height)
 	if m.namingTab {
-		text := "Name: " + sanitizeLine(m.tabName) + "_\n\nEnter opens the tab; leave blank for a default name.\nSwitch tabs with a mouse click or Ctrl+N / Ctrl+P.\n\nEnter opens · Esc cancels · Ctrl+U clears"
+		text := "Name: " + sanitizeLine(m.tabName) + "_\n\nEnter opens the tab; leave blank for a default name.\nSwitch tabs with a mouse click or Ctrl+N / Ctrl+P.\nWhen locked, release focus first with Ctrl+Alt+].\n\nEnter opens · Esc cancels · Ctrl+U clears"
 		if len(m.workspace.snapshot.clusters) > 0 && m.workspace.snapshot.clusters[0].runtime == "qemu" {
 			target := m.workspace.snapshot.clusters[m.workspace.selected]
 			text = "VM: " + sanitizeLine(target.name) + " (←/→ choose)\n" + text

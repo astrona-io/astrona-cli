@@ -172,28 +172,30 @@ type uiPaneExit struct{ err error }
 type uiPaneDrainTimeout struct{}
 
 type uiPaneModel struct {
-	usage                           labstate.ResourceUsage
-	mouseDown                       bool
-	selectText                      bool
-	selectionView                   string
-	inputError                      tea.Cmd
-	emulator                        *vt.Emulator
-	terminal                        *os.File
-	exited                          <-chan error
-	width, height, scroll, code     int
-	title, failure                  string
-	controls, closing, ended, eof   bool
-	account                         uiAccountStatus
-	activity                        uiActivityClock
-	activityPath, activityError     string
-	activityAway                    bool
-	activityTimeFrozen              bool
-	idleOverview                    bool
-	activityTotal, activitySavedOwn time.Duration
-	dashboard                       uiHomeSnapshot
-	loadDashboard                   tea.Cmd
-	background                      string
-	animation                       int
+	taskFocusProtocol, terminalLocked bool
+	taskMouseCmd                      tea.Cmd
+	usage                             labstate.ResourceUsage
+	mouseDown                         bool
+	selectText                        bool
+	selectionView                     string
+	inputError                        tea.Cmd
+	emulator                          *vt.Emulator
+	terminal                          *os.File
+	exited                            <-chan error
+	width, height, scroll, code       int
+	title, failure                    string
+	controls, closing, ended, eof     bool
+	account                           uiAccountStatus
+	activity                          uiActivityClock
+	activityPath, activityError       string
+	activityAway                      bool
+	activityTimeFrozen                bool
+	idleOverview                      bool
+	activityTotal, activitySavedOwn   time.Duration
+	dashboard                         uiHomeSnapshot
+	loadDashboard                     tea.Cmd
+	background                        string
+	animation                         int
 	// Astrona's copy of this window's clock (ui_clock_sync.go).
 	clockPaused bool
 	clockSync   string
@@ -218,7 +220,13 @@ func newUIPaneModel(terminal *os.File, exited <-chan error, width, height int) *
 	m := &uiPaneModel{terminal: terminal, exited: exited, width: width, height: height, title: "STARTUP"}
 	m.emulator = vt.NewEmulator(w, h)
 	m.emulator.SetScrollbackSize(2000)
-	m.emulator.SetCallbacks(vt.Callbacks{Title: func(title string) { m.title = sanitizeLine(title) }})
+	m.emulator.SetCallbacks(vt.Callbacks{Title: func(title string) {
+		m.title = sanitizeLine(title)
+		if !m.taskPane() {
+			m.taskFocusProtocol, m.terminalLocked = false, false
+		}
+	}})
+	m.emulator.RegisterOscHandler(777, m.taskControl)
 	return m
 }
 
@@ -294,7 +302,12 @@ func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.failure = "Could not read terminal: " + msg.err.Error()
 			}
 		} else {
-			return m, m.read
+			mouseCmd := m.taskMouseCmd
+			m.taskMouseCmd = nil
+			if m.selectText && m.selectionView == "" {
+				m.selectionView = m.View()
+			}
+			return m, tea.Batch(m.read, mouseCmd)
 		}
 	case uiPaneExit:
 		m.ended = true
@@ -328,6 +341,21 @@ func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		row := msg.Y - uiHeaderHeight(m.width, m.height)
 		mouse := uv.Mouse{X: min(max(0, msg.X), max(0, m.width-1)), Y: min(max(0, row), max(0, m.emulator.Height()-1)), Button: uv.MouseLeft}
+		if msg.Alt {
+			mouse.Mod |= uv.ModAlt
+		}
+		if msg.Ctrl {
+			mouse.Mod |= uv.ModCtrl
+		}
+		if msg.Shift {
+			mouse.Mod |= uv.ModShift
+		}
+		if msg.Button == tea.MouseButtonRight {
+			mouse.Button = uv.MouseRight
+		}
+		if msg.Button == tea.MouseButtonMiddle {
+			mouse.Button = uv.MouseMiddle
+		}
 		if msg.Action == tea.MouseActionPress && (msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown) {
 			if row >= 0 && row < m.emulator.Height() && msg.X >= 0 && msg.X < m.width {
 				mouse.Button = uv.MouseWheelDown
@@ -341,13 +369,13 @@ func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch msg.Action {
 		case tea.MouseActionPress:
-			if msg.Button == tea.MouseButtonLeft && row >= 0 && row < m.emulator.Height() {
+			if (msg.Button == tea.MouseButtonLeft || msg.Button == tea.MouseButtonRight || msg.Button == tea.MouseButtonMiddle) && row >= 0 && row < m.emulator.Height() {
 				m.mouseDown = true
 				m.activity.input(time.Now())
 				m.emulator.SendMouse(uv.MouseClickEvent(mouse))
 			}
 		case tea.MouseActionMotion:
-			if m.mouseDown && msg.Button == tea.MouseButtonLeft {
+			if m.mouseDown {
 				m.activity.input(time.Now())
 				m.emulator.SendMouse(uv.MouseMotionEvent(mouse))
 			}
@@ -378,7 +406,7 @@ func (m *uiPaneModel) handleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
 	if !m.activityAway && !m.activity.paused {
 		m.activity.input(now)
 	}
-	if !key.Paste && key.Type == tea.KeyCtrlY {
+	if !key.Paste && key.Type == tea.KeyCtrlY && (!m.taskPane() || m.selectText || m.controls || m.ended) {
 		m.selectText, m.mouseDown = !m.selectText, false
 		m.selectionView = ""
 		if m.selectText {
@@ -393,6 +421,10 @@ func (m *uiPaneModel) handleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
 			return tea.EnableMouseCellMotion
 		}
 		return tea.Batch(tea.EnableMouseCellMotion, m.handleKey(key, now))
+	}
+	if m.taskPane() && !m.controls && !m.closing && !m.ended {
+		sendUIPaneKey(m.emulator, key)
+		return nil
 	}
 	if !key.Paste && key.Type == tea.KeyCtrlB && !key.Alt && !m.controls && !m.closing && !m.ended && (strings.HasPrefix(m.title, "TASK / ") || strings.HasPrefix(m.title, "WORKSPACE / ")) {
 		m.leaveActivity(now)
@@ -453,6 +485,13 @@ func (m *uiPaneModel) View() string {
 	}
 	header := m.header()
 	footer := "Ctrl+] pane controls / scrollback"
+	if m.taskPane() {
+		if m.terminalLocked {
+			footer = "LOCKED · Ctrl+Alt+] releases terminal focus"
+		} else {
+			footer = "Type to lock terminal focus · Ctrl+Alt+] releases · Ctrl+] pane controls"
+		}
+	}
 	if strings.HasPrefix(m.title, "SHELL /") {
 		footer = "Type exit to return to the lab  ·  Ctrl+] pane controls"
 	}
@@ -567,6 +606,39 @@ func sendUIPaneKey(emulator *vt.Emulator, key tea.KeyMsg) {
 		}
 	}
 	if k.Code != 0 {
-		emulator.SendKey(k)
+		// The emulator does not encode Ctrl/Shift navigation keys itself.
+		if sequence := modifiedUIPaneKey(k); sequence != "" {
+			emulator.SendText(sequence)
+		} else {
+			emulator.SendKey(k)
+		}
 	}
+}
+
+func modifiedUIPaneKey(k uv.KeyPressEvent) string {
+	if k.Mod&(uv.ModCtrl|uv.ModShift) == 0 {
+		return ""
+	}
+	modifier := 1
+	if k.Mod&uv.ModShift != 0 {
+		modifier += 1
+	}
+	if k.Mod&uv.ModAlt != 0 {
+		modifier += 2
+	}
+	if k.Mod&uv.ModCtrl != 0 {
+		modifier += 4
+	}
+	final := map[rune]string{uv.KeyUp: "A", uv.KeyDown: "B", uv.KeyRight: "C", uv.KeyLeft: "D", uv.KeyHome: "H", uv.KeyEnd: "F", uv.KeyF1: "P", uv.KeyF2: "Q", uv.KeyF3: "R", uv.KeyF4: "S"}
+	if suffix := final[k.Code]; suffix != "" {
+		return fmt.Sprintf("\x1b[1;%d%s", modifier, suffix)
+	}
+	tilde := map[rune]int{uv.KeyInsert: 2, uv.KeyDelete: 3, uv.KeyPgUp: 5, uv.KeyPgDown: 6, uv.KeyF5: 15, uv.KeyF6: 17, uv.KeyF7: 18, uv.KeyF8: 19, uv.KeyF9: 20, uv.KeyF10: 21, uv.KeyF11: 23, uv.KeyF12: 24}
+	if number := tilde[k.Code]; number != 0 {
+		return fmt.Sprintf("\x1b[%d;%d~", number, modifier)
+	}
+	if k.Code == uv.KeyTab && k.Mod == uv.ModShift {
+		return "\x1b[Z"
+	}
+	return ""
 }
