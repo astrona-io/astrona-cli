@@ -2,14 +2,25 @@ package main
 
 import tea "github.com/charmbracelet/bubbletea"
 
-func (m *uiTaskModel) mouse(msg tea.MouseMsg) {
+func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
 	if m.namingTab {
-		return
+		return nil
 	}
 	left, _, height := m.size()
 	if msg.Action == tea.MouseActionRelease {
 		m.dragging = false
-		return
+		if m.selection != nil && m.selection.dragging {
+			m.selection.move(msg.X, msg.Y)
+			m.selection.dragging = false
+			if m.selection.moved {
+				return copyUISelection(m.selection)
+			}
+			m.selection = nil
+		}
+		return nil
+	}
+	if msg.Action == tea.MouseActionPress {
+		m.selection = nil
 	}
 	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && left > 0 && msg.Y >= 1 && msg.Y <= height+2 && msg.X >= left-1 && msg.X <= left {
 		m.dragging = true
@@ -18,7 +29,7 @@ func (m *uiTaskModel) mouse(msg tea.MouseMsg) {
 		m.taskWidth = min(60, max(20, (msg.X+1)*100/max(1, m.workspace.width)))
 		m.terminals.taskWidth = m.taskWidth
 		m.resize()
-		return
+		return nil
 	}
 	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && msg.Y == 0 {
 		_, hits := m.navigation()
@@ -29,9 +40,26 @@ func (m *uiTaskModel) mouse(msg tea.MouseMsg) {
 			}
 		}
 	}
+	if msg.Button == tea.MouseButtonLeft {
+		switch msg.Action {
+		case tea.MouseActionPress:
+			m.beginSelection(msg.X, msg.Y)
+		case tea.MouseActionMotion:
+			if m.selection != nil && m.selection.dragging {
+				m.selection.move(msg.X, msg.Y)
+			}
+		}
+	}
+	return nil
 }
 
 func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
+	if m.selection != nil {
+		m.selection = nil
+		if !msg.Paste && msg.Type == tea.KeyEsc {
+			return nil
+		}
+	}
 	if m.namingTab && (msg.Paste || msg.String() != "ctrl+c") {
 		return m.nameTab(msg)
 	}

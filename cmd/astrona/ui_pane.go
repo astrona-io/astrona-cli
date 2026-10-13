@@ -169,6 +169,7 @@ type uiPaneModel struct {
 	usage                           labstate.ResourceUsage
 	mouseDown                       bool
 	selectText                      bool
+	selectionView                   string
 	inputError                      tea.Cmd
 	emulator                        *vt.Emulator
 	terminal                        *os.File
@@ -249,8 +250,12 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, uiAccountTick()
 	case tea.WindowSizeMsg:
 		m.mouseDown = false
+		m.selectionView = ""
 		m.width, m.height = msg.Width, msg.Height
 		m.resizeContent()
+		if m.selectText {
+			m.selectionView = m.View()
+		}
 	case uiPaneOutput:
 		_, _ = m.emulator.Write(msg.data)
 		m.resizeContent()
@@ -332,10 +337,19 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *uiPaneModel) key(key tea.KeyMsg) tea.Cmd {
 	if !key.Paste && key.Type == tea.KeyCtrlY {
 		m.selectText, m.mouseDown = !m.selectText, false
+		m.selectionView = ""
 		if m.selectText {
+			m.selectionView = m.View()
 			return tea.DisableMouse
 		}
 		return tea.EnableMouseCellMotion
+	}
+	if m.selectText {
+		m.selectText, m.selectionView = false, ""
+		if !key.Paste && key.Type == tea.KeyEsc {
+			return tea.EnableMouseCellMotion
+		}
+		return tea.Batch(tea.EnableMouseCellMotion, m.key(key))
 	}
 	now := time.Now()
 	m.activity.update(now)
@@ -400,6 +414,9 @@ func (m *uiPaneModel) key(key tea.KeyMsg) tea.Cmd {
 }
 
 func (m *uiPaneModel) View() string {
+	if m.selectText && m.selectionView != "" {
+		return m.selectionView
+	}
 	content := m.screen()
 	if uiLoadingPhase(m.title) {
 		content = m.loadingView(content)

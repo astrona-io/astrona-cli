@@ -315,8 +315,43 @@ func TestUIPaneNativeTextSelection(t *testing.T) {
 	if !strings.Contains(m.View(), "Copy shortcut") {
 		t.Fatal("copy instructions missing")
 	}
+	frozen := m.View()
+	m.Update(uiPaneOutput{data: []byte("new output while selecting")})
+	m.Update(uiAccountStatus{label: "Logged in", signedIn: true})
+	if m.View() != frozen {
+		t.Fatal("live redraw erased native selection")
+	}
 	cmd = m.key(tea.KeyMsg{Type: tea.KeyCtrlY})
 	if m.selectText || cmd == nil || reflect.TypeOf(cmd()) != reflect.TypeOf(tea.EnableMouseCellMotion()) {
 		t.Fatal("Ctrl+Y did not restore mouse controls")
+	}
+	if !strings.Contains(m.View(), "new output while selecting") {
+		t.Fatal("copy mode discarded terminal output")
+	}
+}
+
+func TestUIPaneSelectionMouseRouting(t *testing.T) {
+	m := newUIPaneModel(nil, nil, 120, 30)
+	defer m.emulator.Close()
+	m.title = "TASK / lab"
+	_, _ = m.emulator.WriteString("\x1b[?1002h\x1b[?1006h")
+	want := "\x1b[<0;3;3M\x1b[<32;7;3M\x1b[<0;7;3m"
+	read := make(chan string, 1)
+	go func() {
+		buf := make([]byte, len(want))
+		_, _ = io.ReadFull(m.emulator, buf)
+		read <- string(buf)
+	}()
+	y := uiHeaderHeight(m.width, m.height) + 2
+	m.Update(tea.MouseMsg{X: 2, Y: y, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+	m.Update(tea.MouseMsg{X: 6, Y: y, Action: tea.MouseActionMotion, Button: tea.MouseButtonLeft})
+	m.Update(tea.MouseMsg{X: 6, Y: y, Action: tea.MouseActionRelease})
+	select {
+	case got := <-read:
+		if got != want {
+			t.Fatalf("nested mouse input = %q, want %q", got, want)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("drag did not reach the task pane")
 	}
 }

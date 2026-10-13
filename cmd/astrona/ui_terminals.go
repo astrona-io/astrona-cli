@@ -294,6 +294,7 @@ func closeUITerminals(ctx context.Context, name string) {
 }
 
 type uiTaskModel struct {
+	selection           *uiTextSelection
 	taskWidth           int
 	dragging            bool
 	namingTab           bool
@@ -369,6 +370,9 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.tabs = tabs
 		m.active = min(m.active, max(0, len(tabs)-1))
+		if m.active >= len(tabs) || tabs[m.active] != selected {
+			m.selection = nil
+		}
 		m.resize()
 		cleanExit := lostLast && selected != nil && selected.cmd != nil && selected.cmd.ProcessState != nil && selected.cmd.ProcessState.Success()
 		if lostLast && !m.starting && (cleanExit || time.Since(m.lastReplacement) >= 3*time.Second) {
@@ -386,6 +390,7 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.next
 	case tea.WindowSizeMsg:
+		m.selection = nil
 		m.dragging = false
 		m.workspace.width, m.workspace.height = msg.Width, msg.Height
 		firstSize := !m.sized
@@ -408,8 +413,15 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(workspaceTickCmd(), m.workspace.refresh)
 		}
 		return m, workspaceTickCmd()
+	case uiClipboardResult:
+		if m.selection != nil && m.selection == msg.selection {
+			m.selection.status = "Copied to clipboard · Esc clears selection"
+			if msg.err != nil {
+				m.selection.status = "Copy failed · Ctrl+Y: native copy"
+			}
+		}
 	case tea.MouseMsg:
-		m.mouse(msg)
+		return m, m.mouse(msg)
 	case tea.KeyMsg:
 		return m, m.key(msg)
 	}
@@ -500,6 +512,9 @@ func (m *uiTaskModel) View() string {
 		}
 		tab.mu.Unlock()
 	}
+	if m.selection != nil && !m.selection.task {
+		screen = m.selection.render()
+	}
 	terminal := workspacePanel("TERMINALS", screen, w+4, h+2, workspaceFocus)
 	taskStyle := workspaceBorder
 	if m.taskFocus {
@@ -507,11 +522,19 @@ func (m *uiTaskModel) View() string {
 	}
 
 	body := terminal
+	taskWidth := w
 	if left > 0 {
-		task := workspacePanel("QUESTION / TASK", m.taskPage(left-4, h), left, h+2, taskStyle)
+		taskWidth = left - 4
+	}
+	taskPage := m.taskPage(taskWidth, h)
+	if m.selection != nil && m.selection.task {
+		taskPage = m.selection.render()
+	}
+	if left > 0 {
+		task := workspacePanel("QUESTION / TASK", taskPage, left, h+2, taskStyle)
 		body = lipgloss.JoinHorizontal(lipgloss.Top, task, terminal)
 	} else if m.taskFocus {
-		body = workspacePanel("QUESTION / TASK", m.taskPage(w, h), w+4, h+2, taskStyle)
+		body = workspacePanel("QUESTION / TASK", taskPage, w+4, h+2, taskStyle)
 	}
 	footer := "Ctrl+T new · Ctrl+N/P tabs · Ctrl+O task · Ctrl+G lab · Ctrl+Y copy · Ctrl+C overview"
 	if terminalStatus != "" {
@@ -520,7 +543,13 @@ func (m *uiTaskModel) View() string {
 	if m.workspace.notice != "" {
 		footer = m.workspace.notice
 	}
-	view := workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render("Alt+C interrupts a command · Ctrl+C pauses time; tabs keep running"), m.workspace.width, m.workspace.height)
+	if m.selection != nil {
+		footer = "Drag to select · Release to copy · Esc clears selection"
+		if m.selection.status != "" {
+			footer = m.selection.status
+		}
+	}
+	view := workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render("Drag text to copy · Alt+C interrupts a command · Ctrl+C pauses time"), m.workspace.width, m.workspace.height)
 	if m.namingTab {
 		text := "Name: " + sanitizeLine(m.tabName) + "_\n\nEnter opens the tab; leave blank for a default name.\nSwitch tabs with a mouse click or Ctrl+N / Ctrl+P.\n\nEnter opens · Esc cancels · Ctrl+U clears"
 		if len(m.workspace.snapshot.clusters) > 0 && m.workspace.snapshot.clusters[0].runtime == "qemu" {

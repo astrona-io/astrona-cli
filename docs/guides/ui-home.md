@@ -219,9 +219,20 @@ If reconnection fails repeatedly, a Retry tab stays visible; press Enter to retr
 Closing other tabs frees slots for new terminals. Returning to Home
 preserves shells and their environment until the UI closes or the run is deleted.
 
-Press Ctrl+Y to select text with the mouse, then use your terminal’s usual Copy
-shortcut (Cmd+C on macOS, often Ctrl+Shift+C on Linux). Press Ctrl+Y again to
-restore tab clicks and divider dragging.
+Drag across text in either the question/task pane or a terminal to select it.
+The selection turns light blue and copies to your clipboard when you release
+the mouse. It stays inside the pane where you started dragging, so copied
+commands do not include text from the other pane or its borders. The footer
+confirms whether copying succeeded. Press Esc to clear the highlight; typing
+also clears it. The selected pane holds its display still while the shell
+continues running in the background.
+
+Automatic copying uses `pbcopy` on macOS, `wl-copy` on Wayland, or `xclip` / `xsel`
+on X11. If no desktop clipboard is available, including on many SSH connections,
+press Ctrl+Y for native terminal selection. The UI holds its display still;
+select text and use your terminal’s usual Copy shortcut (Cmd+C on macOS, often
+Ctrl+Shift+C on Linux). Press Ctrl+Y again or Esc to restore mouse controls and
+live output. Typing also leaves native selection mode.
 
 In lab details, arrow keys select a cluster or VM. Enter or `s` returns to the task
 and terminals; Ctrl+T then opens a terminal for that target. Tab switches the
