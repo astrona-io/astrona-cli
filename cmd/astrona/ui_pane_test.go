@@ -360,3 +360,36 @@ func TestUIPaneSelectionMouseRouting(t *testing.T) {
 		t.Fatal("drag did not reach the task pane")
 	}
 }
+
+func TestUIPaneWheelMouseRouting(t *testing.T) {
+	m := newUIPaneModel(nil, nil, 120, 30)
+	defer m.emulator.Close()
+	m.title = "TASK / lab"
+	_, _ = m.emulator.WriteString("\x1b[?1002h\x1b[?1006h")
+	want := "\x1b[<64;3;3M\x1b[<65;3;3M"
+	read := make(chan string, 1)
+	go func() {
+		buf := make([]byte, len(want))
+		_, _ = io.ReadFull(m.emulator, buf)
+		read <- string(buf)
+	}()
+	// Header and footer events must never reach the nested task view.
+	for _, y := range []int{0, m.height - 1} {
+		m.Update(tea.MouseMsg{X: 2, Y: y, Action: tea.MouseActionPress, Button: tea.MouseButtonWheelDown})
+	}
+	y := uiHeaderHeight(m.width, m.height) + 2
+	for _, button := range []tea.MouseButton{tea.MouseButtonWheelUp, tea.MouseButtonWheelDown} {
+		m.Update(tea.MouseMsg{X: 2, Y: y, Action: tea.MouseActionPress, Button: button})
+	}
+	select {
+	case got := <-read:
+		if got != want {
+			t.Fatalf("nested wheel input = %q, want %q", got, want)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("wheel events did not reach the task pane")
+	}
+	if m.mouseDown {
+		t.Fatal("wheel started a text-selection drag")
+	}
+}
