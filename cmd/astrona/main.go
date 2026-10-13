@@ -41,6 +41,7 @@ type rootFlags struct {
 	uiStartupApproved bool
 	uiRestart         *uiRunRestart
 	localOnly         bool
+	testMode          bool
 	// settingsFile is an optional path override for isolated command tests.
 	settingsFile string
 	settingsArgs []string
@@ -171,7 +172,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Name() != "use" {
 				applyCurrentLab(cmd, flags)
 			}
-			if flags.updateCheck && cmd.Name() != "ui" && !settingsReviewExempt(cmd) {
+			if flags.updateCheck && !flags.testMode && cmd.Name() != "ui" && !settingsReviewExempt(cmd) {
 				checkLatestVersion(flags.verbose)
 			}
 			return nil

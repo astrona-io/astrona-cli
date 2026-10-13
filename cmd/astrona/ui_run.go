@@ -32,6 +32,9 @@ func installUIRunGate(root *cobra.Command, flags *rootFlags, confirm func(*cobra
 		if cmd.Name() != "run" || cmd.Parent() != root {
 			return nil
 		}
+		if err := configureRunTestMode(cmd); err != nil {
+			return err
+		}
 		ui, err := cmd.Flags().GetBool("ui")
 		if err != nil {
 			return err

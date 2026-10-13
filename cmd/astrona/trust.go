@@ -163,13 +163,13 @@ func requireTrust(flags *rootFlags, cfg *config.LabConfig, baseDir string) error
 	if err != nil || src == nil {
 		return err
 	}
-	return approveParsedSource(flags.trust, *src, func() []string {
+	return approveParsedSource(flags.trust, !flags.testMode && isatty.IsTerminal(os.Stdin.Fd()), *src, func() []string {
 		return append(labRiskSummary(cfg), resourceRiskLines(cfg, baseDir)...)
 	})
 }
 
 // Resolve prompt consent separately from config inspection and persisted trust.
-func approveParsedSource(explicit bool, src trust.Source, summary func() []string) error {
+func approveParsedSource(explicit, interactive bool, src trust.Source, summary func() []string) error {
 	status, prevPin, err := trust.Check(src)
 	if err != nil {
 		return err
@@ -181,7 +181,7 @@ func approveParsedSource(explicit bool, src trust.Source, summary func() []strin
 		fmt.Fprintf(os.Stderr, "Trusting %s at %s (--trust).\n", src.Location, shortPin(src.Pin))
 		return trust.Approve(src, time.Now())
 	}
-	if !isatty.IsTerminal(os.Stdin.Fd()) {
+	if !interactive {
 		return fmt.Errorf("lab %s (%s) hasn't been approved to run on this machine — review it, then pass --trust", src.Location, shortPin(src.Pin))
 	}
 	if !confirmTrust(os.Stdin, promptOut, src, status, prevPin, summary()) {

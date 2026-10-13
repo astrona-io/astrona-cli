@@ -310,3 +310,5 @@ restarts keep API tracking disabled and skip the reminder.
 Restore reminders with `astrona settings set login-reminder yes`, or change
 **login-reminder** in Preferences. Noninteractive catalog runs still require
 `--without-login` when signed out.
+
+For automation, use [headless test mode](ci-integration.md#headless-setup-for-external-checks): `astrona run <lab> --test-mode` skips the UI and returns after setup.

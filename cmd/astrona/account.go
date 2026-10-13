@@ -45,7 +45,7 @@ var accountDeps = func() (*account.Client, account.Store, string, error) {
 // Local labs and signed-out catalog labs run without a session. Credential
 // storage and renewal failures are still reported rather than hidden.
 func accountForLab(ctx context.Context, flags *rootFlags) (*labAccount, error) {
-	if flags.catalogLab == "" || flags.localOnly {
+	if flags.catalogLab == "" || flags.localOnly || flags.testMode {
 		return nil, nil
 	}
 	client, store, site, err := accountDeps()

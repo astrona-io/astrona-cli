@@ -2,6 +2,42 @@
 
 `astrona test` is built for CI: bootstrap → apply the reference solution → submit to the Proctor → always tear down, in one command, one exit code. This is what astrona-cli's own [`ci.yml`](https://github.com/astrona-io/astrona-cli/blob/main/.github/workflows/ci.yml) e2e job runs against `examples/k8s-basics-01` on every PR.
 
+## Headless setup for external checks
+
+Use `--test-mode` when your own script needs to check a running lab. This works
+with Kind and QEMU and keeps running without the UI when the UI becomes the
+default in v0.5.0 and later.
+
+After reviewing the CLI settings (see the job below):
+
+```sh
+astrona run ./examples/k8s-basics-01 --test-mode --accept-terms
+# Run your checks against the running lab.
+astrona destroy -c ./examples/k8s-basics-01
+```
+
+For a catalog lab, also approve its remote code:
+
+```sh
+astrona run ATS000/section-010/module-01/lab-01 --test-mode --accept-terms --trust
+```
+
+Test mode skips the UI invitation, login reminder and new account sessions,
+even when run in a terminal. It returns after setup with the lab still running.
+It uses the normal lab name and does real provisioning; it does not apply the
+reference solution, grade the lab or clean up automatically. Arrange cleanup
+after failed checks as well as successful ones.
+
+Missing terms acceptance, settings review or remote-code trust causes an error
+instead of a CLI prompt. An existing lab requires explicit `--yes` to replace
+it, deleting its work. Other running labs are left alone. Use a dedicated CI
+environment to avoid replacing a lab you are working on. External lab scripts
+must also be written to run without interactive input. `--test-mode` cannot be
+combined with `--ui` or `--ui-startup`.
+
+For the complete setup, reference solution, grading and cleanup workflow, keep
+using `astrona test`. That command also remains headless in v0.5.0 and later.
+
 ## Minimal GitHub Actions job
 
 ```yaml

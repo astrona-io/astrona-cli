@@ -109,7 +109,7 @@ func saveGuestChoice(flags *rootFlags, choice guestRunChoice) error {
 
 // Explicit local-only restarts never access credentials or the account API.
 func confirmGuestLabRun(cmd *cobra.Command, flags *rootFlags, acct *labAccount, withoutLogin bool) (*labAccount, bool, error) {
-	if flags.localOnly || acct != nil {
+	if flags.localOnly || flags.testMode || acct != nil {
 		return acct, true, nil
 	}
 	tty := isatty.IsTerminal(os.Stdin.Fd())

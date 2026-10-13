@@ -44,7 +44,7 @@ func checkTerms(cmd *cobra.Command, explicit bool) error {
 	}
 	in, inOK := cmd.InOrStdin().(*os.File)
 	out, outOK := cmd.ErrOrStderr().(*os.File)
-	interactive := inOK && outOK && isatty.IsTerminal(in.Fd()) && isatty.IsTerminal(out.Fd())
+	interactive := !runTestMode(cmd) && inOK && outOK && isatty.IsTerminal(in.Fd()) && isatty.IsTerminal(out.Fd())
 	return s.Ensure(cmd.Context(), cmd.InOrStdin(), cmd.ErrOrStderr(), interactive, terms.InCI(os.Getenv), explicit, Version)
 }
 

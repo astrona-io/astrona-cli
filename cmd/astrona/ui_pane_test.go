@@ -40,6 +40,9 @@ func TestWantsUIPane(t *testing.T) {
 		{[]string{"run", "--git", "--ui"}, false},
 		{[]string{"run", "lab"}, false},
 		{[]string{"shell", "lab"}, false},
+		{[]string{"run", "lab", "--test-mode"}, false},
+		{[]string{"run", "lab", "--test-mode", "--ui"}, false},
+		{[]string{"test", "./lab"}, false},
 	} {
 		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
 			if got := wantsUIPane(tc.args); got != tc.want {
