@@ -1,8 +1,14 @@
 package main
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	tea "github.com/charmbracelet/bubbletea"
+	uv "github.com/charmbracelet/ultraviolet"
+)
 
 func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
+	if m.terminalLocked {
+		return m.terminalMouse(msg)
+	}
 	if m.namingTab {
 		return nil
 	}
@@ -70,6 +76,14 @@ func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
 }
 
 func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
+	if !msg.Paste && msg.Type == tea.KeyCtrlCloseBracket && msg.Alt {
+		m.setTerminalLocked(false)
+		return nil
+	}
+	if m.terminalLocked {
+		m.sendTerminalKey(msg)
+		return nil
+	}
 	if m.selection != nil {
 		m.selection = nil
 		if !msg.Paste && msg.Type == tea.KeyEsc {
@@ -85,7 +99,14 @@ func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
 			if len(m.tabs) == 0 {
 				return m.start()
 			}
+		case "ctrl+y":
+			uiPaneControl("copy")
+			return nil
+		case "ctrl+]":
+			uiPaneControl("controls")
+			return nil
 		case "ctrl+b":
+			uiPaneControl("overview")
 			m.workspace.action = workspaceLeave
 			return tea.Quit
 		case "ctrl+t":
@@ -135,27 +156,101 @@ func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
 	if len(m.tabs) > 0 {
 		tab := m.tabs[m.active]
 		tab.mu.Lock()
-		defer tab.mu.Unlock()
 		if tab.disposed {
+			tab.mu.Unlock()
 			return nil
 		}
 		if !msg.Paste {
 			switch msg.String() {
 			case "shift+pgup":
 				tab.scroll = min(tab.emulator.ScrollbackLen(), tab.scroll+tab.emulator.Height())
+				tab.mu.Unlock()
 				return nil
 			case "shift+pgdown":
 				tab.scroll = max(0, tab.scroll-tab.emulator.Height())
+				tab.mu.Unlock()
 				return nil
 			}
 		}
-		tab.scroll = 0
-		if msg.String() == "alt+c" && !msg.Paste {
-			msg = tea.KeyMsg{Type: tea.KeyCtrlC}
-		}
-		if !tab.ended {
-			sendUIPaneKey(tab.emulator, msg)
-		}
+		tab.mu.Unlock()
+	}
+	m.sendTerminalKey(msg)
+	return nil
+}
+
+func (m *uiTaskModel) sendTerminalKey(msg tea.KeyMsg) {
+	if m.active < 0 || m.active >= len(m.tabs) {
+		return
+	}
+	tab := m.tabs[m.active]
+	tab.mu.Lock()
+	defer tab.mu.Unlock()
+	if tab.disposed || tab.ended {
+		return
+	}
+	m.setTerminalLocked(true)
+	tab.scroll = 0
+	sendUIPaneKey(tab.emulator, msg)
+}
+
+func (m *uiTaskModel) setTerminalLocked(locked bool) {
+	if m.terminalLocked == locked {
+		return
+	}
+	m.terminalLocked = locked
+	m.selection, m.dragging = nil, false
+	if locked {
+		m.taskFocus, m.namingTab = false, false
+		uiPaneControl("locked")
+	} else {
+		uiPaneControl("unlocked")
+	}
+}
+
+func (m *uiTaskModel) terminalMouse(msg tea.MouseMsg) tea.Cmd {
+	if m.active < 0 || m.active >= len(m.tabs) {
+		return nil
+	}
+	left, width, height := m.size()
+	x, y := msg.X-left-2, msg.Y-2
+	if x < 0 || x >= width || y < 0 || y >= height {
+		return nil
+	}
+	tab := m.tabs[m.active]
+	tab.mu.Lock()
+	defer tab.mu.Unlock()
+	if tab.disposed || tab.ended {
+		return nil
+	}
+	mouse := uv.Mouse{X: x, Y: y, Button: uv.MouseLeft}
+	switch msg.Button {
+	case tea.MouseButtonRight:
+		mouse.Button = uv.MouseRight
+	case tea.MouseButtonMiddle:
+		mouse.Button = uv.MouseMiddle
+	case tea.MouseButtonWheelUp:
+		mouse.Button = uv.MouseWheelUp
+	case tea.MouseButtonWheelDown:
+		mouse.Button = uv.MouseWheelDown
+	}
+	if msg.Alt {
+		mouse.Mod |= uv.ModAlt
+	}
+	if msg.Ctrl {
+		mouse.Mod |= uv.ModCtrl
+	}
+	if msg.Shift {
+		mouse.Mod |= uv.ModShift
+	}
+	switch {
+	case msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown:
+		tab.emulator.SendMouse(uv.MouseWheelEvent(mouse))
+	case msg.Action == tea.MouseActionPress:
+		tab.emulator.SendMouse(uv.MouseClickEvent(mouse))
+	case msg.Action == tea.MouseActionMotion:
+		tab.emulator.SendMouse(uv.MouseMotionEvent(mouse))
+	case msg.Action == tea.MouseActionRelease:
+		tab.emulator.SendMouse(uv.MouseReleaseEvent(mouse))
 	}
 	return nil
 }

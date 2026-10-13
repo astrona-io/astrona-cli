@@ -262,8 +262,10 @@ func TestUIOverviewStopsActivityImmediately(t *testing.T) {
 	if got := <-input; got != 2 {
 		t.Fatalf("key forwarded: %d", got)
 	}
+	// The inner task model decides whether this is a shell key or navigation.
+	m.Update(uiPaneOutput{data: []byte("\x1b]777;astrona;overview\a")})
 	if !m.activity.paused || !m.activityAway {
-		t.Fatal("Ctrl+B did not pause immediately")
+		t.Fatal("overview navigation did not pause immediately")
 	}
 	before := m.activity.total()
 	m.activity.update(now.Add(time.Hour))
