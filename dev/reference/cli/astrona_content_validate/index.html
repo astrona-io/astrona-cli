@@ -4599,13 +4599,15 @@
 <h2 id="astrona-content-validate">astrona content validate<a class="headerlink" href="#astrona-content-validate" title="Permanent link">&para;</a></h2>
 <p>Validate a lab or section directory (for teachers and authors)</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
-<p>Validate a lab config directory (Astrona Training Series - ATS, 'ats') or course section directory (Astrona Training Path - ATP, 'atp'). source is either a local folder path (the raw content files) or a git repository URL (https://, git@host:, ssh://, or a .git suffix), optionally pinned to a branch or tag with --git-ref.</p>
+<p>Validate a training repository (Astrona Training Series - ATS, 'ats': its astrona.yaml — readings, labs, playgrounds and quiz question banks, checked the way astrona.io reads them) or a course section directory (Astrona Training Path - ATP, 'atp'). source is either a local folder path (the raw content files) or a git repository URL (https://, git@host:, ssh://, or a .git suffix), optionally pinned to a branch or tag with --git-ref.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona content validate &lt;type&gt; &lt;source&gt; [flags]
 </code></pre></div>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>  astrona content validate atp ./paths/kubernetes-networking
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  astrona content validate atp https://github.com/astrona-io/kubernetes-networking-atp.git --git-ref v1.2.0
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  astrona content validate atp git@github.com:astrona-io/kubernetes-networking-atp.git --git-ref main
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>  astrona content validate ats ./ATS014
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  astrona content validate ats https://github.com/astrona-io/ATS014.git --git-ref main
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  astrona content validate atp ./paths/kubernetes-networking
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  astrona content validate atp https://github.com/astrona-io/kubernetes-networking-atp.git --git-ref v1.2.0
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  astrona content validate atp git@github.com:astrona-io/kubernetes-networking-atp.git --git-ref main
 </code></pre></div>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>      --git-ref string   Git branch, tag, or commit to check out (only used when source is a git URL)
