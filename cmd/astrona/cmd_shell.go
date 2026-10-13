@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -11,9 +12,11 @@ import (
 	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labshell"
 	"astrona/internal/lifecycle"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
+	"github.com/mattn/go-isatty"
 
 	"github.com/spf13/cobra"
 )
@@ -140,10 +143,10 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:               "shell [lab-name] [-- command [args...]]",
 		ValidArgsFunction: labCompletion(isKind),
-		Short:             "Open a shell (or run one command) with kubectl pointed at a kind lab",
-		Long: "Open your $SHELL with KUBECONFIG set to a kind lab's isolated kubeconfig, so plain " +
+		Short:             "Open an isolated terminal (or run one command) for a Kind lab",
+		Long: "Open an isolated container terminal with this Kind lab's credentials, so plain " +
 			"`kubectl`, `helm`, `k9s`, … talk to the lab — without changing your own kubectl " +
-			"current-context. Type `exit` to leave. $" + labShellEnvVar + " holds the lab name inside " +
+			"current-context. Files are saved under ~/" + apphome.Name() + "/runtime/<lab>/work, mounted as /workspace.\nYour home directory and host tools are not mounted. Tools are downloaded on first use.\nType `exit` to leave. $" + labShellEnvVar + " holds the lab name inside " +
 			"the shell (add it to your prompt if you like).\n\n" +
 			"After `--`, runs that one command instead of a shell (no shell parsing).\n\n" +
 			"A lab with linked clusters (runtime.kind.clusters) gets all of them: `kubectl --context " +
@@ -192,6 +195,10 @@ func runLabShell(lab, clusterFlag string, command []string) error {
 		return err
 	}
 
+	if c.Cancel != nil {
+		defer func() { _ = c.Cancel() }()
+	}
+
 	if len(command) > 0 {
 		return runAttached(c)
 	}
@@ -200,7 +207,7 @@ func runLabShell(lab, clusterFlag string, command []string) error {
 		uiPaneTitle("SHELL / " + target)
 		fmt.Fprint(os.Stdout, "\x1b[2J\x1b[H")
 	} else {
-		fmt.Fprintf(os.Stderr, "Entering lab shell for %s — kubectl now targets context kind-%s. Type `exit` to leave.\n", lab, target)
+		fmt.Fprintf(os.Stderr, "Opening isolated terminal for %s (context kind-%s). Work in /workspace; type `exit` to leave.\n", lab, target)
 	}
 	err = runAttached(c)
 	if os.Getenv(uiPaneEnv) != "1" {
@@ -214,8 +221,14 @@ func runLabShell(lab, clusterFlag string, command []string) error {
 }
 
 // labShellCommand shares the isolated lab environment with embedded terminals.
+var isolatedLabCommand = labshell.Command
+
 func labShellCommand(lab, clusterFlag string, command []string) (*exec.Cmd, string, error) {
-	kubeconfig, err := labKubeconfig(lab)
+	return labShellCommandContext(context.Background(), lab, clusterFlag, command)
+}
+
+func labShellCommandContext(ctx context.Context, lab, clusterFlag string, command []string) (*exec.Cmd, string, error) {
+	_, err := labKubeconfig(lab)
 	if err != nil {
 		return nil, "", err
 	}
@@ -223,7 +236,7 @@ func labShellCommand(lab, clusterFlag string, command []string) (*exec.Cmd, stri
 	// Linked clusters' kubeconfigs join the lab's own, so `kubectl
 	// --context kind-<linked cluster>` works in the shell too; --cluster
 	// puts one first, making it the default context.
-	links, linkEnv := lifecycle.Links(lab)
+	links, _ := lifecycle.Links(lab)
 	target := lab
 	if clusterFlag != "" {
 		if target, err = lifecycle.FindLinkedCluster(lab, clusterFlag, links); err != nil {
@@ -235,21 +248,8 @@ func labShellCommand(lab, clusterFlag string, command []string) (*exec.Cmd, stri
 			return nil, "", err
 		}
 	}
-	kubeconfigs := shellKubeconfigs(kubeconfig, target, links, cluster.ExistingKubeconfig)
-	env := append(os.Environ(), "KUBECONFIG="+strings.Join(kubeconfigs, string(os.PathListSeparator)), labShellEnvVar+"="+lab)
-	env = append(env, linkEnv...)
-	env = append(env, lifecycle.CAEnv(lab)...)
-
-	if len(command) == 0 {
-		shell := os.Getenv("SHELL")
-		if shell == "" {
-			shell = "/bin/sh"
-		}
-		command = []string{shell}
-	}
-	c := exec.Command(command[0], command[1:]...)
-	c.Env = env
-	return c, target, nil
+	c, err := isolatedLabCommand(ctx, lab, target, command, len(command) == 0 || isatty.IsTerminal(os.Stdin.Fd()))
+	return c, target, err
 }
 
 // Catch Ctrl-C in Astrona while the child handles it. Ignoring SIGINT would

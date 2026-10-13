@@ -447,6 +447,7 @@ func TestWorkspaceTerminalSmoke(t *testing.T) {
 	}
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("SHELL", "/bin/sh")
+	stubTerminalContainer(t)
 	workspaceKubeconfigFixture(t, "astro-demo")
 	workspaceKubeconfigFixture(t, "astro-demo-idp")
 	if err := cluster.WriteLinks("astro-demo", []cluster.LinkState{{Name: "idp", Cluster: "astro-demo-idp"}}); err != nil {

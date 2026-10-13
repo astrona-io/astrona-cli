@@ -17,13 +17,50 @@ import (
 
 func testUITerminals(t *testing.T) *uiTerminals {
 	t.Helper()
-	manager := newUITerminals(t.Context(), func(string) (*exec.Cmd, error) {
+	manager := newUITerminals(t.Context(), func(context.Context, string) (*exec.Cmd, error) {
 		cmd := exec.Command("/bin/sh")
 		cmd.Env = append(os.Environ(), "PS1=tabs-test> ", "ENV=/dev/null", "TERM=xterm-256color")
 		return cmd, nil
 	})
 	t.Cleanup(manager.close)
 	return manager
+}
+
+func TestUITerminalPreparationDoesNotBlockNavigation(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	entered := make(chan struct{})
+	manager := newUITerminals(ctx, func(ctx context.Context, _ string) (*exec.Cmd, error) {
+		close(entered)
+		<-ctx.Done()
+		return nil, ctx.Err()
+	})
+	defer manager.close()
+	started := make(chan tea.Msg, 1)
+	go func() { started <- manager.start("", 80, 24)() }()
+	<-entered
+	responsive := make(chan struct{})
+	go func() {
+		manager.snapshot()
+		close(responsive)
+	}()
+	select {
+	case <-responsive:
+	case <-time.After(time.Second):
+		cancel()
+		t.Fatal("preparing tools blocked UI snapshots")
+	}
+	closed := make(chan struct{})
+	go func() { manager.close(); close(closed) }()
+	select {
+	case <-closed:
+	case <-time.After(time.Second):
+		cancel()
+		t.Fatal("closing the UI did not cancel terminal preparation")
+	}
+	if msg := (<-started).(uiTerminalStarted); msg.err == nil {
+		t.Fatal("cancelled preparation opened a terminal")
+	}
 }
 
 func waitUITab(t *testing.T, tab *uiTerminalTab, want string) {
@@ -132,7 +169,7 @@ func TestUITaskProcessHelper(t *testing.T) {
 	}
 	ctx, closePool := uiTerminalContext(context.Background())
 	defer closePool()
-	m := workspaceModel{name: "astro-test-lab", runID: "one", task: "Create a pod beside the terminal", terminalCommand: func(string) (*exec.Cmd, error) {
+	m := workspaceModel{name: "astro-test-lab", runID: "one", task: "Create a pod beside the terminal", terminalCommand: func(context.Context, string) (*exec.Cmd, error) {
 		cmd := exec.Command("/bin/sh")
 		cmd.Env = append(os.Environ(), "PS1=task-shell> ", "ENV=/dev/null")
 		return cmd, nil
@@ -266,7 +303,7 @@ func TestUITerminalExitRemovesTabAndPreservesSelection(t *testing.T) {
 }
 
 func TestUITerminalBlockedInputDoesNotBlockNavigation(t *testing.T) {
-	manager := newUITerminals(t.Context(), func(string) (*exec.Cmd, error) {
+	manager := newUITerminals(t.Context(), func(context.Context, string) (*exec.Cmd, error) {
 		return exec.Command("/bin/sh", "-c", "stty -echo; printf ready; sleep 30"), nil
 	})
 	defer manager.close()

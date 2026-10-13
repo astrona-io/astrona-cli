@@ -200,6 +200,7 @@ func TestUIPaneProcessHelper(t *testing.T) {
 		os.Exit(18)
 	}
 	workspaceKubeconfigFixture(t, "astro-test-lab")
+	stubTerminalContainer(t)
 	t.Setenv("SHELL", "/bin/sh")
 	t.Setenv("PS1", "pane-shell> ")
 	t.Setenv("ENV", "/dev/null")
@@ -392,4 +393,20 @@ func TestUIPaneWheelMouseRouting(t *testing.T) {
 	if m.mouseDown {
 		t.Fatal("wheel started a text-selection drag")
 	}
+}
+
+// Terminal rendering tests use a local fixture process; labshell integration
+// tests separately exercise the real container boundary and Kubernetes access.
+func stubTerminalContainer(t *testing.T) {
+	t.Helper()
+	previous := isolatedLabCommand
+	isolatedLabCommand = func(ctx context.Context, lab, target string, command []string, tty bool) (*exec.Cmd, error) {
+		if len(command) == 0 {
+			command = []string{"/bin/sh"}
+		}
+		cmd := exec.CommandContext(ctx, command[0], command[1:]...)
+		cmd.Env = append(os.Environ(), "KUBECONFIG=/test-only/"+target, "ASTRONA_LAB="+lab)
+		return cmd, nil
+	}
+	t.Cleanup(func() { isolatedLabCommand = previous })
 }

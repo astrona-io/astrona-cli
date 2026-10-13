@@ -92,7 +92,7 @@ func TestUIQEMUTargetsAndStudentTerminal(t *testing.T) {
 		t.Fatal(err)
 	}
 	args := strings.Join(cmd.Args, " ")
-	for _, want := range []string{"-tt", "-l student", h.SSHKeyPath, h.KnownHosts, "-- 127.0.0.1", "astrona-cli >"} {
+	for _, want := range []string{"-tt", "-l student", h.SSHKeyPath, h.KnownHosts, "-- 127.0.0.1", "astrona-cli >", "-F /dev/null", "EscapeChar=none", "PermitLocalCommand=no", "ClearAllForwardings=yes", "ForwardAgent=no", "ForwardX11=no", "$HOME/.astrona/runtime/astro-vms"} {
 		if !strings.Contains(args, want) {
 			t.Fatalf("SSH arguments missing %q: %v", want, cmd.Args)
 		}
@@ -100,7 +100,7 @@ func TestUIQEMUTargetsAndStudentTerminal(t *testing.T) {
 	if strings.Contains(args, h.AdminKeyPath) {
 		t.Fatal("student terminal uses administrative identity")
 	}
-	manager := newUITerminals(t.Context(), func(string) (*exec.Cmd, error) { return cmd, nil })
+	manager := newUITerminals(t.Context(), func(context.Context, string) (*exec.Cmd, error) { return cmd, nil })
 	t.Cleanup(manager.close)
 	if result := manager.start("server", 80, 24)().(uiTerminalStarted); result.err != nil {
 		t.Fatal(result.err)

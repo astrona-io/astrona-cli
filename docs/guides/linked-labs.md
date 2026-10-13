@@ -123,7 +123,8 @@ Every linked cluster gets a fixed DNS name, `<name>.astrona.internal`, that reso
 127.0.0.1 idp.astrona.internal
 ```
 
-(astrona never edits `/etc/hosts` itself.)
+(Astrona never edits your host `/etc/hosts`. Isolated Kind terminals get these
+addresses in their own container hosts file.)
 
 ### Everything astrona publishes
 

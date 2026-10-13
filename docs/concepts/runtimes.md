@@ -146,18 +146,43 @@ Every kind lab gets its own kubeconfig, `~/.astrona/kind/<lab>/kubeconfig` (mode
 To work in a lab:
 
 ```sh
-astrona shell my-lab                      # your $SHELL with KUBECONFIG set; `exit` to leave
+astrona shell my-lab                      # isolated Bash terminal; `exit` to leave
 astrona shell my-lab -- k9s               # or run one command
 export KUBECONFIG=$(astrona kubeconfig my-lab)
 ```
 
 Inside `astrona shell`, `$ASTRONA_LAB` holds the lab name (e.g. add it to your prompt). With no lab-name, both commands use the lab config from `-c`, or the only running kind lab. A lab created by an older astrona (no isolated kubeconfig yet) gets one generated on first use.
 
-You can open `astrona ui` or run a lab with `--ui` from that shell. UI startup
-keeps the inherited kubeconfig context unchanged. Restarting an existing lab
-requires confirmation and uses the requested lab's source, never `$ASTRONA_LAB`,
-to choose what to discard. Context restoration is skipped inside the lab shell
-because its kubeconfig is isolated from your original one.
+### Terminal workspaces
+
+Kind terminals in the UI and `astrona shell` run in a dedicated container.
+`/workspace` is both the starting directory and `$HOME`, backed by
+`~/.astrona/runtime/<lab>/work` on your machine (`~/.astrona-dev` for development
+builds). New tabs and reopened terminals share this directory. To bring in a
+file, copy it into that directory from your normal host terminal.
+
+The first opening builds a tools image with Bash, kubectl, Helm, k9s, Git,
+Python, Vim and Nano. Later openings reuse it. This requires a running Docker
+or Podman engine and internet access for the first build. Host binaries and
+shell startup files are not available inside the terminal. Run Astrona commands,
+including `astrona resource`, from your normal host terminal or use the UI controls.
+
+The container receives only this lab's Kubernetes credentials, including its
+linked clusters. It has a read-only system filesystem, no added Linux capabilities,
+and no access to your home directory, SSH agent or container engine socket.
+`cd /` can explore the container's Linux filesystem; it cannot reach host paths.
+An isolation failure stops terminal startup; Astrona does not open a host shell
+as a fallback. Kubernetes commands still have administrative access to the lab's
+clusters. This protection covers student terminals, not author-supplied bootstrap,
+validation or resource scripts run by the host CLI.
+
+QEMU terminals and `astrona ssh` work inside the VM, starting in
+`~/.astrona/runtime/<lab>` in the remote user's home. No host directory is shared.
+SSH local-command escapes, user SSH configuration and agent forwarding are disabled.
+
+Closing a tab, returning to Home or reopening the UI preserves workspace files.
+Deleting the lab or playground and a full reset discard them. A soft reset keeps
+Kind workspace files. Copy anything you want to keep out before deleting a run.
 
 ### Port forwards
 

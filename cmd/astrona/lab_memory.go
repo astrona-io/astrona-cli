@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"astrona/internal/cluster"
+	"astrona/internal/labshell"
 	"astrona/internal/labstate"
 	"astrona/internal/resources"
 	"astrona/internal/ui"
@@ -135,6 +137,9 @@ func releaseLab(w io.Writer, clusterName string) {
 // forgetLab preserves completed-run history, then removes active lab memory
 // after ending its session (a playground's watchdog and clock, a lab's attempt).
 func forgetLab(clusterName string) {
+	if err := labshell.Remove(context.Background(), clusterName); err != nil {
+		ui.Warnf("could not remove terminal workspace: %s", err)
+	}
 	if st, err := labstate.Load(clusterName); err != nil {
 		ui.Warnf("could not read completed run for history: %s", err)
 	} else if err := labstate.RecordFinishedRun(clusterName, st, time.Now()); err != nil {

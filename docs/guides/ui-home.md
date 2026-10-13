@@ -192,8 +192,10 @@ and leaves the running lab untouched. Runs saved with only a remote config URL
 cannot be reopened this way because they have no local config copy.
 
 Enter from Home opens the question/task on the left and one terminal tab on
-the right. Kind shells use the lab's isolated kubeconfigs. QEMU terminals connect
-to the VM over SSH as its student user and open an interactive POSIX shell.
+the right. Kind shells run in an isolated container at `/workspace`, backed by
+`~/.astrona/runtime/<lab>/work` on your machine. Tabs share these files.
+QEMU terminals connect to the VM over SSH as its student user and start in
+`~/.astrona/runtime/<lab>` inside that VM.
 Commands and editors stay inside the terminal pane.
 
 | Key | Action |
@@ -235,8 +237,16 @@ keep enough space for the terminal, and Ctrl+O switches panes below 64 columns.
 
 Embedded terminals show `astrona-cli >` in light blue with white input text.
 Set `NO_COLOR=1` before starting Astrona to keep the prompt uncolored.
-Kind terminals running Bash, Zsh or Fish keep their startup configuration;
-Astrona replaces the prompt without editing your shell configuration files.
+Kind terminals use Bash with their own tools and configuration. Your host shell
+startup files, home directory, credentials and container socket are not mounted.
+The first terminal downloads its tools, including kubectl, Helm, k9s, Git, Python,
+Vim and Nano. If preparation fails, the UI shows the error and Retry.
+
+Files survive reopening and new tabs. Deleting the run or doing a full reset
+removes its workspace; a soft reset preserves it. Development builds use
+`~/.astrona-dev/runtime/<lab>/work` on the host. See
+[terminal workspaces](../concepts/runtimes.md#terminal-workspaces) for file access
+and the protection boundary.
 
 Click a terminal tab to switch to it. Type `exit` to close a shell and remove
 its tab. Closing the last shell opens a replacement on the same cluster or VM.

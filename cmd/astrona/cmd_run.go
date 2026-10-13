@@ -14,6 +14,7 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
+	"astrona/internal/labshell"
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/resources"
@@ -328,6 +329,9 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 	res, err := resources.Collect(cfg, baseDir)
 	if err != nil {
 		return err
+	}
+	if err := labshell.Remove(context.Background(), clusterName); err != nil {
+		return fmt.Errorf("clear the previous terminal workspace: %w", err)
 	}
 	resDir, err := resources.Snapshot(clusterName, baseDir, res)
 	if err != nil {
