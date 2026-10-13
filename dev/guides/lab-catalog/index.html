@@ -1572,6 +1572,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#paused-time-and-working-offline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paused time and working offline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-the-catalog-comes-from" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4501,6 +4512,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#paused-time-and-working-offline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paused time and working offline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-the-catalog-comes-from" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4643,7 +4665,10 @@ select another site:</p>
 <p>A playground that already stopped can't be renewed — run it again. <code>astrona reset</code> of a playground does what <code>run</code> does: a fresh playground session with a new clock and watchdog once it is rebuilt. If a playground fails to build, its session is stopped, so no time is counted for it.</p>
 <h2 id="resource-usage">Resource usage<a class="headerlink" href="#resource-usage" title="Permanent link">&para;</a></h2>
 <p>While a signed-in lab or playground runs, <code>astrona run</code> also starts a <strong>usage reporter</strong> — another detached <code>astrona</code> process — that measures what the lab uses on your computer and sends it to the lab session every 15 seconds: CPU in cores and memory in bytes, for the kind cluster and its linked clusters (<code>docker stats</code> / <code>podman stats</code>) or the lab's QEMU VMs (<code>ps</code>). Nothing else is sent: no command output, no file contents, no process names. Astrona uses it to show what labs really cost to run, and what practising locally saves against the cloud.</p>
-<p>The reporter ends on its own when the lab is destroyed or run again, when its session is gone or expired, or when the site stops taking samples (a lab that passed). It follows <code>astrona run renew</code>. Its output goes to <code>~/.astrona/labs/&lt;lab&gt;.usage.log</code>. <code>astrona submit</code> and <code>astrona destroy</code> also send a short summary (average and peak CPU and memory), which the site uses when no sample reached it. A local-only run, or one not signed in, sends nothing.</p>
+<p>The reporter ends on its own when the lab is destroyed or run again, when its session is gone or expired, or when the site stops taking samples (a lab that passed). It follows <code>astrona run renew</code>. Its output goes to <code>~/.astrona/labs/&lt;lab&gt;.usage.log</code>. <code>astrona submit</code> and playground deletion also send a short summary (average and peak CPU and memory), which the site uses when no sample reached it. A local-only run, or one not signed in, sends nothing.</p>
+<h2 id="paused-time-and-working-offline">Paused time and working offline<a class="headerlink" href="#paused-time-and-working-offline" title="Permanent link">&para;</a></h2>
+<p>The lab window (<code>astrona</code> / <code>astrona ui</code>) pauses your time after 3 minutes without input, or when you leave the lab (Ctrl+B). The lab's clock on Astrona pauses with it — the idle dialog appears once Astrona has answered and says so — and your next input resumes both. While another lab window of the same lab is in use, the clock keeps running. Time limits are not moved by a pause: a playground is still removed at its limit.</p>
+<p>Everything astrona tells Astrona about a running lab — pauses and resumes, resource samples, destroy and the time-limit stop — is saved on your computer first (<code>~/.astrona/outbox</code>) and then sent. If the connection drops, it waits there and goes out in order, with the time each thing happened, once Astrona is reachable again: from the lab window, the usage reporter, or a background <code>astrona</code> that the next command starts. The lab window shows the connection next to the Astrona logo: <strong>CONNECTED</strong>, <strong>SYNCING · n WAITING</strong>, <strong>OFFLINE · n WAITING</strong> (the logo turns red) or <strong>SIGNED OUT</strong> — signals then wait for <code>astrona login</code>. Graded results (<code>astrona submit</code>) are not kept this way; send them again when you are back online.</p>
 <h2 id="where-the-catalog-comes-from">Where the catalog comes from<a class="headerlink" href="#where-the-catalog-comes-from" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Published trainings</strong> — repositories in the <a href="https://github.com/astrona-io">astrona-io</a> organization with the <code>astrona-training</code> topic. astrona finds them with one GitHub search.</li>
