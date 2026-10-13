@@ -1561,6 +1561,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#resource-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-the-catalog-comes-from" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4479,6 +4490,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#resource-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-the-catalog-comes-from" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4618,6 +4640,9 @@ select another site:</p>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>it now stops and is removed at 18:35 (in 2h0m0s).
 </code></pre></div>
 <p>A playground that already stopped can't be renewed — run it again. <code>astrona reset</code> of a playground does what <code>run</code> does: a fresh playground session with a new clock and watchdog once it is rebuilt. If a playground fails to build, its session is stopped, so no time is counted for it.</p>
+<h2 id="resource-usage">Resource usage<a class="headerlink" href="#resource-usage" title="Permanent link">&para;</a></h2>
+<p>While a signed-in lab or playground runs, <code>astrona run</code> also starts a <strong>usage reporter</strong> — another detached <code>astrona</code> process — that measures what the lab uses on your computer and sends it to the lab session every 15 seconds: CPU in cores and memory in bytes, for the kind cluster and its linked clusters (<code>docker stats</code> / <code>podman stats</code>) or the lab's QEMU VMs (<code>ps</code>). Nothing else is sent: no command output, no file contents, no process names. Astrona uses it to show what labs really cost to run, and what practising locally saves against the cloud.</p>
+<p>The reporter ends on its own when the lab is destroyed or run again, when its session is gone or expired, or when the site stops taking samples (a lab that passed). It follows <code>astrona run renew</code>. Its output goes to <code>~/.astrona/labs/&lt;lab&gt;.usage.log</code>. <code>astrona submit</code> and <code>astrona destroy</code> also send a short summary (average and peak CPU and memory), which the site uses when no sample reached it. A local-only run, or one not signed in, sends nothing.</p>
 <h2 id="where-the-catalog-comes-from">Where the catalog comes from<a class="headerlink" href="#where-the-catalog-comes-from" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Published trainings</strong> — repositories in the <a href="https://github.com/astrona-io">astrona-io</a> organization with the <code>astrona-training</code> topic. astrona finds them with one GitHub search.</li>
