@@ -1264,6 +1264,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#lab-time-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lab time progress
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#cpu-and-memory" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4479,6 +4490,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#lab-time-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lab time progress
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#cpu-and-memory" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4750,7 +4772,11 @@ terminal focus; <strong>Overview</strong> leaves it released and keeps the timer
 </tr>
 <tr>
 <td>Ctrl+G</td>
-<td>Open lab details, cluster or VM selection, results and submission controls.</td>
+<td>Open lab details, cluster or VM selection and results.</td>
+</tr>
+<tr>
+<td>Ctrl+S</td>
+<td>Ask to submit a graded lab.</td>
 </tr>
 <tr>
 <td>Ctrl+Y</td>
@@ -4810,8 +4836,15 @@ live output. Typing also leaves native selection mode.</p>
 and terminals; Ctrl+T then opens a terminal for that target. Tab switches the
 task/results panel, and Page Up/Down scrolls. <code>p</code> opens preferences. Settings
 apply to future commands; cache policy is checked after the UI closes.</p>
-<p>Press <code>g</code> in lab details to submit a graded lab and return Home. The lab stays
-running after PASS or FAIL. Playgrounds do not offer submission. <code>q</code> opens the
+<p>For a graded lab, release terminal focus with <strong>Ctrl+Alt+]</strong>, then click
+<strong>Submit lab</strong> above the task or press <strong>Ctrl+S</strong>. The Yes/No dialog asks before
+running validation. No is selected initially; choose Yes with the arrow keys
+and Enter, press <code>y</code>, or click Yes. No, Esc or Ctrl+C returns to your work.
+While terminal focus is locked, Ctrl+S goes to the terminal app.</p>
+<p>You can also press <code>g</code> in lab details for the same confirmation. Submitting
+returns Home after PASS or FAIL and keeps the lab and terminal tabs running.
+Results use the run's existing account or local-only tracking settings.
+Playgrounds and labs without validation do not offer submission. <code>q</code> opens the
 exit menu, where you can leave running, submit, or request normal teardown.
 Confirm normal teardown with <code>y</code>; Enter cancels that confirmation.</p>
 <p>After a completed submission or successful destruction, Home shows the result
@@ -4830,6 +4863,17 @@ at least one VM is running; Home shows a degraded status when others stop.</p>
 <p>Standalone <code>astrona submit</code> and <code>astrona destroy</code> keep their normal terminal
 behavior. They do not automatically open Home. Closing a terminal never
 submits or destroys a lab; existing lab/playground time limits still apply.</p>
+<h2 id="lab-time-progress">Lab time progress<a class="headerlink" href="#lab-time-progress" title="Permanent link">&para;</a></h2>
+<p>While working in a lab, the header shows a progress bar with <strong>Used</strong> active
+time and <strong>Expected</strong> time. Small terminals show it in the footer. The estimate
+comes from <code>estimated_duration</code> in the task document's YAML front matter, such
+as <code>20m</code> or <code>1h30m</code>. If no valid positive estimate is provided, the UI says
+<strong>Expected time not provided</strong> and still shows time used.</p>
+<p>The bar uses the same clock as time spent. Idle pauses and returning to Home
+stop it; reopening the lab retains accumulated active time. Going over the
+estimate fills the bar and shows the extra time. It does not stop the lab or
+affect grading. Exam deadlines still apply separately. Playgrounds keep their
+existing timing display and do not show this lab progress bar.</p>
 <h2 id="cpu-and-memory">CPU and memory<a class="headerlink" href="#cpu-and-memory" title="Permanent link">&para;</a></h2>
 <p>Inside a lab, the header shows CPU, memory and their averages immediately to
 the left of the Astrona logo. Narrow terminals use a compact header. Home
