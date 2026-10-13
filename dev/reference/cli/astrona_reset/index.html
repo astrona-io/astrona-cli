@@ -4601,7 +4601,7 @@
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Start a lab over from scratch: run its teardown scripts, destroy it, then do everything <code>astrona run</code> does — the lab ends up exactly as a fresh <code>astrona run</code> leaves it. If the lab isn't running, it's simply created.</p>
 <p>The config is validated before anything is destroyed, so a broken config never leaves you without a lab. teardown.keepCluster is ignored — reset always recreates.</p>
-<p>Asks for confirmation (everything done in the lab is lost); --yes skips it and is required when not running in a terminal.</p>
+<p>Asks for confirmation (everything done in the lab is lost); --yes skips it and is required with --headless or when not running in a terminal. --headless also skips the login reminder and new account sessions.</p>
 <p>--cluster <name> rebuilds only that linked cluster (runtime.kind.clusters) of a running lab: its teardown scripts, destroy, then create and bootstrap it again (with the addresses of the clusters it dependsOn). The lab and its other clusters are left alone; port forwards into the rebuilt cluster are restarted.</p>
 <p>A full reset of a catalog lab asks for confirmation when signed out, like <code>astrona run</code> (--without-login confirms without prompting). When signed in, it starts a fresh session and reports when the rebuilt lab is ready for its course page. --soft and --cluster keep the current session and need no sign-in.</p>
 <p>Like <code>astrona run</code>, a full reset points kubectl at the lab (the context to go back to is still the one from before the lab first ran); --keep-context leaves it alone.</p>
@@ -4629,10 +4629,11 @@
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  -f, --file string       Configuration file name override (default "config.yaml")
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>      --git string        Git repository URL to clone/pull (https://, git@host:, or ssh://) — --config then selects a subdirectory within it
 <a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>      --git-ref string    Git branch, tag, or commit to check out (used with --git; default: the repo's default branch)
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>      --install-version   If the lab needs another astrona release (astronaVersion) that isn't installed, install it without asking — for CI
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>      --trust             Approve running a remote (--git / URL) lab without asking — for CI; review the lab first
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>      --update-check      Check for new CLI releases (disabled in CI, without a terminal, or by ASTRONA_NO_UPDATE_CHECK) (default true)
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>      --verbose           Stream the full output of every underlying command instead of the compact step view
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>      --headless          Disable the terminal UI and CLI prompts; run/reset skip login reminders and new account sessions
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>      --install-version   If the lab needs another astrona release (astronaVersion) that isn't installed, install it without asking — for CI
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>      --trust             Approve running a remote (--git / URL) lab without asking — for CI; review the lab first
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>      --update-check      Check for new CLI releases (disabled in CI, without a terminal, or by ASTRONA_NO_UPDATE_CHECK) (default true)
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>      --verbose           Stream the full output of every underlying command instead of the compact step view
 </code></pre></div>
 <h3 id="see-also">SEE ALSO<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h3>
 <ul>

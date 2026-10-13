@@ -4580,7 +4580,7 @@
 <p>Submit the running lab to the Proctor for grading: every validation check and script runs, a failed one shows its hint (if the lab author wrote one), and you get a score. Every attempt is recorded — <code>astrona submit --history</code> lists them. <code>--watch</code> re-grades continuously while you work, without recording attempts.</p>
 <p>Passing means every check passes, or — when the lab sets validation.passPercent — reaching that score.</p>
 <p>With no lab named, none picked with <code>astrona use</code> and no lab config in the current directory, the only running lab is submitted; with several running, it lists them and how to name each.</p>
-<p>A catalog lab started while signed in (<code>astrona run ATS…</code>) sends each result to its lab page on Astrona as well. After a passing result is sent, submit asks whether to delete the lab cluster now (Enter deletes it, exactly like <code>astrona destroy</code>); --keep, -o json or no terminal keep it. A failing result never asks — fix it and submit again.</p>
+<p>A catalog lab started while signed in (<code>astrona run ATS…</code>) sends each result to its lab page on Astrona as well. After a passing result is sent, submit asks whether to delete the lab cluster now (Enter deletes it, exactly like <code>astrona destroy</code>); --keep, --headless, -o json or no terminal keep it. A failing result never asks — fix it and submit again.</p>
 <p>Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong. Sending the result to Astrona never changes it.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona submit [lab] [flags]
 </code></pre></div>
@@ -4600,10 +4600,11 @@
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>  -f, --file string       Configuration file name override (default "config.yaml")
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>      --git string        Git repository URL to clone/pull (https://, git@host:, or ssh://) — --config then selects a subdirectory within it
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>      --git-ref string    Git branch, tag, or commit to check out (used with --git; default: the repo's default branch)
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>      --install-version   If the lab needs another astrona release (astronaVersion) that isn't installed, install it without asking — for CI
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>      --trust             Approve running a remote (--git / URL) lab without asking — for CI; review the lab first
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>      --update-check      Check for new CLI releases (disabled in CI, without a terminal, or by ASTRONA_NO_UPDATE_CHECK) (default true)
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>      --verbose           Stream the full output of every underlying command instead of the compact step view
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>      --headless          Disable the terminal UI and CLI prompts; run/reset skip login reminders and new account sessions
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>      --install-version   If the lab needs another astrona release (astronaVersion) that isn't installed, install it without asking — for CI
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>      --trust             Approve running a remote (--git / URL) lab without asking — for CI; review the lab first
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>      --update-check      Check for new CLI releases (disabled in CI, without a terminal, or by ASTRONA_NO_UPDATE_CHECK) (default true)
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>      --verbose           Stream the full output of every underlying command instead of the compact step view
 </code></pre></div>
 <h3 id="see-also">SEE ALSO<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h3>
 <ul>

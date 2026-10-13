@@ -4446,7 +4446,7 @@ with <code>workflow_dispatch</code> on a reviewed branch; it does not execute pu
 code automatically. Do not use sudo to run the test.</p>
 <p>The test creates two ordinary Kind clusters (one with a worker), then runs
 <code>ATS013/section-010/module-01/playground</code> signed out with explicit
-<code>--without-login</code> confirmation. It verifies API-server health, node readiness,
+<code>--headless</code> setup. It verifies API-server health, node readiness,
 CoreDNS rollout and a service DNS lookup from a pod. After destroying the lab,
 it checks that its containers and lab state are gone, the prior kubectl context
 is restored, and both existing fixture clusters are still healthy with the same
