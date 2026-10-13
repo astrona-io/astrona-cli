@@ -178,7 +178,7 @@ func TestUIRestartNeverUsesAccountAPI(t *testing.T) {
 	if sendResult(t.Context(), io.Discard, "astro-demo", state.Source, submissionResult{}) {
 		t.Fatal("stale session allowed upload")
 	}
-	endPlayground("astro-demo")
+	endRunSession("astro-demo")
 	if err := watchPlayground(t.Context(), "astro-demo", time.Millisecond); err != nil {
 		t.Fatal(err)
 	}
