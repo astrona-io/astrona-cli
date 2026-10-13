@@ -51,10 +51,8 @@ func readUIAccountStatus() tea.Msg {
 		return status
 	}
 	status.username = creds.Username
-	if !time.Now().Before(creds.AccessExpiresAt) {
-		status.label, status.warning = "Login needs checking", true
-		return status
-	}
+	// Access token expiry is routine: account commands renew it using the
+	// saved refresh token. The header reports the saved login, even offline.
 	status.label, status.signedIn = "Logged in", true
 	return status
 }

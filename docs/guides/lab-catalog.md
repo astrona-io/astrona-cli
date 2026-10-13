@@ -35,6 +35,12 @@ If you're already signed in on astrona.io, check that the code matches and click
 
 The sign-in is kept in `~/.astrona/credentials.json` (mode 0600; astrona refuses to use it if other users can read it) and renewed automatically; `astrona logout` revokes it on astrona.io and deletes the file. A credentials file from an older astrona (before website sign-in) no longer works: astrona treats you as signed out and asks you to run `astrona login` again.
 
+Updating the CLI keeps this login. Development builds made with `just build`
+use a separate login in `~/.astrona-dev/credentials.json`; rebuilding also keeps
+it. Switching between a development build and an installed release switches
+profiles, so each needs its own login. The UI header shows the active profile
+and site. `ASTRONA_URL` selects a different site without moving your saved login.
+
 Then `astrona run ATS014/…`:
 
 1. checks for an active sign-in **before** anything is fetched or built — signed out (or the sign-in expired), it runs locally without a session;
