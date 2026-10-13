@@ -193,7 +193,7 @@ func ValidateATS(dir string) (*ATSReport, error) {
 			}
 		case "quiz":
 			r.Quizzes++
-			if info.IsDir() || !(strings.HasSuffix(p, ".yaml") || strings.HasSuffix(p, ".yml")) {
+			if info.IsDir() || !strings.HasSuffix(p, ".yaml") && !strings.HasSuffix(p, ".yml") {
 				r.errorf("%s: a quiz is a question bank YAML file, not %s", label, p)
 				continue
 			}
