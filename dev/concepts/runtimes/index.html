@@ -1110,6 +1110,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#terminal-workspaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terminal workspaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#port-forwards" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4613,6 +4624,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#terminal-workspaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Terminal workspaces
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#port-forwards" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4811,16 +4833,36 @@
 </li>
 </ul>
 <p>To work in a lab:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>astrona<span class="w"> </span>shell<span class="w"> </span>my-lab<span class="w">                      </span><span class="c1"># your $SHELL with KUBECONFIG set; `exit` to leave</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>astrona<span class="w"> </span>shell<span class="w"> </span>my-lab<span class="w">                      </span><span class="c1"># isolated Bash terminal; `exit` to leave</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>astrona<span class="w"> </span>shell<span class="w"> </span>my-lab<span class="w"> </span>--<span class="w"> </span>k9s<span class="w">               </span><span class="c1"># or run one command</span>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">KUBECONFIG</span><span class="o">=</span><span class="k">$(</span>astrona<span class="w"> </span>kubeconfig<span class="w"> </span>my-lab<span class="k">)</span>
 </code></pre></div>
 <p>Inside <code>astrona shell</code>, <code>$ASTRONA_LAB</code> holds the lab name (e.g. add it to your prompt). With no lab-name, both commands use the lab config from <code>-c</code>, or the only running kind lab. A lab created by an older astrona (no isolated kubeconfig yet) gets one generated on first use.</p>
-<p>You can open <code>astrona ui</code> or run a lab with <code>--ui</code> from that shell. UI startup
-keeps the inherited kubeconfig context unchanged. Restarting an existing lab
-requires confirmation and uses the requested lab's source, never <code>$ASTRONA_LAB</code>,
-to choose what to discard. Context restoration is skipped inside the lab shell
-because its kubeconfig is isolated from your original one.</p>
+<h3 id="terminal-workspaces">Terminal workspaces<a class="headerlink" href="#terminal-workspaces" title="Permanent link">&para;</a></h3>
+<p>Kind terminals in the UI and <code>astrona shell</code> run in a dedicated container.
+<code>/workspace</code> is both the starting directory and <code>$HOME</code>, backed by
+<code>~/.astrona/runtime/&lt;lab&gt;/work</code> on your machine (<code>~/.astrona-dev</code> for development
+builds). New tabs and reopened terminals share this directory. To bring in a
+file, copy it into that directory from your normal host terminal.</p>
+<p>The first opening builds a tools image with Bash, kubectl, Helm, k9s, Git,
+Python, Vim and Nano. Later openings reuse it. This requires a running Docker
+or Podman engine and internet access for the first build. Host binaries and
+shell startup files are not available inside the terminal. Run Astrona commands,
+including <code>astrona resource</code>, from your normal host terminal or use the UI controls.</p>
+<p>The container receives only this lab's Kubernetes credentials, including its
+linked clusters. It has a read-only system filesystem, no added Linux capabilities,
+and no access to your home directory, SSH agent or container engine socket.
+<code>cd /</code> can explore the container's Linux filesystem; it cannot reach host paths.
+An isolation failure stops terminal startup; Astrona does not open a host shell
+as a fallback. Kubernetes commands still have administrative access to the lab's
+clusters. This protection covers student terminals, not author-supplied bootstrap,
+validation or resource scripts run by the host CLI.</p>
+<p>QEMU terminals and <code>astrona ssh</code> work inside the VM, starting in
+<code>~/.astrona/runtime/&lt;lab&gt;</code> in the remote user's home. No host directory is shared.
+SSH local-command escapes, user SSH configuration and agent forwarding are disabled.</p>
+<p>Closing a tab, returning to Home or reopening the UI preserves workspace files.
+Deleting the lab or playground and a full reset discard them. A soft reset keeps
+Kind workspace files. Copy anything you want to keep out before deleting a run.</p>
 <h3 id="port-forwards">Port forwards<a class="headerlink" href="#port-forwards" title="Permanent link">&para;</a></h3>
 <p>A kind lab can declare <a href="../../reference/lab-config/#runtimeportforwardsn"><code>runtime.portForwards</code></a> so a student reaches in-cluster services from their own browser or client, without running <code>kubectl port-forward</code> themselves:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">runtime</span><span class="p">:</span>

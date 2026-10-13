@@ -4909,7 +4909,8 @@
 <p><strong>The same URL on your machine:</strong> forward the service with <code>hostPort</code> equal to its <code>nodePort</code> (see <a href="#reaching-a-linked-cluster-from-your-machine">below</a>) and add the name to <code>/etc/hosts</code> once — then <code>http://idp.astrona.internal:30080</code> works in your browser and in the cluster, which is what an identity provider's issuer URL needs:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>127.0.0.1 idp.astrona.internal
 </code></pre></div>
-<p>(astrona never edits <code>/etc/hosts</code> itself.)</p>
+<p>(Astrona never edits your host <code>/etc/hosts</code>. Isolated Kind terminals get these
+addresses in their own container hosts file.)</p>
 <h3 id="everything-astrona-publishes">Everything astrona publishes<a class="headerlink" href="#everything-astrona-publishes" title="Permanent link">&para;</a></h3>
 <p>Astrona tells the lab where each linked cluster is:</p>
 <table>

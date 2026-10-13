@@ -4597,9 +4597,11 @@
   <h1>Astrona shell</h1>
 
 <h2 id="astrona-shell">astrona shell<a class="headerlink" href="#astrona-shell" title="Permanent link">&para;</a></h2>
-<p>Open a shell (or run one command) with kubectl pointed at a kind lab</p>
+<p>Open an isolated terminal (or run one command) for a Kind lab</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
-<p>Open your $SHELL with KUBECONFIG set to a kind lab's isolated kubeconfig, so plain <code>kubectl</code>, <code>helm</code>, <code>k9s</code>, … talk to the lab — without changing your own kubectl current-context. Type <code>exit</code> to leave. $ASTRONA_LAB holds the lab name inside the shell (add it to your prompt if you like).</p>
+<p>Open an isolated container terminal with this Kind lab's credentials, so plain <code>kubectl</code>, <code>helm</code>, <code>k9s</code>, … talk to the lab — without changing your own kubectl current-context. Files are saved under ~/.astrona/runtime/<lab>/work, mounted as /workspace.
+Your home directory and host tools are not mounted. Tools are downloaded on first use.
+Type <code>exit</code> to leave. $ASTRONA_LAB holds the lab name inside the shell (add it to your prompt if you like).</p>
 <p>After <code>--</code>, runs that one command instead of a shell (no shell parsing).</p>
 <p>A lab with linked clusters (runtime.kind.clusters) gets all of them: <code>kubectl --context $ASTRONA_CLUSTER_&lt;NAME&gt;_CONTEXT</code> reaches one. --cluster <name> makes a linked cluster the default instead.</p>
 <p>With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab. For qemu labs, use <code>astrona ssh</code>.</p>

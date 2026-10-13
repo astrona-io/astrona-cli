@@ -4605,7 +4605,7 @@
   astrona res copy <name> [dest]    copy it here (or to dest) to edit
   astrona res path <name>           print its path, for $(…) in your own commands
   astrona res run <name> [args…]    run it</p>
-<p>Which lab: --lab, else the lab of the <code>astrona shell</code> you're in ($ASTRONA_LAB), else the lab of -c/--git, else the one picked with <code>astrona use</code>, else the only lab with resources. With several labs open in several terminals, run <code>astrona shell &lt;lab&gt;</code> in each and every <code>astrona res</code> there works on that lab.</p>
+<p>Which lab: --lab, else $ASTRONA_LAB if set in your host terminal, else the lab of -c/--git, else the one picked with <code>astrona use</code>, else the only lab with resources. With several labs open in several terminals, run <code>astrona shell &lt;lab&gt;</code> in each and every <code>astrona res</code> there works on that lab.</p>
 <p>How <code>run</code> runs one: its run command from the lab (in its folder), .sh with bash, .yaml with kubectl apply -f, an executable with #! directly — in a kind lab always with KUBECONFIG set to the lab's own kubeconfig, so nothing reaches your other clusters ($ASTRONA_LAB and $ASTRONA_RESOURCE_DIR are set). In a qemu lab it's copied into the VM (~/astrona-resources/<name>) and run there as the account <code>astrona ssh</code> uses; --vm picks the VM of a multi-VM lab. A plain file can only be shown or copied.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona resource [flags]
 </code></pre></div>

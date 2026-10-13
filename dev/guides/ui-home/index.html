@@ -4682,8 +4682,10 @@ If the local config is missing, restore those files; the UI reports the problem
 and leaves the running lab untouched. Runs saved with only a remote config URL
 cannot be reopened this way because they have no local config copy.</p>
 <p>Enter from Home opens the question/task on the left and one terminal tab on
-the right. Kind shells use the lab's isolated kubeconfigs. QEMU terminals connect
-to the VM over SSH as its student user and open an interactive POSIX shell.
+the right. Kind shells run in an isolated container at <code>/workspace</code>, backed by
+<code>~/.astrona/runtime/&lt;lab&gt;/work</code> on your machine. Tabs share these files.
+QEMU terminals connect to the VM over SSH as its student user and start in
+<code>~/.astrona/runtime/&lt;lab&gt;</code> inside that VM.
 Commands and editors stay inside the terminal pane.</p>
 <table>
 <thead>
@@ -4760,8 +4762,15 @@ saved setting supplies the default when you open a new UI. Small terminals
 keep enough space for the terminal, and Ctrl+O switches panes below 64 columns.</p>
 <p>Embedded terminals show <code>astrona-cli &gt;</code> in light blue with white input text.
 Set <code>NO_COLOR=1</code> before starting Astrona to keep the prompt uncolored.
-Kind terminals running Bash, Zsh or Fish keep their startup configuration;
-Astrona replaces the prompt without editing your shell configuration files.</p>
+Kind terminals use Bash with their own tools and configuration. Your host shell
+startup files, home directory, credentials and container socket are not mounted.
+The first terminal downloads its tools, including kubectl, Helm, k9s, Git, Python,
+Vim and Nano. If preparation fails, the UI shows the error and Retry.</p>
+<p>Files survive reopening and new tabs. Deleting the run or doing a full reset
+removes its workspace; a soft reset preserves it. Development builds use
+<code>~/.astrona-dev/runtime/&lt;lab&gt;/work</code> on the host. See
+<a href="../../concepts/runtimes/#terminal-workspaces">terminal workspaces</a> for file access
+and the protection boundary.</p>
 <p>Click a terminal tab to switch to it. Type <code>exit</code> to close a shell and remove
 its tab. Closing the last shell opens a replacement on the same cluster or VM.
 If reconnection fails repeatedly, a Retry tab stays visible; press Enter to retry.
