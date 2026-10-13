@@ -12,6 +12,8 @@ func offerRunUI(args []string, in io.Reader, out io.Writer, interactive bool) ([
 		return args, nil
 	}
 	root := newRootCmd(&rootFlags{})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
 	cmd, rest, err := root.Find(args)
 	if err != nil || cmd.Name() != "run" || cmd.Parent() != root {
 		return args, nil
@@ -22,7 +24,7 @@ func offerRunUI(args []string, in io.Reader, out io.Writer, interactive bool) ([
 	}
 	help, _ := cmd.Flags().GetBool("help")
 	yes, _ := cmd.Flags().GetBool("yes")
-	if help || yes || runTestMode(cmd) || cmd.Flags().Changed("ui") || cmd.Flags().Changed("ui-startup") || cmd.ValidateArgs(cmd.Flags().Args()) != nil {
+	if help || yes || commandHeadless(cmd) || cmd.Flags().Changed("ui") || cmd.Flags().Changed("ui-startup") || cmd.ValidateArgs(cmd.Flags().Args()) != nil {
 		return args, nil
 	}
 	fmt.Fprintln(out, "Try Astrona's terminal UI to follow setup progress and work in terminal tabs.")

@@ -41,7 +41,7 @@ type rootFlags struct {
 	uiStartupApproved bool
 	uiRestart         *uiRunRestart
 	localOnly         bool
-	testMode          bool
+	headless          bool
 	// settingsFile is an optional path override for isolated command tests.
 	settingsFile string
 	settingsArgs []string
@@ -172,7 +172,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Name() != "use" {
 				applyCurrentLab(cmd, flags)
 			}
-			if flags.updateCheck && !flags.testMode && cmd.Name() != "ui" && !settingsReviewExempt(cmd) {
+			if flags.updateCheck && !flags.headless && cmd.Name() != "ui" && !settingsReviewExempt(cmd) {
 				checkLatestVersion(flags.verbose)
 			}
 			return nil
@@ -215,6 +215,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&flags.gitRef, "git-ref", "", "Git branch, tag, or commit to check out (used with --git; default: the repo's default branch)")
 	// No -v shorthand: Cobra reserves it for the auto-generated --version flag.
 	rootCmd.PersistentFlags().BoolVar(&flags.installVersion, "install-version", false, "If the lab needs another astrona release (astronaVersion) that isn't installed, install it without asking — for CI")
+	rootCmd.PersistentFlags().BoolVar(&flags.headless, "headless", false, "Disable the terminal UI and CLI prompts; run/reset skip login reminders and new account sessions")
 	rootCmd.PersistentFlags().BoolVar(&flags.trust, "trust", false, "Approve running a remote (--git / URL) lab without asking — for CI; review the lab first")
 	rootCmd.PersistentFlags().BoolVar(&flags.acceptTerms, "accept-terms", false, "Accept this CLI's usage terms and data-loss risk notice; required on each operational CI command (read: astrona terms)")
 	rootCmd.PersistentFlags().BoolVar(&flags.verbose, "verbose", false, "Stream the full output of every underlying command instead of the compact step view")

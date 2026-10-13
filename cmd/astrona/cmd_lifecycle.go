@@ -90,7 +90,7 @@ func newStopCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
-			rep, err := ui.NewReporter("stop", lab, flags.verbose)
+			rep, err := ui.New("stop", lab, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}
@@ -145,7 +145,7 @@ func newStartCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			rep, err := ui.NewReporter("start", lab, flags.verbose)
+			rep, err := ui.New("start", lab, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}

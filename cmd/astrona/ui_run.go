@@ -29,11 +29,11 @@ type uiRunNotice struct {
 // settings application, catalog downloads or lab operations.
 func installUIRunGate(root *cobra.Command, flags *rootFlags, confirm func(*cobra.Command, uiRunNotice) (bool, error)) {
 	installCommandGate(root, func(cmd *cobra.Command) error {
+		if err := configureHeadless(cmd); err != nil {
+			return err
+		}
 		if cmd.Name() != "run" || cmd.Parent() != root {
 			return nil
-		}
-		if err := configureRunTestMode(cmd); err != nil {
-			return err
 		}
 		ui, err := cmd.Flags().GetBool("ui")
 		if err != nil {

@@ -54,7 +54,7 @@ func TestRunUIInvitation(t *testing.T) {
 func TestRunUIInvitationSkipsExplicitAndNoninteractiveCommands(t *testing.T) {
 	for _, args := range [][]string{
 		{"run", "lab", "--ui"}, {"run", "lab", "--ui=false"},
-		{"run", "lab", "--test-mode"}, {"test", "./lab"},
+		{"run", "lab", "--test-mode"}, {"run", "lab", "--headless"}, {"test", "./lab"},
 		{"run", "lab", "--ui-startup"}, {"run", "lab", "--yes"}, {"run", "lab", "-y"},
 		{"run", "lab", "--help"}, {"help", "run"}, {"run", "lab", "--unknown"},
 		{"run", "one", "two"}, {"run", "renew"}, {"ui"}, {"list"}, {},

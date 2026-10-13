@@ -4,26 +4,26 @@
 
 ## Headless setup for external checks
 
-Use `--test-mode` when your own script needs to check a running lab. This works
+Use `--headless` when your own script needs to check a running lab. This works
 with Kind and QEMU and keeps running without the UI when the UI becomes the
 default in v0.5.0 and later.
 
 After reviewing the CLI settings (see the job below):
 
 ```sh
-astrona run ./examples/k8s-basics-01 --test-mode --accept-terms
+astrona run ./examples/k8s-basics-01 --headless --accept-terms
 # Run your checks against the running lab.
-astrona destroy -c ./examples/k8s-basics-01
+astrona destroy --headless -c ./examples/k8s-basics-01
 ```
 
 For a catalog lab, also approve its remote code:
 
 ```sh
-astrona run ATS000/section-010/module-01/lab-01 --test-mode --accept-terms --trust
+astrona run ATS000/section-010/module-01/lab-01 --headless --accept-terms --trust
 ```
 
-Test mode skips the UI invitation, login reminder and new account sessions,
-even when run in a terminal. It returns after setup with the lab still running.
+For run and full reset, headless mode skips the UI invitation, login reminder and new account sessions,
+even when run in a terminal. The command returns after setup with the lab still running.
 It uses the normal lab name and does real provisioning; it does not apply the
 reference solution, grade the lab or clean up automatically. Arrange cleanup
 after failed checks as well as successful ones.
@@ -32,11 +32,49 @@ Missing terms acceptance, settings review or remote-code trust causes an error
 instead of a CLI prompt. An existing lab requires explicit `--yes` to replace
 it, deleting its work. Other running labs are left alone. Use a dedicated CI
 environment to avoid replacing a lab you are working on. External lab scripts
-must also be written to run without interactive input. `--test-mode` cannot be
+must also be written to run without interactive input. `--headless` cannot be
 combined with `--ui` or `--ui-startup`.
 
 For the complete setup, reference solution, grading and cleanup workflow, keep
 using `astrona test`. That command also remains headless in v0.5.0 and later.
+
+## Headless commands
+
+`--headless` is a global flag: place it before the command or alongside its
+other flags. Use it instead of `run --test-mode`; the old name remains a hidden,
+deprecated alias for existing scripts and prints a migration notice.
+
+| Commands | Headless behavior |
+| --- | --- |
+| `run`, `reset` | Set up Kind or QEMU without UI prompts or new account sessions. Replacing a run still requires `--yes`; soft and linked-cluster resets also require it. |
+| `test`, `validate`, `check`, `doctor`, `diagnose` | Run with explicit approvals and static progress output. `test` retains automatic grading and cleanup. |
+| `submit` | Grade as usual and keep the lab without asking to delete it. Existing account sessions still receive results. |
+| `start`, `stop`, `destroy`, `list`, `status`, `progress` | Use the normal command-line behavior and applicable approval rules. Lifecycle progress does not animate. |
+| `bundle` | Require saved trust or `--trust` before loading unapproved content. |
+| `res run` | Run a resource for external checks. QEMU uses SSH batch mode without allocating a terminal. |
+| `setup` | Require `--yes` to install, or `--dry-run` to inspect the plan. |
+| `settings review` | Require the exact `--accept <review-id>` if a review is pending. |
+| `login` | Print an authorization link without opening a browser; still wait for approval on that site. |
+
+Read-only commands also accept the flag. Explicit watch commands continue
+until cancelled; submission and port-forward watches append output instead
+of clearing the screen. External scripts must supply their own noninteractive
+options.
+
+`ui`, `shell` and `ssh` open interactive sessions, so they reject
+`--headless`. For scripted work in a QEMU VM, use a lab resource through
+`astrona res run <name> --headless`.
+
+Headless mode does not approve downloads or destructive actions, and does not
+mean offline. It suppresses automatic release checks. Explicit account commands,
+submissions for an existing tracked session, and cleanup of that session retain
+their normal API behavior.
+
+```sh
+astrona reset ./examples/k8s-basics-01 --headless --yes --accept-terms
+astrona submit ./examples/k8s-basics-01 --headless --accept-terms -o json
+astrona test ./examples/k8s-basics-01 --headless --accept-terms --junit-xml=report.xml
+```
 
 ## Minimal GitHub Actions job
 
@@ -76,13 +114,13 @@ jobs:
           ./astrona settings review --accept "${ASTRONA_SETTINGS_REVIEW_ID:?Set the reviewed ID in repository variables first}"
 
       - name: astrona check
-        run: ./astrona check --accept-terms
+        run: ./astrona check --headless --accept-terms
 
       - name: astrona validate
-        run: ./astrona validate --accept-terms -c .
+        run: ./astrona validate --headless --accept-terms -c .
 
       - name: astrona test
-        run: ./astrona test --accept-terms -c . --junit-xml=junit-report.xml --diagnostics-dir=astrona-diagnostics
+        run: ./astrona test --headless --accept-terms -c . --junit-xml=junit-report.xml --diagnostics-dir=astrona-diagnostics
 
       - name: Upload JUnit report
         if: always()

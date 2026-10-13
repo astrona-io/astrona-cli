@@ -89,7 +89,7 @@ jobs:
           source .github/scripts/review-test-settings.sh
           prepare_test_settings ./astrona
           export PATH="$(go env GOPATH)/bin:$PATH"
-          ./astrona check --accept-terms
+          ./astrona check --headless --accept-terms
 
       # Docker is already available on GitHub-hosted ubuntu-latest runners,
       # which is all the kind runtime needs — no nested virtualization
@@ -100,7 +100,7 @@ jobs:
       - name: astrona test (k8s-basics-01)
         run: |
           export PATH="$(go env GOPATH)/bin:$PATH"
-          ./astrona test --accept-terms -c examples/k8s-basics-01 --junit-xml=junit-k8s-basics-01.xml --diagnostics-dir=e2e-diagnostics
+          ./astrona test --headless --accept-terms -c examples/k8s-basics-01 --junit-xml=junit-k8s-basics-01.xml --diagnostics-dir=e2e-diagnostics
 
       - name: Upload JUnit report
         if: always()
@@ -152,7 +152,7 @@ jobs:
           source .github/scripts/review-test-settings.sh
           prepare_test_settings ./astrona
           export PATH="$(go env GOPATH)/bin:$PATH"
-          ./astrona test --accept-terms -c examples/linked-labs-01 --junit-xml=junit-linked-labs-01.xml --diagnostics-dir=e2e-diagnostics
+          ./astrona test --headless --accept-terms -c examples/linked-labs-01 --junit-xml=junit-linked-labs-01.xml --diagnostics-dir=e2e-diagnostics
 
       - name: No clusters left behind
         if: always()

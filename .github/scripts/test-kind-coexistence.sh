@@ -46,7 +46,7 @@ cleanup() {
     cp -R "$state_home/$state_dir/logs" "$state_home/$state_dir/diagnostics" "$artifacts/astrona" 2>/dev/null || true
   fi
   if [[ "$lab_started" == true ]]; then
-    run_astrona destroy "$cluster" --verbose || true
+    run_astrona destroy --headless "$cluster" --verbose || true
     kind delete cluster --name "$cluster" || true
   fi
   if [[ "$fixture2_started" == true ]]; then kind delete cluster --name "$fixture2" || result=1; fi
@@ -96,7 +96,7 @@ test -n "$before_containers"
 test -n "$before_containers2"
 
 lab_started=true
-run_astrona run "$lab" --test-mode --trust --verbose < /dev/null 2>&1 | tee "$artifacts/run.log"
+run_astrona run "$lab" --headless --trust --verbose < /dev/null 2>&1 | tee "$artifacts/run.log"
 kubectl --context "kind-$cluster" get --raw='/readyz?verbose'
 kubectl --context "kind-$cluster" wait --for=condition=Ready nodes --all --timeout=180s
 kubectl --context "kind-$cluster" -n kube-system rollout status deployment/coredns --timeout=180s
@@ -106,7 +106,7 @@ kubectl --context "kind-$cluster" run dns-probe --image=docker.io/library/busybo
 kubectl --context "kind-$cluster" wait --for=jsonpath='{.status.phase}'=Succeeded pod/dns-probe --timeout=180s
 kubectl --context "kind-$cluster" logs dns-probe | tee "$artifacts/dns.log"
 test ! -e "$state_home/$state_dir/credentials.json"
-run_astrona destroy "$lab" --verbose 2>&1 | tee "$artifacts/destroy.log"
+run_astrona destroy --headless "$lab" --verbose 2>&1 | tee "$artifacts/destroy.log"
 clusters="$(kind get clusters)"
 if grep -Fxq "$cluster" <<< "$clusters"; then echo 'Destroy left the lab running' >&2; exit 1; fi
 test -z "$("$engine" ps -aq --filter "label=io.x-k8s.kind.cluster=$cluster")"

@@ -74,7 +74,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			rep, err := ui.NewReporter("test", cfg.Metadata.Name, flags.verbose)
+			rep, err := ui.New("test", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}
