@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -204,17 +205,45 @@ func stopPlaygroundClock(ctx context.Context, sess *labstate.Session, reason str
 	}
 }
 
-// endPlayground runs when a lab is forgotten (destroyed, or replaced by a
+// endRunSession runs when a lab is forgotten (destroyed, or replaced by a
 // fresh run): a playground's watchdog is stopped — unless that is us — and
-// its clock is stopped as "destroyed".
-func endPlayground(clusterName string) {
+// its clock is stopped as "destroyed"; a lab's session is closed as
+// "destroyed" (the site leaves one that already passed as it is).
+func endRunSession(clusterName string) {
 	st, err := labstate.Load(clusterName)
-	if err != nil || st == nil || !st.Session.IsPlayground() {
+	if err != nil || st == nil || st.Session == nil {
+		return
+	}
+	if !st.Session.IsPlayground() {
+		if !st.LocalOnly {
+			endLabSession(context.Background(), st.Session, runUsageReport(clusterName, st))
+		}
 		return
 	}
 	stopWatchdog(st.Session.WatchdogPID, clusterName)
 	if !st.LocalOnly {
 		stopPlaygroundClock(context.Background(), st.Session, "destroyed", runUsageReport(clusterName, st))
+	}
+}
+
+// endLabSession tells the site a lab was destroyed, so the attempt stops
+// showing as running; it never counts unless it passed before. A failure is a
+// warning: the attempt then ends at its time limit.
+func endLabSession(ctx context.Context, sess *labstate.Session, usage *account.UsageReport) {
+	client, store, _, err := accountDeps()
+	if err != nil {
+		ui.Warnf("couldn't tell Astrona the lab was destroyed: %s", err)
+		return
+	}
+	creds, err := client.Active(ctx, store, sess.Site)
+	if err != nil {
+		ui.Warnf("couldn't tell %s the lab was destroyed: %s — the attempt ends at its time limit", sess.Site, err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	if err := client.StopLabSession(ctx, store, creds, sess.ID, "destroyed", usage); err != nil && !errors.Is(err, account.ErrSessionGone) {
+		ui.Warnf("couldn't tell %s the lab was destroyed: %s — the attempt ends at its time limit", sess.Site, err)
 	}
 }
 
@@ -225,7 +254,7 @@ func endPlayground(clusterName string) {
 // forgotten. The rest (where the lab came from, the kubectl context to go
 // back to) stays for the new run.
 func endOldSession(clusterName string) {
-	endPlayground(clusterName)
+	endRunSession(clusterName)
 	if err := labstate.Update(clusterName, func(s *labstate.State) { s.Session = nil }); err != nil {
 		ui.Warnf("could not forget the lab's previous session: %s", err)
 	}
