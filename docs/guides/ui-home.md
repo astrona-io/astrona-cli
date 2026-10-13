@@ -69,12 +69,19 @@ Page Up/Down scrolls it, and Esc returns. Save confirmations use status panels.
 
 ## Time spent and idle pauses
 
-Opening a lab workspace starts a local time spent counter. Keyboard input in
-the workspace or its embedded shell counts as activity. After five minutes
-without input, an idle dialog pauses the counter and excludes the idle interval
-back to your last input. Press Enter on **Continue** to resume; that keypress is
-consumed by the dialog. Output, polling and background commands do not count
-as activity. The lab and commands keep running while the counter is paused.
+Opening a lab or playground workspace starts a local time spent counter.
+Keyboard input and mouse clicks or drags in that window count as activity.
+After **three minutes without input to that window**, an idle dialog pauses the
+counter and excludes the idle interval back to your last input. Typing in
+another application or terminal does not keep this window active. Output,
+refreshes, focus changes and background commands do not count as activity.
+
+**Continue** is selected by default. Press Enter to resume; that keypress is
+consumed by the dialog. Use Left/Right or Tab to select **Overview**, then Enter
+to return there while remaining paused. Esc or Ctrl+C also returns to the
+overview. Other keys and pasted text do not resume the timer or reach the shell.
+The dialog also appears during native copy mode or pane controls. The lab and
+commands keep running while time tracking is paused.
 
 Ctrl+C returns to Home and pauses the counter immediately. Terminal tabs and
 background commands keep running, but their output does not add time. Reopening
@@ -85,7 +92,10 @@ one UI is working in that lab; **Paused** means none is active. Watching Home
 does not resume a timer. Other UIs refresh this state about every five seconds;
 a crashed UI stops being considered active after 15 seconds.
 
-The footer shows active time and whether it is paused. Home's Active column
+The dialog and footer show the same frozen time while this window is paused.
+If another Astrona window is actively working in the same lab, Home's shared
+total can still increase. Continuing synchronizes this window with that total
+without counting its idle interval. Home's Active column
 and finished-run history retain the recorded time. Checkpoints are saved every
 five seconds and on pause, resume and exit. Time with the UI closed is not
 counted, and overlapping UI sessions are counted once. Older runs show a dash

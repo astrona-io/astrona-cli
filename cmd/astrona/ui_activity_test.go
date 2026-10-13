@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,6 +44,177 @@ func TestUIActivityPausesAndRequiresContinue(t *testing.T) {
 	}
 	if m.activity.total() != time.Minute {
 		t.Fatal("continue counted idle time")
+	}
+}
+
+func activityTestPane(t *testing.T, now time.Time) *uiPaneModel {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+	stamp := now.UTC().Format(time.RFC3339)
+	if err := labstate.Save("astro-lab", &labstate.State{StartedAt: stamp}); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "target.json")
+	data, _ := json.Marshal(uiActivityTarget{"astro-lab", stamp, "one"})
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := newUIPaneModel(nil, nil, 120, 30)
+	t.Cleanup(func() { _ = m.emulator.Close() })
+	m.title, m.activityPath = "TASK / astro-lab", path
+	m.activityTick(now)
+	return m
+}
+
+func TestUIIdleDeadlineIgnoresOutputAndRefresh(t *testing.T) {
+	start := time.Now().UTC().Truncate(time.Second)
+	m := activityTestPane(t, start)
+	// One minute of work, followed by eleven minutes with output but no input.
+	m.activity.input(start.Add(time.Minute))
+	for seconds := 61; seconds <= 12*60; seconds++ {
+		now := start.Add(time.Duration(seconds) * time.Second)
+		m.Update(uiPaneOutput{data: []byte("\rbackground output")})
+		m.Update(uiLoadingTick{})
+		m.Update(uiAccountStatus{label: "Logged in", signedIn: true})
+		m.Update(uiHomeSnapshot{})
+		m.Update(tea.FocusMsg{})
+		m.Update(tea.BlurMsg{})
+		m.Update(uiActivityTick(now))
+		if m.activity.lastInput != start.Add(time.Minute) {
+			t.Fatal("output, focus or refresh counted as input")
+		}
+		if seconds < 4*60 {
+			if m.activity.paused {
+				t.Fatal("paused before three minutes of inactivity")
+			}
+			continue
+		}
+		if !m.activity.paused || m.timeSpent() != time.Minute {
+			t.Fatalf("at %ds: paused=%v time=%s", seconds, m.activity.paused, m.timeSpent())
+		}
+	}
+	view := ansi.Strip(m.View())
+	for _, want := range []string{"No input in this lab window for 3 minutes", "[ Continue ]", "Overview", "Time spent paused at " + formatUptime(time.Minute), "Time spent: " + formatUptime(time.Minute) + " · Paused"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("idle view missing %q", want)
+		}
+	}
+	if active, err := labstate.HasActiveUI("astro-lab", m.activity.target.Started, start.Add(12*time.Minute)); err != nil || active {
+		t.Fatalf("overview still sees this window as active: %v, %v", active, err)
+	}
+}
+
+func TestUIPausedCounterIgnoresOtherWindows(t *testing.T) {
+	start := time.Now().UTC().Truncate(time.Second)
+	m := activityTestPane(t, start)
+	m.activity.input(start.Add(time.Minute))
+	m.activityTick(start.Add(4 * time.Minute))
+	if !m.activity.paused || m.timeSpent() != time.Minute {
+		t.Fatal("window did not pause")
+	}
+	for minute := 5; minute <= 15; minute++ {
+		now := start.Add(time.Duration(minute) * time.Minute)
+		other := []labstate.ActivityPeriod{{Start: start, End: now}}
+		if err := labstate.SaveActivity("astro-lab", m.activity.target.Started, "other-window", other); err != nil {
+			t.Fatal(err)
+		}
+		if err := labstate.SavePresence("astro-lab", m.activity.target.Started, "other-window", true, now); err != nil {
+			t.Fatal(err)
+		}
+		m.activityTick(now)
+		if !m.activity.paused || m.timeSpent() != time.Minute {
+			t.Fatal("another window advanced the paused counter")
+		}
+	}
+	total, _, err := labstate.ActiveTime("astro-lab", m.activity.target.Started)
+	if err != nil || total != 15*time.Minute {
+		t.Fatalf("overview total = %s, %v", total, err)
+	}
+	m.handleKey(tea.KeyMsg{Type: tea.KeyEnter}, start.Add(16*time.Minute))
+	if m.activity.paused || m.activityTimeFrozen || m.activity.total() != time.Minute || m.timeSpent() != 15*time.Minute {
+		t.Fatal("Continue did not resume and synchronize the shared total")
+	}
+}
+
+func TestUIIdleOverridesCopyModeAndReadErrors(t *testing.T) {
+	start := time.Now().UTC().Truncate(time.Second)
+	m := activityTestPane(t, start)
+	m.selectText, m.selectionView, m.controls = true, "frozen copy view", true
+	if err := os.WriteFile(m.activityPath, []byte("invalid JSON"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := m.activityTick(start.Add(3 * time.Minute))
+	if cmd == nil || !m.activity.paused || m.controls || m.selectText || m.selectionView != "" {
+		t.Fatal("read error or copy mode concealed the idle dialog")
+	}
+	if !strings.Contains(ansi.Strip(m.View()), "IDLE · TIME PAUSED") {
+		t.Fatal("idle dialog missing")
+	}
+	for _, key := range []tea.KeyMsg{{Type: tea.KeyCtrlY}, {Type: tea.KeyCtrlCloseBracket}, {Type: tea.KeyRunes, Runes: []rune("typed elsewhere")}, {Type: tea.KeyEnter, Paste: true}} {
+		m.handleKey(key, start.Add(4*time.Minute))
+		if !m.activity.paused || m.selectText || m.controls {
+			t.Fatal("input bypassed the idle dialog")
+		}
+	}
+}
+
+func TestUIInputAfterDeadlineCannotSkipPause(t *testing.T) {
+	for _, mouse := range []bool{false, true} {
+		t.Run(map[bool]string{false: "keyboard", true: "mouse"}[mouse], func(t *testing.T) {
+			start := time.Now().Add(-4 * time.Minute).UTC().Truncate(time.Second)
+			m := activityTestPane(t, start)
+			m.idleOverview = true
+			if mouse {
+				m.Update(tea.MouseMsg{X: 2, Y: uiHeaderHeight(m.width, m.height) + 2, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+			} else {
+				m.key(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("do not send")})
+			}
+			if !m.activity.paused || m.idleOverview || m.activity.lastInput != start || m.timeSpent() != 0 {
+				t.Fatal("first input after a delayed tick bypassed the idle dialog")
+			}
+		})
+	}
+}
+
+func TestUIIdleOverviewChoice(t *testing.T) {
+	for _, title := range []string{"TASK / astro-lab", "WORKSPACE / astro-lab", "PREFERENCES"} {
+		t.Run(title, func(t *testing.T) {
+			start := time.Now().UTC().Truncate(time.Second)
+			m := activityTestPane(t, start)
+			m.title = title
+			m.activityTick(start.Add(3 * time.Minute))
+			m.handleKey(tea.KeyMsg{Type: tea.KeyTab}, start.Add(4*time.Minute))
+			if !m.idleOverview || !strings.Contains(ansi.Strip(m.View()), "[ Overview ]") {
+				t.Fatal("Overview could not be selected")
+			}
+			want := "\x03"
+			if title == "PREFERENCES" {
+				want = "\x1b\x0f"
+			}
+			read := make(chan string, 1)
+			go func() {
+				buf := make([]byte, len(want))
+				_, _ = io.ReadFull(m.emulator, buf)
+				read <- string(buf)
+			}()
+			m.handleKey(tea.KeyMsg{Type: tea.KeyEnter}, start.Add(4*time.Minute))
+			select {
+			case got := <-read:
+				if got != want {
+					t.Fatalf("overview input = %q", got)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("overview action was not forwarded")
+			}
+			if !m.activityAway || !m.activity.paused || strings.Contains(ansi.Strip(m.View()), "IDLE · TIME PAUSED") {
+				t.Fatal("Overview resumed activity or kept the dialog open")
+			}
+		})
+	}
+	m := workspaceModel{showPreferences: true}
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlO, Alt: true})
+	if cmd == nil || next.(workspaceModel).action != workspaceLeave {
+		t.Fatal("idle Overview did not leave preferences")
 	}
 }
 
