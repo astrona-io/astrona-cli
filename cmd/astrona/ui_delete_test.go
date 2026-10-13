@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"astrona/internal/labstate"
+	"astrona/internal/outbox"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -148,7 +149,7 @@ func TestDeletionReportsPlaygroundsWithoutSubmittingLabs(t *testing.T) {
 					t.Fatalf("stop reason: %v", body)
 				}
 				if kind == "lab" {
-					if len(body) != 1 {
+					if len(body) != 2 || body["at"] == nil {
 						t.Fatalf("unsubmitted lab sent data beyond session closure: %v", body)
 					}
 				} else {
@@ -174,5 +175,54 @@ func TestUIDeleteExplainsTracking(t *testing.T) {
 		if got := uiDeleteMessage(tc.run, false); !strings.Contains(got, tc.want) {
 			t.Fatalf("warning = %s", got)
 		}
+	}
+}
+
+func TestOfflineDeletionReplaysOnlyPlaygroundUsage(t *testing.T) {
+	for _, kind := range []string{"lab", "playground"} {
+		t.Run(kind, func(t *testing.T) {
+			site := newPlaygroundSite(t)
+			site.signIn(t)
+			started := time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)
+			st := &labstate.State{StartedAt: started, Session: &labstate.Session{Site: site.srv.URL, ID: "offline-session", Kind: kind}}
+			if err := labstate.Save("astro-offline", st); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := labstate.RecordUsage("astro-offline", started, 50, 1024, time.Now()); err != nil {
+				t.Fatal(err)
+			}
+			previous := flushOutbox
+			t.Cleanup(func() { flushOutbox = previous })
+			flushOutbox = func(context.Context, time.Duration) (outbox.Status, error) {
+				return outbox.Status{State: outbox.Offline, Pending: 1}, nil
+			}
+			forgetLab("astro-offline")
+			if pending, err := outbox.PendingFor(st.Session.ID); err != nil || pending != 1 {
+				t.Fatalf("queued stops = %d, %v", pending, err)
+			}
+			if len(site.stopped()) != 0 {
+				t.Fatal("stop sent while offline")
+			}
+			flushOutbox = previous
+			status, err := flushOutbox(t.Context(), signalTimeout)
+			if err != nil || status.Pending != 0 || status.State != outbox.Online {
+				t.Fatalf("replay: %+v, %v", status, err)
+			}
+			site.mu.Lock()
+			defer site.mu.Unlock()
+			if len(site.stopBodies) != 1 {
+				t.Fatalf("replayed stops = %v", site.stopBodies)
+			}
+			body := site.stopBodies[0]
+			if body["reason"] != "destroyed" || body["at"] == nil {
+				t.Fatalf("closure missing reason or time: %v", body)
+			}
+			if kind == "lab" && len(body) != 2 {
+				t.Fatalf("unsubmitted lab replayed usage or results: %v", body)
+			}
+			if kind == "playground" && body["usage"] == nil {
+				t.Fatalf("playground usage missing from replay: %v", body)
+			}
+		})
 	}
 }

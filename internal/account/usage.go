@@ -89,3 +89,71 @@ func (c *Client) postUsage(ctx context.Context, cr *Credentials, sessionID strin
 	}
 	return out.Accepted, nil
 }
+
+// PauseLabSession tells the site the lab window went idle or closed at at:
+// the run's clock stops counting. resume ends the pause instead. Both are
+// idempotent on the site. A rejected access token is renewed once; 404 wraps
+// ErrSessionGone.
+func (c *Client) PauseLabSession(ctx context.Context, s Store, cr *Credentials, sessionID string, resume bool, at time.Time) error {
+	if sessionID == "" || strings.ContainsAny(sessionID, "/?#") {
+		return fmt.Errorf("invalid lab session id %q", sessionID)
+	}
+	kind := "pause"
+	if resume {
+		kind = "resume"
+	}
+	post := func(cr *Credentials) error {
+		body, err := json.Marshal(map[string]string{"at": at.UTC().Format(time.RFC3339Nano)})
+		if err != nil {
+			return err
+		}
+		endpoint := cr.Site + "/api/cli/lab-sessions/" + url.PathEscape(sessionID) + "/" + kind
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+cr.AccessToken)
+		var out map[string]any
+		_, err = do(c.HTTP, req, &out)
+		return err
+	}
+	err := post(cr)
+	var he *httpError
+	if errors.As(err, &he) && he.Status == http.StatusUnauthorized {
+		renewed, rerr := c.Renew(ctx, s, cr)
+		if rerr != nil {
+			return rerr
+		}
+		err = post(renewed)
+	}
+	if err == nil || !errors.As(err, &he) {
+		return err
+	}
+	switch he.Status {
+	case http.StatusUnauthorized:
+		return fmt.Errorf("the Astrona site %s didn't accept your sign-in: %w", cr.Site, ErrSignedOut)
+	case http.StatusNotFound:
+		return withMessage(ErrSessionGone, he.Message)
+	default:
+		return fmt.Errorf("%s couldn't %s the lab's clock (%w)", cr.Site, kind, he)
+	}
+}
+
+// Permanent reports whether the site refused a request for good — a session it
+// no longer knows, or another 4xx answer than 401, 408 or 429 — so sending it
+// again would not help.
+func Permanent(err error) bool {
+	if errors.Is(err, ErrSessionGone) {
+		return true
+	}
+	var he *httpError
+	if !errors.As(err, &he) {
+		return false
+	}
+	switch he.Status {
+	case http.StatusUnauthorized, http.StatusRequestTimeout, http.StatusTooManyRequests:
+		return false
+	}
+	return he.Status >= 400 && he.Status < 500
+}

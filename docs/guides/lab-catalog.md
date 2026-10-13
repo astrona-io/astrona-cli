@@ -111,7 +111,13 @@ A playground that already stopped can't be renewed — run it again. `astrona re
 
 While a signed-in lab or playground runs, `astrona run` also starts a **usage reporter** — another detached `astrona` process — that measures what the lab uses on your computer and sends it to the lab session every 15 seconds: CPU in cores and memory in bytes, for the kind cluster and its linked clusters (`docker stats` / `podman stats`) or the lab's QEMU VMs (`ps`). Nothing else is sent: no command output, no file contents, no process names. Astrona uses it to show what labs really cost to run, and what practising locally saves against the cloud.
 
-The reporter ends on its own when the lab is destroyed or run again, when its session is gone or expired, or when the site stops taking samples (a lab that passed). It follows `astrona run renew`. Its output goes to `~/.astrona/labs/<lab>.usage.log`. `astrona submit` and `astrona destroy` also send a short summary (average and peak CPU and memory), which the site uses when no sample reached it. A local-only run, or one not signed in, sends nothing.
+The reporter ends on its own when the lab is destroyed or run again, when its session is gone or expired, or when the site stops taking samples (a lab that passed). It follows `astrona run renew`. Its output goes to `~/.astrona/labs/<lab>.usage.log`. `astrona submit` and playground deletion also send a short summary (average and peak CPU and memory), which the site uses when no sample reached it. A local-only run, or one not signed in, sends nothing.
+
+## Paused time and working offline
+
+The lab window (`astrona` / `astrona ui`) pauses your time after 3 minutes without input, or when you leave the lab (Ctrl+B). The lab's clock on Astrona pauses with it — the idle dialog appears once Astrona has answered and says so — and your next input resumes both. While another lab window of the same lab is in use, the clock keeps running. Time limits are not moved by a pause: a playground is still removed at its limit.
+
+Everything astrona tells Astrona about a running lab — pauses and resumes, resource samples, destroy and the time-limit stop — is saved on your computer first (`~/.astrona/outbox`) and then sent. If the connection drops, it waits there and goes out in order, with the time each thing happened, once Astrona is reachable again: from the lab window, the usage reporter, or a background `astrona` that the next command starts. The lab window shows the connection next to the Astrona logo: **CONNECTED**, **SYNCING · n WAITING**, **OFFLINE · n WAITING** (the logo turns red) or **SIGNED OUT** — signals then wait for `astrona login`. Graded results (`astrona submit`) are not kept this way; send them again when you are back online.
 
 ## Where the catalog comes from
 

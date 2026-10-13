@@ -53,16 +53,16 @@ func TestPlaygroundSessionAndStop(t *testing.T) {
 		t.Errorf("request = %v", created)
 	}
 
-	if err := testClient(nil).StopLabSession(ctx, s, cr, "s-1", "time_limit", nil); err != nil {
+	if err := testClient(nil).StopLabSession(ctx, s, cr, "s-1", "time_limit", nil, time.Time{}); err != nil {
 		t.Fatal(err)
 	}
 	if len(stops) != 1 || stops[0] != "Bearer access-0 time_limit" {
 		t.Errorf("stops = %v", stops)
 	}
-	if err := testClient(nil).StopLabSession(ctx, s, cr, "gone", "destroyed", nil); !errors.Is(err, ErrSessionGone) {
+	if err := testClient(nil).StopLabSession(ctx, s, cr, "gone", "destroyed", nil, time.Time{}); !errors.Is(err, ErrSessionGone) {
 		t.Errorf("gone: %v", err)
 	}
-	if err := testClient(nil).StopLabSession(ctx, s, cr, "a/b", "destroyed", nil); err == nil || !strings.Contains(err.Error(), "invalid") {
+	if err := testClient(nil).StopLabSession(ctx, s, cr, "a/b", "destroyed", nil, time.Time{}); err == nil || !strings.Contains(err.Error(), "invalid") {
 		t.Errorf("bad id: %v", err)
 	}
 

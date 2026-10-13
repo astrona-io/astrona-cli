@@ -2,6 +2,7 @@ package main
 
 import (
 	"astrona/internal/labstate"
+	"astrona/internal/outbox"
 	"context"
 	"errors"
 	"fmt"
@@ -193,6 +194,12 @@ type uiPaneModel struct {
 	loadDashboard                   tea.Cmd
 	background                      string
 	animation                       int
+	// Astrona's copy of this window's clock (ui_clock_sync.go).
+	clockPaused bool
+	clockSync   string
+	clockCmds   []tea.Cmd
+	syncStatus  outbox.Status
+	syncChecked time.Time
 }
 
 func uiPaneSize(width, height int) (int, int) {
@@ -239,7 +246,14 @@ func (m *uiPaneModel) resizeContent() {
 }
 
 func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	model, cmd := m.update(msg)
+	return model, tea.Batch(cmd, m.syncClock(time.Now()))
+}
+
+func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case uiClockSynced:
+		m.clockSynced(msg)
 	case uiPaneInputError:
 		if !m.ended {
 			m.failure = "Terminal input stopped: " + msg.err.Error()
@@ -441,8 +455,13 @@ func (m *uiPaneModel) View() string {
 		header = workspaceFit(header, m.width, uiHeaderHeight(m.width, m.height)-1) + "\n" + workspaceDanger.Render(m.failure)
 	}
 	if !m.activityAway && m.activity.paused && !m.controls && !m.ended {
-		content = m.idleView(content)
-		footer = "Enter: confirm · ←/→: Continue / Overview · Esc: overview"
+		if m.clockSync == clockSending {
+			// The dialog says what Astrona did with the pause: wait for its answer.
+			footer = "Idle — pausing the lab clock on Astrona…"
+		} else {
+			content = m.idleView(content)
+			footer = "Enter: confirm · ←/→: Continue / Overview · Esc: overview"
+		}
 	}
 	if m.activityError != "" {
 		footer = m.activityError

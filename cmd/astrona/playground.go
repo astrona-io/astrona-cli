@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -182,27 +181,13 @@ func watchPlayground(ctx context.Context, clusterName string, tick time.Duration
 	return destroyByName(clusterName, rep)
 }
 
-// stopPlaygroundClock tells the site the playground ended. The site keeps
-// the first stop, so the watchdog's "time_limit" stands even if destroy
-// reports again. Failures are warnings: the site stops the clock at the
-// deadline anyway. usage (may be nil) is what the playground used.
+// stopPlaygroundClock tells the site the playground ended, through the outbox:
+// offline, the stop is kept and sent later with the time it happened. The site
+// keeps the first stop, so the watchdog's "time_limit" stands even if destroy
+// reports again. usage (may be nil) is what the playground used.
 func stopPlaygroundClock(ctx context.Context, sess *labstate.Session, reason string, usage *account.UsageReport) {
-	client, store, _, err := accountDeps()
-	if err != nil {
-		ui.Warnf("couldn't stop the playground's clock: %s", err)
-		return
-	}
-	creds, err := client.Active(ctx, store, sess.Site)
-	if err != nil {
-		ui.Warnf("couldn't stop the playground's clock on %s: %s — it stops by itself at the time limit", sess.Site, err)
-		return
-	}
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-	noticeOtherSite(creds.Site, "the playground time")
-	if err := client.StopLabSession(ctx, store, creds, sess.ID, reason, usage); err != nil {
-		ui.Warnf("couldn't stop the playground's clock on %s: %s — it stops by itself at the time limit", sess.Site, err)
-	}
+	noticeOtherSite(sess.Site, "the playground time")
+	stopSession(ctx, sess, reason, usage, "the playground's stop")
 }
 
 // endRunSession runs when a lab is forgotten (destroyed, or replaced by a
@@ -227,24 +212,10 @@ func endRunSession(clusterName string) {
 }
 
 // endLabSession tells the site a lab was destroyed, so the attempt stops
-// showing as running; it never counts unless it passed before. A failure is a
-// warning: the attempt then ends at its time limit.
+// showing as running; it never counts unless it passed before. Offline, the
+// closure is kept for later delivery, without usage or grading results.
 func endLabSession(ctx context.Context, sess *labstate.Session) {
-	client, store, _, err := accountDeps()
-	if err != nil {
-		ui.Warnf("couldn't tell Astrona the lab was destroyed: %s", err)
-		return
-	}
-	creds, err := client.Active(ctx, store, sess.Site)
-	if err != nil {
-		ui.Warnf("couldn't tell %s the lab was destroyed: %s — the attempt ends at its time limit", sess.Site, err)
-		return
-	}
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-	if err := client.StopLabSession(ctx, store, creds, sess.ID, "destroyed", nil); err != nil && !errors.Is(err, account.ErrSessionGone) {
-		ui.Warnf("couldn't tell %s the lab was destroyed: %s — the attempt ends at its time limit", sess.Site, err)
-	}
+	stopSession(ctx, sess, "destroyed", nil, "the lab's end")
 }
 
 // endOldSession runs before a lab is built again under the same name (run's
