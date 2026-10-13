@@ -30,6 +30,8 @@ func workspaceKey(m workspaceModel, key string) workspaceModel {
 		msg.Type = tea.KeyEsc
 	case "tab":
 		msg.Type = tea.KeyTab
+	case "ctrl+b":
+		msg.Type = tea.KeyCtrlB
 	case "ctrl+c":
 		msg.Type = tea.KeyCtrlC
 	case "ctrl+d":
@@ -63,6 +65,7 @@ func TestWorkspaceActions(t *testing.T) {
 		{"submit", []string{"g"}, true, false, workspaceSubmit},
 		{"playground ignores grade", []string{"g"}, false, false, workspaceNone},
 		{"q only opens menu", []string{"q"}, true, false, workspaceNone},
+		{"back returns home", []string{"ctrl+b"}, true, false, workspaceLeave},
 		{"interrupt returns home", []string{"ctrl+c"}, true, false, workspaceLeave},
 		{"control d asks before destruction", []string{"ctrl+d"}, true, false, workspaceNone},
 		{"enter returns", []string{"q", "enter"}, true, false, workspaceNone},

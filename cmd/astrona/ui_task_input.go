@@ -60,7 +60,7 @@ func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
 			return nil
 		}
 	}
-	if m.namingTab && (msg.Paste || msg.String() != "ctrl+c") {
+	if m.namingTab && (msg.Paste || msg.String() != "ctrl+b") {
 		return m.nameTab(msg)
 	}
 	if !msg.Paste {
@@ -69,7 +69,7 @@ func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
 			if len(m.tabs) == 0 {
 				return m.start()
 			}
-		case "ctrl+c":
+		case "ctrl+b":
 			m.workspace.action = workspaceLeave
 			return tea.Quit
 		case "ctrl+t":

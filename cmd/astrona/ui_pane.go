@@ -38,6 +38,9 @@ func wantsUIPane(args []string) bool {
 	if help, _ := cmd.Flags().GetBool("help"); help {
 		return false
 	}
+	if runTestMode(cmd) {
+		return false
+	}
 	if cmd.Name() == "ui" {
 		return true
 	}
@@ -364,7 +367,7 @@ func (m *uiPaneModel) handleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
 		}
 		return tea.Batch(tea.EnableMouseCellMotion, m.handleKey(key, now))
 	}
-	if !key.Paste && key.Type == tea.KeyCtrlC && !m.controls && !m.closing && !m.ended && (strings.HasPrefix(m.title, "TASK / ") || strings.HasPrefix(m.title, "WORKSPACE / ")) {
+	if !key.Paste && key.Type == tea.KeyCtrlB && !key.Alt && !m.controls && !m.closing && !m.ended && (strings.HasPrefix(m.title, "TASK / ") || strings.HasPrefix(m.title, "WORKSPACE / ")) {
 		m.leaveActivity(now)
 		return nil
 	}

@@ -143,7 +143,7 @@ func settingsReviewExempt(cmd *cobra.Command) bool {
 func settingsInteractive(cmd *cobra.Command) bool {
 	in, inOK := cmd.InOrStdin().(*os.File)
 	out, outOK := cmd.ErrOrStderr().(*os.File)
-	return inOK && outOK && isatty.IsTerminal(in.Fd()) && isatty.IsTerminal(out.Fd()) && !terms.InCI(os.Getenv)
+	return !runTestMode(cmd) && inOK && outOK && isatty.IsTerminal(in.Fd()) && isatty.IsTerminal(out.Fd()) && !terms.InCI(os.Getenv)
 }
 
 func checkSettingsReview(cmd *cobra.Command, flags *rootFlags) error {

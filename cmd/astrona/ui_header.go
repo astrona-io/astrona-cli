@@ -184,9 +184,9 @@ func (m *uiPaneModel) headerShortcuts() [][2]string {
 	case "HOME":
 		return [][2]string{{"<1>", "Active runs"}, {"<2>", "History"}, {"<3>", "Help"}, {"<p>", "Preferences"}, {"<enter>", "Open selected"}, {"<↑/↓>", "Select run"}, {"<ctrl-d>", "Force delete"}, {"<r>", "Refresh"}, {"<tab>", "Next section"}, {"<q>", "Quit"}}
 	case "TASK":
-		return [][2]string{{"<ctrl-t>", "New terminal"}, {"<ctrl-n/p>", "Switch tab"}, {"<ctrl-c>", "Overview / pause"}, {"<alt-c>", "Interrupt command"}, {"<ctrl-o>", "Task / terminal"}, {"<ctrl-g>", "Lab details"}, {"<ctrl-y>", "Select / copy text"}}
+		return [][2]string{{"<ctrl-t>", "New terminal"}, {"<ctrl-n/p>", "Switch tab"}, {"<ctrl-b>", "Overview / pause"}, {"<ctrl-c>", "Interrupt command"}, {"<ctrl-o>", "Task / terminal"}, {"<ctrl-g>", "Lab details"}, {"<ctrl-y>", "Select / copy text"}}
 	case "WORKSPACE":
-		return [][2]string{{"<enter>", "Task + terminals"}, {"<tab>", "Task / results"}, {"<s>", "Shell"}, {"<p>", "Preferences"}, {"<↑/↓>", "Select cluster / VM"}, {"<ctrl-c>", "Overview / pause"}, {"<q>", "Exit menu"}, {"<pgup/dn>", "Scroll task"}, {"<ctrl-g>", "Alert details"}}
+		return [][2]string{{"<enter>", "Task + terminals"}, {"<tab>", "Task / results"}, {"<s>", "Shell"}, {"<p>", "Preferences"}, {"<↑/↓>", "Select cluster / VM"}, {"<ctrl-b>", "Overview / pause"}, {"<q>", "Exit menu"}, {"<pgup/dn>", "Scroll task"}, {"<ctrl-g>", "Alert details"}}
 	case "SHELL":
 		return [][2]string{{"exit", "Back to lab"}, {"<ctrl-c>", "Interrupt"}, {"<ctrl-]>", "Pane controls"}}
 	case "PREFERENCES":

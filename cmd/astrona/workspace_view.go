@@ -232,7 +232,7 @@ func (m workspaceModel) labView() string {
 	if message != "" {
 		body += "\n" + workspaceAlert(message, w)
 	}
-	footer := []string{"↑/↓ " + target + "  s shell  tab view  p preferences", "q exit menu  Ctrl+C overview  enter task"}
+	footer := []string{"↑/↓ " + target + "  s shell  tab view  p preferences", "q exit menu  Ctrl+B overview  enter task"}
 	if m.canSubmit {
 		footer[1] = "g submit   " + footer[1]
 	}

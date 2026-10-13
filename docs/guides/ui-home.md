@@ -83,7 +83,7 @@ overview. Other keys and pasted text do not resume the timer or reach the shell.
 The dialog also appears during native copy mode or pane controls. The lab and
 commands keep running while time tracking is paused.
 
-Ctrl+C returns to Home and pauses the counter immediately. Terminal tabs and
+Ctrl+B returns to Home and pauses the counter immediately. Terminal tabs and
 background commands keep running, but their output does not add time. Reopening
 the same run resumes tracking and restores its tabs.
 
@@ -194,8 +194,8 @@ Commands and editors stay inside the terminal pane.
 | --- | --- |
 | Ctrl+T | Name and open another terminal for the selected cluster or VM. |
 | Ctrl+N / Ctrl+P | Switch to the next / previous terminal tab. |
-| Ctrl+C | Return to Home and pause time spent. Tabs keep running. |
-| Alt+C | Interrupt the active terminal command. |
+| Ctrl+B | Return to Home and pause time spent. Tabs keep running. |
+| Ctrl+C | Interrupt the active terminal command; cancel a dialog when one is open. |
 | Ctrl+O | Switch focus between the task and terminal. |
 | Page Up/Down, arrows | Scroll the task when it has focus. |
 | Shift+Page Up/Down | Scroll the active terminal's output. |
@@ -310,3 +310,5 @@ restarts keep API tracking disabled and skip the reminder.
 Restore reminders with `astrona settings set login-reminder yes`, or change
 **login-reminder** in Preferences. Noninteractive catalog runs still require
 `--without-login` when signed out.
+
+For automation, use [headless test mode](ci-integration.md#headless-setup-for-external-checks): `astrona run <lab> --test-mode` skips the UI and returns after setup.

@@ -96,7 +96,7 @@ test -n "$before_containers"
 test -n "$before_containers2"
 
 lab_started=true
-run_astrona run "$lab" --without-login --trust --verbose < /dev/null 2>&1 | tee "$artifacts/run.log"
+run_astrona run "$lab" --test-mode --trust --verbose < /dev/null 2>&1 | tee "$artifacts/run.log"
 kubectl --context "kind-$cluster" get --raw='/readyz?verbose'
 kubectl --context "kind-$cluster" wait --for=condition=Ready nodes --all --timeout=180s
 kubectl --context "kind-$cluster" -n kube-system rollout status deployment/coredns --timeout=180s
