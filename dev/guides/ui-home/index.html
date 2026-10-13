@@ -4874,6 +4874,10 @@ stop it; reopening the lab retains accumulated active time. Going over the
 estimate fills the bar and shows the extra time. It does not stop the lab or
 affect grading. Exam deadlines still apply separately. Playgrounds keep their
 existing timing display and do not show this lab progress bar.</p>
+<p>Time totals read saved activity periods separately from pause/resume metadata.
+If an older build reports <code>cannot unmarshal object</code> when reading time spent,
+use an updated CLI and reopen the UI. Existing activity records are preserved;
+you do not need to reset the lab or delete its history.</p>
 <h2 id="cpu-and-memory">CPU and memory<a class="headerlink" href="#cpu-and-memory" title="Permanent link">&para;</a></h2>
 <p>Inside a lab, the header shows CPU, memory and their averages immediately to
 the left of the Astrona logo. Narrow terminals use a compact header. Home
