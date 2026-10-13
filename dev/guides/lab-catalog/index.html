@@ -4569,6 +4569,11 @@
 </code></pre></div>
 <p>If you're already signed in on astrona.io, check that the code matches and click <strong>Authorize</strong>; if not, sign in on astrona.io first and you're brought straight back to that page. The terminal waits and finishes by itself. No password is ever typed into the terminal, and it works from a machine without a browser (open the printed link on any device). The computer shows up on your account under its hostname. Declining in the browser, or letting the code expire, leaves you signed out — run <code>astrona login</code> again.</p>
 <p>The sign-in is kept in <code>~/.astrona/credentials.json</code> (mode 0600; astrona refuses to use it if other users can read it) and renewed automatically; <code>astrona logout</code> revokes it on astrona.io and deletes the file. A credentials file from an older astrona (before website sign-in) no longer works: astrona treats you as signed out and asks you to run <code>astrona login</code> again.</p>
+<p>Updating the CLI keeps this login. Development builds made with <code>just build</code>
+use a separate login in <code>~/.astrona-dev/credentials.json</code>; rebuilding also keeps
+it. Switching between a development build and an installed release switches
+profiles, so each needs its own login. The UI header shows the active profile
+and site. <code>ASTRONA_URL</code> selects a different site without moving your saved login.</p>
 <p>Then <code>astrona run ATS014/…</code>:</p>
 <ol>
 <li>checks for an active sign-in <strong>before</strong> anything is fetched or built — signed out (or the sign-in expired), it runs locally without a session;</li>

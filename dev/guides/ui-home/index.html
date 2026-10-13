@@ -4539,13 +4539,14 @@ controls. Small terminals use a compact header to leave room for content.
 The UI rechecks terminal dimensions during startup and screen changes, so a
 missed resize signal corrects itself without closing and reopening the UI.</p>
 <p><img alt="Astrona Home with sample labs, status fields and shortcut columns" src="../../assets/ui-home.png" /></p>
-<p>A green <strong>Logged in</strong> means saved credentials have
-an unexpired access token. Red <strong>Not logged in</strong> means there is no saved login
-for the selected site. Expired credentials show <strong>Login needs checking</strong> in
-amber; use <code>astrona whoami</code> to check and renew them, or <code>astrona login</code> to sign
-in. An unreadable credentials file shows <strong>Login unavailable</strong>.</p>
+<p>A green <strong>Logged in</strong> means there is a saved login for the selected site.
+It stays green when the short-lived access token expires: account commands
+renew that token automatically using the saved login. Red <strong>Not logged in</strong>
+means there is no saved login for the selected site. An unreadable credentials
+file shows <strong>Login unavailable</strong> in amber.</p>
 <p>The header rereads local credentials every five seconds. It does not contact
-the API or verify whether the server has revoked a login.</p>
+the API or verify whether the server has revoked a login. Use <code>astrona whoami</code>
+to check the login with the server and renew the access token if needed.</p>
 <p>Home has three sections:</p>
 <ul>
 <li><strong>Active runs:</strong> saved runs, their container or VM status and active time. Select
