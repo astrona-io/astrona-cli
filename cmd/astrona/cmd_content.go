@@ -80,11 +80,14 @@ func newContentValidateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "validate <type> <source>",
 		Short: "Validate a lab or section directory (for teachers and authors)",
-		Long: "Validate a lab config directory (Astrona Training Series - ATS, 'ats') or course section directory " +
+		Long: "Validate a training repository (Astrona Training Series - ATS, 'ats': its astrona.yaml — readings, " +
+			"labs, playgrounds and quiz question banks, checked the way astrona.io reads them) or a course section directory " +
 			"(Astrona Training Path - ATP, 'atp'). source is either a local folder path (the raw content files) or a " +
 			"git repository URL (https://, git@host:, ssh://, or a .git suffix), optionally pinned to a branch or " +
 			"tag with --git-ref.",
-		Example: `  astrona content validate atp ./paths/kubernetes-networking
+		Example: `  astrona content validate ats ./ATS014
+  astrona content validate ats https://github.com/astrona-io/ATS014.git --git-ref main
+  astrona content validate atp ./paths/kubernetes-networking
   astrona content validate atp https://github.com/astrona-io/kubernetes-networking-atp.git --git-ref v1.2.0
   astrona content validate atp git@github.com:astrona-io/kubernetes-networking-atp.git --git-ref main`,
 		Args: cobra.ExactArgs(2),
@@ -93,15 +96,14 @@ func newContentValidateCmd() *cobra.Command {
 			if contentType != "ats" && contentType != "atp" {
 				return fmt.Errorf("invalid content type: %q. Must be 'ats' (Astrona Training Series) or 'atp' (Astrona Training Path)", args[0])
 			}
-			if contentType != "atp" {
-				return fmt.Errorf("validation for content type %q is not yet implemented", contentType)
-			}
-
 			source := args[1]
 
 			contentDir, err := resolveContentSource(source, gitRef)
 			if err != nil {
 				return err
+			}
+			if contentType == "ats" {
+				return validateATS(cmd.OutOrStdout(), contentDir)
 			}
 
 			pathYAML := filepath.Join(contentDir, "path.yaml")
@@ -712,4 +714,26 @@ func newContentInitCmd() *cobra.Command {
 	cmd.Flags().StringVar(&codeowners, "codeowners", "@astrona-io/maintainers", "Generate a .github/CODEOWNERS file with specified owners (set to 'false' or empty to disable)")
 
 	return cmd
+}
+
+// validateATS prints what ValidateATS found and fails when anything would
+// keep the training, or one of its items, off astrona.io.
+func validateATS(w io.Writer, dir string) error {
+	report, err := content.ValidateATS(dir)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "%s: %d readings, %d labs, %d playgrounds, %d quizzes (%d questions)\n",
+		report.TrainingID, report.Readings, report.Labs, report.Playgrounds, report.Quizzes, report.Questions)
+	for _, warning := range report.Warnings {
+		fmt.Fprintf(w, "  ! %s\n", warning)
+	}
+	for _, problem := range report.Errors {
+		fmt.Fprintf(w, "  ✗ %s\n", problem)
+	}
+	if len(report.Errors) > 0 {
+		return fmt.Errorf("%d problem(s) would keep content off astrona.io", len(report.Errors))
+	}
+	fmt.Fprintf(w, "Validation passed (%d warnings).\n", len(report.Warnings))
+	return nil
 }

@@ -64,7 +64,7 @@ Once a Training Path (`atp`) has been scaffolded and filled in, validate its `pa
 astrona content validate <type> <source> [flags]
 ```
 
-- **`<type>` (Required)**: Currently only `atp` is implemented. `ats` is accepted at the CLI level but not yet validated.
+- **`<type>` (Required)**: `ats` (a training repository, its `astrona.yaml`) or `atp` (a training path, its `path.yaml`).
 - **`<source>` (Required)**: Either a local folder path (the raw content files, containing `path.yaml`) or a git repository URL (`https://`, `git@host:`, `ssh://`, or a `.git` suffix). Use `--git-ref` to pin a git source to a branch or tag.
 
 Validation:
@@ -76,6 +76,29 @@ Validation:
 ```sh
 astrona content validate atp ./paths/my-custom-path
 astrona content validate atp https://github.com/astrona-io/kubernetes-networking-atp.git --git-ref v1.2.0
+```
+
+### Validating a training repository (ATS)
+
+```sh
+astrona content validate ats ./ATS014
+astrona content validate ats https://github.com/astrona-io/ATS014.git --git-ref main
+```
+
+Checks `astrona.yaml` the way astrona.io's content sync reads it, and prints the totals (`ATS014: 146 readings, 56 labs, 0 playgrounds, 20 quizzes (174 questions)`). It fails (✗) on what would keep the training or an item off the site, and warns (!) about what is worth a look:
+
+- `training.id` is set; every item has a title, a known `type` — `reading`, `lab`, `playground` or `quiz` — and a path inside the repository that exists: a Markdown file for a reading, a directory with a `config.yaml` for a lab or playground, a YAML question bank for a quiz.
+- A **quiz** (knowledge check) bank has `kind: question_bank` and `schema_version: 1`, and each question an unique `id`, a `prompt`, 2–6 options with unique ids and a text, a `correct_option` that is one of them, and `type: single_choice` (or none). Its `source_readings` must exist; one that is not a reading in `astrona.yaml` gets no "read it again" link (warning). The site uses at most 30 questions.
+- The quiz item's `pass_score` is a percentage above 0 and at most 100 (the site's default is 70); a `question_count` that differs from the bank is a warning — the site counts the bank.
+- A bank with `status: draft`, an option or question without an explanation, and a `quiz.yaml` the manifest does not list are warnings.
+
+A knowledge check looks like this in `astrona.yaml`, right after the module's summary:
+
+```yaml
+      - type: quiz
+        title: "Knowledge Check: How A Request Moves Through The Mesh"
+        path: sections/section-000/module-01/quiz.yaml
+        pass_score: 70
 ```
 
 ### `path.yaml` shape (ATP)
