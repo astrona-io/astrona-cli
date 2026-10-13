@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 var (
@@ -233,19 +234,20 @@ func (c *Client) UpdateLabSessionProgress(ctx context.Context, cr *Credentials, 
 // keeps the first stop, so a second one is harmless. A rejected access
 // token is renewed once; a session the site no longer knows wraps
 // ErrSessionGone. usage, when not nil, is the CLI's summary of what the
-// playground used.
-func (c *Client) StopLabSession(ctx context.Context, s Store, cr *Credentials, sessionID, reason string, usage *UsageReport) error {
+// playground used; at, when not zero, is when it stopped (a stop kept while
+// offline).
+func (c *Client) StopLabSession(ctx context.Context, s Store, cr *Credentials, sessionID, reason string, usage *UsageReport, at time.Time) error {
 	if sessionID == "" || strings.ContainsAny(sessionID, "/?#") {
 		return fmt.Errorf("invalid lab session id %q", sessionID)
 	}
-	err := c.postStop(ctx, cr, sessionID, reason, usage)
+	err := c.postStop(ctx, cr, sessionID, reason, usage, at)
 	var he *httpError
 	if errors.As(err, &he) && he.Status == http.StatusUnauthorized {
 		renewed, rerr := c.Renew(ctx, s, cr)
 		if rerr != nil {
 			return rerr
 		}
-		err = c.postStop(ctx, renewed, sessionID, reason, usage)
+		err = c.postStop(ctx, renewed, sessionID, reason, usage, at)
 	}
 	if err == nil {
 		return nil
@@ -263,10 +265,13 @@ func (c *Client) StopLabSession(ctx context.Context, s Store, cr *Credentials, s
 	}
 }
 
-func (c *Client) postStop(ctx context.Context, cr *Credentials, sessionID, reason string, usage *UsageReport) error {
+func (c *Client) postStop(ctx context.Context, cr *Credentials, sessionID, reason string, usage *UsageReport, at time.Time) error {
 	payload := map[string]any{"reason": reason}
 	if usage != nil {
 		payload["usage"] = usage
+	}
+	if !at.IsZero() {
+		payload["at"] = at.UTC().Format(time.RFC3339Nano)
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {

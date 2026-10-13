@@ -153,6 +153,17 @@ func (m *uiPaneModel) activityTick(now time.Time) tea.Cmd {
 		m.activity.update(now)
 		m.activity.paused = true
 		m.saveActivity(now)
+		// The window leaves its lab: Astrona's clock for it pauses (unless it
+		// already did); the next lab's clock runs.
+		if !m.clockPaused {
+			at := now
+			if len(m.activity.periods) > 0 {
+				at = m.activity.periods[len(m.activity.periods)-1].End
+			}
+			m.queueClock(m.activity.target, true, at)
+		}
+		m.clockPaused, m.clockSync = false, ""
+		m.queueClock(target, false, now)
 		if m.activityError != "" {
 			m.failure = m.activityError
 		}
@@ -164,6 +175,7 @@ func (m *uiPaneModel) activityTick(now time.Time) tea.Cmd {
 			m.activity.periods = []labstate.ActivityPeriod{{Start: now, End: now}}
 		}
 	}
+	m.refreshSyncStatus(now)
 	m.usage, _ = labstate.ReadUsage(target.Lab, target.Started)
 	if time.Since(m.usage.Updated) > 15*time.Second {
 		m.usage = labstate.ResourceUsage{}
@@ -213,10 +225,14 @@ func (m *uiPaneModel) idleView(background string) string {
 	if m.idleOverview {
 		choices = "Continue    [ Overview ]"
 	}
+	clockLine := ""
+	if line := m.clockSyncLine(); line != "" {
+		clockLine = line + "\n"
+	}
 	message := "No input in this lab window for 3 minutes.\n" +
 		"Time spent paused at " + formatUptime(m.timeSpent()) + ".\n\n" +
 		"This idle interval is excluded. The lab and running commands keep running.\n" +
-		"Exam and playground expiry limits still apply.\n\n" + choices +
+		"Exam and playground expiry limits still apply.\n" + clockLine + "\n" + choices +
 		"\n←/→ or Tab selects · Enter confirms · Esc goes to overview"
 	if m.activityError != "" {
 		message += "\n\n" + m.activityError

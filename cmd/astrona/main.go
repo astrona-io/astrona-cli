@@ -166,6 +166,8 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 			if cmd.Name() == "__complete" || cmd.Name() == "help" || cmd.Hidden {
 				return nil
 			}
+			// Lab signals kept while offline go out in the background.
+			startOutboxFlusher()
 			if err := applyUserSettings(cmd, flags); err != nil {
 				return err
 			}
@@ -235,6 +237,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.AddCommand(newSchemaCmd())
 	rootCmd.AddCommand(newPlaygroundWatchdogCmd())
 	rootCmd.AddCommand(newUsageReporterCmd())
+	rootCmd.AddCommand(newOutboxFlushCmd())
 
 	return rootCmd
 }

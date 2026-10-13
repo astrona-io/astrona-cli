@@ -93,12 +93,18 @@ func (m *uiPaneModel) header() string {
 	}
 	height := uiHeaderHeight(m.width, m.height)
 	usage := m.headerUsage()
+	// Is this window in touch with Astrona? Shown with the logo (ui_clock_sync.go).
+	brand := workspaceAccent.Render("ASTRONA")
+	marker, markerStyle, hasMarker := m.syncMarker()
+	if hasMarker {
+		brand += " " + markerStyle.Render(marker)
+	}
 	inLab := strings.HasPrefix(m.title, "TASK / ") || strings.HasPrefix(m.title, "WORKSPACE / ")
 	if height == 2 {
 		if inLab {
-			return workspaceFit(style.Render("● "+status.label)+"  "+workspaceAccent.Render("ASTRONA")+"\n"+uiUsageText(usage), m.width, height)
+			return workspaceFit(style.Render("● "+status.label)+"  "+brand+"\n"+uiUsageText(usage), m.width, height)
 		}
-		return workspaceFit(style.Render("● "+status.label)+"  "+workspaceAccent.Render("ASTRONA")+"\n"+
+		return workspaceFit(style.Render("● "+status.label)+"  "+brand+"\n"+
 			workspaceMuted.Render(profile+" · "+sanitizeLine(status.site)), m.width, height)
 	}
 	user := status.username
@@ -164,7 +170,15 @@ func (m *uiPaneModel) header() string {
 		blocks = append(blocks, workspaceFit(strings.Join(rows, "\n"), resourceWidth, height-1))
 	}
 	if showLogo {
-		blocks = append(blocks, workspaceFit(workspaceAccent.Render(uiWordmark)+"\n"+workspaceMuted.Render("                 LAB WORKSPACE"), logoWidth, height-1))
+		logo, subtitle := workspaceAccent.Render(uiWordmark), workspaceMuted.Render("                 LAB WORKSPACE")
+		if hasMarker {
+			// Offline or signed out: the logo itself turns, so it is seen at a glance.
+			if markerStyle.GetForeground() != workspaceMuted.GetForeground() && !strings.HasPrefix(marker, "● CONNECTED") {
+				logo = markerStyle.Render(uiWordmark)
+			}
+			subtitle = markerStyle.Render(fmt.Sprintf("%*s", logoWidth-1, marker))
+		}
+		blocks = append(blocks, workspaceFit(logo+"\n"+subtitle, logoWidth, height-1))
 	}
 	return workspaceFit(lipgloss.JoinHorizontal(lipgloss.Top, blocks...), m.width, height)
 }
