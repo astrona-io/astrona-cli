@@ -75,6 +75,10 @@ func ActiveTime(lab, started string) (time.Duration, bool, error) {
 	var periods []ActivityPeriod
 	tracked := false
 	for _, entry := range entries {
+		// Pause/resume metadata shares this directory with per-window periods.
+		if entry.Name() == "clock.json" {
+			continue
+		}
 		if !entry.Type().IsRegular() || filepath.Ext(entry.Name()) != ".json" {
 			continue
 		}

@@ -341,6 +341,11 @@ estimate fills the bar and shows the extra time. It does not stop the lab or
 affect grading. Exam deadlines still apply separately. Playgrounds keep their
 existing timing display and do not show this lab progress bar.
 
+Time totals read saved activity periods separately from pause/resume metadata.
+If an older build reports `cannot unmarshal object` when reading time spent,
+use an updated CLI and reopen the UI. Existing activity records are preserved;
+you do not need to reset the lab or delete its history.
+
 ## CPU and memory
 
 Inside a lab, the header shows CPU, memory and their averages immediately to

@@ -1,9 +1,60 @@
 package labstate
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestActiveTimeWithRemoteClock(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	start := time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
+	stamp := start.Format(time.RFC3339)
+	if changed, err := SetRemotePaused("astro-lab", stamp, "account-session", true, start); err != nil || !changed {
+		t.Fatalf("pause: changed=%v err=%v", changed, err)
+	}
+	if total, tracked, err := ActiveTime("astro-lab", stamp); err != nil || tracked || total != 0 {
+		t.Fatalf("clock metadata counted as activity: total=%v tracked=%v err=%v", total, tracked, err)
+	}
+	for session, periods := range map[string][]ActivityPeriod{
+		"one": {{start, start.Add(2 * time.Minute)}},
+		"two": {{start.Add(time.Minute), start.Add(3 * time.Minute)}},
+	} {
+		if err := SaveActivity("astro-lab", stamp, session, periods); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, paused := range []bool{true, false, true} {
+		if _, err := SetRemotePaused("astro-lab", stamp, "account-session", paused, start.Add(4*time.Minute)); err != nil {
+			t.Fatal(err)
+		}
+		if total, tracked, err := ActiveTime("astro-lab", stamp); err != nil || !tracked || total != 3*time.Minute {
+			t.Fatalf("time with paused=%v: total=%v tracked=%v err=%v", paused, total, tracked, err)
+		}
+		if got, err := RemotePaused("astro-lab", stamp, "account-session"); err != nil || got != paused {
+			t.Fatalf("time reader changed remote clock: paused=%v err=%v", got, err)
+		}
+	}
+}
+
+func TestActiveTimeRejectsMalformedPeriods(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	stamp := "2026-10-13T12:00:00Z"
+	if err := SaveActivity("astro-lab", stamp, "broken", nil); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := activityDir("astro-lab", stamp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "broken.json"), []byte(`{"unexpected":"object"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := ActiveTime("astro-lab", stamp); err == nil {
+		t.Fatal("malformed activity was silently excluded from the total")
+	}
+}
 
 func TestActiveTimeUnionsTerminalsAndSeparatesRuns(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
