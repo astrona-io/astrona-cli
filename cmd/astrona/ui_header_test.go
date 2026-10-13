@@ -1,8 +1,11 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,13 +17,19 @@ import (
 )
 
 func TestUIAccountStatus(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
 	for _, tc := range []struct {
 		name, site, file, label           string
 		saved, expired, signedIn, warning bool
 	}{
 		{name: "signed out", label: "Not logged in"},
 		{name: "signed in", saved: true, label: "Logged in", signedIn: true},
-		{name: "expired", saved: true, expired: true, label: "Login needs checking", warning: true},
+		{name: "expired access token with saved login", saved: true, expired: true, label: "Logged in", signedIn: true},
 		{name: "different site", saved: true, site: "https://other.example", label: "Not logged in"},
 		{name: "broken file", file: "{broken", label: "Login unavailable", warning: true},
 		{name: "old format", file: `{"issuer":"https://old.example"}`, label: "Not logged in"},
@@ -28,7 +37,7 @@ func TestUIAccountStatus(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("HOME", t.TempDir())
-			site := "https://astrona.example"
+			site := server.URL
 			if tc.site != "" {
 				site = tc.site
 			}
@@ -42,7 +51,7 @@ func TestUIAccountStatus(t *testing.T) {
 				if tc.expired {
 					expires = time.Now().Add(-time.Hour)
 				}
-				err := store.Save(&account.Credentials{Site: "https://astrona.example", AccessToken: "secret-access", RefreshToken: "secret-refresh", Username: "learner", AccessExpiresAt: expires})
+				err := store.Save(&account.Credentials{Site: server.URL, AccessToken: "secret-access", RefreshToken: "secret-refresh", Username: "learner", AccessExpiresAt: expires})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -67,6 +76,9 @@ func TestUIAccountStatus(t *testing.T) {
 				t.Fatal("header changed saved credentials")
 			}
 		})
+	}
+	if requests.Load() != 0 {
+		t.Fatal("reading login status contacted the account API")
 	}
 }
 

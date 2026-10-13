@@ -18,14 +18,15 @@ missed resize signal corrects itself without closing and reopening the UI.
 
 ![Astrona Home with sample labs, status fields and shortcut columns](../assets/ui-home.png)
 
-A green **Logged in** means saved credentials have
-an unexpired access token. Red **Not logged in** means there is no saved login
-for the selected site. Expired credentials show **Login needs checking** in
-amber; use `astrona whoami` to check and renew them, or `astrona login` to sign
-in. An unreadable credentials file shows **Login unavailable**.
+A green **Logged in** means there is a saved login for the selected site.
+It stays green when the short-lived access token expires: account commands
+renew that token automatically using the saved login. Red **Not logged in**
+means there is no saved login for the selected site. An unreadable credentials
+file shows **Login unavailable** in amber.
 
 The header rereads local credentials every five seconds. It does not contact
-the API or verify whether the server has revoked a login.
+the API or verify whether the server has revoked a login. Use `astrona whoami`
+to check the login with the server and renew the access token if needed.
 
 Home has three sections:
 
