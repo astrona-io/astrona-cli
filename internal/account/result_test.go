@@ -54,7 +54,7 @@ func TestSendLabResult(t *testing.T) {
 	ctx := context.Background()
 	f, s, cr := resultSetup(t)
 	result := map[string]any{"lab": "astro-x", "pass": true, "earned": 3}
-	lr, err := testClient(nil).SendLabResult(ctx, s, cr, "s 1", result)
+	lr, err := testClient(nil).SendLabResult(ctx, s, cr, "s 1", result, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestSendLabResultErrors(t *testing.T) {
 	ctx := context.Background()
 	send := func(statuses ...int) (*fakeSite, error) {
 		f, s, cr := resultSetup(t, statuses...)
-		_, err := testClient(nil).SendLabResult(ctx, s, cr, "s1", map[string]any{})
+		_, err := testClient(nil).SendLabResult(ctx, s, cr, "s1", map[string]any{}, nil)
 		return f, err
 	}
 	if _, err := send(http.StatusNotFound); !errors.Is(err, ErrSessionGone) {
@@ -93,7 +93,7 @@ func TestSendLabResultErrors(t *testing.T) {
 	}
 	fg, sg, crg := resultSetup(t, http.StatusGone)
 	fg.goneAsDetail = true
-	if _, err := testClient(nil).SendLabResult(ctx, sg, crg, "s1", nil); !errors.Is(err, ErrSessionExpired) || !strings.Contains(err.Error(), "Session expired (labs service).") {
+	if _, err := testClient(nil).SendLabResult(ctx, sg, crg, "s1", nil, nil); !errors.Is(err, ErrSessionExpired) || !strings.Contains(err.Error(), "Session expired (labs service).") {
 		t.Errorf("410 (detail shape): %v", err)
 	}
 	if _, err := send(http.StatusBadGateway); err == nil || errors.Is(err, ErrSessionGone) || !strings.Contains(err.Error(), "HTTP 502") {
@@ -108,7 +108,7 @@ func TestSendLabResultErrors(t *testing.T) {
 	// A session id that would change the path is refused before sending.
 	f2, s, cr := resultSetup(t)
 	for _, bad := range []string{"", "../x", "a?b", "a#b"} {
-		if _, err := testClient(nil).SendLabResult(ctx, s, cr, bad, nil); err == nil {
+		if _, err := testClient(nil).SendLabResult(ctx, s, cr, bad, nil, nil); err == nil {
 			t.Errorf("session id %q accepted", bad)
 		}
 	}

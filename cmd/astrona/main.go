@@ -232,6 +232,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.AddCommand(newDocgenCmd(flags))
 	rootCmd.AddCommand(newSchemaCmd())
 	rootCmd.AddCommand(newPlaygroundWatchdogCmd())
+	rootCmd.AddCommand(newUsageReporterCmd())
 
 	return rootCmd
 }

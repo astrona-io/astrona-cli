@@ -143,11 +143,13 @@ type LabResult struct {
 // 404 wraps ErrSessionGone, 409 ErrAttemptFinished and 410
 // ErrSessionExpired (both with the site's message); any other failure is
 // returned as is.
-func (c *Client) SendLabResult(ctx context.Context, s Store, cr *Credentials, sessionID string, result any) (*LabResult, error) {
+//
+// usage, when not nil, is the CLI's summary of what the lab used.
+func (c *Client) SendLabResult(ctx context.Context, s Store, cr *Credentials, sessionID string, result any, usage *UsageReport) (*LabResult, error) {
 	if sessionID == "" || strings.ContainsAny(sessionID, "/?#") {
 		return nil, fmt.Errorf("invalid lab session id %q", sessionID)
 	}
-	lr, err := c.postLabResult(ctx, cr, sessionID, result)
+	lr, err := c.postLabResult(ctx, cr, sessionID, result, usage)
 	var he *httpError
 	if errors.As(err, &he) && he.Status == http.StatusUnauthorized {
 		renewed, rerr := c.Renew(ctx, s, cr)
@@ -157,7 +159,7 @@ func (c *Client) SendLabResult(ctx context.Context, s Store, cr *Credentials, se
 			}
 			return nil, fmt.Errorf("%s didn't accept your sign-in and it couldn't be renewed: %w", cr.Site, rerr)
 		}
-		lr, err = c.postLabResult(ctx, renewed, sessionID, result)
+		lr, err = c.postLabResult(ctx, renewed, sessionID, result, usage)
 	}
 	if err == nil {
 		return lr, nil
@@ -179,8 +181,12 @@ func (c *Client) SendLabResult(ctx context.Context, s Store, cr *Credentials, se
 	}
 }
 
-func (c *Client) postLabResult(ctx context.Context, cr *Credentials, sessionID string, result any) (*LabResult, error) {
-	body, err := json.Marshal(map[string]any{"result": result})
+func (c *Client) postLabResult(ctx context.Context, cr *Credentials, sessionID string, result any, usage *UsageReport) (*LabResult, error) {
+	payload := map[string]any{"result": result}
+	if usage != nil {
+		payload["usage"] = usage
+	}
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -226,19 +232,20 @@ func (c *Client) UpdateLabSessionProgress(ctx context.Context, cr *Credentials, 
 // (astrona destroy) or "time_limit" (the watchdog at the limit). The site
 // keeps the first stop, so a second one is harmless. A rejected access
 // token is renewed once; a session the site no longer knows wraps
-// ErrSessionGone.
-func (c *Client) StopLabSession(ctx context.Context, s Store, cr *Credentials, sessionID, reason string) error {
+// ErrSessionGone. usage, when not nil, is the CLI's summary of what the
+// playground used.
+func (c *Client) StopLabSession(ctx context.Context, s Store, cr *Credentials, sessionID, reason string, usage *UsageReport) error {
 	if sessionID == "" || strings.ContainsAny(sessionID, "/?#") {
 		return fmt.Errorf("invalid lab session id %q", sessionID)
 	}
-	err := c.postStop(ctx, cr, sessionID, reason)
+	err := c.postStop(ctx, cr, sessionID, reason, usage)
 	var he *httpError
 	if errors.As(err, &he) && he.Status == http.StatusUnauthorized {
 		renewed, rerr := c.Renew(ctx, s, cr)
 		if rerr != nil {
 			return rerr
 		}
-		err = c.postStop(ctx, renewed, sessionID, reason)
+		err = c.postStop(ctx, renewed, sessionID, reason, usage)
 	}
 	if err == nil {
 		return nil
@@ -256,8 +263,12 @@ func (c *Client) StopLabSession(ctx context.Context, s Store, cr *Credentials, s
 	}
 }
 
-func (c *Client) postStop(ctx context.Context, cr *Credentials, sessionID, reason string) error {
-	body, err := json.Marshal(map[string]string{"reason": reason})
+func (c *Client) postStop(ctx context.Context, cr *Credentials, sessionID, reason string, usage *UsageReport) error {
+	payload := map[string]any{"reason": reason}
+	if usage != nil {
+		payload["usage"] = usage
+	}
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}

@@ -100,13 +100,14 @@ func (p *playgroundSite) signIn(t *testing.T) *labAccount {
 }
 
 // withSpawnedWatchdogs records the watchdogs started instead of starting
-// them.
+// them, and starts no usage reporter.
 func withSpawnedWatchdogs(t *testing.T) *[]string {
 	t.Helper()
 	var spawned []string
-	prev := spawnWatchdog
+	prev, prevReporter := spawnWatchdog, spawnUsageReporter
 	spawnWatchdog = func(cluster string) (int, error) { spawned = append(spawned, cluster); return 4242, nil }
-	t.Cleanup(func() { spawnWatchdog = prev })
+	spawnUsageReporter = func(string) (int, error) { return 4343, nil }
+	t.Cleanup(func() { spawnWatchdog, spawnUsageReporter = prev, prevReporter })
 	return &spawned
 }
 
