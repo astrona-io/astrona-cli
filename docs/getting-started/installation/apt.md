@@ -26,7 +26,7 @@ Download the latest stable `.deb`, verify its SHA-256 checksum, and install it. 
 
 The commands below for DNF and Snap use the same download and verification process. Each resolves a single release tag so the package and its checksums come from the same release. These packages become available after the first release containing the Linux packaging feature; a missing asset stops the commands before installation. Downloaded files remain in the temporary directory; the subshell keeps your current directory unchanged.
 
-APT installs Git and CA certificates automatically. The package includes pinned, checksum-verified **Kind, kubectl and ORAS**, installed privately under `/usr/lib/astrona/tools`. Astrona and its lab scripts use those tools without replacing tools you already have on your shell's PATH. `astrona shell` also inherits them.
+APT installs Git and CA certificates automatically. The package includes pinned, checksum-verified **Kind, kubectl and ORAS**, installed privately under `/usr/lib/astrona/tools`. Astrona and its lab scripts use those tools without replacing tools you already have on your shell's PATH. `astrona shell` uses the tools in its isolated terminal container.
 
 Install and start **Docker or Podman** separately. For optional VM labs on Debian/Ubuntu:
 

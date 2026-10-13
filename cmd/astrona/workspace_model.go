@@ -46,7 +46,7 @@ type workspaceTick time.Time
 type workspaceModel struct {
 	runID                                                 string
 	settingsPath                                          string
-	terminalCommand                                       func(string) (*exec.Cmd, error)
+	terminalCommand                                       func(context.Context, string) (*exec.Cmd, error)
 	taskTerminals                                         bool
 	name, task, notice                                    string
 	submission                                            string

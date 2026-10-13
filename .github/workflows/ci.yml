@@ -91,6 +91,11 @@ jobs:
           export PATH="$(go env GOPATH)/bin:$PATH"
           ./astrona check --headless --accept-terms
 
+      - name: Terminal filesystem isolation
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          go test ./internal/labshell -run '^TestContainerIsolation$' -count=1 -v -timeout=8m -args -container-smoke
+
       # Docker is already available on GitHub-hosted ubuntu-latest runners,
       # which is all the kind runtime needs — no nested virtualization
       # required. The qemu runtime is intentionally not exercised here:

@@ -41,6 +41,7 @@ The codebase is organized in a standard, logical Go folder structure:
   - `runtime` — Dispatches runtime creation and environment state (`runtime.go`).
   - `lifecycle` — The lab pipeline every command uses: `Up` (create → links → preload → addons → lab CA → DNS → bootstrap → readiness → port forwards), linked clusters (`StartLinkedClusters`, dependency order, `--parallel`), stable names and WAN, shared CA, linked-cluster teardown, `SoftReset`. Printing, prompts and flags stay in `cmd/astrona`.
   - `version` — Release versions and `astronaVersion` constraints.
+  - `labshell` — Student Kind terminals run in a tools container. Only the per-run `runtime/<lab>/work` directory is writable from the terminal; never mount host homes, engine sockets or SSH agents. Keep failure closed: no host shell fallback. UI image preparation must be cancellable without holding the rendering lock. QEMU terminals remain inside their VM with SSH local escapes disabled.
   - `cluster` — Handles container engine detection and Kind cluster lifecycle (`cluster.go`).
   - `hypervisor` — Manages QEMU VM background processes, UEFI vars, and multi-NIC topology (`hypervisor.go`).
   - `executor` — Defines shell execution abstractions on the host or over SSH (`executor.go`).

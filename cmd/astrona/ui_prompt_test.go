@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -35,7 +36,7 @@ func TestUITerminalCompactPromptKeepsShellSetup(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			manager := newUITerminals(t.Context(), func(string) (*exec.Cmd, error) {
+			manager := newUITerminals(t.Context(), func(context.Context, string) (*exec.Cmd, error) {
 				cmd := exec.Command(path)
 				cmd.Env = append(os.Environ(), "HOME="+home, "ZDOTDIR="+dotDir, "ENV="+filepath.Join(home, "shrc"), "KUBECONFIG=/tmp/lab-config", "TERM=xterm-256color")
 				return cmd, nil

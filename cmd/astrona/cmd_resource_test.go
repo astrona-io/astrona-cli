@@ -62,10 +62,10 @@ func TestPickResourceLab(t *testing.T) {
 		t.Errorf("the only one = %q, %v", lab, err)
 	}
 	snapshotLab(t, "astro-db-02", map[string]string{"b.sh": ""})
-	if _, err := pickResourceLab(resourceTestCmd(), flags, ""); err == nil || !strings.Contains(err.Error(), "db-02, net-01") || !strings.Contains(err.Error(), "astrona shell <lab>") {
+	if _, err := pickResourceLab(resourceTestCmd(), flags, ""); err == nil || !strings.Contains(err.Error(), "db-02, net-01") || !strings.Contains(err.Error(), "--lab <lab>") {
 		t.Errorf("several = %v", err)
 	}
-	// The terminal's own lab (astrona shell) wins over guessing…
+	// An explicit environment selection wins over guessing.
 	t.Setenv(labShellEnvVar, "astro-db-02")
 	if lab, _ := pickResourceLab(resourceTestCmd(), flags, ""); lab != "astro-db-02" {
 		t.Errorf("$ASTRONA_LAB = %q", lab)

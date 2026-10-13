@@ -50,6 +50,9 @@ func newSSHCmd() *cobra.Command {
 			// `astrona list` prints the prefixed form, but a user typing
 			// the bare lab name should still connect.
 			name := config.NormalizeClusterName(args[0])
+			if err := config.ValidateName(name); err != nil {
+				return err
+			}
 
 			handle, err := hypervisor.LoadQEMUHandle(name)
 			if err != nil {
@@ -66,11 +69,12 @@ func newSSHCmd() *cobra.Command {
 				user = userFlag
 			}
 
-			sshArgs := []string{
+			sshArgs := append(isolatedSSHOptions(),
+				"-tt",
 				"-p", strconv.Itoa(handle.SSHPort),
 				"-o", "StrictHostKeyChecking=accept-new",
-				"-o", "UserKnownHostsFile=" + handle.KnownHosts,
-			}
+				"-o", "UserKnownHostsFile="+handle.KnownHosts,
+			)
 
 			if passwordFlag != "" || askPassword {
 				sshArgs = append(sshArgs,
@@ -82,7 +86,7 @@ func newSSHCmd() *cobra.Command {
 				sshArgs = append(sshArgs, "-i", handle.SSHKeyPath)
 			}
 
-			sshArgs = append(sshArgs, fmt.Sprintf("%s@%s", user, handle.SSHHost))
+			sshArgs = append(sshArgs, "-l", user, "--", handle.SSHHost, vmWorkspaceShell(name, false))
 
 			fmt.Printf("Connecting to '%s' (%s@%s:%d)...\n", handle.ClusterName, user, handle.SSHHost, handle.SSHPort)
 

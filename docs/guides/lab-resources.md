@@ -37,7 +37,7 @@ How `run` runs a resource:
 | an executable starting with `#!` | the file itself | your current folder |
 | anything else, and folders without `run:` | — only `show` / `copy` / `path` | |
 
-In a kind lab every resource runs with **`KUBECONFIG` set to the lab's own kubeconfig** (plus its linked clusters'), exactly like [`astrona shell`](../reference/cli/astrona_shell.md) — so a resource's `kubectl` never reaches your other clusters, whatever your current context is. `$ASTRONA_LAB` holds the lab and `$ASTRONA_RESOURCE_DIR` the folder with all its resources (one resource can use another).
+In a kind lab every resource runs with **`KUBECONFIG` set to the lab's own kubeconfig** (plus its linked clusters'), using the same cluster selection as [`astrona shell`](../reference/cli/astrona_shell.md) — so a resource's `kubectl` never reaches your other clusters, whatever your current context is. `$ASTRONA_LAB` holds the lab and `$ASTRONA_RESOURCE_DIR` the folder with all its resources (one resource can use another).
 
 In a **qemu lab** a resource runs **inside the VM**, as the account `astrona ssh` logs in with: `astrona res run` copies it to `~/astrona-resources/<name>` in the VM (fresh each time) and runs it there — from that folder, with every argument passed through as-is. The VM is `--vm <name>`, else the resource's `vm:` in the lab config, else the lab's only VM; a multi-VM lab without either asks which. `.yaml` files are plain files in a qemu lab (there's no cluster to apply them to).
 
@@ -46,11 +46,11 @@ In a **qemu lab** a resource runs **inside the VM**, as the account `astrona ssh
 `astrona res` picks the lab in this order:
 
 1. `--lab <lab>` (a running lab's name or a catalog name)
-2. the lab of the `astrona shell` you're in (`$ASTRONA_LAB`)
+2. `$ASTRONA_LAB`, if set in the host terminal
 3. the lab of `-c` / `--git`, or the one picked with [`astrona use`](../reference/cli/astrona_use.md)
 4. the only lab that has resources
 
-Otherwise it stops and lists the labs — it never guesses. With two labs open, run `astrona shell <lab>` in each terminal: every `astrona res` in that terminal then works on its lab.
+Otherwise it stops and lists the labs — it never guesses. With two labs open, pass `--lab <lab>` to select one explicitly.
 
 ## Tab completion and the docs
 
@@ -63,3 +63,9 @@ A lab's resources are part of its code: the approval prompt for a remote lab (`-
 ## For lab authors
 
 Put the files in a `resources/` folder next to `config.yaml`; an optional `resources:` list adds descriptions and run commands. See [`resources` in the lab config reference](../reference/lab-config.md#resources).
+
+Resource commands run from your normal host terminal. Astrona itself is not
+installed in the isolated Kind terminal. Copy a resource into
+`~/.astrona/runtime/<lab>/work` to edit it from a lab tab; development builds use
+`~/.astrona-dev`. Kind resource scripts invoked with `astrona res run` still run
+on the host and are outside the terminal's filesystem protection.

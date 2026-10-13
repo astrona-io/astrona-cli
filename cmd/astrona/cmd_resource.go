@@ -36,7 +36,7 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 			"  astrona res copy <name> [dest]    copy it here (or to dest) to edit\n" +
 			"  astrona res path <name>           print its path, for $(…) in your own commands\n" +
 			"  astrona res run <name> [args…]    run it\n\n" +
-			"Which lab: --lab, else the lab of the `astrona shell` you're in ($ASTRONA_LAB), else the " +
+			"Which lab: --lab, else $ASTRONA_LAB if set in your host terminal, else the " +
 			"lab of -c/--git, else the one picked with `astrona use`, else the only lab with resources. " +
 			"With several labs open in several terminals, run `astrona shell <lab>` in each and every " +
 			"`astrona res` there works on that lab.\n\n" +
@@ -224,7 +224,7 @@ func pickResourceLab(cmd *cobra.Command, flags *rootFlags, labFlag string) (stri
 	case 0:
 		return "", fmt.Errorf("no lab has resources — they're copied when a lab that has some starts (`astrona run`)")
 	}
-	return "", fmt.Errorf("several labs have resources (%s) — pick one: --lab <lab>, or run `astrona shell <lab>` and use `astrona res` in there", strings.Join(trimAstro(labs), ", "))
+	return "", fmt.Errorf("several labs have resources (%s) — pick one with --lab <lab>", strings.Join(trimAstro(labs), ", "))
 }
 
 // labNameFromConfig is the lab of -c/--git/`astrona use`, by its config.

@@ -50,16 +50,17 @@ type uiTerminals struct {
 	ctx            context.Context
 	cancel         context.CancelFunc
 	mu             sync.Mutex
+	startMu        sync.Mutex
 	tabs           []*uiTerminalTab
 	changed        chan struct{}
 	workers        sync.WaitGroup
-	factory        func(string) (*exec.Cmd, error)
+	factory        func(context.Context, string) (*exec.Cmd, error)
 	closeOnce      sync.Once
 	active         int
 	nextID         int
 }
 
-func newUITerminals(ctx context.Context, factory func(string) (*exec.Cmd, error)) *uiTerminals {
+func newUITerminals(ctx context.Context, factory func(context.Context, string) (*exec.Cmd, error)) *uiTerminals {
 	ctx, cancel := context.WithCancel(ctx)
 	return &uiTerminals{ctx: ctx, cancel: cancel, factory: factory, changed: make(chan struct{}, 1)}
 }
@@ -94,18 +95,26 @@ func (t *uiTerminals) start(alias string, width, height int) tea.Cmd {
 
 func (t *uiTerminals) startNamed(alias, label string, width, height int) tea.Cmd {
 	return func() tea.Msg {
-		t.mu.Lock()
-		defer t.mu.Unlock()
+		t.startMu.Lock()
+		defer t.startMu.Unlock()
 		if t.ctx.Err() != nil {
 			return uiTerminalStarted{err: t.ctx.Err()}
 		}
-		if len(t.tabs) >= 12 {
+		if len(t.snapshot()) >= 12 {
 			return uiTerminalStarted{err: fmt.Errorf("this workspace already has 12 terminal tabs")}
 		}
-		cmd, err := t.factory(alias)
+		cmd, err := t.factory(t.ctx, alias)
 		if err != nil {
 			return uiTerminalStarted{err: err}
 		}
+		if t.ctx.Err() != nil {
+			if cmd.Cancel != nil {
+				_ = cmd.Cancel()
+			}
+			return uiTerminalStarted{err: t.ctx.Err()}
+		}
+		t.mu.Lock()
+		defer t.mu.Unlock()
 		cleanup := func() {}
 		if t.compactPrompt {
 			cleanup, err = configureUITerminalPrompt(cmd)
@@ -139,6 +148,9 @@ func (t *uiTerminals) startNamed(alias, label string, width, height int) tea.Cmd
 		})
 		t.workers.Go(func() {
 			defer cleanup()
+			if cmd.Cancel != nil {
+				defer func() { _ = cmd.Cancel() }()
+			}
 			err := cmd.Wait()
 			tab.mu.Lock()
 			tab.ended = true
@@ -234,6 +246,9 @@ func (tab *uiTerminalTab) release() {
 func (t *uiTerminals) close() {
 	t.closeOnce.Do(func() {
 		t.cancel()
+		// Wait for preparation to observe cancellation before waiting on workers.
+		t.startMu.Lock()
+		defer t.startMu.Unlock()
 		for _, tab := range t.snapshot() {
 			_ = tab.terminal.Close()
 			select {
@@ -470,7 +485,7 @@ func (m *uiTaskModel) navigation() (string, []uiTabHit) {
 		hits = append(hits, uiTabHit{start, min(m.workspace.width, ansi.StringWidth(nav)), i})
 	}
 	if m.starting {
-		nav += " Opening terminal…"
+		nav += " Preparing isolated terminal (first use downloads tools)…"
 	} else if len(m.tabs) == 0 {
 		nav += workspaceNav([]string{"Terminal · retry"}, []string{"1"}, 0)
 	}

@@ -230,7 +230,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 	if err != nil {
 		return "", err
 	}
-	m := workspaceModel{selected: selected, settingsPath: path, runID: runID, taskTerminals: true, terminalCommand: func(alias string) (*exec.Cmd, error) {
+	m := workspaceModel{selected: selected, settingsPath: path, runID: runID, taskTerminals: true, terminalCommand: func(ctx context.Context, alias string) (*exec.Cmd, error) {
 		if err := workspaceGuard(name, runID); err != nil {
 			return nil, err
 		}
@@ -242,7 +242,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 			}
 			return nil, fmt.Errorf("no VM named %q in lab %s", alias, name)
 		}
-		cmd, _, err := labShellCommand(name, alias, nil)
+		cmd, _, err := labShellCommandContext(ctx, name, alias, nil)
 		return cmd, err
 	}, name: name, task: workspaceTask(cfg, baseDir, flags), canSubmit: workspaceCanSubmit(cfg, playground), snapshot: workspaceSnapshot{clusters: clusters}}
 	refresh := func(ctx context.Context) workspaceSnapshot {
