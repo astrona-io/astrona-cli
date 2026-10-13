@@ -181,6 +181,8 @@ type uiPaneModel struct {
 	activity                        uiActivityClock
 	activityPath, activityError     string
 	activityAway                    bool
+	activityTimeFrozen              bool
+	idleOverview                    bool
 	activityTotal, activitySavedOwn time.Duration
 	dashboard                       uiHomeSnapshot
 	loadDashboard                   tea.Cmd
@@ -243,8 +245,7 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case uiHomeSnapshot:
 		m.dashboard = msg
 	case uiActivityTick:
-		m.activityTick(time.Time(msg))
-		return m, uiActivityTickCmd()
+		return m, tea.Batch(m.activityTick(time.Time(msg)), uiActivityTickCmd())
 	case uiAccountStatus:
 		m.account = msg
 		return m, uiAccountTick()
@@ -298,12 +299,13 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case uiPaneDrainTimeout:
 		_ = m.terminal.Close()
 	case tea.MouseMsg:
+		restoreMouse := m.advanceActivity(time.Now())
 		if m.selectText {
 			return m, nil
 		}
 		if !strings.HasPrefix(m.title, "TASK / ") || m.controls || m.closing || m.ended || m.activity.paused || m.activityAway {
 			m.mouseDown = false
-			return m, nil
+			return m, restoreMouse
 		}
 		row := msg.Y - uiHeaderHeight(m.width, m.height)
 		mouse := uv.Mouse{X: min(max(0, msg.X), max(0, m.width-1)), Y: min(max(0, row), max(0, m.emulator.Height()-1)), Button: uv.MouseLeft}
@@ -335,6 +337,17 @@ func (m *uiPaneModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *uiPaneModel) key(key tea.KeyMsg) tea.Cmd {
+	now := time.Now()
+	return tea.Batch(m.advanceActivity(now), m.handleKey(key, now))
+}
+
+func (m *uiPaneModel) handleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
+	if !m.activityAway && m.activity.paused && !m.ended {
+		return m.idleKey(key, now)
+	}
+	if !m.activityAway && !m.activity.paused {
+		m.activity.input(now)
+	}
 	if !key.Paste && key.Type == tea.KeyCtrlY {
 		m.selectText, m.mouseDown = !m.selectText, false
 		m.selectionView = ""
@@ -349,26 +362,11 @@ func (m *uiPaneModel) key(key tea.KeyMsg) tea.Cmd {
 		if !key.Paste && key.Type == tea.KeyEsc {
 			return tea.EnableMouseCellMotion
 		}
-		return tea.Batch(tea.EnableMouseCellMotion, m.key(key))
+		return tea.Batch(tea.EnableMouseCellMotion, m.handleKey(key, now))
 	}
-	now := time.Now()
-	m.activity.update(now)
 	if !key.Paste && key.Type == tea.KeyCtrlC && !m.controls && !m.closing && !m.ended && (strings.HasPrefix(m.title, "TASK / ") || strings.HasPrefix(m.title, "WORKSPACE / ")) {
-		m.activity.paused = true
-		m.activityAway = true
-		m.saveActivity(now)
-		sendUIPaneKey(m.emulator, key)
+		m.leaveActivity(now)
 		return nil
-	}
-	if !m.activityAway && m.activity.paused && !m.controls && !m.closing && !m.ended && key.Type != tea.KeyCtrlCloseBracket {
-		if key.Type == tea.KeyEnter && !key.Paste {
-			m.activity.input(now)
-			m.saveActivity(now)
-		}
-		return nil
-	}
-	if !m.activityAway && !m.activity.paused {
-		m.activity.input(now)
 	}
 	if m.closing {
 		switch key.String() {
@@ -439,7 +437,7 @@ func (m *uiPaneModel) View() string {
 	}
 	if !m.activityAway && m.activity.paused && !m.controls && !m.ended {
 		content = m.idleView(content)
-		footer = "Enter: continue · Ctrl+] pane controls"
+		footer = "Enter: confirm · ←/→: Continue / Overview · Esc: overview"
 	}
 	if m.activityError != "" {
 		footer = m.activityError

@@ -15,7 +15,7 @@ import (
 )
 
 const uiActivityEnv = "ASTRONA_INTERNAL_UI_ACTIVITY"
-const uiIdleAfter = 5 * time.Minute
+const uiIdleAfter = 3 * time.Minute
 
 type uiActivityTarget struct {
 	Lab, Started, Session string
@@ -103,9 +103,32 @@ func (c *uiActivityClock) save(now time.Time) error {
 	return nil
 }
 
-func (m *uiPaneModel) activityTick(now time.Time) {
-	if m.activityPath == "" || m.ended {
-		return
+// Check inactivity before file reads or input handling, so neither a delayed
+// refresh nor a failed read can postpone the idle dialog.
+func (m *uiPaneModel) advanceActivity(now time.Time) tea.Cmd {
+	wasPaused := m.activity.paused
+	m.activity.update(now)
+	if wasPaused || !m.activity.paused || m.activityAway {
+		return nil
+	}
+	m.idleOverview = false
+	m.controls, m.closing, m.mouseDown = false, false, false
+	restoreMouse := m.selectText
+	m.selectText, m.selectionView = false, ""
+	m.saveActivity(now)
+	if restoreMouse {
+		return tea.EnableMouseCellMotion
+	}
+	return nil
+}
+
+func (m *uiPaneModel) activityTick(now time.Time) tea.Cmd {
+	if m.ended {
+		return nil
+	}
+	restoreMouse := m.advanceActivity(now)
+	if m.activityPath == "" {
+		return restoreMouse
 	}
 	var target uiActivityTarget
 	data, err := os.ReadFile(m.activityPath)
@@ -114,13 +137,13 @@ func (m *uiPaneModel) activityTick(now time.Time) {
 	}
 	if err != nil && !os.IsNotExist(err) {
 		m.activityError = "Could not read activity tracking: " + err.Error()
-		return
+		return restoreMouse
 	}
 	if target.Lab != "" {
 		st, loadErr := labstate.Load(target.Lab)
 		if loadErr != nil {
 			m.activityError = "Could not check the active lab: " + loadErr.Error()
-			return
+			return restoreMouse
 		}
 		if st == nil || st.StartedAt != target.Started {
 			target = uiActivityTarget{}
@@ -135,6 +158,7 @@ func (m *uiPaneModel) activityTick(now time.Time) {
 		}
 		m.activity = uiActivityClock{target: target, lastInput: now}
 		m.activityAway = false
+		m.activityTimeFrozen, m.idleOverview = false, false
 		m.activityTotal, m.activitySavedOwn = 0, 0
 		if target.Lab != "" {
 			m.activity.periods = []labstate.ActivityPeriod{{Start: now, End: now}}
@@ -144,11 +168,10 @@ func (m *uiPaneModel) activityTick(now time.Time) {
 	if time.Since(m.usage.Updated) > 15*time.Second {
 		m.usage = labstate.ResourceUsage{}
 	}
-	wasPaused := m.activity.paused
-	m.activity.update(now)
-	if m.activity.paused != wasPaused || now.Sub(m.activity.saved) >= 5*time.Second {
+	if now.Sub(m.activity.saved) >= 5*time.Second {
 		m.saveActivity(now)
 	}
+	return restoreMouse
 }
 
 func (m *uiPaneModel) saveActivity(now time.Time) {
@@ -157,11 +180,17 @@ func (m *uiPaneModel) saveActivity(now time.Time) {
 	} else {
 		m.activityError = ""
 		if m.activity.target.Lab != "" {
+			// Other windows may keep working in the same lab. Their time belongs
+			// in the overview, but must not advance this window's paused counter.
+			if m.activity.paused && m.activityTimeFrozen {
+				return
+			}
 			total, _, err := labstate.ActiveTime(m.activity.target.Lab, m.activity.target.Started)
 			if err != nil {
 				m.activityError = "Could not read time spent: " + err.Error()
 			} else {
 				m.activityTotal, m.activitySavedOwn = total, m.activity.total()
+				m.activityTimeFrozen = m.activity.paused
 			}
 		}
 	}
@@ -180,11 +209,47 @@ func (m *uiPaneModel) timeSpent() time.Duration {
 }
 
 func (m *uiPaneModel) idleView(background string) string {
-	message := "No terminal input for 5 minutes. Your time spent counter is paused.\n\n" +
+	choices := "[ Continue ]    Overview"
+	if m.idleOverview {
+		choices = "Continue    [ Overview ]"
+	}
+	message := "No input in this lab window for 3 minutes.\n" +
+		"Time spent paused at " + formatUptime(m.timeSpent()) + ".\n\n" +
 		"This idle interval is excluded. The lab and running commands keep running.\n" +
-		"Exam and playground expiry limits still apply.\n\n[ Continue ]\nEnter resumes · Ctrl+] opens pane controls"
+		"Exam and playground expiry limits still apply.\n\n" + choices +
+		"\n←/→ or Tab selects · Enter confirms · Esc goes to overview"
 	if m.activityError != "" {
 		message += "\n\n" + m.activityError
 	}
 	return workspaceDialog(background, "IDLE · TIME PAUSED", strings.TrimSpace(message), m.width, m.emulator.Height(), false)
+}
+
+func (m *uiPaneModel) idleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
+	if key.Paste {
+		return nil
+	}
+	switch key.String() {
+	case "left", "right", "tab", "shift+tab":
+		m.idleOverview = !m.idleOverview
+	case "enter":
+		if !m.idleOverview {
+			m.activity.input(now)
+			m.saveActivity(now)
+			return nil
+		}
+		m.leaveActivity(now)
+	case "esc", "ctrl+c":
+		m.leaveActivity(now)
+	}
+	return nil
+}
+
+func (m *uiPaneModel) leaveActivity(now time.Time) {
+	m.activity.paused, m.activityAway = true, true
+	m.saveActivity(now)
+	key := tea.KeyMsg{Type: tea.KeyCtrlC}
+	if m.title == "PREFERENCES" {
+		key = tea.KeyMsg{Type: tea.KeyCtrlO, Alt: true}
+	}
+	sendUIPaneKey(m.emulator, key)
 }

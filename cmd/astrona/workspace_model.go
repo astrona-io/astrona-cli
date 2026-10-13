@@ -94,7 +94,8 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, workspaceTickCmd()
 	case tea.KeyMsg:
 		key := msg.String()
-		if key == "ctrl+c" && !msg.Paste && !m.home && len(m.labs) == 0 && !m.showPreferences {
+		// The outer idle dialog can return Home even from a settings dialog.
+		if !msg.Paste && !m.home && len(m.labs) == 0 && (key == "alt+ctrl+o" || key == "ctrl+c" && !m.showPreferences) {
 			m.action = workspaceLeave
 			return m, tea.Quit
 		}
