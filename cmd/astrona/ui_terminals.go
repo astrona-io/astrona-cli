@@ -366,8 +366,12 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.BlurMsg:
 		m.setTerminalLocked(false)
+		m.workspace.confirmSubmit, m.workspace.submitYes = false, false
 		return m, nil
 	case tea.FocusMsg:
+		if m.workspace.confirmSubmit {
+			return m, nil
+		}
 		if m.active >= 0 && m.active < len(m.tabs) {
 			tab := m.tabs[m.active]
 			tab.mu.Lock()
@@ -479,11 +483,29 @@ func (m *uiTaskModel) resize() {
 
 type uiTabHit struct{ start, end, index int }
 
+func (m *uiTaskModel) submitButtonWidth() int {
+	left, _, _ := m.size()
+	if left > 0 {
+		return min(left, len(uiSubmitButton))
+	}
+	return min(m.workspace.width, len(uiSubmitButton))
+}
+
 func (m *uiTaskModel) navigation() (string, []uiTabHit) {
 	left, w, _ := m.size()
 	nav := ""
 	if left > 0 {
 		nav = workspaceFit(" Ctrl+O: task / terminal", left, 1)
+	}
+	if m.workspace.canSubmit {
+		button := workspaceFocus.Render(uiSubmitButton)
+		if m.terminalLocked || m.workspace.snapshot.blocked != "" {
+			button = workspaceMuted.Render(uiSubmitButton)
+		}
+		nav = workspaceFit(button, max(left, m.submitButtonWidth()), 1)
+		if left == 0 {
+			w -= m.submitButtonWidth()
+		}
 	}
 	visible := max(1, (w+4)/22)
 	first := max(0, m.active-visible+1)
@@ -576,6 +598,9 @@ func (m *uiTaskModel) View() string {
 	if m.taskFocus {
 		footer = "Ctrl+O terminal · ↑/↓ scroll · PgUp/PgDn page · Home/End · Ctrl+B overview"
 	}
+	if m.workspace.canSubmit {
+		footer = "Ctrl+S submit · " + footer
+	}
 	if terminalStatus != "" {
 		footer = terminalStatus
 	}
@@ -599,6 +624,9 @@ func (m *uiTaskModel) View() string {
 		hint = "Type in the terminal to lock focus (red) · Ctrl+Alt+] releases it (blue)"
 	}
 	view := workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render(hint), m.workspace.width, m.workspace.height)
+	if m.workspace.confirmSubmit {
+		return m.workspace.submitView(view)
+	}
 	if m.namingTab {
 		text := "Name: " + sanitizeLine(m.tabName) + "_\n\nEnter opens the tab; leave blank for a default name.\nSwitch tabs with a mouse click or Ctrl+N / Ctrl+P.\nWhen locked, release focus first with Ctrl+Alt+].\n\nEnter opens · Esc cancels · Ctrl+U clears"
 		if len(m.workspace.snapshot.clusters) > 0 && m.workspace.snapshot.clusters[0].runtime == "qemu" {

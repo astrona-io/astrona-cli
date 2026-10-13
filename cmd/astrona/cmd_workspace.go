@@ -201,8 +201,6 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		return "", fmt.Errorf("lab %s was started from another config; attach using its saved source with astrona ui %s", name, name)
 	}
 	runID := workspaceRunID(st)
-	stopActivity := uiActivityStart(name, st.StartedAt)
-	defer stopActivity()
 	links, _ := lifecycle.Links(name)
 	clusters := []workspaceCluster{{name: name, status: "Checking…"}}
 	for _, link := range links {
@@ -226,6 +224,9 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		}
 	}
 	playground := st.Session.IsPlayground() || isPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground"
+	task, expected := workspaceTaskInfo(cfg, baseDir, flags)
+	stopActivity := uiActivityStart(name, st.StartedAt, uiLabProgress{Lab: !playground, Expected: expected})
+	defer stopActivity()
 	path, err := settingsPath(flags)
 	if err != nil {
 		return "", err
@@ -244,7 +245,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		}
 		cmd, _, err := labShellCommandContext(ctx, name, alias, nil)
 		return cmd, err
-	}, name: name, task: workspaceTask(cfg, baseDir, flags), canSubmit: workspaceCanSubmit(cfg, playground), snapshot: workspaceSnapshot{clusters: clusters}}
+	}, name: name, task: task, canSubmit: workspaceCanSubmit(cfg, playground), snapshot: workspaceSnapshot{clusters: clusters}}
 	refresh := func(ctx context.Context) workspaceSnapshot {
 		return readWorkspaceSnapshot(ctx, name, runID, clusters, playground, cfg.Exam.Enabled())
 	}
@@ -330,6 +331,7 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 			return nil
 		}
 		m.exitMenu, m.confirmDestroy = false, false
+		m.confirmSubmit, m.submitYes = false, false
 		// Preferences do not act on the lab and remain usable if it expires.
 		// File access happens between workspace screens, inside the UI pane.
 		if m.action == workspaceLoadPreferences || m.action == workspaceSavePreference {
@@ -425,8 +427,13 @@ func workspaceSubmission(r submissionResult, sent, recorded bool) string {
 }
 
 func workspaceTask(cfg *config.LabConfig, baseDir string, flags *rootFlags) string {
+	task, _ := workspaceTaskInfo(cfg, baseDir, flags)
+	return task
+}
+
+func workspaceTaskInfo(cfg *config.LabConfig, baseDir string, flags *rootFlags) (string, time.Duration) {
 	if cfg.Metadata.Docs.Question == "" {
-		return "No task document provided. Use the shell to explore the lab."
+		return "No task document provided. Use the shell to explore the lab.", 0
 	}
 	configPath := filepath.Join(baseDir, flags.fileName)
 	if strings.HasPrefix(flags.configPath, "https://") || strings.HasPrefix(flags.configPath, "http://") {
@@ -437,13 +444,9 @@ func workspaceTask(cfg *config.LabConfig, baseDir string, flags *rootFlags) stri
 	}
 	text, err := readLabDoc(configPath, cfg.Metadata.Docs.Question)
 	if err != nil {
-		return "Could not read the task: " + sanitizeLine(err.Error())
+		return "Could not read the task: " + sanitizeLine(err.Error()), 0
 	}
-	title, body := stripFrontMatter(sanitizeTerminalText(text))
-	if title != "" {
-		return "# " + title + "\n\n" + body
-	}
-	return body
+	return labTaskDocument(text)
 }
 
 func readWorkspaceSnapshot(ctx context.Context, name, runID string, clusters []workspaceCluster, playground, timed bool) workspaceSnapshot {

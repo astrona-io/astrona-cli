@@ -77,6 +77,15 @@ const uiWordmark = `   _   ___ _____ ___  ___  _  _   _
 /_/ \_\___/ |_| |_|_\\___/|_|\_/_/ \_\`
 
 func (m *uiPaneModel) header() string {
+	header := m.headerInfo()
+	height := uiHeaderHeight(m.width, m.height)
+	if progress := m.labTimeProgress(); progress != "" && height >= 5 {
+		header = workspaceFit(header, m.width, height-1) + "\n" + workspaceFit(progress, m.width, 1)
+	}
+	return header
+}
+
+func (m *uiPaneModel) headerInfo() string {
 	status := m.account
 	if status.label == "" {
 		status.label, status.warning = "Checking login…", true
