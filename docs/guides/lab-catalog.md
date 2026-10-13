@@ -62,7 +62,7 @@ The session is remembered with the lab in `~/.astrona/labs/<lab>.json` (mode 060
 
 When the result can't be sent, the grade still stands: an expired session (or one that isn't yours) says to run the lab again for a new attempt, an attempt that's already finished shows Astrona's message, a session whose time ran out shows Astrona's message plus how to start a new attempt (`astrona reset <lab>`, or `astrona destroy <lab>` then `astrona run <lab>`) and never offers to delete the lab, and a network or server error is a warning. Signed out, submit says to `astrona login` and run the lab again. Under `-o json` these lines go to stderr, so stdout stays exactly one JSON document.
 
-`astrona destroy` of a lab that hasn't passed tells Astrona too: the attempt ends as *destroyed* — it stops showing as running on your labs page and never counts. A lab that already passed stays passed. (`astrona reset` and a fresh `astrona run` close the old attempt the same way.)
+`astrona destroy` of a lab that hasn't passed tells Astrona too: the attempt ends as *destroyed* — it stops showing as running on your labs page and never counts. Deletion sends only the session-closure reason, with no grading result or final usage summary. Unsubmitted work is discarded; a lab that already passed stays passed. (`astrona reset` and a fresh `astrona run` close the old attempt the same way.)
 
 Labs from your own files or repositories (`-c ./my-lab`, `--git <url>`) are not tied to an account: they run without signing in, and no page is opened.
 

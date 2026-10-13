@@ -26,6 +26,7 @@ type playgroundSite struct {
 	kind, deadline string
 	created        []map[string]any
 	stops          []string // "<session> <reason>"
+	stopBodies     []map[string]any
 }
 
 func newPlaygroundSite(t *testing.T) *playgroundSite {
@@ -50,10 +51,11 @@ func newPlaygroundSite(t *testing.T) *playgroundSite {
 			w.WriteHeader(http.StatusCreated)
 			fmt.Fprintf(w, `{"id":"s-new","token":"t","lab":"L","url":%q,"max_minutes":60,"kind":%q,"deadline_at":%q}`, p.srv.URL+"/labs/L", p.kind, p.deadline)
 		case strings.HasSuffix(r.URL.Path, "/stop"):
-			var body map[string]string
+			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			id := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/cli/lab-sessions/"), "/stop")
-			p.stops = append(p.stops, id+" "+body["reason"])
+			p.stops = append(p.stops, id+" "+fmt.Sprint(body["reason"]))
+			p.stopBodies = append(p.stopBodies, body)
 			fmt.Fprint(w, `{}`)
 		default:
 			http.NotFound(w, r)

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"astrona/internal/terms"
@@ -106,7 +105,7 @@ func prepareUIRunApproval(cmd *cobra.Command, flags *rootFlags) (uiRunApproval, 
 	preview.uiRestart = restart
 	requestedRestart, _ := cmd.Flags().GetBool("yes")
 	preview.localOnly = restart != nil || requestedRestart
-	approval = uiRunApproval{view: view, store: store, termsAccepted: accepted, restart: restart, localOnly: preview.localOnly, notice: buildUIRunNotice(cmd, &preview, view, !accepted)}
+	approval = uiRunApproval{view: view, store: store, termsAccepted: accepted, restart: restart, localOnly: preview.localOnly, notice: buildUIRunNotice(cmd, &preview, !accepted)}
 	return approval, nil
 }
 
@@ -114,7 +113,7 @@ func (a uiRunApproval) save(cmd *cobra.Command) error {
 	if err := cmd.Context().Err(); err != nil {
 		return err
 	}
-	// Use the displayed review ID; a concurrent settings edit must not be
+	// Use the prepared review ID; a concurrent settings edit must not be
 	// approved using stale information. Keep the existing review lock and writes.
 	review := &cobra.Command{}
 	review.SetContext(cmd.Context())
@@ -128,7 +127,7 @@ func (a uiRunApproval) save(cmd *cobra.Command) error {
 	return nil
 }
 
-func buildUIRunNotice(cmd *cobra.Command, flags *rootFlags, view settingsView, needsTerms bool) uiRunNotice {
+func buildUIRunNotice(cmd *cobra.Command, flags *rootFlags, needsTerms bool) uiRunNotice {
 	selected := *flags
 	applyCurrentLab(cmd, &selected)
 	label := selected.configPath
@@ -160,35 +159,22 @@ func buildUIRunNotice(cmd *cobra.Command, flags *rootFlags, view settingsView, n
 	if flags.localOnly && flags.uiRestart == nil {
 		tracking = "This run is local only. No progress or results will be sent to the Astrona API."
 	}
-	var values, details []string
-	for _, v := range view.Values {
-		value, source := string(v.Value), v.Source
-		if f := cmd.Flags().Lookup(v.Key); f != nil && f.Changed {
-			value, source = f.Value.String(), "command flag"
-		}
-		if v.Key == "keep-context" && os.Getenv(labShellEnvVar) != "" {
-			value, source = "true", "inherited lab shell"
-		}
-		values = append(values, v.Key+"="+settingValueText(value))
-		details = append(details, fmt.Sprintf("%s: %s (%s; default %s)\n%s", v.Key, settingValueText(value), source, settingValueText(string(v.Default)), v.Description))
-	}
 	summary := sanitizeLine(label) + "\n\n" + action + "\n"
 	if flags.uiRestart == nil {
 		summary += "Other labs stay running.\n"
 	}
 	if needsTerms {
 		summary += "Yes accepts the CLI terms and data-loss risk notice (Tab to read).\n"
+	} else {
+		summary += "Your CLI terms agreement is saved.\n"
 	}
 	summary += "\nYes authorizes downloads, required CLI installation, containers, virtual machines, lab scripts and manifests, and configured local ports. Lab code may run on your machine. Only accept if you trust this lab and its sources. This code approval applies to this run only.\n\n"
 	if tracking != "" {
 		summary += tracking + "\n\n"
 	}
-	summary += "Settings: " + strings.Join(values, ", ") + ". Saved choices are kept.\n"
-	if len(view.Pending) > 0 {
-		summary += "Yes acknowledges the settings review; removed settings are cleared.\n"
-	}
-	summary += "\nTab: terms and setting explanations. No cancels before startup."
-	return uiRunNotice{title: title, summary: summary, details: terms.Document() + "\n\nSettings\n\n" + strings.Join(details, "\n\n") + "\n\nPending review: " + strings.Join(view.Pending, ", ")}
+	summary += "Your saved settings will be used. Change them in Preferences (p in the overview).\n"
+	summary += "\nTab: CLI terms. No cancels before startup."
+	return uiRunNotice{title: title, summary: summary, details: terms.Document(), detailsTitle: "CLI TERMS"}
 }
 
 type uiRunModel struct {
@@ -257,7 +243,7 @@ func (m uiRunModel) View() string {
 		title = m.notice.title
 	}
 	if m.details {
-		title = "TERMS AND SETTINGS"
+		title = "CLI TERMS"
 		if m.notice.detailsTitle != "" {
 			title = m.notice.detailsTitle
 		}

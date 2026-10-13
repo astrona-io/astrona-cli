@@ -98,7 +98,7 @@ func TestUIRunGate(t *testing.T) {
 			confirmations := 0
 			installUIRunGate(f.root, f.flags, func(_ *cobra.Command, notice uiRunNotice) (bool, error) {
 				confirmations++
-				for _, text := range []string{"ATS000/section-010/module-01/lab-01", "update-check=no", "Other labs stay running", "signed out", "this run only"} {
+				for _, text := range []string{"ATS000/section-010/module-01/lab-01", "Preferences", "Other labs stay running", "signed out", "this run only"} {
 					if !strings.Contains(notice.summary, text) {
 						t.Fatalf("notice missing %q", text)
 					}
@@ -161,8 +161,8 @@ func TestUIRunGateScopeAndDefaults(t *testing.T) {
 			called := false
 			installUIRunGate(root, flags, func(_ *cobra.Command, notice uiRunNotice) (bool, error) {
 				called = true
-				if !strings.Contains(notice.summary, "update-check=yes") || !strings.Contains(notice.summary, "current work will be deleted") {
-					t.Fatal("default or requested restart missing")
+				if !strings.Contains(notice.summary, "Preferences") || !strings.Contains(notice.summary, "current work will be deleted") {
+					t.Fatal("preferences hint or requested restart missing")
 				}
 				return true, nil
 			})
@@ -223,4 +223,63 @@ func TestUIRunNoticeControls(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestUIRunAgreementSurvivesNextInvocation(t *testing.T) {
+	f := newUIRunGateFixture(t)
+	installUIRunGate(f.root, f.flags, func(_ *cobra.Command, notice uiRunNotice) (bool, error) {
+		if !strings.Contains(notice.summary, "Yes accepts the CLI terms") {
+			t.Fatal("first run did not ask for the agreement")
+		}
+		return true, nil
+	})
+	if err := f.root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	store, err := terms.DefaultStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiptPath := filepath.Join(store.Dir, "terms.json")
+	before, err := os.ReadFile(receiptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A fresh command reads receipts from disk, as a second process would.
+	flags := &rootFlags{settingsFile: f.path}
+	root := newRootCmd(flags)
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	root.PersistentPreRunE = func(*cobra.Command, []string) error { return nil }
+	run, _, err := root.Find([]string{"run"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	run.RunE = func(*cobra.Command, []string) error { return nil }
+	confirmations := 0
+	installUIRunGate(root, flags, func(_ *cobra.Command, notice uiRunNotice) (bool, error) {
+		confirmations++
+		if !strings.Contains(notice.summary, "agreement is saved") || !strings.Contains(notice.summary, "Preferences") {
+			t.Fatalf("saved agreement or preferences hint missing: %s", notice.summary)
+		}
+		for _, unwanted := range []string{"Yes accepts", "Settings:", "update-check", "acknowledges the settings review", "Pending review"} {
+			if strings.Contains(notice.summary+notice.details, unwanted) {
+				t.Fatalf("repeat notice contains %q", unwanted)
+			}
+		}
+		return true, nil
+	})
+	root.SetArgs([]string{"run", "ATS000/section-010/module-01/lab-01", "--ui"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if confirmations != 1 {
+		t.Fatalf("startup confirmations = %d", confirmations)
+	}
+	after, err := os.ReadFile(receiptPath)
+	if err != nil || string(before) != string(after) {
+		t.Fatal("second run rewrote the terms agreement")
+	}
+	checkUIRunConsent(t, f, true)
 }

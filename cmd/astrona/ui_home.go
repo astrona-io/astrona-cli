@@ -22,6 +22,7 @@ type uiHomeRun struct {
 	name, kind, status, runID string
 	started                   time.Time
 	openable                  bool
+	reportPlayground          bool
 	activeTime                time.Duration
 	activityTracked           bool
 	activity                  string
@@ -129,6 +130,7 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 			continue
 		}
 		run := uiHomeRun{name: name, kind: "Lab", status: "Unavailable", runID: workspaceRunID(st)}
+		run.reportPlayground = st.Session.IsPlayground() && !st.LocalOnly
 		run.started, _ = time.Parse(time.RFC3339, st.StartedAt)
 		run.activeTime, run.activityTracked, err = labstate.ActiveTime(name, st.StartedAt)
 		if err != nil {
@@ -488,7 +490,7 @@ func (m uiHomeModel) View() string {
 		if !m.deleteDialogFits() {
 			return workspaceDialog(view, "FORCE DELETE", "Resize the terminal to read the full warning.\nEsc cancels.", m.width, m.height, true)
 		}
-		return workspaceDialog(view, "FORCE DELETE", uiDeleteMessage(m.deleting.name, m.deleteYes), m.width, m.height, true)
+		return workspaceDialog(view, "FORCE DELETE", uiDeleteMessage(*m.deleting, m.deleteYes), m.width, m.height, true)
 	}
 	if editor.showAlert {
 		return editor.alertView(view)
