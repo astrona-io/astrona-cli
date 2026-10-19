@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -19,7 +20,7 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 			"Explicit command-line flags override saved preferences. Settings never store " +
 			"credentials or approve remote code. Viewing settings does not create a file.\n\n" +
 			"Use view for a detailed overview, review to approve settings changes, " +
-			"set to save a value, unset to restore its default, and path to locate the file. " +
+			"set to save a value, unset to restore one default, reset to restore all of them, and path to locate the file. " +
 			"Boolean settings use yes/no; true/false are also accepted.",
 		Example: `  astrona settings
   astrona settings set keep-context yes
@@ -27,7 +28,8 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
   astrona settings set cache-retention-days 30
   astrona settings set cache-max-size-gb 50
   astrona settings get keep-context
-  astrona settings unset keep-context`,
+  astrona settings unset keep-context
+  astrona settings reset --yes`,
 		Args: cobra.NoArgs,
 		// Settings are local maintenance: no current lab, version check, or
 		// root settings load. In particular, path works with a damaged file.
@@ -80,6 +82,7 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 			return err
 		},
 	})
+	cmd.AddCommand(newSettingsResetCmd(flags))
 	for _, action := range []string{"get", "set", "unset"} {
 		use, short, nargs := action+" <key>", "Read a saved value or its default", 1
 		switch action {
@@ -168,4 +171,79 @@ func applyUserSettings(cmd *cobra.Command, flags *rootFlags) error {
 		}
 	}
 	return nil
+}
+
+func newSettingsResetCmd(flags *rootFlags) *cobra.Command {
+	var yes bool
+	cmd := &cobra.Command{
+		Use:   "reset",
+		Short: "Restore every preference to its default",
+		Long: "Remove all saved preferences from settings.json so every setting uses its default again. " +
+			"Without --yes it only shows what would change. It also repairs a settings file that astrona refuses " +
+			"to read. It does not touch your lab, sign-in, trust decisions or catalog sources; for those, and " +
+			"for forgetting the selected lab, see `astrona data reset`. Restore a single setting with `astrona settings unset <key>`.",
+		Example: `  astrona settings reset           # show what would be reset
+  astrona settings reset --yes     # reset every setting to its default`,
+		Args: cobra.NoArgs,
+		// Like the other settings commands: local maintenance that must work
+		// with a damaged file, so no root settings load.
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error { return nil },
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path, err := settingsPath(flags)
+			if err != nil {
+				return err
+			}
+			saved, damaged, existed, err := resetSettings(path, yes)
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			defaults := map[string]string{}
+			for _, def := range settingsDefinitions() {
+				defaults[def.key] = def.defaultValue
+			}
+			switch {
+			case !existed:
+				fmt.Fprintf(out, "No saved settings in %s: every setting already uses its default.\n", path)
+				return nil
+			case damaged && yes:
+				fmt.Fprintf(out, "Replaced the unreadable settings file %s: every setting uses its default.\n", path)
+				return nil
+			case damaged:
+				fmt.Fprintf(out, "The settings file %s cannot be read as settings. Run `astrona settings reset --yes` to replace it with the defaults.\n", path)
+				return nil
+			}
+			keys := make([]string, 0, len(saved))
+			for key := range saved {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			w := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
+			verb := "Would reset"
+			if yes {
+				verb = "Reset"
+			}
+			fmt.Fprintf(out, "%s %s in %s:\n\n", verb, pluralSettings(len(keys)), path)
+			fmt.Fprintln(w, "SETTING\tSAVED\tDEFAULT")
+			for _, key := range keys {
+				fmt.Fprintf(w, "%s\t%s\t%s\n", key, settingValueText(string(saved[key])), settingValueText(defaults[key]))
+			}
+			if err := w.Flush(); err != nil {
+				return err
+			}
+			if !yes {
+				fmt.Fprintln(out, "\nNothing changed. Run `astrona settings reset --yes` to apply.")
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "Apply the reset; without this flag only show what would change")
+	return cmd
+}
+
+func pluralSettings(n int) string {
+	if n == 1 {
+		return "1 saved setting"
+	}
+	return fmt.Sprintf("%d saved settings", n)
 }

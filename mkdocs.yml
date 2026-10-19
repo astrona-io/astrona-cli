@@ -177,6 +177,7 @@ nav:
               - reference/cli/astrona_settings_get.md
               - reference/cli/astrona_settings_set.md
               - reference/cli/astrona_settings_unset.md
+              - reference/cli/astrona_settings_reset.md
               - reference/cli/astrona_settings_path.md
               - reference/cli/astrona_versions.md
               - reference/cli/astrona_versions_list.md
