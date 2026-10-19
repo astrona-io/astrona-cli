@@ -4581,7 +4581,7 @@
 <p>Saved runs use their local config and cached repository without checking GitHub or downloading again. Approval of the same source revision is reused.</p>
 <p>Passing means every check passes, or — when the lab sets validation.passPercent — reaching that score.</p>
 <p>With no lab named, none picked with <code>astrona use</code> and no lab config in the current directory, the only running lab is submitted; with several running, it lists them and how to name each.</p>
-<p>A catalog lab started while signed in (<code>astrona run ATS…</code>) sends each result to its lab page on Astrona as well. After a passing result is confirmed by the server, submit automatically deletes the lab, exactly like <code>astrona destroy</code>, including in headless and JSON modes. Use --keep to keep it; teardown.keepCluster is also respected. Failed or unsent results keep the environment. Both PASS and FAIL finish the attempt and stop its timer; start a new run for another tracked attempt.</p>
+<p>A catalog lab started while signed in (<code>astrona run ATS…</code>) sends each result to its lab page on Astrona as well. A submit is final: PASS and FAIL both finish the attempt and stop its timer, and once the server confirms the result, submit automatically deletes the lab, exactly like <code>astrona destroy</code>, including in headless and JSON modes. Use --keep to keep it; teardown.keepCluster is also respected. Unsent results keep the environment. Start a new run for another tracked attempt.</p>
 <p>Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong. Sending the result to Astrona never changes the grade. A cleanup failure exits 1 and leaves the uploaded result intact.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona submit [lab] [flags]
 </code></pre></div>
@@ -4590,7 +4590,7 @@
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>      --history             List previous attempts for this lab instead of grading
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>      --interval duration   How often --watch re-grades (minimum 2s) (default 5s)
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>      --junit-xml string    Write a JUnit XML test report to this path, for CI systems to parse
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>      --keep                Keep the lab after a passing result is sent to Astrona instead of automatically deleting it
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>      --keep                Keep the lab after the result is sent to Astrona instead of automatically deleting it
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>      --no-hints            Don't show hints for failed checks (exam conditions)
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  -o, --output string       Output format: json
 <a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  -w, --watch               Re-grade continuously while you work (Ctrl-C to stop; not recorded as attempts)
