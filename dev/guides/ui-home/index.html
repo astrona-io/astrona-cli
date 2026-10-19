@@ -4620,7 +4620,7 @@ to return there while remaining paused. Esc or Ctrl+C also returns to the
 overview. Other keys and pasted text do not resume the timer or reach the shell.
 The dialog also appears during native copy mode or pane controls. The lab and
 commands keep running while time tracking is paused.</p>
-<p>Release terminal focus with Ctrl+Alt+], then press Ctrl+B to return to Home
+<p>Release terminal focus with F2, then press Ctrl+B to return to Home
 and pause the counter immediately. Terminal tabs and
 background commands keep running, but their output does not add time. Reopening
 the same run resumes tracking and restores its tabs.</p>
@@ -4715,11 +4715,18 @@ Commands and editors stay inside the terminal pane.</p>
 <p>Typing or pasting into a terminal locks focus. Its border turns <strong>red</strong> and the
 panel says <strong>LOCKED</strong>. Keyboard shortcuts go to the app inside, including
 Ctrl+B, Ctrl+T, Ctrl+Y and Ctrl+]. Mouse events inside the terminal also reach
-apps that use the mouse; clicks elsewhere cannot switch panes or tabs while locked.</p>
-<p>Press <strong>Ctrl+Alt+]</strong> to release focus. The border turns <strong>blue</strong>, and Astrona's
+apps that use the mouse. Clicking outside the terminal body releases focus and
+lets you switch panes or tabs.</p>
+<p>Press <strong>F2</strong> to release focus. On Mac keyboards that use the top row for
+brightness and other hardware controls, press <strong>Fn+F2</strong> to send F2. The UI shows
+this Mac hint automatically. You can also click the task pane, a terminal tab,
+or the divider to release focus without a keyboard shortcut.</p>
+<p>The previous Ctrl+Alt+] shortcut still works when your terminal sends it. On
+macOS, Option/Alt behavior depends on the terminal profile and keyboard layout;
+F2 does not require enabling Option as Meta. See <a href="https://support.apple.com/en-us/102439">Apple’s function-key guide</a>.</p>
+<p>After releasing focus, the border turns <strong>blue</strong>, and Astrona's
 shortcuts, tab clicks, resizing and text selection work again. The next input
-sent to the terminal locks it again. On macOS, Alt is Option; configure the
-terminal to send Option as Alt/Meta. Ctrl+Shift+C is not used because terminals
+sent to the terminal locks it again. Ctrl+Shift+C is not used because terminals
 may reserve it for Copy or send the same input as Ctrl+C.</p>
 <p>The idle dialog releases focus and pauses time spent. <strong>Continue</strong> restores
 terminal focus; <strong>Overview</strong> leaves it released and keeps the timer paused.</p>
@@ -4733,7 +4740,7 @@ terminal focus; <strong>Overview</strong> leaves it released and keeps the timer
 </thead>
 <tbody>
 <tr>
-<td>Ctrl+Alt+]</td>
+<td>F2 (Fn+F2 on Mac hardware-key layouts)</td>
 <td>Release locked terminal focus.</td>
 </tr>
 <tr>
@@ -4816,12 +4823,12 @@ removes its workspace; a soft reset preserves it. Development builds use
 <code>~/.astrona-dev/runtime/&lt;lab&gt;/work</code> on the host. See
 <a href="../../concepts/runtimes/#terminal-workspaces">terminal workspaces</a> for file access
 and the protection boundary.</p>
-<p>Release focus, then click a terminal tab to switch to it. Type <code>exit</code> to close a shell and remove
+<p>Click a terminal tab to release focus and switch to it. Type <code>exit</code> to close a shell and remove
 its tab. Closing the last shell opens a replacement on the same cluster or VM.
 If reconnection fails repeatedly, a Retry tab stays visible; press Enter to retry.
 Closing other tabs frees slots for new terminals. Returning to Home
 preserves shells and their environment until the UI closes or the run is deleted.</p>
-<p>Release focus with Ctrl+Alt+], then drag across text in either pane to select it.
+<p>Release focus with F2, then drag across text in either pane to select it.
 The selection turns light blue and copies to your clipboard when you release
 the mouse. It stays inside the pane where you started dragging, so copied
 commands do not include text from the other pane or its borders. The footer
@@ -4838,7 +4845,7 @@ live output. Typing also leaves native selection mode.</p>
 and terminals; Ctrl+T then opens a terminal for that target. Tab switches the
 task/results panel, and Page Up/Down scrolls. <code>p</code> opens preferences. Settings
 apply to future commands; cache policy is checked after the UI closes.</p>
-<p>For a graded lab, release terminal focus with <strong>Ctrl+Alt+]</strong>, then click
+<p>For a graded lab, release terminal focus with <strong>F2</strong>, then click
 <strong>Submit lab</strong> above the task or press <strong>Ctrl+S</strong>. The Yes/No dialog asks before
 running validation. No is selected initially; choose Yes with the arrow keys
 and Enter, press <code>y</code>, or click Yes. No, Esc or Ctrl+C returns to your work.
