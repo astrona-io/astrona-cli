@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -84,59 +83,6 @@ func TestApplySourceRoundTrip(t *testing.T) {
 	if src.File != "" || got.fileName != "config.yaml" {
 		t.Errorf("default file: %+v / %q", src, got.fileName)
 	}
-}
-
-func TestSubmitFollowUp(t *testing.T) {
-	for _, c := range []struct {
-		name                                        string
-		pass, sent, keep, jsonOut, tty, keepCluster bool
-		want                                        followUp
-	}{
-		{"fail never prompts", false, true, false, false, true, false, followNothing},
-		{"pass not sent", true, false, false, false, true, false, followNothing},
-		{"pass sent, terminal", true, true, false, false, true, false, followAsk},
-		{"pass sent, --keep", true, true, true, false, true, false, followNothing},
-		{"pass sent, no terminal", true, true, false, false, false, false, followHint},
-		{"pass sent, -o json", true, true, false, true, true, false, followHint},
-		{"pass sent, keepCluster lab", true, true, false, false, true, true, followNothing},
-	} {
-		if got := submitFollowUp(c.pass, c.sent, c.keep, c.jsonOut, c.tty, c.keepCluster); got != c.want {
-			t.Errorf("%s: %v, want %v", c.name, got, c.want)
-		}
-	}
-}
-
-func TestOfferDestroy(t *testing.T) {
-	for _, c := range []struct {
-		name    string
-		ask     bool
-		answer  string
-		destroy bool
-	}{
-		{"Enter deletes", true, "\n", true},
-		{"y deletes", true, "y\n", true},
-		{"YES deletes", true, "YES\n", true},
-		{"n keeps", true, "n\n", false},
-		{"closed input keeps", true, "", false},
-		{"no terminal keeps", false, "y\n", false},
-	} {
-		var prompt, out bytes.Buffer
-		destroyed := false
-		offerDestroy(strings.NewReader(c.answer), &prompt, &out, c.ask, "ATS/x", func() error { destroyed = true; return nil })
-		if destroyed != c.destroy {
-			t.Errorf("%s: destroyed = %v", c.name, destroyed)
-		}
-		if c.ask != strings.Contains(prompt.String(), "Delete the lab cluster now? [Y/n] ") {
-			t.Errorf("%s: prompt = %q", c.name, prompt.String())
-		}
-		kept := strings.Contains(out.String(), "Kept. Remove it later with: astrona destroy ATS/x")
-		if kept == c.destroy {
-			t.Errorf("%s: output = %q", c.name, out.String())
-		}
-	}
-	// A failed delete is only a warning.
-	var out bytes.Buffer
-	offerDestroy(strings.NewReader("\n"), &bytes.Buffer{}, &out, true, "astro-x", func() error { return errors.New("boom") })
 }
 
 // fakeResultSite is an Astrona site that signs in and answers the result
@@ -440,13 +386,5 @@ func TestPrintTimeLimit(t *testing.T) {
 		if out := captureStdout(t, func() { printTimeLimit(s) }); out != "" {
 			t.Errorf("without a limit: %q", out)
 		}
-	}
-}
-
-// An expired session (410) is never followed by the delete question: the
-// result wasn't sent.
-func TestExpiredSessionNeverPrompts(t *testing.T) {
-	if submitFollowUp(true, false, false, false, true, false) != followNothing {
-		t.Error("a pass that wasn't sent must not offer to delete the lab")
 	}
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,8 @@ import (
 // unreadable (e.g. the lab directory was already cleaned up).
 type teardownInfo struct {
 	clusterName string
+	runID       string    // when set, only remove this saved run, checked under the mutation lock
+	status      io.Writer // nil uses stdout; submit JSON cleanup writes notices to stderr
 	teardown    config.TeardownConfig
 	runtime     config.RuntimeConfig
 	cfg         *config.LabConfig // the loaded config, for the trust check
@@ -375,13 +378,26 @@ func destroyLab(info teardownInfo, baseDir string, rep *ui.Reporter) error {
 	}
 	defer release()
 	clusterName := config.NormalizeClusterName(info.clusterName)
+	if info.runID != "" {
+		current, err := labstate.Load(clusterName)
+		if err != nil {
+			return err
+		}
+		if workspaceRunID(current) != info.runID {
+			return fmt.Errorf("lab stopped or restarted during submission; the current run was not deleted")
+		}
+	}
+	status := info.status
+	if status == nil {
+		status = os.Stdout
+	}
 	if !info.teardown.KeepCluster {
 		// Before the delete unsets the lab's context. The record is dropped
 		// here even though the delete may still fail: by then it has done
 		// its job (the context is back, or the user had moved on, or the
 		// previous one is gone), and a kept record would only make the
 		// retry report "moved on" for the context it just restored.
-		releaseLab(os.Stdout, clusterName)
+		releaseLab(status, clusterName)
 	}
 	if err := tearDownLabEnvironment(clusterName, info, baseDir, true, rep); err != nil {
 		return err
