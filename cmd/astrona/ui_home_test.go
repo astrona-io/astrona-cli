@@ -179,7 +179,7 @@ func TestWorkspaceCompletionReturnsHomeWithoutExtraEffects(t *testing.T) {
 				},
 				guard:      func() error { return nil },
 				returnHome: func(message string) { returned = message },
-				submit:     func() (string, error) { submitted++; return "Attempt #1", gradeErr },
+				submit:     func() (string, bool, error) { submitted++; return "Attempt #1", false, gradeErr },
 				destroy:    func() (bool, error) { destroyed++; return true, nil },
 			}
 			if err := driveWorkspace(context.Background(), workspaceModel{name: "astro-lab", canSubmit: true}, d); err != nil || returned == "" {

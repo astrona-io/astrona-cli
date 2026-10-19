@@ -17,7 +17,7 @@ import (
 	"astrona/internal/proctor"
 )
 
-func TestSubmitCleansUpOnlyAfterConfirmedPass(t *testing.T) {
+func TestSubmitCleansUpAfterConfirmedResult(t *testing.T) {
 	for _, tc := range []struct {
 		name                                                 string
 		pass, keep, keepCluster, json, deleteFails, replaced bool
@@ -28,7 +28,8 @@ func TestSubmitCleansUpOnlyAfterConfirmedPass(t *testing.T) {
 		{name: "JSON uploaded pass", pass: true, json: true, status: 201, deleted: true},
 		{name: "keep", pass: true, keep: true, status: 201},
 		{name: "keepCluster", pass: true, keepCluster: true, status: 201},
-		{name: "uploaded failure", status: 201, wantError: true},
+		{name: "uploaded failure", status: 201, deleted: true, wantError: true},
+		{name: "unsent failure", status: 502, wantError: true},
 		{name: "server error", pass: true, status: 502},
 		{name: "expired session", pass: true, status: 410},
 		{name: "cleanup error", pass: true, status: 201, deleteFails: true, wantError: true},

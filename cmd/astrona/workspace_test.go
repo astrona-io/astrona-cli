@@ -540,7 +540,7 @@ func TestWorkspaceDriverSafety(t *testing.T) {
 					}
 					return nil
 				},
-				submit: func() (string, error) { submit++; return "graded result", tt.actionErr },
+				submit: func() (string, bool, error) { submit++; return "graded result", false, tt.actionErr },
 				shell: func(alias string) error {
 					shell++
 					if alias != "idp" {

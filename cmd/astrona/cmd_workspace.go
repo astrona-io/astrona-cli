@@ -270,10 +270,16 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		},
 		guard: func() error { return workspaceGuard(name, runID) },
 		shell: func(alias string) error { return runLabShell(name, alias, nil) },
-		submit: func() (string, error) {
-			result := ""
-			err := submitLoadedLab(flags, cfg, baseDir, submitOptions{keep: true, completed: func(r submissionResult, sent, recorded bool) { result = workspaceSubmission(r, sent, recorded) }}, os.Stdout)
-			return result, err
+		// A sent result finishes the attempt, PASS or FAIL, and deletes the
+		// lab as `astrona submit` does.
+		submit: func() (string, bool, error) {
+			result, deleted := "", false
+			err := submitLoadedLab(flags, cfg, baseDir, submitOptions{
+				completed:     func(r submissionResult, sent, recorded bool) { result = workspaceSubmission(r, sent, recorded) },
+				beforeCleanup: func() { closeUITerminals(ctx, name) },
+				deleted:       func() { deleted = true },
+			}, os.Stdout)
+			return result, deleted, err
 		},
 		destroy: func() (bool, error) {
 			closeUITerminals(ctx, name)
@@ -299,7 +305,7 @@ type workspaceDriver struct {
 	refresh        func(context.Context) workspaceSnapshot
 	guard          func() error
 	shell          func(string) error
-	submit         func() (string, error)
+	submit         func() (string, bool, error)
 	destroy        func() (bool, error)
 	preferences    func() (workspacePreferences, error)
 	savePreference func(workspaceSetting, string) error
@@ -357,10 +363,20 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 				continue
 			}
 			uiPaneTitle("GRADING / " + m.name)
-			m.submission, err = d.submit()
+			var deleted bool
+			m.submission, deleted, err = d.submit()
 			m.results, m.scroll = true, 0
 			if err != nil && exitCodeFor(err) == 2 {
 				err = nil
+			}
+			if deleted {
+				message := m.submission + "\nThis attempt is finished. Lab " + m.name + " deleted. View History for saved runs and results."
+				if d.returnHome != nil {
+					d.returnHome(message)
+				} else {
+					fmt.Println(message)
+				}
+				return nil
 			}
 			if d.returnHome != nil && (err == nil || m.submission != "") {
 				message := m.submission + "\nLab " + m.name + " remains running."
