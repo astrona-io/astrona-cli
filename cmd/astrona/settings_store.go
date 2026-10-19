@@ -274,3 +274,39 @@ func writeSettingsFile(path string, value any) error {
 	}
 	return nil
 }
+
+// resetSettings removes every saved override under the settings lock, so each
+// setting falls back to its default. It works on a file loadSettings refuses
+// (invalid JSON, an unknown key): resetting is how such a file is repaired. It
+// returns the values that were saved (nil when the file was unreadable as
+// settings). Anything but a regular file is left alone. Unless apply is set it
+// only reports. settings-review.json is kept: resetting values does not ask
+// the review questions again.
+func resetSettings(path string, apply bool) (saved map[string]json.RawMessage, damaged, existed bool, err error) {
+	change := func() error {
+		data, err := readSettingsFile(path)
+		if err != nil {
+			return err
+		}
+		if data == nil {
+			return nil
+		}
+		existed = true
+		if err := json.Unmarshal(data, &saved); err != nil || saved == nil {
+			saved, damaged = nil, true
+		}
+		if !apply {
+			return nil
+		}
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("remove settings %s: %w", path, err)
+		}
+		return nil
+	}
+	if !apply {
+		err = change() // a preview takes no lock and writes nothing
+		return saved, damaged, existed, err
+	}
+	err = withSettingsLock(path, change)
+	return saved, damaged, existed, err
+}
