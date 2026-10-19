@@ -15,6 +15,8 @@ astrona settings set cache-retention-days 30
 astrona settings set cache-max-size-gb 50
 astrona settings get keep-context
 astrona settings unset keep-context
+astrona settings reset
+astrona settings reset --yes
 astrona settings path
 astrona settings -o json
 ```
@@ -29,6 +31,20 @@ astrona settings -o json
 | `update-check` | `yes` | Check for new CLI releases and show update notices |
 | `cache-retention-days` | `30` | Maximum disposable-cache age; whole days from 1 to 36500 |
 | `cache-max-size-gb` | `50` | Combined disposable-cache limit in decimal GB; `0` means unlimited size |
+
+## Reset to the defaults
+
+`astrona settings unset <key>` restores one setting. `astrona settings reset`
+restores all of them: it removes every saved value from `settings.json`.
+Without `--yes` it only lists what would change, with each saved value next to
+its default. Nothing is written until you pass `--yes`.
+
+`reset` also repairs a settings file that astrona refuses to read (invalid JSON
+or an unknown key): the preview says so, and `--yes` replaces the file with the
+defaults. It leaves your lab, sign-in, trust decisions and catalog sources
+alone, and keeps `settings-review.json`, so the review questions are not asked
+again. To also forget the selected lab and the cached catalog, use
+`astrona data reset`.
 
 `settings`, `settings get` and `settings view` display booleans as `yes` / `no`.
 JSON output and saved files retain `true` / `false`.
