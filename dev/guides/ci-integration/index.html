@@ -4618,7 +4618,7 @@ deprecated alias for existing scripts and prints a migration notice.</p>
 </tr>
 <tr>
 <td><code>submit</code></td>
-<td>Grade as usual and keep the lab without asking to delete it. Existing account sessions still receive results.</td>
+<td>Grade and send results for an existing tracked session. Automatically delete after a server-confirmed PASS; use <code>--keep</code> to retain the lab. Failed or unsent results keep it.</td>
 </tr>
 <tr>
 <td><code>start</code>, <code>stop</code>, <code>destroy</code>, <code>list</code>, <code>status</code>, <code>progress</code></td>
@@ -4658,7 +4658,7 @@ mean offline. It suppresses automatic release checks. Explicit account commands,
 submissions for an existing tracked session, and cleanup of that session retain
 their normal API behavior.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>reset<span class="w"> </span>./examples/k8s-basics-01<span class="w"> </span>--headless<span class="w"> </span>--yes<span class="w"> </span>--accept-terms
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>astrona<span class="w"> </span>submit<span class="w"> </span>./examples/k8s-basics-01<span class="w"> </span>--headless<span class="w"> </span>--accept-terms<span class="w"> </span>-o<span class="w"> </span>json
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>astrona<span class="w"> </span>submit<span class="w"> </span>./examples/k8s-basics-01<span class="w"> </span>--headless<span class="w"> </span>--accept-terms<span class="w"> </span>--keep<span class="w"> </span>-o<span class="w"> </span>json
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./examples/k8s-basics-01<span class="w"> </span>--headless<span class="w"> </span>--accept-terms<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
 </code></pre></div>
 <h2 id="minimal-github-actions-job">Minimal GitHub Actions job<a class="headerlink" href="#minimal-github-actions-job" title="Permanent link">&para;</a></h2>
