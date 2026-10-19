@@ -3753,6 +3753,8 @@
       
         
       
+        
+      
     
     
     
@@ -4217,6 +4219,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../astrona_settings_reset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings reset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../astrona_settings_path/" class="md-nav__link">
         
   
@@ -4600,7 +4630,7 @@
 <p>View and change your saved CLI preferences</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>View saved preferences and defaults from ~/.astrona/settings.json. Explicit command-line flags override saved preferences. Settings never store credentials or approve remote code. Viewing settings does not create a file.</p>
-<p>Use view for a detailed overview, review to approve settings changes, set to save a value, unset to restore its default, and path to locate the file. Boolean settings use yes/no; true/false are also accepted.</p>
+<p>Use view for a detailed overview, review to approve settings changes, set to save a value, unset to restore one default, reset to restore all of them, and path to locate the file. Boolean settings use yes/no; true/false are also accepted.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona settings [flags]
 </code></pre></div>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
@@ -4611,6 +4641,7 @@
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  astrona settings set cache-max-size-gb 50
 <a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  astrona settings get keep-context
 <a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  astrona settings unset keep-context
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  astrona settings reset --yes
 </code></pre></div>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>  -h, --help            help for settings
@@ -4633,6 +4664,7 @@
 <li><a href="../astrona/">astrona</a>  - Astrona is the Astrona lab community CLI</li>
 <li><a href="../astrona_settings_get/">astrona settings get</a>    - Read a saved value or its default</li>
 <li><a href="../astrona_settings_path/">astrona settings path</a>  - Print the settings file path</li>
+<li><a href="../astrona_settings_reset/">astrona settings reset</a>    - Restore every preference to its default</li>
 <li><a href="../astrona_settings_review/">astrona settings review</a>  - Choose values for new or changed CLI settings</li>
 <li><a href="../astrona_settings_set/">astrona settings set</a>    - Save a preference for future commands</li>
 <li><a href="../astrona_settings_unset/">astrona settings unset</a>    - Remove a saved preference and restore its default</li>

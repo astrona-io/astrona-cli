@@ -1259,6 +1259,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#reset-to-the-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reset to the defaults
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#change-settings-inside-the-lab-workspace" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3815,6 +3826,8 @@
       
         
       
+        
+      
     
     
     
@@ -4147,6 +4160,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_settings_reset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings reset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/cli/astrona_settings_path/" class="md-nav__link">
         
   
@@ -4413,6 +4454,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#reset-to-the-defaults" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reset to the defaults
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#change-settings-inside-the-lab-workspace" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4473,8 +4525,10 @@ separate from credentials, lab state, and remote-code approvals.</p>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>cache-max-size-gb<span class="w"> </span><span class="m">50</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>astrona<span class="w"> </span>settings<span class="w"> </span>get<span class="w"> </span>keep-context
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">unset</span><span class="w"> </span>keep-context
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>astrona<span class="w"> </span>settings<span class="w"> </span>path
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>astrona<span class="w"> </span>settings<span class="w"> </span>-o<span class="w"> </span>json
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>astrona<span class="w"> </span>settings<span class="w"> </span>reset
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>astrona<span class="w"> </span>settings<span class="w"> </span>reset<span class="w"> </span>--yes
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>astrona<span class="w"> </span>settings<span class="w"> </span>path
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>astrona<span class="w"> </span>settings<span class="w"> </span>-o<span class="w"> </span>json
 </code></pre></div>
 <table>
 <thead>
@@ -4527,6 +4581,17 @@ separate from credentials, lab state, and remote-code approvals.</p>
 </tr>
 </tbody>
 </table>
+<h2 id="reset-to-the-defaults">Reset to the defaults<a class="headerlink" href="#reset-to-the-defaults" title="Permanent link">&para;</a></h2>
+<p><code>astrona settings unset &lt;key&gt;</code> restores one setting. <code>astrona settings reset</code>
+restores all of them: it removes every saved value from <code>settings.json</code>.
+Without <code>--yes</code> it only lists what would change, with each saved value next to
+its default. Nothing is written until you pass <code>--yes</code>.</p>
+<p><code>reset</code> also repairs a settings file that astrona refuses to read (invalid JSON
+or an unknown key): the preview says so, and <code>--yes</code> replaces the file with the
+defaults. It leaves your lab, sign-in, trust decisions and catalog sources
+alone, and keeps <code>settings-review.json</code>, so the review questions are not asked
+again. To also forget the selected lab and the cached catalog, use
+<code>astrona data reset</code>.</p>
 <p><code>settings</code>, <code>settings get</code> and <code>settings view</code> display booleans as <code>yes</code> / <code>no</code>.
 JSON output and saved files retain <code>true</code> / <code>false</code>.</p>
 <p>Explicit flags override saved values, including <code>--verbose=false</code>,
