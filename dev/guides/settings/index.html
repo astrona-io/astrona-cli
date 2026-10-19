@@ -4600,17 +4600,19 @@ cache settings use days or GB when supported by your CLI version. It also lists
 pending changes and a review ID. <code>-o json</code> includes the same information;
 the existing <code>astrona settings -o json</code> remains a flat values object. Both are
 read-only and show preferences before flags or environment overrides.</p>
-<p>On first use of the review feature, Astrona asks about every setting. Later it
-asks only when a setting is added, removed, or changes its default, explanation
-or behavior revision. A CLI version change alone does not trigger another review.
-The review happens after terms acceptance but before lab loading or update checks.
-You can also start it with <code>astrona settings review</code>.</p>
+<p>Settings review is optional. Normal CLI commands, including headless and CI
+runs, use saved preferences and built-in defaults without asking for settings
+confirmation. Missing, outdated or damaged review receipts do not block commands.
+Starting a lab in the UI does not acknowledge settings on your behalf.</p>
+<p>Run <code>astrona settings review</code> explicitly when you want to inspect and save choices.
+The first review covers every setting; later reviews cover only added, removed
+or changed definitions. A CLI version change alone does not trigger another review.</p>
 <p>For each pending setting, the prompt shows its default and current choice.
 It explains why review is needed: a new setting, a changed default, explanation,
 behavior revision or explicit-choice requirement. A new default does not replace
 a saved value. Each chosen value is shown as current → proposed before the final
 approval prompt. Declining leaves both preferences and the review receipt unchanged;
-commands that require review stay blocked until it is approved.
+normal commands remain available without completing the review.
 Enter a value, press Enter to keep the current choice, or type <code>q</code> to cancel.
 Boolean settings use <code>yes</code> / <code>no</code>; <code>y</code> / <code>n</code> and <code>true</code> / <code>false</code> also work.
 <code>update-check</code> defaults to <code>yes</code> when no value is saved; a saved <code>no</code> stays selected.
@@ -4625,16 +4627,15 @@ keys not found in the previous review still require manual repair.</p>
 and usage-term acceptance. It records the reviewed definitions and CLI version,
 not a server identity or tracking token. Writes share the settings lock and use
 private atomic files. If interrupted between saving choices and the receipt,
-the next command asks again. <code>data reset --yes</code> clears both files. Unsetting
+the next explicit review asks again. <code>data reset --yes</code> clears both files. Unsetting
 <code>update-check</code> restores its default <code>yes</code> without requiring another review.</p>
-<p>Help, completion, settings, local data maintenance, terms display, internal
-background helpers, stop/destroy and logout remain available without review.
-Older binaries do not enforce this gate. No new telemetry or account tracking
-is enabled by this feature; existing signed-in lab progress tracking is separate.</p>
-<p>Without an interactive terminal (including CI), a pending review stops the
-command instead of assuming agreement. <code>--yes</code>, <code>--trust</code> and <code>--accept-terms</code>
-do not approve settings. Set any overrides, inspect the view, then acknowledge
-its exact ID:</p>
+<p>Review does not enable telemetry or account tracking; existing signed-in lab
+progress tracking is separate. Usage terms and remote-code trust retain their
+own approval requirements.</p>
+<p>CI and scripts do not need a settings review step or a pinned review ID.
+If you choose to run <code>settings review</code> without a terminal, it still requires
+explicit approval. Set any overrides, inspect the view, then acknowledge its
+exact ID:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>settings<span class="w"> </span><span class="nb">set</span><span class="w"> </span>update-check<span class="w"> </span>no
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>astrona<span class="w"> </span>settings<span class="w"> </span>view
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>astrona<span class="w"> </span>settings<span class="w"> </span>review<span class="w"> </span>--accept<span class="w"> </span>&lt;review-id-you-inspected&gt;
@@ -4643,8 +4644,8 @@ its exact ID:</p>
 Do not pipe a newly generated ID straight into <code>--accept</code>; keep the reviewed ID
 in CI configuration and update it after inspecting changes. For a fresh runner,
 use the ID displayed with that runner's exact saved settings, before review
-pins additional defaults. An existing current receipt permits headless commands;
-it does not remove the separate per-command CI requirement for <code>--accept-terms</code>.</p>
+pins additional defaults. Optional settings review does not remove the separate
+per-command CI requirement for <code>--accept-terms</code>.</p>
 <p>Cache limits are local preferences, not lab flags, and are not forwarded during
 version handover. Older CLI releases that validate settings may reject these new
 keys; remove the overrides or upgrade that binary before using it.</p>
