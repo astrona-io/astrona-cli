@@ -82,6 +82,18 @@ Classic `Ingress` isn't offered: ingress-nginx is retired upstream. Cilium isn't
 - Scripts (`bootstrap.init`, `teardown.init`, `validation.script`) run on the **host** — there's no VM to SSH into — with `KUBECONFIG` set to the lab's own kubeconfig (see below), so a plain `kubectl` in a script always hits the lab.
 - `runtime.portForwards` exposes in-cluster services on `127.0.0.1` — see [Port forwards](#port-forwards).
 
+### DNS for the lab network (`runtime.kind.dns`)
+
+```yaml
+runtime:
+  kind:
+    dns: [1.1.1.1, 1.0.0.1]   # default: 8.8.8.8, 8.8.4.4
+```
+
+With Podman, right after the cluster is created the CLI sets the upstream DNS servers of the `kind` network (`podman network update --dns-add …`). Node and container names still resolve on the network itself. Every other lookup goes to these servers instead of your computer's resolver. That covers the kubelet's image pulls and CoreDNS's upstream for pods. Without `dns`, the CLI uses Google Public DNS (`8.8.8.8`, `8.8.4.4`), so a slow or broken host resolver (a VPN, a hotel network) does not stall the lab. At most 3 IP addresses.
+
+The `kind` network is shared by every kind cluster on the machine, so the last lab created sets it. Docker networks have no upstream-DNS setting, so with Docker the lab uses the host's DNS. If the update fails, the lab still starts, with a warning, and uses your computer's DNS. To undo it: `podman network update --dns-drop 8.8.8.8 --dns-drop 8.8.4.4 kind`.
+
 ### Preloaded images (`runtime.kind.preloadImages`)
 
 ```yaml

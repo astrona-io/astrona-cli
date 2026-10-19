@@ -314,6 +314,12 @@ func CreateKindCluster(clusterName string, k *config.KindConfig, rep *ui.Reporte
 		return t.Fail(err)
 	}
 	t.Done()
+
+	// A slow host resolver must not stall pulls: never fatal, the lab works
+	// with the host's DNS too.
+	if err := SetNetworkDNS(engine, k.DNSServers(), out); err != nil {
+		rep.Warn("%s — the lab uses your computer's DNS", err)
+	}
 	return nil
 }
 
