@@ -4618,7 +4618,7 @@ deprecated alias for existing scripts and prints a migration notice.</p>
 </tr>
 <tr>
 <td><code>submit</code></td>
-<td>Grade and send results for an existing tracked session. Automatically delete after a server-confirmed result, PASS or FAIL; use <code>--keep</code> to retain the lab. Unsent results keep it.</td>
+<td>Grade and send results for an existing tracked session. Automatically delete after a server-confirmed result, PASS or FAIL; use <code>--keep</code> to retain the lab. A local-only run (<code>--local-only</code>, a UI restart) has nothing to send, so its saved local result finishes it too. An unsent result of a tracked run keeps it.</td>
 </tr>
 <tr>
 <td><code>start</code>, <code>stop</code>, <code>destroy</code>, <code>list</code>, <code>status</code>, <code>progress</code></td>
