@@ -75,7 +75,7 @@ func TestKindClusterMirrorsKindConfig(t *testing.T) {
 	// Cluster copies every one of them.
 	full := KindCluster{Name: "x", Version: "v1.31.2", Image: "i", DNSTimeout: "5m", Nodes: KindNodes{Workers: 1}, Networking: KindNetworking{IPFamily: "ipv4"},
 		FeatureGates: map[string]bool{"A": true}, RuntimeConfig: map[string]string{"a": "b"}, Addons: KindAddons{CertManager: true},
-		PreloadImages: []string{"busybox"}}
+		PreloadImages: []string{"busybox"}, DNS: []string{"8.8.8.8"}}
 	got := reflect.ValueOf(*full.Cluster())
 	for i := 0; i < got.NumField(); i++ {
 		name := kc.Field(i).Name
