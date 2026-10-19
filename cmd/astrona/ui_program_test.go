@@ -7,19 +7,21 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/creack/pty"
 )
 
 type uiSizeTestModel struct{ width, height int }
 
 func (m uiSizeTestModel) Init() tea.Cmd { return nil }
-func (m uiSizeTestModel) View() string  { return fmt.Sprintf("Size: %d x %d", m.width, m.height) }
+func (m uiSizeTestModel) View() tea.View {
+	return tea.NewView(fmt.Sprintf("Size: %d x %d", m.width, m.height))
+}
 func (m uiSizeTestModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if msg.String() == "q" {
 			return m, tea.Quit
 		}
@@ -83,7 +85,7 @@ func TestUISizeFilterPreservesInteraction(t *testing.T) {
 	if !task.dragging {
 		t.Fatal("size check interrupted dragging")
 	}
-	key := tea.KeyMsg{Type: tea.KeyCtrlO}
+	key := tea.KeyPressMsg{Code: 'o', Mod: tea.ModCtrl}
 	if uiSizeFilter(m, key) == nil {
 		t.Fatal("size filter swallowed input")
 	}

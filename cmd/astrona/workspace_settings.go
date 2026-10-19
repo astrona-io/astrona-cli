@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type workspaceSetting struct {
@@ -70,7 +70,7 @@ func saveWorkspacePreference(ctx context.Context, path string, row workspaceSett
 	})
 }
 
-func (m workspaceModel) updatePreferences(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m workspaceModel) updatePreferences(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	p := &m.preferences
 	key := msg.String()
 	if key == "esc" || key == "ctrl+c" || key == "ctrl+d" {
@@ -136,13 +136,7 @@ func (m workspaceModel) updatePreferences(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "ctrl+u":
 			p.draft = ""
 		default:
-			if msg.Type == tea.KeyRunes {
-				for _, r := range msg.Runes {
-					if r >= ' ' && r <= '~' && len(p.draft) < 64 {
-						p.draft += string(r)
-					}
-				}
-			}
+			p.typeDraft(msg.Text)
 		}
 		return m, nil
 	}
@@ -284,4 +278,22 @@ func (m workspaceModel) preferencesView() string {
 		}
 	}
 	return m.frame("PREFERENCES", context, body, footer)
+}
+
+// typeDraft adds typed or pasted text to the value being edited: printable
+// ASCII only, at most 64 characters.
+func (p *workspacePreferences) typeDraft(text string) {
+	for _, r := range text {
+		if r >= ' ' && r <= '~' && len(p.draft) < 64 {
+			p.draft += string(r)
+		}
+	}
+}
+
+// pastePreferences adds pasted text to the value being edited, if any.
+func (m workspaceModel) pastePreferences(text string) (tea.Model, tea.Cmd) {
+	if m.preferences.editing && m.width >= 48 && m.height >= 14 {
+		m.preferences.typeDraft(text)
+	}
+	return m, nil
 }

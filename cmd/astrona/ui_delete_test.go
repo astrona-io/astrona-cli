@@ -10,7 +10,7 @@ import (
 
 	"astrona/internal/labstate"
 	"astrona/internal/outbox"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -43,7 +43,7 @@ func TestUIDeleteKeepsApprovedRunAcrossRefresh(t *testing.T) {
 	run := uiHomeRun{name: "astro-lab", runID: "original", openable: true}
 	m := uiHomeModel{width: 100, height: 30, data: uiHomeSnapshot{runs: []uiHomeRun{run}}}
 	m = homeKey(m, "ctrl+d")
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 	for _, want := range []string{"FORCE DELETE", "astro-lab", "will be lost", "No, keep running"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("missing warning %q", want)
@@ -59,7 +59,7 @@ func TestUIDeleteKeepsApprovedRunAcrossRefresh(t *testing.T) {
 func TestUIDeleteCannotConfirmHiddenDialogOrPastedInput(t *testing.T) {
 	m := uiHomeModel{width: 100, height: 30, data: uiHomeSnapshot{runs: []uiHomeRun{{name: "astro-lab"}}}}
 	m = homeKey(m, "ctrl+d")
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y"), Paste: true})
+	next, _ := m.Update(tea.PasteMsg{Content: "y"})
 	if next.(uiHomeModel).deleteYes {
 		t.Fatal("paste selected destruction")
 	}

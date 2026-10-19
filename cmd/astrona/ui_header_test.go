@@ -12,7 +12,7 @@ import (
 	"astrona/internal/account"
 	"astrona/internal/labstate"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -127,8 +127,8 @@ func TestUIOverviewLayout(t *testing.T) {
 			{name: strings.Repeat("long-lab-name-", 10), kind: "Lab", status: "Running", openable: true},
 			{name: "astro-storage", kind: "Lab", status: "Stopped"},
 		}}}
-		_, _ = pane.emulator.WriteString("\x1b[?25l" + strings.ReplaceAll(home.View(), "\n", "\r\n"))
-		view := ansi.Strip(pane.View())
+		_, _ = pane.emulator.WriteString("\x1b[?25l" + strings.ReplaceAll(home.render(), "\n", "\r\n"))
+		view := ansi.Strip(pane.render())
 		for _, want := range []string{"Not logged in", "LAB", "TYPE", "STATUS", "ACTIVE", "Running", "Stopped", "<1>"} {
 			if !strings.Contains(view, want) {
 				t.Fatalf("%dx%d: missing %q", size[0], size[1], want)
@@ -187,16 +187,16 @@ func TestUILabResourcesBeforeLogo(t *testing.T) {
 func TestHomeHasNoStartupAction(t *testing.T) {
 	m := uiHomeModel{width: 100, height: 30}
 	for _, key := range []string{"n", "enter"} {
-		next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
+		next, cmd := m.Update(tea.KeyPressMsg{Text: key})
 		if key == "enter" {
-			next, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+			next, cmd = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 		}
 		m = next.(uiHomeModel)
 		if cmd != nil || m.open || m.editor.action != workspaceNone {
 			t.Fatal("Home still starts a lab")
 		}
 	}
-	for _, view := range []string{m.View(), (&uiPaneModel{title: "HOME", width: 160, height: 35}).header()} {
+	for _, view := range []string{m.render(), (&uiPaneModel{title: "HOME", width: 160, height: 35}).header()} {
 		plain := ansi.Strip(view)
 		if strings.Contains(plain, "n start") || strings.Contains(plain, "Start lab") {
 			t.Fatal("Home advertises removed startup action")

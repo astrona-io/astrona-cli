@@ -12,8 +12,8 @@ import (
 	"astrona/internal/apphome"
 	"astrona/internal/labstate"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // Keep only display fields in the UI. Reading the header must never renew

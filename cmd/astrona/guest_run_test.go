@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 )
@@ -15,14 +15,14 @@ import (
 func TestGuestReminderChoicesAndPersistence(t *testing.T) {
 	for _, tc := range []struct {
 		name                   string
-		keys                   []tea.KeyMsg
+		keys                   []tea.Msg
 		login, accepted, never bool
 	}{
-		{"login", []tea.KeyMsg{{Type: tea.KeyEnter}}, true, true, false},
-		{"guest once", []tea.KeyMsg{{Type: tea.KeyTab}, {Type: tea.KeyEnter}}, false, true, false},
-		{"guest never", []tea.KeyMsg{{Type: tea.KeyTab}, {Type: tea.KeyTab}, {Type: tea.KeySpace}, {Type: tea.KeyShiftTab}, {Type: tea.KeyEnter}}, false, true, true},
-		{"cancel checkbox", []tea.KeyMsg{{Type: tea.KeyTab}, {Type: tea.KeyTab}, {Type: tea.KeySpace}, {Type: tea.KeyEsc}}, false, false, true},
-		{"paste ignored", []tea.KeyMsg{{Type: tea.KeyEnter, Paste: true}}, false, false, false},
+		{"login", []tea.Msg{tea.KeyPressMsg{Code: tea.KeyEnter}}, true, true, false},
+		{"guest once", []tea.Msg{tea.KeyPressMsg{Code: tea.KeyTab}, tea.KeyPressMsg{Code: tea.KeyEnter}}, false, true, false},
+		{"guest never", []tea.Msg{tea.KeyPressMsg{Code: tea.KeyTab}, tea.KeyPressMsg{Code: tea.KeyTab}, tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}, tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}, tea.KeyPressMsg{Code: tea.KeyEnter}}, false, true, true},
+		{"cancel checkbox", []tea.Msg{tea.KeyPressMsg{Code: tea.KeyTab}, tea.KeyPressMsg{Code: tea.KeyTab}, tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}, tea.KeyPressMsg{Code: tea.KeyEscape}}, false, false, true},
+		{"paste ignored", []tea.Msg{tea.PasteMsg{Content: "\r"}}, false, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			flags := &rootFlags{settingsFile: filepath.Join(t.TempDir(), "settings.json")}
@@ -66,7 +66,7 @@ func TestGuestReminderChoicesAndPersistence(t *testing.T) {
 func TestGuestReminderLayoutAndCancel(t *testing.T) {
 	for _, size := range [][2]int{{48, 14}, {80, 24}, {120, 35}} {
 		m := guestRunModel{width: size[0], height: size[1]}
-		view := ansi.Strip(m.View())
+		view := ansi.Strip(m.render())
 		for _, want := range []string{"Log in", "Continue as guest", "Never ask again"} {
 			if !strings.Contains(view, want) {
 				t.Fatalf("missing %q at %v: %s", want, size, view)
@@ -74,7 +74,7 @@ func TestGuestReminderLayoutAndCancel(t *testing.T) {
 		}
 	}
 	m := guestRunModel{width: 20, height: 8}
-	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	next, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if next.(guestRunModel).choice.accepted || cmd != nil {
 		t.Fatal("accepted hidden prompt")
 	}

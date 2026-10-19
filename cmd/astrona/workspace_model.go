@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 type workspaceAction int
@@ -97,13 +97,17 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(workspaceTickCmd(), m.refresh)
 		}
 		return m, workspaceTickCmd()
-	case tea.KeyMsg:
+	case tea.PasteMsg:
+		if m.showPreferences && !m.confirmSubmit && !m.showAlert {
+			return m.pastePreferences(msg.Content)
+		}
+	case tea.KeyPressMsg:
 		key := msg.String()
 		if m.confirmSubmit {
 			return m.submitKey(msg)
 		}
 		// The outer idle dialog can return Home even from a settings dialog.
-		if !msg.Paste && !m.home && len(m.labs) == 0 && (key == "alt+ctrl+o" || key == "ctrl+b" || key == "ctrl+c" && !m.showPreferences) {
+		if !m.home && len(m.labs) == 0 && (key == "ctrl+alt+o" || key == "ctrl+b" || key == "ctrl+c" && !m.showPreferences) {
 			m.action = workspaceLeave
 			return m, tea.Quit
 		}
@@ -118,7 +122,7 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		if !msg.Paste && (key == "ctrl+g" || (key == "!" && !m.preferences.editing)) && m.alertMessage() != "" {
+		if (key == "ctrl+g" || (key == "!" && !m.preferences.editing)) && m.alertMessage() != "" {
 			m.showAlert, m.alertScroll = true, 0
 			return m, nil
 		}
@@ -216,7 +220,14 @@ func (m workspaceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m workspaceModel) View() string {
+func (m workspaceModel) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
+}
+
+func (m workspaceModel) render() string {
 	if m.width < 48 || m.height < 14 {
 		if m.confirmSubmit {
 			return m.submitView(m.smallView())
@@ -280,7 +291,7 @@ func runWorkspaceScreen(ctx context.Context, m workspaceModel, refresh func(cont
 		m.polling = true
 	}
 	m.action, m.now = workspaceNone, time.Now()
-	final, err := runUIProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	final, err := runUIProgram(m, tea.WithContext(screenCtx))
 	if err != nil {
 		return m, fmt.Errorf("terminal workspace: %w", err)
 	}

@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"astrona/internal/terms"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 )
@@ -211,7 +211,13 @@ func (m uiRunModel) maxScroll() int {
 	return max(0, len(lines)-max(1, m.height-9))
 }
 
-func (m uiRunModel) View() string {
+func (m uiRunModel) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	return v
+}
+
+func (m uiRunModel) render() string {
 	if m.width < 48 || m.height < 14 {
 		return workspaceFit("ASTRONA / START LAB\nResize to 48 × 14.\nEsc cancels startup.", m.width, m.height)
 	}
@@ -246,7 +252,7 @@ func confirmUIRun(cmd *cobra.Command, notice uiRunNotice) (bool, error) {
 	}
 	uiPaneTitle(notice.title)
 	defer uiPaneTitle("SETUP")
-	final, err := runUIProgram(uiRunModel{notice: notice}, tea.WithContext(cmd.Context()), tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()), tea.WithAltScreen())
+	final, err := runUIProgram(uiRunModel{notice: notice}, tea.WithContext(cmd.Context()), tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()))
 	if err != nil {
 		return false, fmt.Errorf("startup confirmation: %w", err)
 	}

@@ -13,18 +13,12 @@ import (
 	"astrona/internal/labstate"
 	"astrona/internal/proctor"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-isatty"
 )
 
 func homeKey(m uiHomeModel, key string) uiHomeModel {
-	types := map[string]tea.KeyType{"ctrl+d": tea.KeyCtrlD, "ctrl+c": tea.KeyCtrlC, "tab": tea.KeyTab, "enter": tea.KeyEnter, "esc": tea.KeyEsc, "down": tea.KeyDown, "up": tea.KeyUp}
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
-	if kind, ok := types[key]; ok {
-		msg.Type = kind
-	}
-	next, _ := m.Update(msg)
+	next, _ := m.Update(press(key))
 	return next.(uiHomeModel)
 }
 
@@ -36,12 +30,12 @@ func TestHomeEmptyHistoryAndNavigation(t *testing.T) {
 		t.Fatalf("empty Home needs an engine: %+v", data)
 	}
 	m := uiHomeModel{data: data, width: 100, height: 24}
-	if !strings.Contains(m.View(), "No active runs") {
-		t.Fatal(m.View())
+	if !strings.Contains(m.render(), "No active runs") {
+		t.Fatal(m.render())
 	}
 	m = homeKey(m, "tab")
-	if !strings.Contains(m.View(), "No history yet") {
-		t.Fatal(m.View())
+	if !strings.Contains(m.render(), "No history yet") {
+		t.Fatal(m.render())
 	}
 	if got := homeKey(m, "enter"); got.open || got.detail {
 		t.Fatal("empty History opened a run or detail")
@@ -61,7 +55,7 @@ func TestHomeEmptyHistoryAndNavigation(t *testing.T) {
 		t.Fatalf("offline history missing: %+v", m.data)
 	}
 	m = homeKey(m, "enter")
-	if !m.detail || m.open || strings.Contains(m.View(), "\x1b[2J") {
+	if !m.detail || m.open || strings.Contains(m.render(), "\x1b[2J") {
 		t.Fatal("unsafe history detail or lifecycle action")
 	}
 }
@@ -80,7 +74,7 @@ func TestHomeSelectionRefreshAndLayout(t *testing.T) {
 	for _, size := range []struct{ w, h int }{{100, 30}, {48, 14}, {20, 8}} {
 		for tab := range 3 {
 			m.tab, m.width, m.height = tab, size.w, size.h
-			view := ansi.Strip(m.View())
+			view := ansi.Strip(m.render())
 			if len(strings.Split(view, "\n")) > size.h {
 				t.Fatal("Home overflows height")
 			}

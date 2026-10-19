@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
-func (m workspaceModel) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m workspaceModel) updateHome(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	if m.width < 48 || m.height < 14 {
 		switch key {

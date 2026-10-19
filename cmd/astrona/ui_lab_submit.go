@@ -3,7 +3,7 @@ package main
 import (
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 const uiSubmitButton = " [Submit lab] "
@@ -14,10 +14,7 @@ func (m *workspaceModel) askSubmit() {
 	}
 }
 
-func (m workspaceModel) submitKey(key tea.KeyMsg) (workspaceModel, tea.Cmd) {
-	if key.Paste {
-		return m, nil
-	}
+func (m workspaceModel) submitKey(key tea.KeyPressMsg) (workspaceModel, tea.Cmd) {
 	switch key.String() {
 	case "left", "right", "tab", "shift+tab":
 		m.submitYes = !m.submitYes
@@ -51,7 +48,7 @@ func (m workspaceModel) submitText() string {
 	if m.submitYes {
 		choices = "[ Yes ]      No"
 	}
-	return "Ready to submit this lab?\n\nRun the lab's checks and save the result.\nAccount results follow this run's tracking settings.\nThe lab and your terminals stay running.\n\n" + choices +
+	return "Ready to submit this lab?\n\nRun the lab's checks and save the result.\nAccount results follow this run's tracking settings.\nOnce the result is sent, the attempt is finished and the lab is deleted.\n\n" + choices +
 		"\n\n←/→ or Tab selects · Enter confirms\ny yes · n / Esc cancel"
 }
 
@@ -60,15 +57,16 @@ func (m workspaceModel) submitView(background string) string {
 }
 
 func (m workspaceModel) submitMouse(msg tea.MouseMsg) (workspaceModel, tea.Cmd) {
-	if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
+	click, ok := msg.(tea.MouseClickMsg)
+	if !ok || click.Button != tea.MouseLeft {
 		return m, nil
 	}
 	x, y, _, h, lines := workspaceDialogLayout(m.submitText(), m.width, m.height)
 	for i, line := range lines {
-		if i >= h-2 || !strings.Contains(line, "Yes") || !strings.Contains(line, "No") || msg.Y != y+1+i {
+		if i >= h-2 || !strings.Contains(line, "Yes") || !strings.Contains(line, "No") || click.Y != y+1+i {
 			continue
 		}
-		col := msg.X - x - 2
+		col := click.X - x - 2
 		if col >= 0 && col < 7 {
 			m.submitYes = true
 			return m.finishSubmit()

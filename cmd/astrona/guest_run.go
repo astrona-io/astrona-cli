@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"astrona/internal/account"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
@@ -26,10 +26,7 @@ func (m guestRunModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-	case tea.KeyMsg:
-		if msg.Paste {
-			return m, nil
-		}
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "esc", "q", "ctrl+c":
 			return m, tea.Quit
@@ -37,7 +34,7 @@ func (m guestRunModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focus = (m.focus + 1) % 3
 		case "shift+tab", "left", "up":
 			m.focus = (m.focus + 2) % 3
-		case " ":
+		case "space":
 			if m.focus == 2 {
 				m.choice.never = !m.choice.never
 			}
@@ -55,7 +52,13 @@ func (m guestRunModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	return m, nil
 }
-func (m guestRunModel) View() string {
+func (m guestRunModel) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	return v
+}
+
+func (m guestRunModel) render() string {
 	if m.width < 48 || m.height < 14 {
 		return workspaceFit("Resize to 48 × 14. Esc cancels startup.", m.width, m.height)
 	}
@@ -136,7 +139,7 @@ func confirmGuestLabRun(cmd *cobra.Command, flags *rootFlags, acct *labAccount, 
 	}
 	uiPaneTitle("TRACK YOUR PROGRESS")
 	defer uiPaneTitle("SETUP")
-	result, err := runUIProgram(guestRunModel{local: flags.catalogLab == ""}, tea.WithContext(cmd.Context()), tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()), tea.WithAltScreen())
+	result, err := runUIProgram(guestRunModel{local: flags.catalogLab == ""}, tea.WithContext(cmd.Context()), tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()))
 	if err != nil {
 		return nil, false, fmt.Errorf("login reminder: %w", err)
 	}

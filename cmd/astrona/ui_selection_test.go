@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 )
@@ -65,34 +65,34 @@ func TestUITaskMouseSelection(t *testing.T) {
 				m.markdownSource, m.markdownWidth = m.workspace.task, left-4
 				m.markdownLines = []string{"hello task"}
 			}
-			m.Update(tea.MouseMsg{X: x, Y: y, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
-			m.Update(tea.MouseMsg{X: x + 4, Y: y, Action: tea.MouseActionMotion, Button: tea.MouseButtonLeft})
-			_, cmd := m.Update(tea.MouseMsg{X: x + 4, Y: y, Action: tea.MouseActionRelease})
+			m.Update(tea.MouseClickMsg{X: x, Y: y, Button: tea.MouseLeft})
+			m.Update(tea.MouseMotionMsg{X: x + 4, Y: y, Button: tea.MouseLeft})
+			_, cmd := m.Update(tea.MouseReleaseMsg{X: x + 4, Y: y})
 			if cmd == nil || m.selection == nil || m.selection.task != task || m.selection.text() != "hello" || m.selection.dragging {
 				t.Fatal("drag did not select and request copying the pane's text")
 			}
-			if !strings.Contains(m.View(), "48;2;120;220;255") {
+			if !strings.Contains(m.render(), "48;2;120;220;255") {
 				t.Fatal("task view lost the selection highlight")
 			}
 			_, _ = emulator.WriteString("\r\x1b[2Knew output")
-			if !task && strings.Contains(ansi.Strip(m.View()), "new output") {
+			if !task && strings.Contains(ansi.Strip(m.render()), "new output") {
 				t.Fatal("live output replaced the selected text")
 			}
 			selected := m.selection
 			m.Update(uiClipboardResult{selection: selected})
-			if !strings.Contains(m.View(), "Copied to clipboard") {
+			if !strings.Contains(m.render(), "Copied to clipboard") {
 				t.Fatal("copy result missing")
 			}
 			m.Update(uiClipboardResult{selection: selected, err: errors.New("clipboard unavailable")})
-			if !strings.Contains(m.View(), "Copy failed") {
+			if !strings.Contains(m.render(), "Copy failed") {
 				t.Fatal("failed copy was reported as success")
 			}
-			m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-			if m.selection != nil || (!task && !strings.Contains(ansi.Strip(m.View()), "new output")) {
+			m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+			if m.selection != nil || (!task && !strings.Contains(ansi.Strip(m.render()), "new output")) {
 				t.Fatal("Esc did not restore live output")
 			}
 			m.Update(uiClipboardResult{selection: selected})
-			if strings.Contains(m.View(), "Copied to clipboard") {
+			if strings.Contains(m.render(), "Copied to clipboard") {
 				t.Fatal("stale copy result replaced the footer")
 			}
 		})
@@ -106,8 +106,8 @@ func TestUITextSelectionStaysInsidePane(t *testing.T) {
 		t.Fatalf("selection crossed the pane boundary: %q", s.text())
 	}
 	m := &uiTaskModel{workspace: workspaceModel{width: 120, height: 25, task: "task"}}
-	m.Update(tea.MouseMsg{X: 2, Y: 2, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
-	_, cmd := m.Update(tea.MouseMsg{X: 2, Y: 2, Action: tea.MouseActionRelease})
+	m.Update(tea.MouseClickMsg{X: 2, Y: 2, Button: tea.MouseLeft})
+	_, cmd := m.Update(tea.MouseReleaseMsg{X: 2, Y: 2})
 	if cmd != nil || m.selection != nil {
 		t.Fatal("a click copied text")
 	}

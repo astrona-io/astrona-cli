@@ -6,18 +6,30 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
 var (
 	workspaceAccent = lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true)
-	workspaceMuted  = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "240", Dark: "245"})
-	workspaceBorder = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "243", Dark: "239"})
+	workspaceMuted  = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+	workspaceBorder = lipgloss.NewStyle().Foreground(lipgloss.Color("239"))
 	workspaceFocus  = lipgloss.NewStyle().Foreground(lipgloss.Color("81"))
 	workspaceWarn   = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 	workspaceDanger = lipgloss.NewStyle().Foreground(lipgloss.Color("203")).Bold(true)
 )
+
+// setWorkspaceBackground picks the muted and border greys for the
+// terminal's background. The dark ones are the default until the terminal
+// answers Bubble Tea's background colour query (uiSizedModel).
+func setWorkspaceBackground(dark bool) {
+	muted, border := "245", "239"
+	if !dark {
+		muted, border = "240", "243"
+	}
+	workspaceMuted = lipgloss.NewStyle().Foreground(lipgloss.Color(muted))
+	workspaceBorder = lipgloss.NewStyle().Foreground(lipgloss.Color(border))
+}
 
 // Keep every screen inside the terminal, including wide Unicode and styled rows.
 func workspaceFit(content string, width, height int) string {

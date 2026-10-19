@@ -73,7 +73,7 @@ func TestWorkspaceHomeView(t *testing.T) {
 					m.labs = strings.Fields(strings.Repeat("lab ", 100))
 					m.selected = 99
 				}
-				view := ansi.Strip(m.View())
+				view := ansi.Strip(m.render())
 				if strings.ContainsAny(view, "\x1b\x07") || strings.Contains(view, "Elapsed:") || strings.Contains(view, "SUBMISSION RESULTS") {
 					t.Fatalf("unexpected home content: %s", view)
 				}
@@ -90,7 +90,7 @@ func TestWorkspaceHomeView(t *testing.T) {
 	}
 	m := preferencesFixture(t, "update-check")
 	m.home, m.labs = true, []string{"a"}
-	if !strings.Contains(m.View(), "PREFERENCES") {
+	if !strings.Contains(m.render(), "PREFERENCES") {
 		t.Fatal("home hid preferences")
 	}
 	m = workspaceKey(m, "esc")

@@ -10,12 +10,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/term"
 	"github.com/charmbracelet/x/vt"
@@ -151,7 +150,8 @@ func runUIPaneCommand(ctx context.Context, cmd *exec.Cmd, width, height int, opt
 		<-inputDone
 		_ = m.emulator.Close()
 	}()
-	options = append([]tea.ProgramOption{tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithContext(ctx)}, options...)
+	// Alt screen and mouse mode are set by View.
+	options = append([]tea.ProgramOption{tea.WithContext(ctx)}, options...)
 	_, err = runUIProgram(m, options...)
 	m.activity.update(time.Now())
 	m.activity.paused = true
@@ -173,7 +173,6 @@ type uiPaneDrainTimeout struct{}
 
 type uiPaneModel struct {
 	taskFocusProtocol, terminalLocked bool
-	taskMouseCmd                      tea.Cmd
 	usage                             labstate.ResourceUsage
 	mouseDown                         bool
 	selectText                        bool
@@ -284,7 +283,7 @@ func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		m.resizeContent()
 		if m.selectText {
-			m.selectionView = m.View()
+			m.selectionView = m.render()
 		}
 	case uiPaneOutput:
 		_, _ = m.emulator.Write(msg.data)
@@ -304,12 +303,10 @@ func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.failure = "Could not read terminal: " + msg.err.Error()
 			}
 		} else {
-			mouseCmd := m.taskMouseCmd
-			m.taskMouseCmd = nil
 			if m.selectText && m.selectionView == "" {
-				m.selectionView = m.View()
+				m.selectionView = m.render()
 			}
-			return m, tea.Batch(m.read, mouseCmd)
+			return m, m.read
 		}
 	case uiPaneExit:
 		m.ended = true
@@ -342,54 +339,41 @@ func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.mouseDown = false
 			return m, restoreMouse
 		}
-		row := msg.Y - uiHeaderHeight(m.width, m.height)
-		mouse := uv.Mouse{X: min(max(0, msg.X), max(0, m.width-1)), Y: min(max(0, row), max(0, m.emulator.Height()-1)), Button: uv.MouseLeft}
-		if msg.Alt {
-			mouse.Mod |= uv.ModAlt
+		event := msg.Mouse()
+		row := event.Y - uiHeaderHeight(m.width, m.height)
+		mouse := uv.Mouse{X: min(max(0, event.X), max(0, m.width-1)), Y: min(max(0, row), max(0, m.emulator.Height()-1)), Button: uv.MouseLeft, Mod: event.Mod}
+		if event.Button == tea.MouseRight || event.Button == tea.MouseMiddle {
+			mouse.Button = event.Button
 		}
-		if msg.Ctrl {
-			mouse.Mod |= uv.ModCtrl
-		}
-		if msg.Shift {
-			mouse.Mod |= uv.ModShift
-		}
-		if msg.Button == tea.MouseButtonRight {
-			mouse.Button = uv.MouseRight
-		}
-		if msg.Button == tea.MouseButtonMiddle {
-			mouse.Button = uv.MouseMiddle
-		}
-		if msg.Action == tea.MouseActionPress && (msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown) {
-			if row >= 0 && row < m.emulator.Height() && msg.X >= 0 && msg.X < m.width {
-				mouse.Button = uv.MouseWheelDown
-				if msg.Button == tea.MouseButtonWheelUp {
-					mouse.Button = uv.MouseWheelUp
-				}
+		switch msg.(type) {
+		case tea.MouseWheelMsg:
+			if (event.Button == tea.MouseWheelUp || event.Button == tea.MouseWheelDown) && row >= 0 && row < m.emulator.Height() && event.X >= 0 && event.X < m.width {
+				mouse.Button = event.Button
 				m.activityInput(time.Now())
 				m.emulator.SendMouse(uv.MouseWheelEvent(mouse))
 			}
 			return m, restoreMouse
-		}
-		switch msg.Action {
-		case tea.MouseActionPress:
-			if (msg.Button == tea.MouseButtonLeft || msg.Button == tea.MouseButtonRight || msg.Button == tea.MouseButtonMiddle) && row >= 0 && row < m.emulator.Height() {
+		case tea.MouseClickMsg:
+			if (event.Button == tea.MouseLeft || event.Button == tea.MouseRight || event.Button == tea.MouseMiddle) && row >= 0 && row < m.emulator.Height() {
 				m.mouseDown = true
 				m.activityInput(time.Now())
 				m.emulator.SendMouse(uv.MouseClickEvent(mouse))
 			}
-		case tea.MouseActionMotion:
+		case tea.MouseMotionMsg:
 			if m.mouseDown {
 				m.activityInput(time.Now())
 				m.emulator.SendMouse(uv.MouseMotionEvent(mouse))
 			}
-		case tea.MouseActionRelease:
+		case tea.MouseReleaseMsg:
 			if m.mouseDown {
 				m.mouseDown = false
 				m.emulator.SendMouse(uv.MouseReleaseEvent(mouse))
 			}
 		}
-	case tea.KeyMsg:
-		return m, m.key(msg)
+	case tea.KeyPressMsg:
+		return m, m.key(uiKey{key: msg})
+	case tea.PasteMsg:
+		return m, m.key(uiKey{paste: true, text: msg.Content})
 	}
 	if m.ended && m.eof && m.code == 0 && m.failure == "" {
 		return m, tea.Quit
@@ -397,39 +381,40 @@ func (m *uiPaneModel) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *uiPaneModel) key(key tea.KeyMsg) tea.Cmd {
+func (m *uiPaneModel) key(key uiKey) tea.Cmd {
 	now := time.Now()
 	return tea.Batch(m.advanceActivity(now), m.handleKey(key, now))
 }
 
-func (m *uiPaneModel) handleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
+func (m *uiPaneModel) handleKey(key uiKey, now time.Time) tea.Cmd {
 	if !m.activityAway && m.activity.paused && m.finished == nil && !m.ended {
 		return m.idleKey(key, now)
 	}
 	if !m.activityAway && !m.activity.paused {
 		m.activityInput(now)
 	}
-	if !key.Paste && key.Type == tea.KeyCtrlY && (!m.taskPane() || m.selectText || m.controls || m.ended) {
+	// Selecting text turns mouse reporting off (View), so the terminal's own
+	// selection works.
+	if key.is("ctrl+y") && (!m.taskPane() || m.selectText || m.controls || m.ended) {
 		m.selectText, m.mouseDown = !m.selectText, false
 		m.selectionView = ""
 		if m.selectText {
-			m.selectionView = m.View()
-			return tea.DisableMouse
+			m.selectionView = m.render()
 		}
-		return tea.EnableMouseCellMotion
+		return nil
 	}
 	if m.selectText {
 		m.selectText, m.selectionView = false, ""
-		if !key.Paste && key.Type == tea.KeyEsc {
-			return tea.EnableMouseCellMotion
+		if key.is("esc") {
+			return nil
 		}
-		return tea.Batch(tea.EnableMouseCellMotion, m.handleKey(key, now))
+		return m.handleKey(key, now)
 	}
 	if m.taskPane() && !m.controls && !m.closing && !m.ended {
 		sendUIPaneKey(m.emulator, key)
 		return nil
 	}
-	if !key.Paste && key.Type == tea.KeyCtrlB && !key.Alt && !m.controls && !m.closing && !m.ended && (strings.HasPrefix(m.title, "TASK / ") || strings.HasPrefix(m.title, "WORKSPACE / ")) {
+	if key.is("ctrl+b") && !m.controls && !m.closing && !m.ended && (strings.HasPrefix(m.title, "TASK / ") || strings.HasPrefix(m.title, "WORKSPACE / ")) {
 		m.leaveActivity(now)
 		return nil
 	}
@@ -443,7 +428,7 @@ func (m *uiPaneModel) handleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
 		}
 		return nil
 	}
-	if key.Type == tea.KeyCtrlCloseBracket {
+	if key.is("ctrl+]") || key.is("ctrl+alt+]") {
 		m.controls, m.scroll = !m.controls, 0
 		return nil
 	}
@@ -476,7 +461,19 @@ func (m *uiPaneModel) handleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
 	return nil
 }
 
-func (m *uiPaneModel) View() string {
+func (m *uiPaneModel) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	if m.selectText {
+		v.MouseMode = tea.MouseModeNone
+	}
+	return v
+}
+
+// render is the pane as text: View's content, and the frozen copy shown
+// while text is selected.
+func (m *uiPaneModel) render() string {
 	if m.selectText && m.selectionView != "" {
 		return m.selectionView
 	}
@@ -573,55 +570,87 @@ func uiTerminalScreen(emulator *vt.Emulator, scroll int, showCursor bool) string
 	return buf.Render()
 }
 
-func sendUIPaneKey(emulator *vt.Emulator, key tea.KeyMsg) {
-	if key.Paste {
-		emulator.Paste(string(key.Runes))
+// uiKey is a key press or a paste. Bubble Tea v2 delivers them as separate
+// messages; the panes handle both in one place, as v1's KeyMsg did.
+type uiKey struct {
+	key   tea.KeyPressMsg
+	paste bool
+	text  string // the pasted text
+}
+
+// String is the key as Bubble Tea names it ("ctrl+b", "enter"); "" for a paste.
+func (k uiKey) String() string {
+	if k.paste {
+		return ""
+	}
+	return k.key.String()
+}
+
+// is reports a key press (never a paste) named name.
+func (k uiKey) is(name string) bool { return !k.paste && k.key.String() == name }
+
+func sendUIPaneKey(emulator *vt.Emulator, key uiKey) {
+	if key.paste {
+		emulator.Paste(key.text)
 		return
 	}
-	if key.Type >= 0 && key.Type <= 127 {
-		text := string(rune(key.Type))
-		if key.Alt {
-			text = "\x1b" + text
-		}
-		emulator.SendText(text)
+	k := key.key
+	prefix := ""
+	if k.Mod.Contains(tea.ModAlt) {
+		prefix = "\x1b"
+	}
+	if b, ok := uiPaneControlByte(k); ok {
+		emulator.SendText(prefix + string(rune(b)))
 		return
 	}
-	if key.Type == tea.KeyRunes || key.Type == tea.KeySpace {
-		text := string(key.Runes)
-		if key.Type == tea.KeySpace {
-			text = " "
-		}
-		if key.Alt {
-			text = "\x1b" + text
-		}
-		emulator.SendText(text)
+	if k.Text != "" && !k.Mod.Contains(tea.ModCtrl) {
+		emulator.SendText(prefix + k.Text)
 		return
 	}
-	special := map[string]rune{"up": uv.KeyUp, "down": uv.KeyDown, "left": uv.KeyLeft, "right": uv.KeyRight, "home": uv.KeyHome, "end": uv.KeyEnd, "pgup": uv.KeyPgUp, "pgdown": uv.KeyPgDown, "delete": uv.KeyDelete, "insert": uv.KeyInsert, "tab": uv.KeyTab}
-	k := uv.KeyPressEvent{}
-	for _, part := range strings.Split(key.String(), "+") {
-		switch part {
-		case "ctrl":
-			k.Mod |= uv.ModCtrl
-		case "alt":
-			k.Mod |= uv.ModAlt
-		case "shift":
-			k.Mod |= uv.ModShift
-		default:
-			k.Code = special[part]
-			if n, err := strconv.Atoi(strings.TrimPrefix(part, "f")); err == nil && n >= 1 && n <= 20 {
-				k.Code = uv.KeyF1 + rune(n-1)
-			}
-		}
+	if k.Code == tea.KeySpace {
+		emulator.SendText(prefix + " ")
+		return
 	}
-	if k.Code != 0 {
+	event := uv.KeyPressEvent(uv.Key(k))
+	event.Text = ""
+	if event.Code != 0 {
 		// The emulator does not encode Ctrl/Shift navigation keys itself.
-		if sequence := modifiedUIPaneKey(k); sequence != "" {
+		if sequence := modifiedUIPaneKey(event); sequence != "" {
 			emulator.SendText(sequence)
 		} else {
-			emulator.SendKey(k)
+			emulator.SendKey(event)
 		}
 	}
+}
+
+// uiPaneControlByte is the C0 byte a key sends to a terminal program:
+// Enter, Tab, Backspace and Esc, and Ctrl with a letter or one of @[\]^_?.
+func uiPaneControlByte(k tea.KeyPressMsg) (byte, bool) {
+	mod := k.Mod &^ tea.ModAlt
+	switch {
+	case mod == 0 && (k.Code == tea.KeyEnter || k.Code == tea.KeyTab || k.Code == tea.KeyBackspace || k.Code == tea.KeyEscape):
+		return byte(k.Code), true
+	case mod == tea.ModCtrl && k.Code >= 'a' && k.Code <= 'z':
+		return byte(k.Code-'a') + 1, true
+	case mod == tea.ModCtrl:
+		switch k.Code {
+		case '@', tea.KeySpace:
+			return 0, true
+		case '[':
+			return 27, true
+		case '\\':
+			return 28, true
+		case ']':
+			return 29, true
+		case '^':
+			return 30, true
+		case '_':
+			return 31, true
+		case '?':
+			return 127, true
+		}
+	}
+	return 0, false
 }
 
 func modifiedUIPaneKey(k uv.KeyPressEvent) string {

@@ -15,8 +15,8 @@ import (
 	"time"
 	"unicode"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 	"github.com/creack/pty"
@@ -457,8 +457,10 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.MouseMsg:
 		return m, m.mouse(msg)
-	case tea.KeyMsg:
-		return m, m.key(msg)
+	case tea.KeyPressMsg:
+		return m, m.key(uiKey{key: msg})
+	case tea.PasteMsg:
+		return m, m.key(uiKey{paste: true, text: msg.Content})
 	}
 	return m, nil
 }
@@ -544,7 +546,14 @@ func (m *uiTaskModel) taskPage(width, height int) string {
 	return strings.Join(m.markdownLines[start:min(len(m.markdownLines), start+max(0, height))], "\n")
 }
 
-func (m *uiTaskModel) View() string {
+func (m *uiTaskModel) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
+}
+
+func (m *uiTaskModel) render() string {
 	left, w, h := m.size()
 	nav, _ := m.navigation()
 	screen := "Terminal unavailable. Press Enter to reconnect, or Ctrl+T to choose another terminal."
@@ -641,8 +650,8 @@ func (m *uiTaskModel) View() string {
 	return view
 }
 
-func (m *uiTaskModel) nameTab(key tea.KeyMsg) tea.Cmd {
-	if !key.Paste {
+func (m *uiTaskModel) nameTab(key uiKey) tea.Cmd {
+	if !key.paste {
 		switch key.String() {
 		case "left", "right":
 			targets := m.workspace.snapshot.clusters
@@ -675,8 +684,12 @@ func (m *uiTaskModel) nameTab(key tea.KeyMsg) tea.Cmd {
 			return nil
 		}
 	}
-	if key.Type == tea.KeyRunes {
-		for _, r := range key.Runes {
+	text := key.key.Text
+	if key.paste {
+		text = key.text
+	}
+	if text != "" {
+		for _, r := range text {
 			if unicode.IsPrint(r) && len([]rune(m.tabName)) < 24 {
 				m.tabName += string(r)
 			}
@@ -726,7 +739,7 @@ func runUITaskScreen(ctx context.Context, workspace workspaceModel, refresh func
 			m.active = i
 		}
 	}
-	_, err = runUIProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	_, err = runUIProgram(m, tea.WithContext(screenCtx))
 	if m.active < len(m.tabs) {
 		terminals.active = m.tabs[m.active].id
 	} else {

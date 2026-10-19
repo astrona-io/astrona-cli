@@ -1,11 +1,15 @@
 package main
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
 )
 
 func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
+	event := msg.Mouse()
+	_, click := msg.(tea.MouseClickMsg)
+	_, release := msg.(tea.MouseReleaseMsg)
+	_, motion := msg.(tea.MouseMotionMsg)
 	if m.workspace.confirmSubmit {
 		var cmd tea.Cmd
 		m.workspace, cmd = m.workspace.submitMouse(msg)
@@ -13,9 +17,9 @@ func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
 	}
 	if m.terminalLocked {
 		left, width, height := m.size()
-		inTerminal := msg.X >= left+2 && msg.X < left+2+width && msg.Y >= 2 && msg.Y < height+2
-		inWorkspace := msg.X >= 0 && msg.X < m.workspace.width && msg.Y >= 0 && msg.Y < m.workspace.height
-		if !inTerminal && inWorkspace && msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress {
+		inTerminal := event.X >= left+2 && event.X < left+2+width && event.Y >= 2 && event.Y < height+2
+		inWorkspace := event.X >= 0 && event.X < m.workspace.width && event.Y >= 0 && event.Y < m.workspace.height
+		if !inTerminal && inWorkspace && event.Button == tea.MouseLeft && click {
 			m.setTerminalLocked(false)
 		} else {
 			return m.terminalMouse(msg)
@@ -25,23 +29,23 @@ func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
 		return nil
 	}
 	left, _, height := m.size()
-	inPanel := msg.X >= 0 && msg.X < m.workspace.width && msg.Y >= 1 && msg.Y < height+3
-	overTask := inPanel && (left > 0 && msg.X < left || left == 0 && m.taskFocus)
-	if msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown {
-		if overTask && !m.dragging {
+	inPanel := event.X >= 0 && event.X < m.workspace.width && event.Y >= 1 && event.Y < height+3
+	overTask := inPanel && (left > 0 && event.X < left || left == 0 && m.taskFocus)
+	if _, wheel := msg.(tea.MouseWheelMsg); wheel {
+		if (event.Button == tea.MouseWheelUp || event.Button == tea.MouseWheelDown) && overTask && !m.dragging {
 			m.selection = nil
 			delta := 3
-			if msg.Button == tea.MouseButtonWheelUp {
+			if event.Button == tea.MouseWheelUp {
 				delta = -delta
 			}
 			m.scrollTask(delta)
 		}
 		return nil
 	}
-	if msg.Action == tea.MouseActionRelease {
+	if release {
 		m.dragging = false
 		if m.selection != nil && m.selection.dragging {
-			m.selection.move(msg.X, msg.Y)
+			m.selection.move(event.X, event.Y)
 			m.selection.dragging = false
 			if m.selection.moved {
 				return copyUISelection(m.selection)
@@ -50,57 +54,60 @@ func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
 		}
 		return nil
 	}
-	if msg.Action == tea.MouseActionPress {
+	if click {
 		m.selection = nil
 	}
-	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && left > 0 && msg.Y >= 1 && msg.Y <= height+2 && msg.X >= left-1 && msg.X <= left {
+	if click && event.Button == tea.MouseLeft && left > 0 && event.Y >= 1 && event.Y <= height+2 && event.X >= left-1 && event.X <= left {
 		m.dragging = true
 	}
-	if m.dragging && msg.Button == tea.MouseButtonLeft {
-		m.taskWidth = min(60, max(20, (msg.X+1)*100/max(1, m.workspace.width)))
+	if m.dragging && event.Button == tea.MouseLeft {
+		m.taskWidth = min(60, max(20, (event.X+1)*100/max(1, m.workspace.width)))
 		m.terminals.taskWidth = m.taskWidth
 		m.resize()
 		return nil
 	}
-	if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft && msg.Y == 0 {
-		if m.workspace.canSubmit && msg.X >= 0 && msg.X < m.submitButtonWidth() {
+	if click && event.Button == tea.MouseLeft && event.Y == 0 {
+		if m.workspace.canSubmit && event.X >= 0 && event.X < m.submitButtonWidth() {
 			m.workspace.askSubmit()
 			return nil
 		}
 		_, hits := m.navigation()
 		for _, hit := range hits {
-			if msg.X >= hit.start && msg.X < hit.end {
+			if event.X >= hit.start && event.X < hit.end {
 				m.active, m.taskFocus = hit.index, false
 				break
 			}
 		}
 	}
-	if msg.Button == tea.MouseButtonLeft {
-		switch msg.Action {
-		case tea.MouseActionPress:
+	if event.Button == tea.MouseLeft {
+		switch {
+		case click:
 			if inPanel {
 				m.taskFocus = overTask
 			}
-			m.beginSelection(msg.X, msg.Y)
-		case tea.MouseActionMotion:
+			m.beginSelection(event.X, event.Y)
+		case motion:
 			if m.selection != nil && m.selection.dragging {
-				m.selection.move(msg.X, msg.Y)
+				m.selection.move(event.X, event.Y)
 			}
 		}
 	}
 	return nil
 }
 
-func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
+func (m *uiTaskModel) key(msg uiKey) tea.Cmd {
 	if m.workspace.confirmSubmit {
 		var cmd tea.Cmd
-		m.workspace, cmd = m.workspace.submitKey(msg)
+		if msg.paste {
+			return nil
+		}
+		m.workspace, cmd = m.workspace.submitKey(msg.key)
 		if m.workspace.action == workspaceLeave {
 			uiPaneControl("overview")
 		}
 		return cmd
 	}
-	if !msg.Paste && (msg.Type == tea.KeyF2 && !msg.Alt || msg.Type == tea.KeyCtrlCloseBracket && msg.Alt) {
+	if msg.is("f2") || msg.is("ctrl+alt+]") {
 		m.setTerminalLocked(false)
 		return nil
 	}
@@ -110,14 +117,14 @@ func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
 	}
 	if m.selection != nil {
 		m.selection = nil
-		if !msg.Paste && msg.Type == tea.KeyEsc {
+		if msg.is("esc") {
 			return nil
 		}
 	}
-	if m.namingTab && (msg.Paste || msg.String() != "ctrl+b") {
+	if m.namingTab && (msg.paste || msg.String() != "ctrl+b") {
 		return m.nameTab(msg)
 	}
-	if !msg.Paste {
+	if !msg.paste {
 		switch msg.String() {
 		case "ctrl+s":
 			if m.workspace.canSubmit {
@@ -161,7 +168,7 @@ func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
 		}
 	}
 	if m.taskFocus {
-		if msg.Paste {
+		if msg.paste {
 			return nil
 		}
 		_, _, height := m.size()
@@ -189,7 +196,7 @@ func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
 			tab.mu.Unlock()
 			return nil
 		}
-		if !msg.Paste {
+		if !msg.paste {
 			switch msg.String() {
 			case "shift+pgup":
 				tab.scroll = min(tab.emulator.ScrollbackLen(), tab.scroll+tab.emulator.Height())
@@ -207,7 +214,7 @@ func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (m *uiTaskModel) sendTerminalKey(msg tea.KeyMsg) {
+func (m *uiTaskModel) sendTerminalKey(msg uiKey) {
 	if m.active < 0 || m.active >= len(m.tabs) {
 		return
 	}
@@ -241,7 +248,8 @@ func (m *uiTaskModel) terminalMouse(msg tea.MouseMsg) tea.Cmd {
 		return nil
 	}
 	left, width, height := m.size()
-	x, y := msg.X-left-2, msg.Y-2
+	event := msg.Mouse()
+	x, y := event.X-left-2, event.Y-2
 	if x < 0 || x >= width || y < 0 || y >= height {
 		return nil
 	}
@@ -251,34 +259,21 @@ func (m *uiTaskModel) terminalMouse(msg tea.MouseMsg) tea.Cmd {
 	if tab.disposed || tab.ended {
 		return nil
 	}
-	mouse := uv.Mouse{X: x, Y: y, Button: uv.MouseLeft}
-	switch msg.Button {
-	case tea.MouseButtonRight:
-		mouse.Button = uv.MouseRight
-	case tea.MouseButtonMiddle:
-		mouse.Button = uv.MouseMiddle
-	case tea.MouseButtonWheelUp:
-		mouse.Button = uv.MouseWheelUp
-	case tea.MouseButtonWheelDown:
-		mouse.Button = uv.MouseWheelDown
+	mouse := uv.Mouse{X: x, Y: y, Button: uv.MouseLeft, Mod: event.Mod}
+	switch event.Button {
+	case tea.MouseRight, tea.MouseMiddle, tea.MouseWheelUp, tea.MouseWheelDown:
+		mouse.Button = event.Button
 	}
-	if msg.Alt {
-		mouse.Mod |= uv.ModAlt
-	}
-	if msg.Ctrl {
-		mouse.Mod |= uv.ModCtrl
-	}
-	if msg.Shift {
-		mouse.Mod |= uv.ModShift
-	}
-	switch {
-	case msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown:
-		tab.emulator.SendMouse(uv.MouseWheelEvent(mouse))
-	case msg.Action == tea.MouseActionPress:
+	switch msg.(type) {
+	case tea.MouseWheelMsg:
+		if event.Button == tea.MouseWheelUp || event.Button == tea.MouseWheelDown {
+			tab.emulator.SendMouse(uv.MouseWheelEvent(mouse))
+		}
+	case tea.MouseClickMsg:
 		tab.emulator.SendMouse(uv.MouseClickEvent(mouse))
-	case msg.Action == tea.MouseActionMotion:
+	case tea.MouseMotionMsg:
 		tab.emulator.SendMouse(uv.MouseMotionEvent(mouse))
-	case msg.Action == tea.MouseActionRelease:
+	case tea.MouseReleaseMsg:
 		tab.emulator.SendMouse(uv.MouseReleaseEvent(mouse))
 	}
 	return nil

@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 type uiSizeTick struct{}
@@ -20,15 +20,17 @@ type uiSizedModel struct {
 }
 
 func (m uiSizedModel) Init() tea.Cmd {
-	return tea.Batch(m.Model.Init(), uiSizeTickCmd())
+	return tea.Batch(m.Model.Init(), uiSizeTickCmd(), tea.RequestBackgroundColor)
 }
 
 func (m uiSizedModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case uiSizeTick:
-		return m, tea.Batch(tea.WindowSize(), uiSizeTickCmd())
+		return m, tea.Batch(tea.RequestWindowSize, uiSizeTickCmd())
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+	case tea.BackgroundColorMsg:
+		setWorkspaceBackground(msg.IsDark())
 	}
 	var cmd tea.Cmd
 	m.Model, cmd = m.Model.Update(msg)

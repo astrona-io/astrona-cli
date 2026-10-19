@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/creack/pty"
 )
@@ -109,15 +109,15 @@ func TestUITerminalTabsKeepSeparateShellsAndResize(t *testing.T) {
 			t.Fatalf("resize: %+v %v", size, err)
 		}
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlN})
+	m.Update(tea.KeyPressMsg{Code: 'n', Mod: tea.ModCtrl})
 	if m.active != 1 {
 		t.Fatal("next tab did not select second shell")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m.Update(tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl})
 	if m.active != 0 {
 		t.Fatal("previous tab did not select first shell")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlB})
+	m.Update(tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl})
 	if m.workspace.action != workspaceLeave {
 		t.Fatal("Ctrl+B did not return to overview")
 	}
@@ -139,7 +139,7 @@ func TestUITaskLayoutAndFocus(t *testing.T) {
 	for _, size := range [][2]int{{120, 35}, {80, 24}, {48, 14}, {20, 8}} {
 		t.Run(fmt.Sprint(size), func(t *testing.T) {
 			m := &uiTaskModel{workspace: workspaceModel{width: size[0], height: size[1], task: strings.Repeat("Task line\n", 100)}}
-			view := ansi.Strip(m.View())
+			view := ansi.Strip(m.render())
 			if len(strings.Split(view, "\n")) != size[1] {
 				t.Fatal("height overflow")
 			}
@@ -151,12 +151,12 @@ func TestUITaskLayoutAndFocus(t *testing.T) {
 			if size[0] >= 64 && (!strings.Contains(view, "QUESTION / TASK") || !strings.Contains(view, "TERMINALS")) {
 				t.Fatal("missing split panels")
 			}
-			m.Update(tea.KeyMsg{Type: tea.KeyCtrlO})
-			m.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+			m.Update(tea.KeyPressMsg{Code: 'o', Mod: tea.ModCtrl})
+			m.Update(tea.KeyPressMsg{Code: tea.KeyPgDown})
 			if !m.taskFocus || m.workspace.scroll == 0 {
 				t.Fatal("task cannot be scrolled")
 			}
-			if size[0] < 64 && !strings.Contains(m.View(), "Task line") {
+			if size[0] < 64 && !strings.Contains(m.render(), "Task line") {
 				t.Fatal("narrow terminal cannot read task")
 			}
 		})
@@ -180,7 +180,7 @@ func TestUITaskProcessHelper(t *testing.T) {
 			os.Exit(21)
 		}
 		uiPaneTitle("HOME")
-		resultHome, err := runUIProgram(uiHomeModel{notice: "Time paused; terminal tabs retained", data: uiHomeSnapshot{runs: []uiHomeRun{{name: "astro-test-lab", openable: true}}}}, tea.WithAltScreen(), tea.WithContext(ctx))
+		resultHome, err := runUIProgram(uiHomeModel{notice: "Time paused; terminal tabs retained", data: uiHomeSnapshot{runs: []uiHomeRun{{name: "astro-test-lab", openable: true}}}}, tea.WithContext(ctx))
 		home := resultHome.(uiHomeModel)
 		if err != nil {
 			os.Exit(22)
@@ -213,7 +213,7 @@ func testUITaskKeepsTabsAcrossOverview(t *testing.T, release string) {
 	out := &uiPaneTestOutput{}
 	done := make(chan error, 1)
 	go func() {
-		code, err := runUIPaneCommand(ctx, cmd, 120, 40, tea.WithInput(input), tea.WithOutput(out))
+		code, err := runUIPaneCommand(ctx, cmd, 120, 40, tea.WithInput(input), tea.WithOutput(out), tea.WithWindowSize(120, 40))
 		if err == nil && code != 0 {
 			err = fmt.Errorf("exit %d", code)
 		}
@@ -254,10 +254,16 @@ func testUITaskKeepsTabsAcrossOverview(t *testing.T, release string) {
 	waitUIPaneOutput(t, out, "reopened-retained")
 
 	_, _ = io.WriteString(keys, release+"\x02") // Release focus, then Ctrl+B returns to overview.
-	time.Sleep(100 * time.Millisecond)
+	// Bubble Tea v2 holds an Esc-prefixed key for a moment before delivering it
+	// (the legacy Ctrl+Alt+] release key), so let the task screen close first.
+	time.Sleep(500 * time.Millisecond)
 	_, _ = io.WriteString(keys, "q")
 	if err := <-done; err != nil {
-		t.Fatal(err)
+		raw := out.String()
+		if i := strings.LastIndex(raw, "\x1b[?1049l"); i >= 0 {
+			raw = raw[:i] // the screen before the program left the alternate screen
+		}
+		t.Fatalf("%v\nscreen:\n%s", err, uiPaneTestScreenSize(raw, 120, 40))
 	}
 	if strings.Count(out.String(), "\x1b[?1049l") != 1 {
 		t.Fatal("UI left the alternate screen during navigation")
@@ -314,7 +320,7 @@ func TestUITerminalExitRemovesTabAndPreservesSelection(t *testing.T) {
 		t.Fatal("new tab reused an existing ID or was not selected")
 	}
 	_, hits := m.navigation()
-	m.Update(tea.MouseMsg{X: hits[0].start, Y: 0, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+	m.Update(tea.MouseClickMsg{X: hits[0].start, Y: 0, Button: tea.MouseLeft})
 	if m.active != hits[0].index {
 		t.Fatal("mouse did not select tab")
 	}
@@ -333,9 +339,9 @@ func TestUITerminalBlockedInputDoesNotBlockNavigation(t *testing.T) {
 	m := &uiTaskModel{workspace: workspaceModel{width: 120, height: 35}, terminals: manager, tabs: []*uiTerminalTab{tab}, sized: true}
 	done := make(chan struct{})
 	go func() {
-		m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(strings.Repeat("x", 1024*1024)), Paste: true})
-		m.Update(tea.KeyMsg{Type: tea.KeyF2})
-		m.Update(tea.KeyMsg{Type: tea.KeyCtrlB})
+		m.Update(tea.PasteMsg{Content: strings.Repeat("x", 1024*1024)})
+		m.Update(tea.KeyPressMsg{Code: tea.KeyF2})
+		m.Update(tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl})
 		close(done)
 	}()
 	select {
@@ -367,29 +373,29 @@ func TestUITaskMarkdown(t *testing.T) {
 func TestUITaskNamesNewTabsAndCancels(t *testing.T) {
 	manager := testUITerminals(t)
 	m := &uiTaskModel{workspace: workspaceModel{width: 100, height: 30}, terminals: manager, sized: true}
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlT})
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl})
 	if cmd != nil || !m.namingTab || len(manager.snapshot()) != 0 {
 		t.Fatal("terminal started before naming")
 	}
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 	for _, want := range []string{"NEW TERMINAL", "mouse click", "Ctrl+N / Ctrl+P"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("missing %q", want)
 		}
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("Monitorø")})
-	m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
-	m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m.Update(tea.KeyPressMsg{Text: "Monitorø"})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if m.namingTab || len(manager.snapshot()) != 0 {
 		t.Fatal("cancel created a tab")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlT})
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("Monitor")})
-	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter, Paste: true})
+	m.Update(tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl})
+	m.Update(tea.KeyPressMsg{Text: "Monitor"})
+	_, cmd = m.Update(tea.PasteMsg{Content: "\r"})
 	if cmd != nil || !m.namingTab {
 		t.Fatal("pasted Enter confirmed a tab")
 	}
-	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	_, cmd = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("confirmation did not start tab")
 	}
@@ -400,7 +406,7 @@ func TestUITaskNamesNewTabsAndCancels(t *testing.T) {
 	if len(m.tabs) != 1 || m.tabs[0].label != "Monitor" {
 		t.Fatal("tab name not retained")
 	}
-	if !strings.Contains(ansi.Strip(m.View()), "[1 Monitor]") {
+	if !strings.Contains(ansi.Strip(m.render()), "[1 Monitor]") {
 		t.Fatal("tab name not displayed")
 	}
 }
@@ -412,19 +418,19 @@ func TestUITaskDividerDrag(t *testing.T) {
 	if left != 36 {
 		t.Fatalf("default width: %d", left)
 	}
-	m.Update(tea.MouseMsg{X: left - 1, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
-	m.Update(tea.MouseMsg{X: 59, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionMotion})
+	m.Update(tea.MouseClickMsg{X: left - 1, Y: 5, Button: tea.MouseLeft})
+	m.Update(tea.MouseMotionMsg{X: 59, Y: 5, Button: tea.MouseLeft})
 	left, _, _ = m.size()
 	if left != 60 || manager.taskWidth != 50 {
 		t.Fatalf("drag width: %d", left)
 	}
-	m.Update(tea.MouseMsg{X: 59, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionRelease})
-	m.Update(tea.MouseMsg{X: 89, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionMotion})
+	m.Update(tea.MouseReleaseMsg{X: 59, Y: 5, Button: tea.MouseLeft})
+	m.Update(tea.MouseMotionMsg{X: 89, Y: 5, Button: tea.MouseLeft})
 	if m.taskWidth != 50 || m.dragging {
 		t.Fatal("released divider kept moving")
 	}
 	m.namingTab = true
-	m.Update(tea.MouseMsg{X: 59, Y: 5, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m.Update(tea.MouseClickMsg{X: 59, Y: 5, Button: tea.MouseLeft})
 	if m.dragging {
 		t.Fatal("modal allowed background drag")
 	}
@@ -478,10 +484,10 @@ func TestUITerminalFailedReconnectLeavesRetryTab(t *testing.T) {
 	manager := testUITerminals(t)
 	m := &uiTaskModel{workspace: workspaceModel{width: 120, height: 35}, terminals: manager, tabs: []*uiTerminalTab{{}}, sized: true, lastReplacement: time.Now()}
 	_, cmd := m.Update(uiTerminalChanged{})
-	if cmd != nil || m.starting || !strings.Contains(m.View(), "retry") {
+	if cmd != nil || m.starting || !strings.Contains(m.render(), "retry") {
 		t.Fatal("failed terminal did not leave a retry tab")
 	}
-	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	_, cmd = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if cmd == nil || !m.starting {
 		t.Fatal("retry did not start a terminal")
 	}

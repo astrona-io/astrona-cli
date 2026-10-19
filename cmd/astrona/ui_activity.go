@@ -11,7 +11,7 @@ import (
 
 	"astrona/internal/labstate"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 const uiActivityEnv = "ASTRONA_INTERNAL_UI_ACTIVITY"
@@ -122,12 +122,9 @@ func (m *uiPaneModel) advanceActivity(now time.Time) tea.Cmd {
 	m.idleOverview = false
 	m.taskTerminalFocus(false)
 	m.controls, m.closing, m.mouseDown = false, false, false
-	restoreMouse := m.selectText
+	// Ending text selection turns mouse reporting back on (View).
 	m.selectText, m.selectionView = false, ""
 	m.saveActivity(now)
-	if restoreMouse {
-		return tea.EnableMouseCellMotion
-	}
 	return nil
 }
 
@@ -293,8 +290,8 @@ func (m *uiPaneModel) idleView(background string) string {
 	return workspaceDialog(background, "IDLE · TIME PAUSED", strings.TrimSpace(message), m.width, m.emulator.Height(), false)
 }
 
-func (m *uiPaneModel) idleKey(key tea.KeyMsg, now time.Time) tea.Cmd {
-	if key.Paste {
+func (m *uiPaneModel) idleKey(key uiKey, now time.Time) tea.Cmd {
+	if key.paste {
 		return nil
 	}
 	switch key.String() {
@@ -318,9 +315,9 @@ func (m *uiPaneModel) leaveActivity(now time.Time) {
 	m.taskTerminalFocus(false)
 	m.activity.paused, m.activityAway = true, true
 	m.saveActivity(now)
-	key := tea.KeyMsg{Type: tea.KeyCtrlB}
+	key := tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl}
 	if m.title == "PREFERENCES" {
-		key = tea.KeyMsg{Type: tea.KeyCtrlO, Alt: true}
+		key = tea.KeyPressMsg{Code: 'o', Mod: tea.ModCtrl | tea.ModAlt}
 	}
-	sendUIPaneKey(m.emulator, key)
+	sendUIPaneKey(m.emulator, uiKey{key: key})
 }

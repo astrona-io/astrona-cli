@@ -6,8 +6,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // F2 avoids Option/Alt mappings and bracket layouts. macOS may use the top
@@ -49,8 +47,7 @@ func (m *uiPaneModel) taskControl(data []byte) bool {
 	case "777;astrona;copy":
 		if (!m.activity.paused || m.finished != nil) && !m.activityAway && !m.ended {
 			m.selectText, m.mouseDown = true, false
-			m.selectionView = ""
-			m.taskMouseCmd = tea.DisableMouse
+			m.selectionView = "" // View turns mouse reporting off while selecting
 		}
 	case "777;astrona;controls":
 		if (!m.activity.paused || m.finished != nil) && !m.activityAway && !m.ended {

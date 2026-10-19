@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"astrona/internal/labstate"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -29,16 +29,16 @@ func TestUIActivityPausesAndRequiresContinue(t *testing.T) {
 	m.title = "SHELL / astro-lab"
 	m.resizeContent()
 	m.activity = c
-	m.key(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("rm")})
-	m.key(tea.KeyMsg{Type: tea.KeyEnter, Paste: true})
+	m.key(uiKey{key: tea.KeyPressMsg{Text: "rm"}})
+	m.key(uiKey{paste: true, text: "\r"})
 	if !m.activity.paused {
 		t.Fatal("idle dialog allowed accidental input")
 	}
-	if !strings.Contains(ansi.Strip(m.View()), "TIME PAUSED") {
+	if !strings.Contains(ansi.Strip(m.render()), "TIME PAUSED") {
 		t.Fatal("idle dialog missing")
 	}
 	// Enter is consumed by the dialog; a nil PTY would expose forwarding.
-	m.key(tea.KeyMsg{Type: tea.KeyEnter})
+	m.key(uiKey{key: tea.KeyPressMsg{Code: tea.KeyEnter}})
 	if m.activity.paused || len(m.activity.periods) != 2 {
 		t.Fatal("continue did not start a new active period")
 	}
@@ -81,14 +81,14 @@ func TestUIObservesCLISubmissionWithoutBlockingTerminal(t *testing.T) {
 		if m.finished == nil || m.timeSpent() != time.Minute {
 			t.Fatalf("completion not synchronized: %+v, %s", m.finished, m.timeSpent())
 		}
-		view := ansi.Strip(m.View())
+		view := ansi.Strip(m.render())
 		if strings.Contains(view, "IDLE · TIME PAUSED") || !strings.Contains(view, "Submitted · FAIL") {
 			t.Fatalf("submitted lab shows an idle dialog or no result: %s", view)
 		}
 	}
 	read := make(chan byte, 1)
 	go func() { buf := make([]byte, 1); _, _ = io.ReadFull(m.emulator, buf); read <- buf[0] }()
-	m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")}, start.Add(10*time.Minute))
+	m.handleKey(uiKey{key: tea.KeyPressMsg{Text: "x"}}, start.Add(10*time.Minute))
 	select {
 	case got := <-read:
 		if got != 'x' {
@@ -126,7 +126,7 @@ func TestUIIdleDeadlineIgnoresOutputAndRefresh(t *testing.T) {
 			t.Fatalf("at %ds: paused=%v time=%s", seconds, m.activity.paused, m.timeSpent())
 		}
 	}
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 	for _, want := range []string{"No input in this lab window for 3 minutes", "[ Continue ]", "Overview", "Time spent paused at " + formatUptime(time.Minute), "Time spent: " + formatUptime(time.Minute) + " · Paused"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("idle view missing %q", want)
@@ -163,7 +163,7 @@ func TestUIPausedCounterIgnoresOtherWindows(t *testing.T) {
 	if err != nil || total != 15*time.Minute {
 		t.Fatalf("overview total = %s, %v", total, err)
 	}
-	m.handleKey(tea.KeyMsg{Type: tea.KeyEnter}, start.Add(16*time.Minute))
+	m.handleKey(uiKey{key: tea.KeyPressMsg{Code: tea.KeyEnter}}, start.Add(16*time.Minute))
 	if m.activity.paused || m.activityTimeFrozen || m.activity.total() != time.Minute || m.timeSpent() != 15*time.Minute {
 		t.Fatal("Continue did not resume and synchronize the shared total")
 	}
@@ -176,14 +176,14 @@ func TestUIIdleOverridesCopyModeAndReadErrors(t *testing.T) {
 	if err := os.WriteFile(m.activityPath, []byte("invalid JSON"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	cmd := m.activityTick(start.Add(3 * time.Minute))
-	if cmd == nil || !m.activity.paused || m.controls || m.selectText || m.selectionView != "" {
+	m.activityTick(start.Add(3 * time.Minute))
+	if !m.activity.paused || m.controls || m.selectText || m.selectionView != "" {
 		t.Fatal("read error or copy mode concealed the idle dialog")
 	}
-	if !strings.Contains(ansi.Strip(m.View()), "IDLE · TIME PAUSED") {
+	if !strings.Contains(ansi.Strip(m.render()), "IDLE · TIME PAUSED") {
 		t.Fatal("idle dialog missing")
 	}
-	for _, key := range []tea.KeyMsg{{Type: tea.KeyCtrlY}, {Type: tea.KeyCtrlCloseBracket}, {Type: tea.KeyRunes, Runes: []rune("typed elsewhere")}, {Type: tea.KeyEnter, Paste: true}} {
+	for _, key := range []uiKey{{key: tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl}}, {key: tea.KeyPressMsg{Code: ']', Mod: tea.ModCtrl}}, {key: tea.KeyPressMsg{Text: "typed elsewhere"}}, {paste: true, text: "\r"}} {
 		m.handleKey(key, start.Add(4*time.Minute))
 		if !m.activity.paused || m.selectText || m.controls {
 			t.Fatal("input bypassed the idle dialog")
@@ -198,9 +198,9 @@ func TestUIInputAfterDeadlineCannotSkipPause(t *testing.T) {
 			m := activityTestPane(t, start)
 			m.idleOverview = true
 			if mouse {
-				m.Update(tea.MouseMsg{X: 2, Y: uiHeaderHeight(m.width, m.height) + 2, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+				m.Update(tea.MouseClickMsg{X: 2, Y: uiHeaderHeight(m.width, m.height) + 2, Button: tea.MouseLeft})
 			} else {
-				m.key(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("do not send")})
+				m.key(uiKey{key: tea.KeyPressMsg{Text: "do not send"}})
 			}
 			if !m.activity.paused || m.idleOverview || m.activity.lastInput != start || m.timeSpent() != 0 {
 				t.Fatal("first input after a delayed tick bypassed the idle dialog")
@@ -216,8 +216,8 @@ func TestUIIdleOverviewChoice(t *testing.T) {
 			m := activityTestPane(t, start)
 			m.title = title
 			m.activityTick(start.Add(3 * time.Minute))
-			m.handleKey(tea.KeyMsg{Type: tea.KeyTab}, start.Add(4*time.Minute))
-			if !m.idleOverview || !strings.Contains(ansi.Strip(m.View()), "[ Overview ]") {
+			m.handleKey(uiKey{key: tea.KeyPressMsg{Code: tea.KeyTab}}, start.Add(4*time.Minute))
+			if !m.idleOverview || !strings.Contains(ansi.Strip(m.render()), "[ Overview ]") {
 				t.Fatal("Overview could not be selected")
 			}
 			want := "\x02"
@@ -230,7 +230,7 @@ func TestUIIdleOverviewChoice(t *testing.T) {
 				_, _ = io.ReadFull(m.emulator, buf)
 				read <- string(buf)
 			}()
-			m.handleKey(tea.KeyMsg{Type: tea.KeyEnter}, start.Add(4*time.Minute))
+			m.handleKey(uiKey{key: tea.KeyPressMsg{Code: tea.KeyEnter}}, start.Add(4*time.Minute))
 			select {
 			case got := <-read:
 				if got != want {
@@ -239,13 +239,13 @@ func TestUIIdleOverviewChoice(t *testing.T) {
 			case <-time.After(time.Second):
 				t.Fatal("overview action was not forwarded")
 			}
-			if !m.activityAway || !m.activity.paused || strings.Contains(ansi.Strip(m.View()), "IDLE · TIME PAUSED") {
+			if !m.activityAway || !m.activity.paused || strings.Contains(ansi.Strip(m.render()), "IDLE · TIME PAUSED") {
 				t.Fatal("Overview resumed activity or kept the dialog open")
 			}
 		})
 	}
 	m := workspaceModel{showPreferences: true}
-	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlO, Alt: true})
+	next, cmd := m.Update(tea.KeyPressMsg{Code: 'o', Mod: tea.ModCtrl | tea.ModAlt})
 	if cmd == nil || next.(workspaceModel).action != workspaceLeave {
 		t.Fatal("idle Overview did not leave preferences")
 	}
@@ -291,7 +291,7 @@ func TestUIOverviewStopsActivityImmediately(t *testing.T) {
 	m.activity = uiActivityClock{target: uiActivityTarget{"astro-lab", now.Format(time.RFC3339), "one"}, lastInput: now, periods: []labstate.ActivityPeriod{{Start: now.Add(-time.Minute), End: now}}}
 	input := make(chan byte, 1)
 	go func() { buf := make([]byte, 1); _, _ = m.emulator.Read(buf); input <- buf[0] }()
-	m.key(tea.KeyMsg{Type: tea.KeyCtrlB})
+	m.key(uiKey{key: tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl}})
 	if got := <-input; got != 2 {
 		t.Fatalf("key forwarded: %d", got)
 	}
@@ -305,7 +305,7 @@ func TestUIOverviewStopsActivityImmediately(t *testing.T) {
 	if m.activity.total() != before {
 		t.Fatal("overview counted as activity")
 	}
-	if strings.Contains(ansi.Strip(m.View()), "IDLE · TIME PAUSED") {
+	if strings.Contains(ansi.Strip(m.render()), "IDLE · TIME PAUSED") {
 		t.Fatal("overview obstructed by idle dialog")
 	}
 }
