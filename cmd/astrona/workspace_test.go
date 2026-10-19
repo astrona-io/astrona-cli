@@ -16,37 +16,13 @@ import (
 	"astrona/internal/labstate"
 	"astrona/internal/proctor"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-isatty"
 )
 
 func workspaceKey(m workspaceModel, key string) workspaceModel {
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
-	switch key {
-	case "enter":
-		msg.Type = tea.KeyEnter
-	case "esc":
-		msg.Type = tea.KeyEsc
-	case "tab":
-		msg.Type = tea.KeyTab
-	case "ctrl+b":
-		msg.Type = tea.KeyCtrlB
-	case "ctrl+c":
-		msg.Type = tea.KeyCtrlC
-	case "ctrl+d":
-		msg.Type = tea.KeyCtrlD
-	case "down":
-		msg.Type = tea.KeyDown
-	case "up":
-		msg.Type = tea.KeyUp
-	case "pgdown":
-		msg.Type = tea.KeyPgDown
-	case "pgup":
-		msg.Type = tea.KeyPgUp
-	case "home":
-		msg.Type = tea.KeyHome
-	}
+	msg := press(key)
 	next, _ := m.Update(msg)
 	return next.(workspaceModel)
 }
@@ -291,7 +267,7 @@ func TestWorkspaceStateAndTimers(t *testing.T) {
 func TestWorkspaceViewSanitizesAndKeepsActionsVisible(t *testing.T) {
 	for _, size := range []struct{ w, h int }{{120, 35}, {80, 24}, {48, 14}, {20, 8}} {
 		m := workspaceModel{width: size.w, height: size.h, name: "astro-lab\x1b[2J", task: strings.Repeat("Task line\n", 100), now: time.Now(), canSubmit: true, snapshot: workspaceSnapshot{kind: "Lab", clusters: []workspaceCluster{{name: "astro-main", status: "Ready (1/1)"}}}}
-		view := ansi.Strip(m.View())
+		view := ansi.Strip(m.render())
 		if size.w >= 48 && size.h >= 14 {
 			lines := strings.Split(view, "\n")
 			if len(lines) > size.h {
@@ -303,15 +279,15 @@ func TestWorkspaceViewSanitizesAndKeepsActionsVisible(t *testing.T) {
 				}
 			}
 		}
-		if strings.Contains(m.View(), "\x1b[2J") || !strings.Contains(view, "q exit menu") {
+		if strings.Contains(m.render(), "\x1b[2J") || !strings.Contains(view, "q exit menu") {
 			t.Fatal("unsafe or missing navigation")
 		}
 		m.exitMenu = true
-		if !strings.Contains(ansi.Strip(m.View()), "leave running") {
+		if !strings.Contains(ansi.Strip(m.render()), "leave running") {
 			t.Fatal("no safe exit")
 		}
 		m.confirmDestroy = true
-		if !strings.Contains(ansi.Strip(m.View()), "enter cancel") {
+		if !strings.Contains(ansi.Strip(m.render()), "enter cancel") {
 			t.Fatal("destructive default")
 		}
 	}
@@ -332,8 +308,8 @@ func TestWorkspaceAlertNavigation(t *testing.T) {
 	for range 30 {
 		m = workspaceKey(m, "pgdown")
 	}
-	view := ansi.Strip(m.View())
-	if !strings.Contains(view, "Final detail") || !strings.Contains(view, "Esc close") || strings.Contains(m.View(), "\x1b[2J") {
+	view := ansi.Strip(m.render())
+	if !strings.Contains(view, "Final detail") || !strings.Contains(view, "Esc close") || strings.Contains(m.render(), "\x1b[2J") {
 		t.Fatalf("alert lost details or navigation: %s", view)
 	}
 	if len(strings.Split(view, "\n")) != m.height {
@@ -349,12 +325,12 @@ func TestWorkspaceAlertNavigation(t *testing.T) {
 		t.Fatal("save confirmation shown as an alert")
 	}
 	m.preferences.notice, m.preferences.noticeError, m.preferences.editing = "Invalid value", true, true
-	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("!")})
+	next, _ := m.Update(tea.KeyPressMsg{Text: "!"})
 	m = next.(workspaceModel)
 	if m.showAlert || !strings.Contains(m.preferences.draft, "!") {
 		t.Fatal("alert shortcut consumed setting input")
 	}
-	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlG})
+	next, _ = m.Update(tea.KeyPressMsg{Code: 'g', Mod: tea.ModCtrl})
 	if !next.(workspaceModel).showAlert {
 		t.Fatal("could not inspect error while editing")
 	}

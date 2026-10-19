@@ -7,20 +7,20 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 )
 
 func TestUITerminalReleaseKeys(t *testing.T) {
-	for _, key := range []tea.KeyMsg{{Type: tea.KeyF2}, {Type: tea.KeyCtrlCloseBracket, Alt: true}} {
+	for _, key := range []tea.KeyPressMsg{{Code: tea.KeyF2}, {Code: ']', Mod: tea.ModCtrl | tea.ModAlt}} {
 		t.Run(key.String(), func(t *testing.T) {
 			m := &uiTaskModel{terminalLocked: true}
 			m.Update(key)
 			if m.terminalLocked {
 				t.Fatal("could not release focus without forwarding input")
 			}
-			m.Update(tea.KeyMsg{Type: tea.KeyCtrlB})
+			m.Update(tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl})
 			if m.workspace.action != workspaceLeave {
 				t.Fatal("release did not restore navigation")
 			}
@@ -38,15 +38,19 @@ func TestUITerminalMouseReleasesFocus(t *testing.T) {
 		button tea.MouseButton
 		locked bool
 	}{
-		{"task pane", 2, 3, tea.MouseButtonLeft, false},
-		{"tab bar", 50, 0, tea.MouseButtonLeft, false},
-		{"terminal body", 60, 3, tea.MouseButtonLeft, true},
-		{"task wheel", 2, 3, tea.MouseButtonWheelDown, true},
-		{"outside workspace", -1, -1, tea.MouseButtonLeft, true},
+		{"task pane", 2, 3, tea.MouseLeft, false},
+		{"tab bar", 50, 0, tea.MouseLeft, false},
+		{"terminal body", 60, 3, tea.MouseLeft, true},
+		{"task wheel", 2, 3, tea.MouseWheelDown, true},
+		{"outside workspace", -1, -1, tea.MouseLeft, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			m := &uiTaskModel{terminalLocked: true, workspace: workspaceModel{width: 120, height: 30}}
-			m.Update(tea.MouseMsg{X: tc.x, Y: tc.y, Button: tc.button, Action: tea.MouseActionPress})
+			if tc.button == tea.MouseWheelDown {
+				m.Update(tea.MouseWheelMsg{X: tc.x, Y: tc.y, Button: tc.button})
+			} else {
+				m.Update(tea.MouseClickMsg{X: tc.x, Y: tc.y, Button: tc.button})
+			}
 			if m.terminalLocked != tc.locked {
 				t.Fatalf("locked=%v, want %v", m.terminalLocked, tc.locked)
 			}
@@ -75,21 +79,21 @@ func focusInput(t *testing.T, emulator *vt.Emulator, action func(), want string)
 
 func TestUITerminalFocusPassesShortcuts(t *testing.T) {
 	keys := []struct {
-		key  tea.KeyMsg
+		key  tea.KeyPressMsg
 		want string
 	}{
-		{tea.KeyMsg{Type: tea.KeyCtrlB}, "\x02"},
-		{tea.KeyMsg{Type: tea.KeyCtrlT}, "\x14"},
-		{tea.KeyMsg{Type: tea.KeyCtrlN}, "\x0e"},
-		{tea.KeyMsg{Type: tea.KeyCtrlP}, "\x10"},
-		{tea.KeyMsg{Type: tea.KeyCtrlO}, "\x0f"},
-		{tea.KeyMsg{Type: tea.KeyCtrlG}, "\x07"},
-		{tea.KeyMsg{Type: tea.KeyCtrlY}, "\x19"},
-		{tea.KeyMsg{Type: tea.KeyCtrlCloseBracket}, "\x1d"},
-		{tea.KeyMsg{Type: tea.KeyCtrlC}, "\x03"},
-		{tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c"), Alt: true}, "\x1bc"},
-		{tea.KeyMsg{Type: tea.KeyCtrlPgUp}, "\x1b[5;5~"},
-		{tea.KeyMsg{Type: tea.KeyEsc}, "\x1b"},
+		{tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl}, "\x02"},
+		{tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl}, "\x14"},
+		{tea.KeyPressMsg{Code: 'n', Mod: tea.ModCtrl}, "\x0e"},
+		{tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl}, "\x10"},
+		{tea.KeyPressMsg{Code: 'o', Mod: tea.ModCtrl}, "\x0f"},
+		{tea.KeyPressMsg{Code: 'g', Mod: tea.ModCtrl}, "\x07"},
+		{tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl}, "\x19"},
+		{tea.KeyPressMsg{Code: ']', Mod: tea.ModCtrl}, "\x1d"},
+		{tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}, "\x03"},
+		{tea.KeyPressMsg{Text: "c", Mod: tea.ModAlt}, "\x1bc"},
+		{tea.KeyPressMsg{Code: tea.KeyPgUp, Mod: tea.ModCtrl}, "\x1b[5;5~"},
+		{tea.KeyPressMsg{Code: tea.KeyEscape}, "\x1b"},
 	}
 	for _, tc := range keys {
 		t.Run(tc.key.String(), func(t *testing.T) {
@@ -114,28 +118,28 @@ func TestUITerminalFocusTransitions(t *testing.T) {
 	pane := newUIPaneModel(nil, nil, 120, 30)
 	defer pane.emulator.Close()
 	m := &uiTaskModel{workspace: workspaceModel{width: 120, height: 30}, tabs: []*uiTerminalTab{{emulator: pane.emulator}}}
-	if strings.Contains(ansi.Strip(m.View()), "TERMINALS · LOCKED") {
+	if strings.Contains(ansi.Strip(m.render()), "TERMINALS · LOCKED") {
 		t.Fatal("opened already locked")
 	}
-	key := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")}
+	key := tea.KeyPressMsg{Text: "a"}
 	focusInput(t, pane.emulator, func() { m.Update(key) }, "a")
-	if !m.terminalLocked || !strings.Contains(ansi.Strip(m.View()), "TERMINALS · LOCKED") {
+	if !m.terminalLocked || !strings.Contains(ansi.Strip(m.render()), "TERMINALS · LOCKED") {
 		t.Fatal("typing did not lock focus")
 	}
 	left, _, _ := m.size()
-	m.Update(tea.MouseMsg{X: left + 3, Y: 3, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+	m.Update(tea.MouseClickMsg{X: left + 3, Y: 3, Button: tea.MouseLeft})
 	if m.taskFocus || m.selection != nil {
 		t.Fatal("mouse left the locked terminal")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlCloseBracket, Alt: true})
-	if m.terminalLocked || strings.Contains(ansi.Strip(m.View()), "TERMINALS · LOCKED") {
+	m.Update(tea.KeyPressMsg{Code: ']', Mod: tea.ModCtrl | tea.ModAlt})
+	if m.terminalLocked || strings.Contains(ansi.Strip(m.render()), "TERMINALS · LOCKED") {
 		t.Fatal("release did not restore app mode")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlT})
+	m.Update(tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl})
 	if !m.namingTab {
 		t.Fatal("unlocked Astrona shortcuts did not work")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	m.Update(tea.FocusMsg{})
 	if !m.terminalLocked {
 		t.Fatal("Continue did not restore terminal focus")
@@ -145,7 +149,7 @@ func TestUITerminalFocusTransitions(t *testing.T) {
 		t.Fatal("pause did not release terminal focus")
 	}
 	// Pasted escape bytes are terminal data, never Astrona shortcuts.
-	focusInput(t, pane.emulator, func() { m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("\x1b\x1d"), Paste: true}) }, "\x1b\x1d")
+	focusInput(t, pane.emulator, func() { m.Update(tea.PasteMsg{Content: "\x1b\x1d"}) }, "\x1b\x1d")
 	if !m.terminalLocked {
 		t.Fatal("paste did not acquire focus")
 	}
@@ -162,7 +166,7 @@ func TestUIIdleReleasesAndRestoresTerminalFocus(t *testing.T) {
 	if m.terminalLocked || !m.activity.paused {
 		t.Fatal("idle did not release focus and pause")
 	}
-	focusInput(t, m.emulator, func() { m.idleKey(tea.KeyMsg{Type: tea.KeyEnter}, start.Add(uiIdleAfter+time.Second)) }, "\x1b[I")
+	focusInput(t, m.emulator, func() { m.idleKey(uiKey{key: tea.KeyPressMsg{Code: tea.KeyEnter}}, start.Add(uiIdleAfter+time.Second)) }, "\x1b[I")
 	if !m.terminalLocked || m.activity.paused {
 		t.Fatal("Continue did not restore focus and time")
 	}
@@ -179,9 +183,9 @@ func TestUITerminalFocusMouseCoordinates(t *testing.T) {
 	m := &uiTaskModel{workspace: workspaceModel{width: 120, height: 30}, terminalLocked: true, tabs: []*uiTerminalTab{{emulator: pane.emulator}}}
 	left, _, _ := m.size()
 	focusInput(t, pane.emulator, func() {
-		m.mouse(tea.MouseMsg{X: left + 3, Y: 3, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+		m.mouse(tea.MouseClickMsg{X: left + 3, Y: 3, Button: tea.MouseLeft})
 	}, "\x1b[<0;2;2M")
 	focusInput(t, pane.emulator, func() {
-		m.mouse(tea.MouseMsg{X: left + 3, Y: 3, Button: tea.MouseButtonWheelDown, Action: tea.MouseActionPress})
+		m.mouse(tea.MouseWheelMsg{X: left + 3, Y: 3, Button: tea.MouseWheelDown})
 	}, "\x1b[<65;2;2M")
 }

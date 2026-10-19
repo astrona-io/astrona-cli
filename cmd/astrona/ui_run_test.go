@@ -12,7 +12,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/terms"
 	"astrona/internal/trust"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 )
@@ -179,20 +179,20 @@ func TestUIRunGateScopeAndDefaults(t *testing.T) {
 func TestUIRunNoticeControls(t *testing.T) {
 	for _, tt := range []struct {
 		name   string
-		keys   []tea.KeyType
+		keys   []string
 		accept bool
 	}{
-		{"enter declines", []tea.KeyType{tea.KeyEnter}, false},
-		{"escape declines", []tea.KeyType{tea.KeyEsc}, false},
-		{"interrupt declines", []tea.KeyType{tea.KeyCtrlC}, false},
-		{"select yes", []tea.KeyType{tea.KeyLeft, tea.KeyEnter}, true},
-		{"details keeps no", []tea.KeyType{tea.KeyTab, tea.KeyEnter}, false},
+		{"enter declines", []string{"enter"}, false},
+		{"escape declines", []string{"esc"}, false},
+		{"interrupt declines", []string{"ctrl+c"}, false},
+		{"select yes", []string{"left", "enter"}, true},
+		{"details keeps no", []string{"tab", "enter"}, false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			m := uiRunModel{width: 80, height: 24}
 			var command tea.Cmd
 			for _, key := range tt.keys {
-				next, cmd := m.Update(tea.KeyMsg{Type: key})
+				next, cmd := m.Update(press(key))
 				m, command = next.(uiRunModel), cmd
 			}
 			if m.accepted != tt.accept || command == nil {
@@ -202,10 +202,10 @@ func TestUIRunNoticeControls(t *testing.T) {
 	}
 	for _, size := range [][2]int{{20, 8}, {48, 14}, {80, 24}, {140, 45}} {
 		m := uiRunModel{width: size[0], height: size[1], notice: uiRunNotice{summary: strings.Repeat("long notice 界\x1b[2J\a\n", 50) + "last line"}}
-		for _, key := range []tea.KeyType{tea.KeyEnd, tea.KeyPgUp, tea.KeyHome} {
-			next, _ := m.Update(tea.KeyMsg{Type: key})
+		for _, key := range []string{"end", "pgup", "home"} {
+			next, _ := m.Update(press(key))
 			m = next.(uiRunModel)
-			view := ansi.Strip(m.View())
+			view := ansi.Strip(m.render())
 			if len(strings.Split(view, "\n")) > m.height || strings.ContainsAny(view, "\x1b\a") {
 				t.Fatal("unsafe or overflowing notice")
 			}
@@ -214,12 +214,12 @@ func TestUIRunNoticeControls(t *testing.T) {
 					t.Fatal("notice exceeds terminal width")
 				}
 			}
-			if key == tea.KeyEnd && size[0] >= 48 && !strings.Contains(view, "last line") {
+			if key == "end" && size[0] >= 48 && !strings.Contains(view, "last line") {
 				t.Fatal("cannot scroll to end")
 			}
 		}
 		if size[0] < 48 {
-			next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+			next, cmd := m.Update(tea.KeyPressMsg{Text: "y"})
 			if next.(uiRunModel).accepted || cmd != nil {
 				t.Fatal("unreadable notice accepted")
 			}

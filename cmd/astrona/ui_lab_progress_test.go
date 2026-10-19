@@ -105,7 +105,7 @@ func TestLabProgressUsesPausedActivityClock(t *testing.T) {
 	for _, size := range [][2]int{{120, 35}, {80, 24}, {60, 20}} {
 		m.width, m.height = size[0], size[1]
 		m.resizeContent()
-		if !strings.Contains(ansi.Strip(m.View()), "Expected 20m") {
+		if !strings.Contains(ansi.Strip(m.render()), "Expected 20m") {
 			t.Fatalf("progress missing at %v", size)
 		}
 	}

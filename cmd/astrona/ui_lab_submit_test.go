@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 )
@@ -12,25 +12,25 @@ import (
 func TestLabSubmitConfirmation(t *testing.T) {
 	for _, tc := range []struct {
 		name string
-		keys []tea.KeyMsg
+		keys []tea.Msg
 		want workspaceAction
 	}{
-		{"default no", []tea.KeyMsg{{Type: tea.KeyEnter}}, workspaceNone},
-		{"yes", []tea.KeyMsg{{Type: tea.KeyRunes, Runes: []rune("y")}}, workspaceSubmit},
-		{"select yes", []tea.KeyMsg{{Type: tea.KeyLeft}, {Type: tea.KeyEnter}}, workspaceSubmit},
-		{"no", []tea.KeyMsg{{Type: tea.KeyRunes, Runes: []rune("n")}}, workspaceNone},
-		{"escape", []tea.KeyMsg{{Type: tea.KeyEsc}}, workspaceNone},
-		{"interrupt", []tea.KeyMsg{{Type: tea.KeyCtrlC}}, workspaceNone},
-		{"overview", []tea.KeyMsg{{Type: tea.KeyCtrlB}}, workspaceLeave},
-		{"paste ignored", []tea.KeyMsg{{Type: tea.KeyRunes, Runes: []rune("y"), Paste: true}, {Type: tea.KeyEnter}}, workspaceNone},
+		{"default no", []tea.Msg{tea.KeyPressMsg{Code: tea.KeyEnter}}, workspaceNone},
+		{"yes", []tea.Msg{tea.KeyPressMsg{Text: "y"}}, workspaceSubmit},
+		{"select yes", []tea.Msg{tea.KeyPressMsg{Code: tea.KeyLeft}, tea.KeyPressMsg{Code: tea.KeyEnter}}, workspaceSubmit},
+		{"no", []tea.Msg{tea.KeyPressMsg{Text: "n"}}, workspaceNone},
+		{"escape", []tea.Msg{tea.KeyPressMsg{Code: tea.KeyEscape}}, workspaceNone},
+		{"interrupt", []tea.Msg{tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}}, workspaceNone},
+		{"overview", []tea.Msg{tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl}}, workspaceLeave},
+		{"paste ignored", []tea.Msg{tea.PasteMsg{Content: "y"}, tea.KeyPressMsg{Code: tea.KeyEnter}}, workspaceNone},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			m := &uiTaskModel{workspace: workspaceModel{canSubmit: true, width: 120, height: 30, task: "Keep this task visible"}}
-			m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+			m.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
 			if !m.workspace.confirmSubmit || m.workspace.action != workspaceNone {
 				t.Fatal("shortcut did not ask before submitting")
 			}
-			view := ansi.Strip(m.View())
+			view := ansi.Strip(m.render())
 			if !strings.Contains(view, "SUBMIT LAB") || !strings.Contains(view, "[ No ]") || !strings.Contains(view, "QUESTION / TASK") {
 				t.Fatal("confirmation missing or replaced the task view")
 			}
@@ -48,18 +48,18 @@ func TestLabSubmitGuardsAndTerminalFocus(t *testing.T) {
 	emulator := vt.NewEmulator(80, 24)
 	defer emulator.Close()
 	m := &uiTaskModel{terminalLocked: true, workspace: workspaceModel{canSubmit: true}, tabs: []*uiTerminalTab{{emulator: emulator}}}
-	focusInput(t, emulator, func() { m.Update(tea.KeyMsg{Type: tea.KeyCtrlS}) }, "\x13")
+	focusInput(t, emulator, func() { m.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl}) }, "\x13")
 	if m.workspace.confirmSubmit {
 		t.Fatal("locked editor shortcut opened submission")
 	}
 	m.setTerminalLocked(false)
 	m.workspace.snapshot.blocked = "run changed"
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
 	if m.workspace.confirmSubmit {
 		t.Fatal("blocked run opened confirmation")
 	}
 	m.workspace.snapshot.blocked = ""
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
 	m.Update(tea.BlurMsg{})
 	if m.workspace.confirmSubmit || m.terminalLocked {
 		t.Fatal("idle pause left submission or terminal focus active")
@@ -69,14 +69,14 @@ func TestLabSubmitGuardsAndTerminalFocus(t *testing.T) {
 		t.Fatal("Continue did not restore terminal focus after idle cancellation")
 	}
 	m.setTerminalLocked(false)
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
 	m.workspace.snapshot.blocked = "run changed while dialog open"
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")})
+	m.Update(tea.KeyPressMsg{Text: "y"})
 	if m.workspace.action != workspaceNone {
 		t.Fatal("changed run was submitted")
 	}
 	m.workspace.canSubmit, m.workspace.snapshot.blocked = false, ""
-	focusInput(t, emulator, func() { m.Update(tea.KeyMsg{Type: tea.KeyCtrlS}) }, "\x13")
+	focusInput(t, emulator, func() { m.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl}) }, "\x13")
 	if m.workspace.confirmSubmit {
 		t.Fatal("playground offered submission")
 	}
@@ -95,7 +95,7 @@ func TestLabSubmitMouse(t *testing.T) {
 					t.Fatal("tab overlaps submit button")
 				}
 			}
-			m.Update(tea.MouseMsg{X: 3, Y: 0, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+			m.Update(tea.MouseClickMsg{X: 3, Y: 0, Button: tea.MouseLeft})
 			if !m.workspace.confirmSubmit {
 				t.Fatal("submit click did not open dialog")
 			}
@@ -106,7 +106,7 @@ func TestLabSubmitMouse(t *testing.T) {
 					if yes {
 						col = 3
 					}
-					m.Update(tea.MouseMsg{X: x + 2 + col, Y: y + 1 + i, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+					m.Update(tea.MouseClickMsg{X: x + 2 + col, Y: y + 1 + i, Button: tea.MouseLeft})
 					break
 				}
 			}
@@ -123,6 +123,6 @@ func TestLabSubmitDetailsMouseRouting(t *testing.T) {
 	m.title = "WORKSPACE / lab"
 	_, _ = m.emulator.WriteString("\x1b[?1002h\x1b[?1006h")
 	focusInput(t, m.emulator, func() {
-		m.Update(tea.MouseMsg{X: 2, Y: uiHeaderHeight(m.width, m.height) + 2, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+		m.Update(tea.MouseClickMsg{X: 2, Y: uiHeaderHeight(m.width, m.height) + 2, Button: tea.MouseLeft})
 	}, "\x1b[<0;3;3M")
 }

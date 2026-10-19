@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-isatty"
 )
@@ -27,8 +26,8 @@ func preferencesFixture(t *testing.T, key string) workspaceModel {
 	return workspaceModel{width: 80, height: 24, showPreferences: true, preferences: p}
 }
 
-func preferenceKey(m workspaceModel, key tea.KeyType) workspaceModel {
-	result, _ := m.Update(tea.KeyMsg{Type: key})
+func preferenceKey(m workspaceModel, key string) workspaceModel {
+	result, _ := m.Update(press(key))
 	return result.(workspaceModel)
 }
 
@@ -70,11 +69,11 @@ func TestWorkspacePreferenceEditing(t *testing.T) {
 	}
 	m := preferencesFixture(t, "parallel")
 	m = workspaceKey(workspaceKey(m, "enter"), "123")
-	m = preferenceKey(m, tea.KeyBackspace)
+	m = preferenceKey(m, "backspace")
 	if m.preferences.draft != "12" {
 		t.Fatal(m.preferences.draft)
 	}
-	m = preferenceKey(m, tea.KeyCtrlU)
+	m = preferenceKey(m, "ctrl+u")
 	if m.preferences.draft != "" {
 		t.Fatal("clear failed")
 	}
@@ -108,7 +107,7 @@ func TestWorkspacePreferenceConfirmationExplainsChange(t *testing.T) {
 			m.width, m.height = 120, 40
 			old := m.preferences.rows[m.preferences.selected].value
 			m = workspaceKey(workspaceKey(workspaceKey(m, "enter"), tc.value), "enter")
-			view := strings.Join(strings.Fields(strings.ReplaceAll(ansi.Strip(m.View()), "│", " ")), " ")
+			view := strings.Join(strings.Fields(strings.ReplaceAll(ansi.Strip(m.render()), "│", " ")), " ")
 			for _, want := range []string{"Change: " + settingValueText(old) + " -> " + settingValueText(tc.value), "Why:", "optional", tc.effect, "Apply this change? [y/N]", "n no"} {
 				if !strings.Contains(view, want) {
 					t.Fatalf("missing %q: %s", want, view)
@@ -130,7 +129,7 @@ func TestWorkspacePreferenceView(t *testing.T) {
 			m.preferences.draft = "false"
 			for _, size := range [][2]int{{48, 14}, {80, 24}, {120, 40}} {
 				m.width, m.height = size[0], size[1]
-				view := ansi.Strip(m.View())
+				view := ansi.Strip(m.render())
 				if len(strings.Split(view, "\n")) > m.height {
 					t.Fatalf("view exceeds height %d:\n%s", m.height, view)
 				}
@@ -143,14 +142,14 @@ func TestWorkspacePreferenceView(t *testing.T) {
 					t.Fatal(view)
 				}
 			}
-			if !strings.Contains(strings.Join(strings.Fields(strings.ReplaceAll(ansi.Strip(m.View()), "│", " ")), " "), "GitHub receives your IP address") {
+			if !strings.Contains(strings.Join(strings.Fields(strings.ReplaceAll(ansi.Strip(m.render()), "│", " ")), " "), "GitHub receives your IP address") {
 				t.Fatal("missing privacy explanation")
 			}
 		})
 	}
 	m.preferences.notice = "error\x1b[2J\x07"
 	m.preferences.path += "\x1b[2J"
-	if got := ansi.Strip(m.View()); strings.ContainsAny(got, "\x1b\x07") {
+	if got := ansi.Strip(m.render()); strings.ContainsAny(got, "\x1b\x07") {
 		t.Fatal("unsafe terminal text")
 	}
 	m = workspaceKey(m, "esc")

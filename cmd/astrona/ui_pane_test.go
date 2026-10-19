@@ -8,13 +8,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 	"github.com/creack/pty"
@@ -57,19 +56,19 @@ func TestWantsUIPane(t *testing.T) {
 func TestUIPaneKeyEncoding(t *testing.T) {
 	for _, tc := range []struct {
 		name, mode, want string
-		key              tea.KeyMsg
+		key              tea.Msg
 	}{
-		{"unicode", "", "界", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("界")}},
-		{"interrupt", "", "\x03", tea.KeyMsg{Type: tea.KeyCtrlC}},
-		{"eof", "", "\x04", tea.KeyMsg{Type: tea.KeyCtrlD}},
-		{"enter", "", "\r", tea.KeyMsg{Type: tea.KeyEnter}},
-		{"backspace", "", "\x7f", tea.KeyMsg{Type: tea.KeyBackspace}},
-		{"alt", "", "\x1bx", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x"), Alt: true}},
-		{"history", "", "\x1b[A", tea.KeyMsg{Type: tea.KeyUp}},
-		{"application cursor", "\x1b[?1h", "\x1bOA", tea.KeyMsg{Type: tea.KeyUp}},
-		{"function key", "", "\x1bOP", tea.KeyMsg{Type: tea.KeyF1}},
-		{"shift tab", "", "\x1b[Z", tea.KeyMsg{Type: tea.KeyShiftTab}},
-		{"paste", "\x1b[?2004h", "\x1b[200~first\nsecond\x1b[201~", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("first\nsecond"), Paste: true}},
+		{"unicode", "", "界", tea.KeyPressMsg{Text: "界"}},
+		{"interrupt", "", "\x03", tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}},
+		{"eof", "", "\x04", tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl}},
+		{"enter", "", "\r", tea.KeyPressMsg{Code: tea.KeyEnter}},
+		{"backspace", "", "\x7f", tea.KeyPressMsg{Code: tea.KeyBackspace}},
+		{"alt", "", "\x1bx", tea.KeyPressMsg{Text: "x", Mod: tea.ModAlt}},
+		{"history", "", "\x1b[A", tea.KeyPressMsg{Code: tea.KeyUp}},
+		{"application cursor", "\x1b[?1h", "\x1bOA", tea.KeyPressMsg{Code: tea.KeyUp}},
+		{"function key", "", "\x1bOP", tea.KeyPressMsg{Code: tea.KeyF1}},
+		{"shift tab", "", "\x1b[Z", tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}},
+		{"paste", "\x1b[?2004h", "\x1b[200~first\nsecond\x1b[201~", tea.PasteMsg{Content: "first\nsecond"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			emulator := vt.NewEmulator(80, 24)
@@ -80,7 +79,7 @@ func TestUIPaneKeyEncoding(t *testing.T) {
 				_, _ = io.ReadFull(emulator, buf)
 				input <- string(buf)
 			}()
-			sendUIPaneKey(emulator, tc.key)
+			sendUIPaneKey(emulator, asUIKey(tc.key))
 			if got := <-input; got != tc.want {
 				t.Fatalf("input = %q, want %q", got, tc.want)
 			}
@@ -96,12 +95,12 @@ func TestUIPaneScreenAndControls(t *testing.T) {
 		for i := range 100 {
 			_, _ = fmt.Fprintf(m.emulator, "output %d\r\n", i)
 		}
-		m.key(tea.KeyMsg{Type: tea.KeyCtrlCloseBracket})
-		m.key(tea.KeyMsg{Type: tea.KeyHome})
+		m.key(uiKey{key: tea.KeyPressMsg{Code: ']', Mod: tea.ModCtrl}})
+		m.key(uiKey{key: tea.KeyPressMsg{Code: tea.KeyHome}})
 		if !m.controls || !strings.Contains(ansi.Strip(m.screen()), "界 hello") {
 			t.Fatal("cannot scroll back to earlier shell output")
 		}
-		view := ansi.Strip(m.View())
+		view := ansi.Strip(m.render())
 		if len(strings.Split(view, "\n")) != size[1] {
 			t.Fatal("pane exceeds terminal height")
 		}
@@ -110,8 +109,8 @@ func TestUIPaneScreenAndControls(t *testing.T) {
 				t.Fatal("pane exceeds terminal width")
 			}
 		}
-		m.key(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
-		if !m.closing || m.key(tea.KeyMsg{Type: tea.KeyEnter}) != nil || m.closing {
+		m.key(uiKey{key: tea.KeyPressMsg{Text: "q"}})
+		if !m.closing || m.key(uiKey{key: tea.KeyPressMsg{Code: tea.KeyEnter}}) != nil || m.closing {
 			t.Fatal("closing did not require explicit confirmation")
 		}
 		_ = m.emulator.Close()
@@ -145,7 +144,7 @@ func TestUIPaneFailureKeepsFinalOutputVisible(t *testing.T) {
 	defer m.emulator.Close()
 	_, _ = fmt.Fprintf(m.emulator, "\x1b[%d;1HLast error detail", m.emulator.Height())
 	m.failure, m.ended = "Command failed", true
-	view := ansi.Strip(m.View())
+	view := ansi.Strip(m.render())
 	for _, want := range []string{"Last error detail", "Command failed", "Enter / Esc close"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("failure screen hides %q", want)
@@ -174,12 +173,27 @@ func waitUIPaneOutput(t *testing.T, out *uiPaneTestOutput, want string) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		if strings.Contains(ansi.Strip(out.String()), want) {
+		if strings.Contains(ansi.Strip(out.String()), want) || strings.Contains(uiPaneTestScreen(out.String()), want) {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatalf("missing %q in terminal output:\n%s", want, ansi.Strip(out.String()))
+	t.Fatalf("missing %q in terminal output:\n%s", want, uiPaneTestScreen(out.String()))
+}
+
+// uiPaneTestScreen is what a terminal shows after the raw output: Bubble Tea
+// v2 redraws only the cells that changed, so a text can arrive split by cursor
+// moves and only a terminal emulator puts it back together.
+func uiPaneTestScreen(raw string) string {
+	return uiPaneTestScreenSize(raw, 300, 100)
+}
+
+func uiPaneTestScreenSize(raw string, width, height int) string {
+	emulator := vt.NewEmulator(width, height)
+	defer emulator.Close()
+	go func() { _, _ = io.Copy(io.Discard, emulator) }() // replies to terminal queries
+	_, _ = emulator.WriteString(raw)
+	return ansi.Strip(emulator.Render())
 }
 
 // The helper runs in a real PTY, including the production confirmation and
@@ -236,7 +250,7 @@ func TestUIPaneKeepsSetupShellAndErrorsVisible(t *testing.T) {
 	}
 	done := make(chan result, 1)
 	go func() {
-		code, err := runUIPaneCommand(ctx, cmd, 100, 30, tea.WithInput(input), tea.WithOutput(out))
+		code, err := runUIPaneCommand(ctx, cmd, 100, 30, tea.WithInput(input), tea.WithOutput(out), tea.WithWindowSize(100, 30))
 		done <- result{code, err}
 	}()
 	waitUIPaneOutput(t, out, "Start the terminal test lab?")
@@ -286,7 +300,7 @@ func TestUIPaneCloseStopsAndReapsChild(t *testing.T) {
 	out := &uiPaneTestOutput{}
 	done := make(chan error, 1)
 	go func() {
-		code, err := runUIPaneCommand(ctx, cmd, 80, 24, tea.WithInput(input), tea.WithOutput(out))
+		code, err := runUIPaneCommand(ctx, cmd, 80, 24, tea.WithInput(input), tea.WithOutput(out), tea.WithWindowSize(80, 24))
 		if err == nil && code != 130 {
 			err = fmt.Errorf("closed pane exit = %d", code)
 		}
@@ -310,28 +324,28 @@ func TestUIPaneNativeTextSelection(t *testing.T) {
 	m := newUIPaneModel(nil, nil, 120, 30)
 	defer m.emulator.Close()
 	m.mouseDown = true
-	cmd := m.key(tea.KeyMsg{Type: tea.KeyCtrlY})
-	if !m.selectText || m.mouseDown || cmd == nil || reflect.TypeOf(cmd()) != reflect.TypeOf(tea.DisableMouse()) {
+	m.key(uiKey{key: tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl}})
+	if !m.selectText || m.mouseDown || m.View().MouseMode != tea.MouseModeNone {
 		t.Fatal("Ctrl+Y did not enable native selection")
 	}
-	m.Update(tea.MouseMsg{X: 2, Y: 12, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+	m.Update(tea.MouseClickMsg{X: 2, Y: 12, Button: tea.MouseLeft})
 	if m.mouseDown {
 		t.Fatal("selection forwarded a mouse click")
 	}
-	if !strings.Contains(m.View(), "Copy shortcut") {
+	if !strings.Contains(m.render(), "Copy shortcut") {
 		t.Fatal("copy instructions missing")
 	}
-	frozen := m.View()
+	frozen := m.render()
 	m.Update(uiPaneOutput{data: []byte("new output while selecting")})
 	m.Update(uiAccountStatus{label: "Logged in", signedIn: true})
-	if m.View() != frozen {
+	if m.render() != frozen {
 		t.Fatal("live redraw erased native selection")
 	}
-	cmd = m.key(tea.KeyMsg{Type: tea.KeyCtrlY})
-	if m.selectText || cmd == nil || reflect.TypeOf(cmd()) != reflect.TypeOf(tea.EnableMouseCellMotion()) {
+	m.key(uiKey{key: tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl}})
+	if m.selectText || m.View().MouseMode != tea.MouseModeCellMotion {
 		t.Fatal("Ctrl+Y did not restore mouse controls")
 	}
-	if !strings.Contains(m.View(), "new output while selecting") {
+	if !strings.Contains(m.render(), "new output while selecting") {
 		t.Fatal("copy mode discarded terminal output")
 	}
 }
@@ -349,9 +363,9 @@ func TestUIPaneSelectionMouseRouting(t *testing.T) {
 		read <- string(buf)
 	}()
 	y := uiHeaderHeight(m.width, m.height) + 2
-	m.Update(tea.MouseMsg{X: 2, Y: y, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
-	m.Update(tea.MouseMsg{X: 6, Y: y, Action: tea.MouseActionMotion, Button: tea.MouseButtonLeft})
-	m.Update(tea.MouseMsg{X: 6, Y: y, Action: tea.MouseActionRelease})
+	m.Update(tea.MouseClickMsg{X: 2, Y: y, Button: tea.MouseLeft})
+	m.Update(tea.MouseMotionMsg{X: 6, Y: y, Button: tea.MouseLeft})
+	m.Update(tea.MouseReleaseMsg{X: 6, Y: y})
 	select {
 	case got := <-read:
 		if got != want {
@@ -376,11 +390,11 @@ func TestUIPaneWheelMouseRouting(t *testing.T) {
 	}()
 	// Header and footer events must never reach the nested task view.
 	for _, y := range []int{0, m.height - 1} {
-		m.Update(tea.MouseMsg{X: 2, Y: y, Action: tea.MouseActionPress, Button: tea.MouseButtonWheelDown})
+		m.Update(tea.MouseWheelMsg{X: 2, Y: y, Button: tea.MouseWheelDown})
 	}
 	y := uiHeaderHeight(m.width, m.height) + 2
-	for _, button := range []tea.MouseButton{tea.MouseButtonWheelUp, tea.MouseButtonWheelDown} {
-		m.Update(tea.MouseMsg{X: 2, Y: y, Action: tea.MouseActionPress, Button: button})
+	for _, button := range []tea.MouseButton{tea.MouseWheelUp, tea.MouseWheelDown} {
+		m.Update(tea.MouseWheelMsg{X: 2, Y: y, Button: button})
 	}
 	select {
 	case got := <-read:

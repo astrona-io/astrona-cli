@@ -14,8 +14,8 @@ import (
 	"astrona/internal/labstate"
 	"astrona/internal/proctor"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type uiHomeRun struct {
@@ -293,15 +293,12 @@ func (m uiHomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(workspaceTickCmd(), m.refresh)
 		}
 		return m, workspaceTickCmd()
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.deleting != nil {
 			if !m.deleteDialogFits() {
 				if msg.String() == "esc" || msg.String() == "ctrl+c" {
 					m.deleting = nil
 				}
-				return m, nil
-			}
-			if msg.Paste {
 				return m, nil
 			}
 			switch msg.String() {
@@ -387,11 +384,17 @@ func (m uiHomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m uiHomeModel) View() string {
+func (m uiHomeModel) View() tea.View {
+	v := tea.NewView(m.render())
+	v.AltScreen = true
+	return v
+}
+
+func (m uiHomeModel) render() string {
 	editor := m.editor
 	editor.home, editor.width, editor.height = true, m.width, m.height
 	if m.width < 48 || m.height < 14 || editor.showPreferences {
-		return editor.View()
+		return editor.render()
 	}
 	w, h := m.width, editor.bodyHeight()
 	message := m.notice
@@ -513,7 +516,7 @@ func runUIHomeScreen(ctx context.Context, m uiHomeModel) (uiHomeModel, error) {
 	m.refresh = func() tea.Msg { return readUIHome(screenCtx) }
 	m.polling, m.open, m.quit, m.destroy = true, false, false, false
 	m.editor.action = workspaceNone
-	final, err := runUIProgram(m, tea.WithContext(screenCtx), tea.WithAltScreen())
+	final, err := runUIProgram(m, tea.WithContext(screenCtx))
 	if err != nil {
 		return m, fmt.Errorf("UI home: %w", err)
 	}

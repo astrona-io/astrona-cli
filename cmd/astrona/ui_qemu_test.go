@@ -16,7 +16,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/labstate"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func saveUIVM(t *testing.T, lab, vm string, pid int) *config.QEMUHandle {
@@ -125,12 +125,12 @@ func TestUIQEMUTargetsAndStudentTerminal(t *testing.T) {
 func TestUIQEMUNewTabChoosesVM(t *testing.T) {
 	manager := testUITerminals(t)
 	m := &uiTaskModel{workspace: workspaceModel{width: 120, height: 30, snapshot: workspaceSnapshot{clusters: []workspaceCluster{{name: "client", alias: "client", runtime: "qemu"}, {name: "server", alias: "server", runtime: "qemu"}}}}, terminals: manager, sized: true}
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlT})
-	m.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if m.workspace.selected != 1 || !strings.Contains(m.View(), "VM: server") {
+	m.Update(tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	if m.workspace.selected != 1 || !strings.Contains(m.render(), "VM: server") {
 		t.Fatal("VM chooser did not move")
 	}
-	_, start := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	_, start := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if start == nil {
 		t.Fatal("no new terminal")
 	}
