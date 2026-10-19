@@ -48,7 +48,7 @@ deprecated alias for existing scripts and prints a migration notice.
 | --- | --- |
 | `run`, `reset` | Set up Kind or QEMU without UI prompts or new account sessions. Replacing a run still requires `--yes`; soft and linked-cluster resets also require it. |
 | `test`, `validate`, `check`, `doctor`, `diagnose` | Run with explicit approvals and static progress output. `test` retains automatic grading and cleanup. |
-| `submit` | Grade and send results for an existing tracked session. Automatically delete after a server-confirmed result, PASS or FAIL; use `--keep` to retain the lab. Unsent results keep it. |
+| `submit` | Grade and send results for an existing tracked session. Automatically delete after a server-confirmed result, PASS or FAIL; use `--keep` to retain the lab. A local-only run (`--local-only`, a UI restart) has nothing to send, so its saved local result finishes it too. An unsent result of a tracked run keeps it. |
 | `start`, `stop`, `destroy`, `list`, `status`, `progress` | Use the normal command-line behavior and applicable approval rules. Lifecycle progress does not animate. |
 | `bundle` | Require saved trust or `--trust` before loading unapproved content. |
 | `res run` | Run a resource for external checks. QEMU uses SSH batch mode without allocating a terminal. |

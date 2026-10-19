@@ -49,7 +49,8 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			"page on Astrona as well. A submit is final: PASS and FAIL both finish the attempt and stop " +
 			"its timer, and once the server confirms the result, submit automatically deletes the lab, " +
 			"exactly like `astrona destroy`, including in headless and JSON modes. Use --keep to keep it; " +
-			"teardown.keepCluster is also respected. Unsent results keep the environment. Start a new run " +
+			"teardown.keepCluster is also respected. A local-only run has nothing to send, so its saved result finishes it too. " +
+			"An unsent result of a tracked run keeps the environment. Start a new run " +
 			"for another tracked attempt.\n\n" +
 			"Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong. Sending the " +
 			"result to Astrona never changes the grade. A cleanup failure exits 1 and leaves the uploaded result intact.",
@@ -288,8 +289,11 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 		options.completed(result, sent, recordErr == nil)
 	}
 	// A sent result finishes the attempt, PASS or FAIL: the lab has no
-	// further tracked use, so it goes, as `astrona destroy` would.
-	if sent && !keep && !cfg.Teardown.KeepCluster {
+	// further tracked use, so it goes, as `astrona destroy` would. A local-only
+	// run (a UI restart, --local-only) has nothing to send: its result, once
+	// saved here, is the final one.
+	localRun := before != nil && before.LocalOnly && recordErr == nil
+	if (sent || localRun) && !keep && !cfg.Teardown.KeepCluster {
 		name := clusterName
 		if flags.catalogLab != "" {
 			name = flags.catalogLab
@@ -317,12 +321,12 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 			}
 			return nil
 		}(); err != nil {
-			return fmt.Errorf("result was sent to Astrona, but lab cleanup failed: %w; retry with astrona destroy %s", err, name)
+			return fmt.Errorf("result was recorded, but lab cleanup failed: %w; retry with astrona destroy %s", err, name)
 		}
 	}
 	if !pass {
-		if sent {
-			fmt.Fprintln(status, "Submission complete: FAIL. This attempt is finished; start a new run for another tracked attempt.")
+		if sent || localRun {
+			fmt.Fprintln(status, "Submission complete: FAIL. This attempt is finished; start a new run for another try.")
 		} else {
 			fmt.Fprintln(status, "Submission complete: FAIL. The lab stays available; start a new run for another tracked attempt.")
 		}

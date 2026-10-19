@@ -274,8 +274,17 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		// lab as `astrona submit` does.
 		submit: func() (string, bool, error) {
 			result, deleted := "", false
+			local := false
+			if st, err := labstate.Load(name); err == nil && st != nil {
+				local = st.LocalOnly
+			}
 			err := submitLoadedLab(flags, cfg, baseDir, submitOptions{
-				completed:     func(r submissionResult, sent, recorded bool) { result = workspaceSubmission(r, sent, recorded) },
+				completed: func(r submissionResult, sent, recorded bool) {
+					result = workspaceSubmission(r, sent, recorded)
+					if local && !sent {
+						result = strings.Replace(result, "Not sent to Astrona. Check the submission output for details.\n", "Local run: nothing is sent to Astrona; this result is saved here.\n", 1)
+					}
+				},
 				beforeCleanup: func() { closeUITerminals(ctx, name) },
 				deleted:       func() { deleted = true },
 			}, os.Stdout)
