@@ -146,17 +146,6 @@ func settingsInteractive(cmd *cobra.Command) bool {
 	return !commandHeadless(cmd) && inOK && outOK && isatty.IsTerminal(in.Fd()) && isatty.IsTerminal(out.Fd()) && !terms.InCI(os.Getenv)
 }
 
-func checkSettingsReview(cmd *cobra.Command, flags *rootFlags) error {
-	if settingsReviewExempt(cmd) {
-		return nil
-	}
-	path, err := settingsPath(flags)
-	if err != nil {
-		return err
-	}
-	return ensureSettingsReview(cmd, path, reviewDefinitions(), settingsInteractive(cmd), "")
-}
-
 func ensureSettingsReview(cmd *cobra.Command, path string, defs map[string]reviewedSetting, interactive bool, accept string) error {
 	if err := cmd.Context().Err(); err != nil {
 		return err

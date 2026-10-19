@@ -30,8 +30,8 @@ therefore exceed the limits while downloads or labs need it. A notice on stderr
 explains deferrals and reports removed entries without changing JSON stdout or
 the original command's exit code. Help, completions, settings, data inspection,
 internal background commands, stop/destroy and logout do not trigger automatic
-deletion. Commands exempt from settings review also skip release checks, so they
-can be used for cleanup without applying unreviewed preferences.
+deletion. These commands also skip release checks, so cleanup remains available
+without contacting GitHub.
 
 Preview or explicitly apply just the configured policy:
 
