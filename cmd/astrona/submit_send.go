@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -251,60 +250,4 @@ func capCheckTexts(result submissionResult) submissionResult {
 	}
 	result.Checks = checks
 	return result
-}
-
-// followUp is what follows a graded, possibly sent, result.
-type followUp int
-
-const (
-	followNothing followUp = iota
-	followHint             // keep the lab, say how to remove it later
-	followAsk              // ask whether to delete the lab now
-)
-
-// submitFollowUp decides what follows a result: only a pass that reached
-// the lab page offers to delete the lab — asked in a terminal, a hint
-// under -o json or without one; --keep, or a lab with
-// teardown.keepCluster, leaves it be. A failing result never asks: the
-// environment stays available after its attempt finishes.
-func submitFollowUp(pass, sent, keep, jsonOut, tty, keepCluster bool) followUp {
-	switch {
-	case !pass || !sent || keep || keepCluster:
-		return followNothing
-	case jsonOut || !tty:
-		return followHint
-	default:
-		return followAsk
-	}
-}
-
-// offerDestroy follows a passing result that reached the lab page: in a
-// terminal (ask) it asks whether to delete the lab now — Enter or y
-// deletes it — otherwise, or on n, the lab is kept and how to remove it
-// later is printed on w. A failed delete is only a warning: the result
-// stands.
-func offerDestroy(in io.Reader, prompt, w io.Writer, ask bool, lab string, destroy func() error) {
-	keptHint := fmt.Sprintf("Kept. Remove it later with: astrona destroy %s\n", lab)
-	if !ask || !confirmDefaultYes(in, prompt, "Delete the lab cluster now?") {
-		fmt.Fprint(w, keptHint)
-		return
-	}
-	if err := destroy(); err != nil {
-		ui.Warnf("could not delete the lab: %s — try: astrona destroy %s", err, lab)
-	}
-}
-
-// confirmDefaultYes asks question on in/out; Enter, "y" or "yes" confirms.
-func confirmDefaultYes(in io.Reader, out io.Writer, question string) bool {
-	fmt.Fprintf(out, "%s [Y/n] ", question)
-	line, err := bufio.NewReader(in).ReadString('\n')
-	if err != nil && line == "" {
-		return false // no answer at all (closed input): keep
-	}
-	switch strings.ToLower(strings.TrimSpace(line)) {
-	case "", "y", "yes":
-		return true
-	default:
-		return false
-	}
 }
