@@ -34,6 +34,9 @@ type KindCluster struct {
 	RuntimeConfig map[string]string `yaml:"runtimeConfig"`
 	Addons        KindAddons        `yaml:"addons"`
 	PreloadImages []string          `yaml:"preloadImages"`
+	// DNS: as runtime.kind.dns. The network is shared, so the lab's own
+	// setting (the cluster created last) is the one that stays.
+	DNS []string `yaml:"dns"`
 	// Bootstrap sets the cluster up (init scripts, manifests, waitFor)
 	// before the lab's own bootstrap runs. Testing is this cluster's part
 	// of the reference solution: `astrona test` applies it after every
@@ -67,7 +70,7 @@ func (l KindCluster) Cluster() *KindConfig {
 	k := &KindConfig{
 		Version: l.Version, Image: l.Image, DNSTimeout: l.DNSTimeout, Nodes: l.Nodes, Networking: l.Networking,
 		FeatureGates: l.FeatureGates, RuntimeConfig: l.RuntimeConfig, Addons: l.Addons,
-		PreloadImages: l.PreloadImages,
+		PreloadImages: l.PreloadImages, DNS: l.DNS,
 	}
 	k.Addons.SkipHostPorts = true
 	return k

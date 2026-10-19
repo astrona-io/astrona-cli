@@ -44,6 +44,10 @@ type KindConfig struct {
 	// start without a registry round-trip — faster, no Docker Hub rate
 	// limits, offline once the host has them. See preload.go.
 	PreloadImages []string `yaml:"preloadImages"`
+	// DNS are the upstream servers the lab's container network forwards
+	// lookups to (Podman only; see dns.go). Empty uses DefaultDNS, so image
+	// pulls and pods do not depend on the host's resolver.
+	DNS []string `yaml:"dns"`
 	// Clusters are extra kind clusters that run side by side with this one
 	// — see KindCluster (kindclusters.go).
 	Clusters []KindCluster `yaml:"clusters"`
@@ -181,6 +185,9 @@ func ValidateKindConfig(rt RuntimeConfig) error {
 		return err
 	}
 	if err := validatePreloadImages(k.PreloadImages); err != nil {
+		return err
+	}
+	if err := validateDNS(k.DNS); err != nil {
 		return err
 	}
 
