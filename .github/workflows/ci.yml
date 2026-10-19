@@ -53,6 +53,26 @@ jobs:
       - name: Build the Windows launcher
         run: GOOS=windows GOARCH=amd64 go build -o /dev/null ./cmd/astrona-windows
 
+  terminal-ui:
+    name: Terminal focus (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Test terminal focus and navigation through PTYs
+        run: go test ./cmd/astrona -run 'TestUITerminalFocus|TestUITerminalReleaseKeys|TestUITerminalMouse|TestUITaskKeepsTabsAcrossOverview|TestUITerminalBlockedInputDoesNotBlockNavigation|TestUIIdleReleasesAndRestoresTerminalFocus' -count=1 -timeout=3m
+
   e2e:
     name: E2E (kind runtime)
     needs: test

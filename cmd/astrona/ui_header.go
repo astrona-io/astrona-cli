@@ -208,7 +208,7 @@ func (m *uiPaneModel) headerShortcuts() [][2]string {
 		return [][2]string{{"<1>", "Active runs"}, {"<2>", "History"}, {"<3>", "Help"}, {"<p>", "Preferences"}, {"<enter>", "Open selected"}, {"<↑/↓>", "Select run"}, {"<ctrl-d>", "Force delete"}, {"<r>", "Refresh"}, {"<tab>", "Next section"}, {"<q>", "Quit"}}
 	case "TASK":
 		if m.terminalLocked {
-			return [][2]string{{"<ctrl-alt-]>", "Release focus"}, {"Keys / mouse", "Terminal app"}}
+			return [][2]string{{"<" + uiReleaseFocusKey() + ">", "Release focus"}, {"Keys / mouse", "Terminal app"}}
 		}
 		return [][2]string{{"<ctrl-t>", "New terminal"}, {"<ctrl-n/p>", "Switch tab"}, {"<ctrl-b>", "Overview / pause"}, {"<ctrl-c>", "Interrupt command"}, {"<ctrl-o>", "Task / terminal"}, {"<ctrl-g>", "Lab details"}, {"<ctrl-y>", "Select / copy text"}}
 	case "WORKSPACE":

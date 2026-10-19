@@ -192,6 +192,17 @@ func TestUITaskProcessHelper(t *testing.T) {
 }
 
 func TestUITaskKeepsTabsAcrossOverview(t *testing.T) {
+	for _, tc := range []struct{ name, release string }{
+		{"F2 SS3", "\x1bOQ"},
+		{"F2 CSI", "\x1b[12~"},
+		{"legacy Ctrl Alt bracket", "\x1b\x1d"},
+	} {
+		t.Run(tc.name, func(t *testing.T) { testUITaskKeepsTabsAcrossOverview(t, tc.release) })
+	}
+}
+
+func testUITaskKeepsTabsAcrossOverview(t *testing.T, release string) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestUITaskProcessHelper$")
@@ -217,33 +228,32 @@ func TestUITaskKeepsTabsAcrossOverview(t *testing.T) {
 	_, _ = io.WriteString(keys, "\x02\x14\x19\x1d\x0f\x07\x0e\x10\x03")
 	waitUIPaneOutput(t, out, "02 14 19 1d 0f 07 0e 10 03")
 	waitUIPaneOutput(t, out, "keys-delivered")
-	_, _ = io.WriteString(keys, "\x1b\x1d\x14") // Release focus, then Ctrl+T
+	_, _ = io.WriteString(keys, release+"\x14") // Release focus, then Ctrl+T
 	waitUIPaneOutput(t, out, "NEW TERMINAL")
 	_, _ = io.WriteString(keys, "Monitor\r")
 	waitUIPaneOutput(t, out, "[2 Monitor]")
 	_, _ = io.WriteString(keys, "printf 'second-%s\\n' \"${KEEP_TAB:-isolated}\"\r")
 	waitUIPaneOutput(t, out, "second-isolated")
-	_, _ = io.WriteString(keys, "\x1b\x1d")                               // Release focus before switching tabs.
-	_, _ = fmt.Fprintf(keys, "\x1b[<0;40;%dM", uiHeaderHeight(120, 40)+1) // Click the first terminal tab.
+	_, _ = fmt.Fprintf(keys, "\x1b[<0;40;%dM", uiHeaderHeight(120, 40)+1) // Clicking a tab also releases locked focus.
 	_, _ = io.WriteString(keys, "sleep 30\r")
 	time.Sleep(100 * time.Millisecond)
 	_, _ = io.WriteString(keys, "\x03") // Ctrl+C interrupts the foreground command.
 	_, _ = io.WriteString(keys, "printf 'interrupt-%s\\n' works\r")
 	waitUIPaneOutput(t, out, "interrupt-works")
-	_, _ = io.WriteString(keys, "\x1b\x1d") // Release focus before resizing.
+	// Pressing the divider outside the terminal releases focus before resizing.
 	row := uiHeaderHeight(120, 40) + 5
 	_, _ = fmt.Fprintf(keys, "\x1b[<0;36;%dM\x1b[<32;49;%dM\x1b[<0;49;%dm", row, row, row)
 	time.Sleep(100 * time.Millisecond)
 	_, _ = io.WriteString(keys, "printf 'width-%s\\n' \"$(stty size | cut -d' ' -f2)\"\r")
 	waitUIPaneOutput(t, out, "width-68")
-	_, _ = io.WriteString(keys, "\x1b\x1d\x02") // Release focus, then Ctrl+B returns to overview.
+	_, _ = io.WriteString(keys, release+"\x02") // Release focus, then Ctrl+B returns to overview.
 	waitUIPaneOutput(t, out, "Time paused; terminal tabs retained")
 	_, _ = io.WriteString(keys, "\r")
 	time.Sleep(100 * time.Millisecond)
 	_, _ = io.WriteString(keys, "printf 'reopened-%s\\n' \"$KEEP_TAB\"\r")
 	waitUIPaneOutput(t, out, "reopened-retained")
 
-	_, _ = io.WriteString(keys, "\x1b\x1d\x02") // Release focus, then Ctrl+B returns to overview.
+	_, _ = io.WriteString(keys, release+"\x02") // Release focus, then Ctrl+B returns to overview.
 	time.Sleep(100 * time.Millisecond)
 	_, _ = io.WriteString(keys, "q")
 	if err := <-done; err != nil {
@@ -324,7 +334,7 @@ func TestUITerminalBlockedInputDoesNotBlockNavigation(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(strings.Repeat("x", 1024*1024)), Paste: true})
-		m.Update(tea.KeyMsg{Type: tea.KeyCtrlCloseBracket, Alt: true})
+		m.Update(tea.KeyMsg{Type: tea.KeyF2})
 		m.Update(tea.KeyMsg{Type: tea.KeyCtrlB})
 		close(done)
 	}()

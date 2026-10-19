@@ -16,6 +16,9 @@ func TestUITerminalKeysReachTerminal(t *testing.T) {
 		want string
 	}{{tea.KeyF1, "\x1bOP"}, {tea.KeyF2, "\x1bOQ"}, {tea.KeyF3, "\x1bOR"}, {tea.KeyF4, "\x1bOS"}, {tea.KeyCtrlC, "\x03"}} {
 		for _, task := range []bool{false, true} {
+			if task && tc.key == tea.KeyF2 {
+				continue // F2 is reserved by the task UI for releasing focus.
+			}
 			t.Run(tea.KeyMsg{Type: tc.key}.String()+map[bool]string{false: "/pane", true: "/task"}[task], func(t *testing.T) {
 				pane := newUIPaneModel(nil, nil, 120, 30)
 				pane.title = "TASK / astro-lab"
