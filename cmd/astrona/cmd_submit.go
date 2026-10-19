@@ -46,10 +46,11 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			"directory, the only running lab is submitted; with several running, it lists them and " +
 			"how to name each.\n\n" +
 			"A catalog lab started while signed in (`astrona run ATS…`) sends each result to its lab " +
-			"page on Astrona as well. After a passing result is confirmed by the server, submit automatically " +
-			"deletes the lab, exactly like `astrona destroy`, including in headless and JSON modes. " +
-			"Use --keep to keep it; teardown.keepCluster is also respected. Failed or unsent results keep the environment. Both PASS and FAIL " +
-			"finish the attempt and stop its timer; start a new run for another tracked attempt.\n\n" +
+			"page on Astrona as well. A submit is final: PASS and FAIL both finish the attempt and stop " +
+			"its timer, and once the server confirms the result, submit automatically deletes the lab, " +
+			"exactly like `astrona destroy`, including in headless and JSON modes. Use --keep to keep it; " +
+			"teardown.keepCluster is also respected. Unsent results keep the environment. Start a new run " +
+			"for another tracked attempt.\n\n" +
 			"Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong. Sending the " +
 			"result to Astrona never changes the grade. A cleanup failure exits 1 and leaves the uploaded result intact.",
 		SilenceUsage: true,
@@ -119,7 +120,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&history, "history", false, "List previous attempts for this lab instead of grading")
 	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Re-grade continuously while you work (Ctrl-C to stop; not recorded as attempts)")
 	cmd.Flags().DurationVar(&watchInterval, "interval", 5*time.Second, "How often --watch re-grades (minimum 2s)")
-	cmd.Flags().BoolVar(&keep, "keep", false, "Keep the lab after a passing result is sent to Astrona instead of automatically deleting it")
+	cmd.Flags().BoolVar(&keep, "keep", false, "Keep the lab after the result is sent to Astrona instead of automatically deleting it")
 	addOutputFlag(cmd, &output)
 	return cmd
 }
@@ -283,10 +284,8 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 	if options.completed != nil {
 		options.completed(result, sent, recordErr == nil)
 	}
-	if !pass {
-		fmt.Fprintln(status, "Submission complete: FAIL. The lab stays available; start a new run for another tracked attempt.")
-		return notPassed("submission did not pass grading")
-	}
+	// A sent result finishes the attempt, PASS or FAIL: the lab has no
+	// further tracked use, so it goes, as `astrona destroy` would.
 	if sent && !keep && !cfg.Teardown.KeepCluster {
 		name := clusterName
 		if flags.catalogLab != "" {
@@ -309,8 +308,16 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 			fmt.Fprintf(status, "Lab %s deleted.\n", name)
 			return nil
 		}(); err != nil {
-			return fmt.Errorf("result passed and was sent to Astrona, but lab cleanup failed: %w; retry with astrona destroy %s", err, name)
+			return fmt.Errorf("result was sent to Astrona, but lab cleanup failed: %w; retry with astrona destroy %s", err, name)
 		}
+	}
+	if !pass {
+		if sent {
+			fmt.Fprintln(status, "Submission complete: FAIL. This attempt is finished; start a new run for another tracked attempt.")
+		} else {
+			fmt.Fprintln(status, "Submission complete: FAIL. The lab stays available; start a new run for another tracked attempt.")
+		}
+		return notPassed("submission did not pass grading")
 	}
 	return nil
 }
