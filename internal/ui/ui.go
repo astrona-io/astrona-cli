@@ -321,6 +321,9 @@ type Task struct {
 	out     io.Writer
 	capture *cappedBuffer // nil in verbose mode
 	done    bool
+
+	statusKey string    // the last status printed without a spinner
+	statusAt  time.Time // and when
 }
 
 // Output is the writer a step's subprocess stdout and stderr must both be
@@ -331,6 +334,54 @@ type Task struct {
 //	cmd.Stdout = out
 //	cmd.Stderr = out
 func (t *Task) Output() io.Writer { return t.out }
+
+// Status shows what a long step is waiting on ("pulling nginx:1.27 · 1m20s")
+// next to its label: on the spinner line, or — without a spinner — as a line
+// of its own, at most every 30 seconds unless the text changes beyond its
+// timer. "" clears it. Call it from one goroutine at a time, and never after
+// the step is resolved.
+func (t *Task) Status(text string) {
+	if t.done {
+		return
+	}
+	switch {
+	case t.r.spin != nil && !t.r.plain && !t.r.verbose:
+		if text == "" {
+			t.r.spin.Message(t.label)
+		} else {
+			t.r.spin.Message(t.label + t.r.dim(" — "+text))
+		}
+	case text != "":
+		key := statusKey(text)
+		if key == t.statusKey && time.Since(t.statusAt) < 30*time.Second {
+			return
+		}
+		t.statusKey, t.statusAt = key, time.Now()
+		fmt.Fprintf(t.r.screen, "    %s\n", t.r.dim(text))
+	}
+}
+
+// Note prints a finished sub-result of the step ("pulled nginx:1.27 in
+// 42s") above the spinner, and writes it to the log.
+func (t *Task) Note(format string, a ...any) {
+	if t.done {
+		return
+	}
+	line := fmt.Sprintf(format, a...)
+	fmt.Fprintf(t.r.logW, "%s\n", line)
+	t.r.pauseSpinner()
+	fmt.Fprintf(t.r.screen, "    %s\n", t.r.dim(line))
+	t.r.unpauseSpinner()
+}
+
+// statusKey is a status text without its trailing " · <timer>", so a
+// ticking timer alone does not count as a new status.
+func statusKey(text string) string {
+	if i := strings.LastIndex(text, " · "); i >= 0 {
+		return text[:i]
+	}
+	return text
+}
 
 // Done resolves the step as succeeded.
 func (t *Task) Done() {
