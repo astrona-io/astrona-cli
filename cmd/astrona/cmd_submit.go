@@ -131,6 +131,9 @@ type submitOptions struct {
 	noHints, history, watch, keep bool
 	watchInterval                 time.Duration
 	completed                     func(submissionResult, bool, bool)
+	// beforeCleanup runs just before a sent result deletes the lab (the UI
+	// closes its terminals); deleted runs once the lab is gone.
+	beforeCleanup, deleted func()
 }
 
 // submitLoadedLab is shared by submit and the workspace. Keeping the loaded
@@ -295,6 +298,9 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 			if before == nil {
 				return fmt.Errorf("the submitted run had no saved identity; the current lab was not deleted")
 			}
+			if options.beforeCleanup != nil {
+				options.beforeCleanup()
+			}
 			drep, err := ui.New("destroy", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless, Raw: status})
 			if err != nil {
 				return err
@@ -306,6 +312,9 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 			}
 			drep.Close()
 			fmt.Fprintf(status, "Lab %s deleted.\n", name)
+			if options.deleted != nil {
+				options.deleted()
+			}
 			return nil
 		}(); err != nil {
 			return fmt.Errorf("result was sent to Astrona, but lab cleanup failed: %w; retry with astrona destroy %s", err, name)
