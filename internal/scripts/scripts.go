@@ -2,12 +2,14 @@ package scripts
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"astrona/internal/config"
 	"astrona/internal/executor"
+	"astrona/internal/pullwatch"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
 )
@@ -27,6 +29,12 @@ const MaxScriptDownloadBytes = 50 * 1024 * 1024
 // running against a whole (possibly multi-VM) LabEnvironment instead of one
 // fixed executor.
 func RunInitScripts(scripts []config.ResourceItem, baseDir string, exec executor.ScriptExecutor, rep *ui.Reporter) error {
+	return runInitScripts(scripts, baseDir, exec, rep, nil)
+}
+
+// runInitScripts is RunInitScripts with a pull watcher (nil for none): while
+// each script runs, the step shows the images the cluster is pulling.
+func runInitScripts(scripts []config.ResourceItem, baseDir string, exec executor.ScriptExecutor, rep *ui.Reporter, pulls *pullwatch.Watcher) error {
 	for _, s := range scripts {
 		if s.Source == "" {
 			continue
@@ -36,66 +44,75 @@ func RunInitScripts(scripts []config.ResourceItem, baseDir string, exec executor
 		if s.Description != "" {
 			rep.Info("%s", s.Description)
 		}
-
-		switch strings.ToLower(s.Type) {
-		case "url":
-			tmpPath, cleanup, err := config.DownloadToTemp(s.Source, "astrona-script-*.sh", MaxScriptDownloadBytes)
-			if err != nil {
-				return t.Fail(fmt.Errorf("failed to download script from %s: %w", s.Source, err))
-			}
-
-			err = exec.RunScript(tmpPath, t.Output())
-			cleanup()
-
-			if err != nil {
-				return t.Fail(fmt.Errorf("failed to run script '%s': %w", s.Name, err))
-			}
-		case "file":
-			resolved, err := config.JoinWithinBaseDir(baseDir, s.Source)
-			if err != nil {
-				return t.Fail(fmt.Errorf("failed to resolve script path for '%s': %w", s.Name, err))
-			}
-
-			if _, err := os.Stat(resolved); os.IsNotExist(err) {
-				return t.Fail(fmt.Errorf("local script file does not exist %s: %w", resolved, err))
-			}
-
-			if err := exec.RunScript(resolved, t.Output()); err != nil {
-				return t.Fail(fmt.Errorf("failed to run script '%s': %w", s.Name, err))
-			}
-		case "folder":
-			resolved, err := config.JoinWithinBaseDir(baseDir, s.Source)
-			if err != nil {
-				return t.Fail(fmt.Errorf("failed to resolve script folder for '%s': %w", s.Name, err))
-			}
-
-			info, err := os.Stat(resolved)
-			if err != nil || !info.IsDir() {
-				return t.Fail(fmt.Errorf("local script folder does not exist or is not a directory: %s", resolved))
-			}
-
-			entries, err := os.ReadDir(resolved)
-			if err != nil {
-				return t.Fail(fmt.Errorf("failed to read script folder '%s': %w", resolved, err))
-			}
-
-			for _, entry := range entries {
-				if entry.IsDir() {
-					continue
-				}
-
-				scriptFile := filepath.Join(resolved, entry.Name())
-				if err := exec.RunScript(scriptFile, t.Output()); err != nil {
-					return t.Fail(fmt.Errorf("failed to run script '%s' in folder '%s': %w", entry.Name(), s.Name, err))
-				}
-			}
-		default:
-			return t.Fail(fmt.Errorf("unsupported type '%s' for init scripts '%s' (must be 'file', 'folder', or 'url')", s.Type, s.Name))
+		// The watcher stops before the step is resolved: it writes to the step.
+		stop := pulls.Attach(t)
+		err := runInitScript(s, baseDir, exec, t.Output())
+		stop()
+		if err != nil {
+			return t.Fail(err)
 		}
-
 		t.Done()
 	}
 
+	return nil
+}
+
+func runInitScript(s config.ResourceItem, baseDir string, exec executor.ScriptExecutor, out io.Writer) error {
+	switch strings.ToLower(s.Type) {
+	case "url":
+		tmpPath, cleanup, err := config.DownloadToTemp(s.Source, "astrona-script-*.sh", MaxScriptDownloadBytes)
+		if err != nil {
+			return fmt.Errorf("failed to download script from %s: %w", s.Source, err)
+		}
+
+		err = exec.RunScript(tmpPath, out)
+		cleanup()
+
+		if err != nil {
+			return fmt.Errorf("failed to run script '%s': %w", s.Name, err)
+		}
+	case "file":
+		resolved, err := config.JoinWithinBaseDir(baseDir, s.Source)
+		if err != nil {
+			return fmt.Errorf("failed to resolve script path for '%s': %w", s.Name, err)
+		}
+
+		if _, err := os.Stat(resolved); os.IsNotExist(err) {
+			return fmt.Errorf("local script file does not exist %s: %w", resolved, err)
+		}
+
+		if err := exec.RunScript(resolved, out); err != nil {
+			return fmt.Errorf("failed to run script '%s': %w", s.Name, err)
+		}
+	case "folder":
+		resolved, err := config.JoinWithinBaseDir(baseDir, s.Source)
+		if err != nil {
+			return fmt.Errorf("failed to resolve script folder for '%s': %w", s.Name, err)
+		}
+
+		info, err := os.Stat(resolved)
+		if err != nil || !info.IsDir() {
+			return fmt.Errorf("local script folder does not exist or is not a directory: %s", resolved)
+		}
+
+		entries, err := os.ReadDir(resolved)
+		if err != nil {
+			return fmt.Errorf("failed to read script folder '%s': %w", resolved, err)
+		}
+
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+
+			scriptFile := filepath.Join(resolved, entry.Name())
+			if err := exec.RunScript(scriptFile, out); err != nil {
+				return fmt.Errorf("failed to run script '%s' in folder '%s': %w", entry.Name(), s.Name, err)
+			}
+		}
+	default:
+		return fmt.Errorf("unsupported type '%s' for init scripts '%s' (must be 'file', 'folder', or 'url')", s.Type, s.Name)
+	}
 	return nil
 }
 
@@ -126,7 +143,11 @@ func HasBootstrapInit(cfg *config.LabConfig) bool {
 // can assume whatever the shared setup already did.
 func RunBootstrap(cfg *config.LabConfig, baseDir string, env *runtime.LabEnvironment, rep *ui.Reporter) error {
 	if env.Executor != nil {
-		return RunInitScripts(cfg.Bootstrap.Init, baseDir, env.Executor, rep)
+		var pulls *pullwatch.Watcher
+		if env.KubeContext != "" {
+			pulls = pullwatch.New(env.KubeContext, env.Kubeconfig, rep.Warn)
+		}
+		return runInitScripts(cfg.Bootstrap.Init, baseDir, env.Executor, rep, pulls)
 	}
 
 	for _, vm := range cfg.Runtime.QEMU {
