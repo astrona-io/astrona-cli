@@ -117,18 +117,21 @@ pending changes and a review ID. `-o json` includes the same information;
 the existing `astrona settings -o json` remains a flat values object. Both are
 read-only and show preferences before flags or environment overrides.
 
-On first use of the review feature, Astrona asks about every setting. Later it
-asks only when a setting is added, removed, or changes its default, explanation
-or behavior revision. A CLI version change alone does not trigger another review.
-The review happens after terms acceptance but before lab loading or update checks.
-You can also start it with `astrona settings review`.
+Settings review is optional. Normal CLI commands, including headless and CI
+runs, use saved preferences and built-in defaults without asking for settings
+confirmation. Missing, outdated or damaged review receipts do not block commands.
+Starting a lab in the UI does not acknowledge settings on your behalf.
+
+Run `astrona settings review` explicitly when you want to inspect and save choices.
+The first review covers every setting; later reviews cover only added, removed
+or changed definitions. A CLI version change alone does not trigger another review.
 
 For each pending setting, the prompt shows its default and current choice.
 It explains why review is needed: a new setting, a changed default, explanation,
 behavior revision or explicit-choice requirement. A new default does not replace
 a saved value. Each chosen value is shown as current → proposed before the final
 approval prompt. Declining leaves both preferences and the review receipt unchanged;
-commands that require review stay blocked until it is approved.
+normal commands remain available without completing the review.
 Enter a value, press Enter to keep the current choice, or type `q` to cancel.
 Boolean settings use `yes` / `no`; `y` / `n` and `true` / `false` also work.
 `update-check` defaults to `yes` when no value is saved; a saved `no` stays selected.
@@ -144,18 +147,17 @@ The receipt lives in `~/.astrona/settings-review.json`, separate from preference
 and usage-term acceptance. It records the reviewed definitions and CLI version,
 not a server identity or tracking token. Writes share the settings lock and use
 private atomic files. If interrupted between saving choices and the receipt,
-the next command asks again. `data reset --yes` clears both files. Unsetting
+the next explicit review asks again. `data reset --yes` clears both files. Unsetting
 `update-check` restores its default `yes` without requiring another review.
 
-Help, completion, settings, local data maintenance, terms display, internal
-background helpers, stop/destroy and logout remain available without review.
-Older binaries do not enforce this gate. No new telemetry or account tracking
-is enabled by this feature; existing signed-in lab progress tracking is separate.
+Review does not enable telemetry or account tracking; existing signed-in lab
+progress tracking is separate. Usage terms and remote-code trust retain their
+own approval requirements.
 
-Without an interactive terminal (including CI), a pending review stops the
-command instead of assuming agreement. `--yes`, `--trust` and `--accept-terms`
-do not approve settings. Set any overrides, inspect the view, then acknowledge
-its exact ID:
+CI and scripts do not need a settings review step or a pinned review ID.
+If you choose to run `settings review` without a terminal, it still requires
+explicit approval. Set any overrides, inspect the view, then acknowledge its
+exact ID:
 
 ```sh
 astrona settings set update-check no
@@ -167,8 +169,8 @@ The ID binds to definitions and saved choices, so it changes when either changes
 Do not pipe a newly generated ID straight into `--accept`; keep the reviewed ID
 in CI configuration and update it after inspecting changes. For a fresh runner,
 use the ID displayed with that runner's exact saved settings, before review
-pins additional defaults. An existing current receipt permits headless commands;
-it does not remove the separate per-command CI requirement for `--accept-terms`.
+pins additional defaults. Optional settings review does not remove the separate
+per-command CI requirement for `--accept-terms`.
 
 Cache limits are local preferences, not lab flags, and are not forwarded during
 version handover. Older CLI releases that validate settings may reject these new

@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 
 	"astrona/internal/terms"
@@ -67,7 +66,6 @@ func approveUIRun(cmd *cobra.Command, flags *rootFlags, confirm func(*cobra.Comm
 }
 
 type uiRunApproval struct {
-	view          settingsView
 	store         terms.Store
 	termsAccepted bool
 	restart       *uiRunRestart
@@ -75,20 +73,8 @@ type uiRunApproval struct {
 	notice        uiRunNotice
 }
 
-func uiRunSettings(flags *rootFlags) (settingsView, error) {
-	path, err := settingsPath(flags)
-	if err != nil {
-		return settingsView{}, err
-	}
-	return buildSettingsView(path)
-}
-
 func prepareUIRunApproval(cmd *cobra.Command, flags *rootFlags) (uiRunApproval, error) {
 	var approval uiRunApproval
-	view, err := uiRunSettings(flags)
-	if err != nil {
-		return approval, err
-	}
 	store, err := terms.DefaultStore()
 	if err != nil {
 		return approval, err
@@ -105,20 +91,12 @@ func prepareUIRunApproval(cmd *cobra.Command, flags *rootFlags) (uiRunApproval, 
 	preview.uiRestart = restart
 	requestedRestart, _ := cmd.Flags().GetBool("yes")
 	preview.localOnly = restart != nil || requestedRestart
-	approval = uiRunApproval{view: view, store: store, termsAccepted: accepted, restart: restart, localOnly: preview.localOnly, notice: buildUIRunNotice(cmd, &preview, !accepted)}
+	approval = uiRunApproval{store: store, termsAccepted: accepted, restart: restart, localOnly: preview.localOnly, notice: buildUIRunNotice(cmd, &preview, !accepted)}
 	return approval, nil
 }
 
 func (a uiRunApproval) save(cmd *cobra.Command) error {
 	if err := cmd.Context().Err(); err != nil {
-		return err
-	}
-	// Use the prepared review ID; a concurrent settings edit must not be
-	// approved using stale information. Keep the existing review lock and writes.
-	review := &cobra.Command{}
-	review.SetContext(cmd.Context())
-	review.SetErr(io.Discard)
-	if err := ensureSettingsReview(review, a.view.Path, reviewDefinitions(), false, a.view.ID); err != nil {
 		return err
 	}
 	if !a.termsAccepted {

@@ -118,8 +118,8 @@ Start a new lab and enter its workspace:
 astrona run ./labs/my-lab --ui
 ```
 
-If you omit `--ui`, an interactive run first offers the UI, before terms,
-settings review or downloads. Press Enter or type `yes` to open it; `no`
+If you omit `--ui`, an interactive run first offers the UI, before terms
+acceptance or downloads. Press Enter or type `yes` to open it; `no`
 continues with the command-line prompts. The offer explains that the UI will
 become the default in v0.5.0. Use `--ui=false` to skip it. Runs with `--yes`,
 CI jobs and redirected input/output keep the command-line flow without this

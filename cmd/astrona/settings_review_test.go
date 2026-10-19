@@ -44,23 +44,6 @@ func initialReviewInput() string {
 	return input.String() + "y\n"
 }
 
-func TestPinnedCISettingsReview(t *testing.T) {
-	saved := userSettings{"verbose": json.RawMessage("false"), "keep-context": json.RawMessage("false"), "parallel": json.RawMessage("1"), "update-check": json.RawMessage("false")}
-	saved["cache-retention-days"] = json.RawMessage("30")
-	saved["cache-max-size-gb"] = json.RawMessage("50")
-	id, err := settingsReviewID(reviewDefinitions(), saved)
-	if err != nil {
-		t.Fatal(err)
-	}
-	helper, err := os.ReadFile("../../.github/scripts/review-test-settings.sh")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(helper), "--accept '"+id+"'") {
-		t.Fatalf("Review the CI settings choices, then update the pinned ID in review-test-settings.sh to %s", id)
-	}
-}
-
 func acceptReview(t *testing.T, path string, defs map[string]reviewedSetting) {
 	t.Helper()
 	value := "false"
@@ -88,7 +71,6 @@ func TestSettingsViewReadOnly(t *testing.T) {
 			path := filepath.Join(s.Data, "settings.json")
 			flags := &rootFlags{settingsFile: path}
 			root := newRootCmd(flags)
-			installCommandGate(root, func(c *cobra.Command) error { return checkSettingsReview(c, flags) })
 			var out bytes.Buffer
 			root.SetOut(&out)
 			root.SetErr(io.Discard)
@@ -436,34 +418,6 @@ func TestSettingsReviewExplainsChangesBeforeApproval(t *testing.T) {
 	receiptAfter, err := os.ReadFile(settingsReceiptPath(path))
 	if err != nil || !bytes.Equal(receiptBefore, receiptAfter) {
 		t.Fatal("decline approved changed definitions", err)
-	}
-}
-
-func TestReviewGatePrecedesAllOperationalHooks(t *testing.T) {
-	for _, args := range [][]string{{"run", "--yes", "--trust", "--accept-terms"}, {"res", "run", "test"}, {"setup", "--yes"}, {}} {
-		t.Run(strings.Join(args, " "), func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "settings.json")
-			flags := &rootFlags{settingsFile: path}
-			root := newRootCmd(flags)
-			var stub func(*cobra.Command)
-			stub = func(c *cobra.Command) {
-				c.Args = cobra.ArbitraryArgs
-				c.PersistentPreRunE = func(*cobra.Command, []string) error { t.Fatal("setup before review"); return nil }
-				c.RunE = func(*cobra.Command, []string) error { t.Fatal("operation before review"); return nil }
-				for _, child := range c.Commands() {
-					stub(child)
-				}
-			}
-			stub(root)
-			installCommandGate(root, func(c *cobra.Command) error { return checkSettingsReview(c, flags) })
-			installTermsGate(root, flags, func(*cobra.Command, bool) error { return nil })
-			root.SetOut(io.Discard)
-			root.SetErr(io.Discard)
-			root.SetArgs(args)
-			if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "settings need review") {
-				t.Fatalf("gate failed: %v", err)
-			}
-		})
 	}
 }
 

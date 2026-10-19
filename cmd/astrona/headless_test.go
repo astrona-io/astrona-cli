@@ -106,9 +106,6 @@ func TestHeadlessRequiresApprovalsOnTerminal(t *testing.T) {
 			if err := checkTerms(cmd, true); err != nil {
 				t.Fatal(err)
 			}
-			if err := checkSettingsReview(cmd, flags); err == nil || !strings.Contains(err.Error(), "settings review") {
-				t.Fatalf("settings approval bypassed: %v", err)
-			}
 			cfg := &config.LabConfig{SourcePath: "https://example.invalid/config.yaml", SourceSHA256: "abc"}
 			if err := requireTrust(flags, cfg, t.TempDir()); err == nil || !strings.Contains(err.Error(), "--trust") {
 				t.Fatalf("remote trust bypassed: %v", err)

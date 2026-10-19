@@ -8,7 +8,7 @@ Use `--headless` when your own script needs to check a running lab. This works
 with Kind and QEMU and keeps running without the UI when the UI becomes the
 default in v0.5.0 and later.
 
-After reviewing the CLI settings (see the job below):
+Settings confirmation is not required, including on a fresh runner:
 
 ```sh
 astrona run ./examples/k8s-basics-01 --headless --accept-terms
@@ -28,7 +28,7 @@ It uses the normal lab name and does real provisioning; it does not apply the
 reference solution, grade the lab or clean up automatically. Arrange cleanup
 after failed checks as well as successful ones.
 
-Missing terms acceptance, settings review or remote-code trust causes an error
+Missing terms acceptance or remote-code trust causes an error
 instead of a CLI prompt. An existing lab requires explicit `--yes` to replace
 it, deleting its work. Other running labs are left alone. Use a dedicated CI
 environment to avoid replacing a lab you are working on. External lab scripts
@@ -105,14 +105,6 @@ jobs:
           curl -L -o astrona "https://github.com/astrona-io/astrona-cli/releases/latest/download/astrona-linux-amd64"
           chmod +x astrona
 
-      - name: Review CLI settings
-        env:
-          ASTRONA_SETTINGS_REVIEW_ID: ${{ vars.ASTRONA_SETTINGS_REVIEW_ID }}
-        run: |
-          ./astrona settings set update-check false
-          ./astrona settings view
-          ./astrona settings review --accept "${ASTRONA_SETTINGS_REVIEW_ID:?Set the reviewed ID in repository variables first}"
-
       - name: astrona check
         run: ./astrona check --headless --accept-terms
 
@@ -139,7 +131,7 @@ jobs:
 
 Notes:
 
-- Set the repository variable `ASTRONA_SETTINGS_REVIEW_ID` after inspecting the view from a runner with these exact settings. Keep the ID pinned: new definitions or changed saved values must stop CI for review. Do not derive approval automatically from the running binary. A fresh runner has only `update-check=false` saved at this step; an already-reviewed local profile can produce a different ID because review pins other chosen values. Pin the CLI release too if you need reproducible jobs. See [settings review](settings.md#review-settings-after-an-upgrade).
+- Settings review is optional. Configure preferences with `astrona settings set` if needed; fresh runners do not need a review receipt or `ASTRONA_SETTINGS_REVIEW_ID`. See [settings review](settings.md#review-settings-after-an-upgrade).
 - Review `astrona terms` and pass `--accept-terms` on every operational CI command. A cached receipt, `CI=true`, `--yes`, or `--trust` does not replace explicit acceptance. See [CLI usage terms](cli-terms.md#cli-usage-terms).
 - `if: always()` on the upload step — a failing `astrona test` still writes the JUnit report, and you want that artifact whether the check passed or not.
 - Testing a lab from **another** repo or a URL (`--git …` / `-c https://…`) needs `--trust` in CI — remote labs must be approved before they run (see [Approving remote labs](remote-config.md#approving-remote-labs)). Testing the repo's own checkout (`-c .`) doesn't.

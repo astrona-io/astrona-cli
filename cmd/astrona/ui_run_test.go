@@ -51,7 +51,6 @@ func newUIRunGateFixture(t *testing.T) *uiRunGateFixture {
 		return nil
 	}
 	run.RunE = func(*cobra.Command, []string) error { f.ran = true; return nil }
-	installCommandGate(f.root, func(cmd *cobra.Command) error { return checkSettingsReview(cmd, f.flags) })
 	installTermsGate(f.root, f.flags, func(cmd *cobra.Command, explicit bool) error {
 		store, err := terms.DefaultStore()
 		if err != nil {
@@ -65,22 +64,18 @@ func newUIRunGateFixture(t *testing.T) *uiRunGateFixture {
 
 func checkUIRunConsent(t *testing.T, f *uiRunGateFixture, accepted bool) {
 	t.Helper()
+	if _, err := os.Stat(settingsReceiptPath(f.path)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("startup must not acknowledge settings review")
+	}
 	if accepted {
-		view, err := buildSettingsView(f.path)
-		if err != nil || len(view.Pending) != 0 {
-			t.Fatalf("review missing: %+v %v", view, err)
-		}
 		saved, err := loadSettings(f.path)
-		if err != nil || string(saved["update-check"]) != "false" {
+		if err != nil || len(saved) != 1 || string(saved["update-check"]) != "false" {
 			t.Fatal("saved preference replaced")
 		}
 		return
 	}
 	if f.flags.uiStartupApproved {
 		t.Fatal("continued without consent")
-	}
-	if _, err := os.Stat(settingsReceiptPath(f.path)); !errors.Is(err, os.ErrNotExist) {
-		t.Fatal("review receipt written without consent")
 	}
 	store, err := terms.DefaultStore()
 	if err != nil {
@@ -93,7 +88,7 @@ func checkUIRunConsent(t *testing.T, f *uiRunGateFixture, accepted bool) {
 }
 
 func TestUIRunGate(t *testing.T) {
-	for _, mode := range []string{"accept", "decline", "changed settings", "cancelled context"} {
+	for _, mode := range []string{"accept", "decline", "cancelled context"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newUIRunGateFixture(t)
 			confirmations := 0
@@ -108,10 +103,6 @@ func TestUIRunGate(t *testing.T) {
 					t.Fatal("full terms missing")
 				}
 				switch mode {
-				case "changed settings":
-					if err := writeSettingsFile(f.path, userSettings{"update-check": []byte("true")}); err != nil {
-						t.Fatal(err)
-					}
 				case "cancelled context":
 					f.cancel()
 				}

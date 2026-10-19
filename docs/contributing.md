@@ -52,7 +52,7 @@ credentials, settings, acceptance receipts, lab state and caches under
 `~/.astrona-dev`. Git clones are in `~/.astrona-dev/cache/repos`. They use
 `astrodev-` cluster names (`astrodev-test-` for authoring tests), so release
 discovery and `destroy '*'` do not select development clusters, or vice versa.
-First use requires its own terms acceptance, settings review and optional login.
+First use requires its own terms acceptance. Settings review and login are optional.
 Existing release data is neither copied nor migrated.
 
 Tagged releases, built with `-X main.Version=vX.Y.Z`, keep `~/.astrona`, the

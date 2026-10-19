@@ -273,7 +273,6 @@ func main() {
 	flags := &rootFlags{}
 	rootCmd := newRootCmd(flags)
 	rootCmd.SetArgs(args)
-	installCommandGate(rootCmd, func(cmd *cobra.Command) error { return checkSettingsReview(cmd, flags) })
 	installTermsGate(rootCmd, flags, checkTerms)
 	installUIRunGate(rootCmd, flags, confirmUIRun)
 
