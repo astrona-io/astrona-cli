@@ -73,6 +73,13 @@ func (s *trackingSite) count(path string) int {
 	return n
 }
 
+// total is how many requests of any kind the site has seen.
+func (s *trackingSite) total() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.requests)
+}
+
 // last is the latest request to path.
 func (s *trackingSite) last(path string) (trackedRequest, bool) {
 	s.mu.Lock()
@@ -90,11 +97,21 @@ const (
 	trackingResults  = "/api/cli/lab-sessions/s1/results"
 )
 
-// runAndSubmit does what `astrona run` and `astrona submit` do about the
-// account, in order: pick the account for the lab, start its session, remember
-// the lab, then send the result. It returns what sendResult said, and the lab's
-// saved state.
-func runAndSubmit(t *testing.T, flags *rootFlags) (sent bool, said string, state *labstate.State) {
+// signIn signs the student in to site, as `astrona login` does.
+func signIn(t *testing.T, site *trackingSite) {
+	t.Helper()
+	client, store := withAccount(t, site.URL)
+	captureStdout(t, func() {
+		if err := login(context.Background(), client, store, site.URL, testDevice); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+// startRun does what `astrona run` does about the account: pick the account
+// for the lab, start its session and remember the lab. It returns the saved
+// state.
+func startRun(t *testing.T, flags *rootFlags) *labstate.State {
 	t.Helper()
 	ctx := context.Background()
 	acct, err := accountForLab(ctx, flags)
@@ -109,15 +126,23 @@ func runAndSubmit(t *testing.T, flags *rootFlags) (sent bool, said string, state
 		t.Fatal(err)
 	}
 	rememberLab("astro-x", flags, start.sess)
-	var w bytes.Buffer
-	captureStdout(t, func() {
-		sent = sendResult(ctx, &w, "astro-x", rememberedSource(flags), submissionResult{Lab: "astro-x", Pass: true})
-	})
-	state, err = labstate.Load("astro-x")
+	state, err := labstate.Load("astro-x")
 	if err != nil || state == nil {
 		t.Fatalf("lab state: %+v, %v", state, err)
 	}
-	return sent, w.String(), state
+	return state
+}
+
+// submit does what `astrona submit` does about the account: send the result.
+// It returns whether it was sent and what was said about it.
+func submit(t *testing.T, flags *rootFlags) (bool, string) {
+	t.Helper()
+	var w bytes.Buffer
+	var sent bool
+	captureStdout(t, func() {
+		sent = sendResult(context.Background(), &w, "astro-x", rememberedSource(flags), submissionResult{Lab: "astro-x", Pass: true})
+	})
+	return sent, w.String()
 }
 
 // A student who is signed in has the lab tracked, and the result goes to the
@@ -140,18 +165,15 @@ func TestResultsAreSentOnlyWhenSignedInAndNotLocalOnly(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			site := newTrackingSite(t)
 			t.Setenv("HOME", t.TempDir())
-			client, store := withAccount(t, site.URL)
+			withAccount(t, site.URL)
 			if !tc.signedOut {
-				captureStdout(t, func() {
-					if err := login(context.Background(), client, store, site.URL, testDevice); err != nil {
-						t.Fatal(err)
-					}
-				})
+				signIn(t, site)
 			}
 			flags := tc.flags
 			flags.catalogLab = "ATS/x"
 
-			sent, said, state := runAndSubmit(t, &flags)
+			state := startRun(t, &flags)
+			sent, said := submit(t, &flags)
 
 			if sent != tc.wantSent {
 				t.Fatalf("sent = %v, want %v (submit said %q)", sent, tc.wantSent, said)
@@ -193,17 +215,14 @@ func TestResultsAreSentOnlyWhenSignedInAndNotLocalOnly(t *testing.T) {
 	}
 }
 
-// The student signs in to one site; a result is never sent to the site of a
-// session remembered for another one, nor is the sign-in used there.
+// The student signs in to one site. A session remembered for another one never
+// gets the result, and that site hears nothing at all: not the result, and not
+// the sign-in token either.
 func TestResultIsNotSentToAnotherSitesSession(t *testing.T) {
-	login1, other := newTrackingSite(t), newTrackingSite(t)
+	loginSite, other := newTrackingSite(t), newTrackingSite(t)
 	t.Setenv("HOME", t.TempDir())
-	client, store := withAccount(t, login1.URL)
-	captureStdout(t, func() {
-		if err := login(context.Background(), client, store, login1.URL, testDevice); err != nil {
-			t.Fatal(err)
-		}
-	})
+	withAccount(t, loginSite.URL)
+	signIn(t, loginSite)
 	err := labstate.Save("astro-x", &labstate.State{
 		Source:  &labstate.Source{Catalog: "ATS/x"},
 		Session: &labstate.Session{Site: other.URL, ID: "s1", Lab: "ATS/x", URL: other.URL + "/labs/ATS/x"},
@@ -211,10 +230,17 @@ func TestResultIsNotSentToAnotherSitesSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var w bytes.Buffer
-	sent := sendResult(context.Background(), &w, "astro-x", &labstate.Source{Catalog: "ATS/x"}, submissionResult{Pass: true})
-	if sent || login1.count(trackingResults) != 0 || other.count(trackingResults) != 0 {
-		t.Fatalf("sent=%v, results to the login site %d, to the session's site %d; want nothing sent",
-			sent, login1.count(trackingResults), other.count(trackingResults))
+	loginRequests := loginSite.total() // the sign-in itself
+
+	sent, said := submit(t, &rootFlags{catalogLab: "ATS/x"})
+
+	if sent {
+		t.Fatalf("sent a result for a session on another site (submit said %q)", said)
+	}
+	if other.total() != 0 {
+		t.Errorf("the session's site saw %d requests, want none: the sign-in must not be used there", other.total())
+	}
+	if loginSite.total() != loginRequests || loginSite.count(trackingResults) != 0 {
+		t.Errorf("the login site saw %d requests after sign-in, want none", loginSite.total()-loginRequests)
 	}
 }
