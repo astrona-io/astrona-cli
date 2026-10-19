@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,48 @@ import (
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 )
+
+func TestUITerminalReleaseKeys(t *testing.T) {
+	for _, key := range []tea.KeyMsg{{Type: tea.KeyF2}, {Type: tea.KeyCtrlCloseBracket, Alt: true}} {
+		t.Run(key.String(), func(t *testing.T) {
+			m := &uiTaskModel{terminalLocked: true}
+			m.Update(key)
+			if m.terminalLocked {
+				t.Fatal("could not release focus without forwarding input")
+			}
+			m.Update(tea.KeyMsg{Type: tea.KeyCtrlB})
+			if m.workspace.action != workspaceLeave {
+				t.Fatal("release did not restore navigation")
+			}
+		})
+	}
+	if runtime.GOOS == "darwin" && !strings.Contains(uiReleaseFocusKey(), "Fn+F2") {
+		t.Fatal("missing Mac function-key hint")
+	}
+}
+
+func TestUITerminalMouseReleasesFocus(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		x, y   int
+		button tea.MouseButton
+		locked bool
+	}{
+		{"task pane", 2, 3, tea.MouseButtonLeft, false},
+		{"tab bar", 50, 0, tea.MouseButtonLeft, false},
+		{"terminal body", 60, 3, tea.MouseButtonLeft, true},
+		{"task wheel", 2, 3, tea.MouseButtonWheelDown, true},
+		{"outside workspace", -1, -1, tea.MouseButtonLeft, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := &uiTaskModel{terminalLocked: true, workspace: workspaceModel{width: 120, height: 30}}
+			m.Update(tea.MouseMsg{X: tc.x, Y: tc.y, Button: tc.button, Action: tea.MouseActionPress})
+			if m.terminalLocked != tc.locked {
+				t.Fatalf("locked=%v, want %v", m.terminalLocked, tc.locked)
+			}
+		})
+	}
+}
 
 func focusInput(t *testing.T, emulator *vt.Emulator, action func(), want string) {
 	t.Helper()
@@ -79,7 +122,8 @@ func TestUITerminalFocusTransitions(t *testing.T) {
 	if !m.terminalLocked || !strings.Contains(ansi.Strip(m.View()), "TERMINALS · LOCKED") {
 		t.Fatal("typing did not lock focus")
 	}
-	m.Update(tea.MouseMsg{X: 2, Y: 2, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+	left, _, _ := m.size()
+	m.Update(tea.MouseMsg{X: left + 3, Y: 3, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
 	if m.taskFocus || m.selection != nil {
 		t.Fatal("mouse left the locked terminal")
 	}

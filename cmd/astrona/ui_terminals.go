@@ -618,17 +618,17 @@ func (m *uiTaskModel) View() string {
 		hint = fmt.Sprintf("Task %d–%d/%d · Wheel scrolls task · Click pane to focus · Ctrl+O switches panes", m.workspace.scroll+1, min(len(m.markdownLines), m.workspace.scroll+h), len(m.markdownLines))
 	}
 	if m.terminalLocked {
-		footer = "LOCKED · Ctrl+Alt+] releases focus"
-		hint = "Keys and mouse go to the terminal app. Release focus for Astrona shortcuts."
+		footer = "LOCKED · " + uiReleaseFocusKey() + " releases focus"
+		hint = "Keys and mouse go to the terminal app · Click the task or a tab to release focus"
 	} else if !m.taskFocus {
-		hint = "Type in the terminal to lock focus (red) · Ctrl+Alt+] releases it (blue)"
+		hint = "Type in the terminal to lock focus (red) · " + uiReleaseFocusKey() + " releases it (blue)"
 	}
 	view := workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render(hint), m.workspace.width, m.workspace.height)
 	if m.workspace.confirmSubmit {
 		return m.workspace.submitView(view)
 	}
 	if m.namingTab {
-		text := "Name: " + sanitizeLine(m.tabName) + "_\n\nEnter opens the tab; leave blank for a default name.\nSwitch tabs with a mouse click or Ctrl+N / Ctrl+P.\nWhen locked, release focus first with Ctrl+Alt+].\n\nEnter opens · Esc cancels · Ctrl+U clears"
+		text := "Name: " + sanitizeLine(m.tabName) + "_\n\nEnter opens the tab; leave blank for a default name.\nSwitch tabs with a mouse click or Ctrl+N / Ctrl+P.\nWhen locked, release focus first with " + uiReleaseFocusKey() + ".\n\nEnter opens · Esc cancels · Ctrl+U clears"
 		if len(m.workspace.snapshot.clusters) > 0 && m.workspace.snapshot.clusters[0].runtime == "qemu" {
 			target := m.workspace.snapshot.clusters[m.workspace.selected]
 			text = "VM: " + sanitizeLine(target.name) + " (←/→ choose)\n" + text

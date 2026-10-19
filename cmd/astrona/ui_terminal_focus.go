@@ -3,11 +3,21 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+// F2 avoids Option/Alt mappings and bracket layouts. macOS may use the top
+// keyboard row for hardware controls until Fn is held down.
+func uiReleaseFocusKey() string {
+	if runtime.GOOS == "darwin" {
+		return "F2 / Fn+F2"
+	}
+	return "F2"
+}
 
 // These messages travel only between Astrona's nested UI and its outer pane.
 // Terminal applications render through a separate emulator; their OSC output

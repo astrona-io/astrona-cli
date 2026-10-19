@@ -55,6 +55,7 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			"Press p for preferences. Start labs from the command line with astrona run <lab> --ui. Opening the workspace uses the saved local files without checking GitHub, updating the repository, or restarting the lab or its timer.\n\n" +
 			"Downloads, setup, grading, teardown and errors stay inside the UI's terminal pane. Ctrl+] opens pane controls and scrollback. " +
 			"Enter opens the task on the left and an isolated lab terminal on the right. Ctrl-T names a new terminal and selects a VM for QEMU labs; mouse clicks or Ctrl-N/P switch tabs. Ctrl+Y toggles mouse text selection for copying. " +
+			"Typing locks focus to the terminal app. F2 releases it (Fn+F2 on Mac keyboards using hardware controls); clicking the task or a terminal tab also releases it. Ctrl+Alt+] remains supported when the terminal sends it. " +
 			"Ctrl+O focuses the task for scrolling. Drag the divider to resize it; ui-task-width in Preferences sets the default percentage. Ctrl+G opens lab details, cluster selection and submission results. " +
 			"Ctrl-B returns Home and pauses time spent; terminal tabs keep running until the UI closes. Ctrl-C interrupts a terminal command. " +
 			"p opens saved preferences: select a setting, Enter to edit and review, then y to save. " +

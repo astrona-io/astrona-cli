@@ -12,7 +12,14 @@ func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
 		return cmd
 	}
 	if m.terminalLocked {
-		return m.terminalMouse(msg)
+		left, width, height := m.size()
+		inTerminal := msg.X >= left+2 && msg.X < left+2+width && msg.Y >= 2 && msg.Y < height+2
+		inWorkspace := msg.X >= 0 && msg.X < m.workspace.width && msg.Y >= 0 && msg.Y < m.workspace.height
+		if !inTerminal && inWorkspace && msg.Button == tea.MouseButtonLeft && msg.Action == tea.MouseActionPress {
+			m.setTerminalLocked(false)
+		} else {
+			return m.terminalMouse(msg)
+		}
 	}
 	if m.namingTab {
 		return nil
@@ -93,7 +100,7 @@ func (m *uiTaskModel) key(msg tea.KeyMsg) tea.Cmd {
 		}
 		return cmd
 	}
-	if !msg.Paste && msg.Type == tea.KeyCtrlCloseBracket && msg.Alt {
+	if !msg.Paste && (msg.Type == tea.KeyF2 && !msg.Alt || msg.Type == tea.KeyCtrlCloseBracket && msg.Alt) {
 		m.setTerminalLocked(false)
 		return nil
 	}

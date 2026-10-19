@@ -490,9 +490,9 @@ func (m *uiPaneModel) View() string {
 	footer := "Ctrl+] pane controls / scrollback"
 	if m.taskPane() {
 		if m.terminalLocked {
-			footer = "LOCKED · Ctrl+Alt+] releases terminal focus"
+			footer = "LOCKED · " + uiReleaseFocusKey() + " releases terminal focus"
 		} else {
-			footer = "Type to lock terminal focus · Ctrl+Alt+] releases · Ctrl+] pane controls"
+			footer = "Type to lock terminal focus · " + uiReleaseFocusKey() + " releases · Ctrl+] pane controls"
 		}
 	}
 	if strings.HasPrefix(m.title, "SHELL /") {
