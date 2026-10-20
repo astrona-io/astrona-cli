@@ -51,6 +51,12 @@ func prepareVMResourceWorkspace(ctx context.Context, lab string, h *config.QEMUH
 		return err
 	}
 	defer cleanup()
+	return uploadVMResourceBundle(ctx, args, bundle, id)
+}
+
+// Keep archive ownership and SSH transfer together. The caller owns the lab
+// mutation lock and receipt check; this helper always removes its temporary tar.
+func uploadVMResourceBundle(ctx context.Context, args []string, bundle, id string) error {
 	command := vmResourceInstallCommand(id)
 	upload := exec.CommandContext(ctx, "ssh", append(args, command)...)
 	archive, err := os.CreateTemp("", "astrona-vm-resources-*.tar")
@@ -68,8 +74,7 @@ func prepareVMResourceWorkspace(ctx context.Context, lab string, h *config.QEMUH
 	upload.Stdin = archive
 	var output workspaceOutput
 	upload.Stdout, upload.Stderr = &output, &output
-	err = upload.Run()
-	if err != nil {
+	if err := upload.Run(); err != nil {
 		return fmt.Errorf("prepare VM resources: %w: %s", err, strings.TrimSpace(string(output.Bytes())))
 	}
 	return nil
