@@ -29,6 +29,15 @@ bootstrap:
     - resource: nodes
       all: true
 
+# Files the student gets with the lab — everything in resources/ is one, even
+# without an entry here. An entry adds a description and how it runs. `.sh`
+# runs with bash and `.yaml` is applied with kubectl unless `type: file`
+# says it is only shown or copied. See `astrona res --help`.
+resources:
+  - file: shop-notes.yaml
+    description: Sample values for the task — shown or copied, never applied
+    type: file
+
 # The reference solution — only `astrona test` applies it, to prove the
 # checks below pass for a correct answer.
 testing:

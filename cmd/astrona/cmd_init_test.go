@@ -15,7 +15,7 @@ func TestScaffoldLabIsValidAsGenerated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{".github/workflows/lab.yml", "config.yaml", "docs/exam-question.md", "solution/web.yaml", "manifests/namespace.yaml", "README.md"} {
+	for _, want := range []string{".github/workflows/lab.yml", "config.yaml", "docs/exam-question.md", "solution/web.yaml", "resources/shop-notes.yaml", "manifests/namespace.yaml", "README.md"} {
 		found := false
 		for _, f := range files {
 			found = found || f == want

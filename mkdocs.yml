@@ -92,6 +92,7 @@ nav:
       - Local Data and Caches: guides/local-data.md
       - CLI Usage Terms: guides/cli-terms.md
       - Authoring a Lab: guides/authoring-a-lab.md
+      - Writing a Question Bank: guides/question-banks.md
       - CI Integration: guides/ci-integration.md
       - macOS Kind Regression: guides/macos-kind-testing.md
       - Remote Config Sources: guides/remote-config.md
