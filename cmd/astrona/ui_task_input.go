@@ -15,7 +15,26 @@ func (m *uiTaskModel) mouse(msg tea.MouseMsg) tea.Cmd {
 		m.workspace, cmd = m.workspace.submitMouse(msg)
 		return cmd
 	}
+	// Shift+drag selects Astrona's rendered output even while an application
+	// owns terminal focus. Keep the lock so copying never interrupts that app.
+	if m.terminalLocked && m.selection != nil && m.selection.dragging {
+		if motion || release {
+			m.selection.move(event.X, event.Y)
+			if release {
+				m.selection.dragging = false
+				if m.selection.moved {
+					return copyUISelection(m.selection)
+				}
+				m.selection = nil
+			}
+			return nil
+		}
+	}
 	if m.terminalLocked {
+		if click && event.Button == tea.MouseLeft && event.Mod&tea.ModShift != 0 {
+			m.beginSelection(event.X, event.Y)
+			return nil
+		}
 		left, width, height := m.size()
 		inTerminal := event.X >= left+2 && event.X < left+2+width && event.Y >= 2 && event.Y < height+2
 		inWorkspace := event.X >= 0 && event.X < m.workspace.width && event.Y >= 0 && event.Y < m.workspace.height
@@ -112,6 +131,12 @@ func (m *uiTaskModel) key(msg uiKey) tea.Cmd {
 		return nil
 	}
 	if m.terminalLocked {
+		if m.selection != nil {
+			m.selection = nil
+			if msg.is("esc") {
+				return nil
+			}
+		}
 		m.sendTerminalKey(msg)
 		return nil
 	}

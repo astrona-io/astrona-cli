@@ -99,6 +99,28 @@ func TestUITaskMouseSelection(t *testing.T) {
 	}
 }
 
+func TestUILockedTerminalShiftDragCopiesWithoutUnlocking(t *testing.T) {
+	emulator := vt.NewEmulator(80, 20)
+	defer emulator.Close()
+	_, _ = emulator.WriteString("hello terminal")
+	m := &uiTaskModel{terminalLocked: true, workspace: workspaceModel{width: 120, height: 25}, tabs: []*uiTerminalTab{{emulator: emulator}}}
+	left, _, _ := m.size()
+	m.Update(tea.MouseClickMsg{X: left + 2, Y: 2, Button: tea.MouseLeft, Mod: tea.ModShift})
+	m.Update(tea.MouseMotionMsg{X: left + 6, Y: 2, Button: tea.MouseLeft, Mod: tea.ModShift})
+	_, copyCmd := m.Update(tea.MouseReleaseMsg{X: left + 6, Y: 2})
+	if copyCmd == nil || !m.terminalLocked || m.selection == nil || m.selection.text() != "hello" || m.selection.dragging {
+		t.Fatal("locked selection did not request copying without unlocking")
+	}
+	m.Update(uiClipboardResult{selection: m.selection})
+	if !strings.Contains(m.render(), "Copied to clipboard") {
+		t.Fatal("locked terminal hid copy confirmation")
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.selection != nil || !m.terminalLocked {
+		t.Fatal("clearing selection changed terminal focus")
+	}
+}
+
 func TestUITextSelectionStaysInsidePane(t *testing.T) {
 	s := newUITextSelection("task only", image.Rect(2, 2, 14, 3), 2, 2, true)
 	s.move(80, 20)

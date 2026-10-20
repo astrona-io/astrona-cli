@@ -13,6 +13,7 @@ import (
 	"astrona/internal/labstate"
 	"astrona/internal/proctor"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-isatty"
 )
@@ -227,6 +228,29 @@ func TestForgetLabPreservesPlaygroundHistory(t *testing.T) {
 	runs, err := labstate.FinishedRuns()
 	if err != nil || len(runs) != 1 || runs[0].Kind != "Playground" {
 		t.Fatalf("teardown lost history: %+v, %v", runs, err)
+	}
+	t.Setenv("PATH", t.TempDir())
+	data := readUIHome(t.Context())
+	if len(data.runs) != 1 || data.runs[0].status != "Destroyed" || data.runs[0].openable || !data.runs[0].destroyed {
+		t.Fatalf("deleted playground disappeared from overview: %+v", data.runs)
+	}
+	m := uiHomeModel{data: data, width: 120, height: 30}
+	next, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = next.(uiHomeModel)
+	if !m.detail || m.open || !strings.Contains(m.render(), "DESTROYED RUN / DETAILS") {
+		t.Fatal("destroyed run did not show details")
+	}
+	m.Update(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
+	if m.deleting != nil {
+		t.Fatal("destroyed run can be deleted twice")
+	}
+	st.StartedAt = time.Now().UTC().Format(time.RFC3339)
+	if err := labstate.Save("astro-play", st); err != nil {
+		t.Fatal(err)
+	}
+	data = readUIHome(t.Context())
+	if len(data.runs) != 1 || data.runs[0].destroyed || len(data.history) == 0 {
+		t.Fatal("new run did not supersede destroyed overview row while retaining history")
 	}
 }
 
