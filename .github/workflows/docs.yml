@@ -6,6 +6,12 @@ on:
       - main
     tags:
       - 'v*'
+  workflow_call:
+    inputs:
+      version:
+        description: Existing release tag to document
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -14,8 +20,8 @@ permissions:
 # the newest push matters — cancel an older in-flight dev deploy. Tag
 # (release) deploys are never cancelled; each version must be published.
 concurrency:
-  group: docs-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+  group: docs-${{ inputs.version && format('refs/tags/{0}', inputs.version) || github.ref }}
+  cancel-in-progress: ${{ inputs.version == '' && github.ref == 'refs/heads/main' }}
 
 jobs:
   # Rolling "dev" docs, rebuilt from the tip of main on every push — the
@@ -23,7 +29,7 @@ jobs:
   deploy-dev:
     name: Deploy dev docs (main)
     timeout-minutes: 15
-    if: github.ref == 'refs/heads/main'
+    if: ${{ inputs.version == '' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -69,13 +75,14 @@ jobs:
   deploy-release:
     name: Deploy versioned docs (tag)
     timeout-minutes: 15
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: ${{ inputs.version != '' || startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ inputs.version && format('refs/tags/{0}', inputs.version) || github.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -96,7 +103,7 @@ jobs:
 
       - name: Deploy versioned docs
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.version || github.ref_name }}
         run: |
           VERSION="${TAG#v}"
           uv run --with-requirements docs/requirements.txt mike deploy --push --update-aliases "$VERSION" latest
