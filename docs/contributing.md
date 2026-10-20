@@ -122,7 +122,7 @@ Versioning and deployment (on push to `main` and on release tags) are handled by
 
 ## Security-sensitive areas
 
-If your change touches remote script execution, QEMU base image handling, remote config fetching, git config sources, or path resolution, read the "Security-sensitive areas" section of [`CLAUDE.md`](https://github.com/astrona-io/astrona-cli/blob/main/CLAUDE.md) first — these are explicit trust boundaries with existing conventions (HTTPS-only, size caps, path containment) that new code should follow.
+If your change touches remote script execution, QEMU base image handling, remote config fetching, git config sources, or path resolution, read [`AGENTS.md`](https://github.com/astrona-io/astrona-cli/blob/main/AGENTS.md) and the relevant [security reference](https://github.com/astrona-io/astrona-cli/blob/main/agent-notes/security.md) first — these are explicit trust boundaries with existing conventions (HTTPS-only, size caps, path containment) that new code should follow.
 
 ## Testing
 
