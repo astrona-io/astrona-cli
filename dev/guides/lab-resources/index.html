@@ -1597,10 +1597,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#when-a-lab-starts" class="md-nav__link">
+  <a href="#inside-the-lab-terminal" class="md-nav__link">
     <span class="md-ellipsis">
       
-        When a lab starts
+        Inside the lab terminal
       
     </span>
   </a>
@@ -1608,10 +1608,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#using-them" class="md-nav__link">
+  <a href="#from-your-host-terminal" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Using them
+        From your host terminal
       
     </span>
   </a>
@@ -1619,10 +1619,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#several-labs-several-terminals" class="md-nav__link">
+  <a href="#execution-rules" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Several labs, several terminals
+        Execution rules
       
     </span>
   </a>
@@ -1630,10 +1630,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tab-completion-and-the-docs" class="md-nav__link">
+  <a href="#selecting-a-lab" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tab completion and the docs
+        Selecting a lab
       
     </span>
   </a>
@@ -1641,21 +1641,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#trust" class="md-nav__link">
+  <a href="#authoring-and-sharing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Trust
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#for-lab-authors" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        For lab authors
+        Authoring and sharing
       
     </span>
   </a>
@@ -4517,10 +4506,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#when-a-lab-starts" class="md-nav__link">
+  <a href="#inside-the-lab-terminal" class="md-nav__link">
     <span class="md-ellipsis">
       
-        When a lab starts
+        Inside the lab terminal
       
     </span>
   </a>
@@ -4528,10 +4517,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#using-them" class="md-nav__link">
+  <a href="#from-your-host-terminal" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Using them
+        From your host terminal
       
     </span>
   </a>
@@ -4539,10 +4528,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#several-labs-several-terminals" class="md-nav__link">
+  <a href="#execution-rules" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Several labs, several terminals
+        Execution rules
       
     </span>
   </a>
@@ -4550,10 +4539,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#tab-completion-and-the-docs" class="md-nav__link">
+  <a href="#selecting-a-lab" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Tab completion and the docs
+        Selecting a lab
       
     </span>
   </a>
@@ -4561,21 +4550,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#trust" class="md-nav__link">
+  <a href="#authoring-and-sharing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Trust
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#for-lab-authors" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        For lab authors
+        Authoring and sharing
       
     </span>
   </a>
@@ -4608,83 +4586,132 @@
 
 
 <h1 id="lab-resources">Lab Resources<a class="headerlink" href="#lab-resources" title="Permanent link">&para;</a></h1>
-<p>A lab often needs files on your machine: a script that sets something up, a YAML file you're meant to fix, a small program that generates traffic. Instead of copying them out of the lab's docs, the lab ships them as <strong>resources</strong> and <code>astrona resource</code> (short: <code>astrona res</code>) gives them to you.</p>
-<h2 id="when-a-lab-starts">When a lab starts<a class="headerlink" href="#when-a-lab-starts" title="Permanent link">&para;</a></h2>
-<p><code>astrona run</code> copies the lab's resources to <code>~/.astrona/resources/&lt;lab&gt;/</code> and lists them — <strong>nothing runs</strong> until you ask:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Resources (3) — copied to ~/.astrona/resources/astro-ats-014-lab-010-01, nothing has run:
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  broken-deployment  The Deployment you'll fix in step 2             file
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  load-test          Generates traffic so you can watch the HPA      go run .
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  setup-db           Creates the demo database the task starts from  bash setup-db.sh
+<p>Labs and playgrounds ship scripts, manifests and other files in <code>resources/</code>
+next to <code>config.yaml</code>. Astrona snapshots them when the lab starts. Nothing runs
+until the student asks.</p>
+<h2 id="inside-the-lab-terminal">Inside the lab terminal<a class="headerlink" href="#inside-the-lab-terminal" title="Permanent link">&para;</a></h2>
+<p>Open a lab tab, <code>astrona shell &lt;lab&gt;</code>, or <code>astrona ssh &lt;vm&gt;</code>. Astrona provides an
+editable <strong><code>~/resources</code></strong> folder and a resource-only <code>astrona</code> helper:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona<span class="w"> </span>res
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>ls<span class="w"> </span>~/resources
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>astrona<span class="w"> </span>res<span class="w"> </span>show<span class="w"> </span>count-versions.sh
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>astrona<span class="w"> </span>res<span class="w"> </span>run<span class="w"> </span>count-versions.sh<span class="w"> </span>--<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">SCOUT</span><span class="si">}</span><span class="s2">/0"</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>bash<span class="w"> </span>~/resources/count-versions.sh<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">SCOUT</span><span class="si">}</span><span class="s2">/0"</span>
 </code></pre></div>
-<p><code>astrona reset</code> copies them again; <code>astrona destroy</code> removes them (<code>--keep-resources</code> keeps them).</p>
-<h2 id="using-them">Using them<a class="headerlink" href="#using-them" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>res<span class="w">                         </span><span class="c1"># list the lab's resources (-o json for scripts)</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>astrona<span class="w"> </span>res<span class="w"> </span>run<span class="w"> </span>setup-db<span class="w">            </span><span class="c1"># run one</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>astrona<span class="w"> </span>res<span class="w"> </span>show<span class="w"> </span>broken-deployment<span class="w">  </span><span class="c1"># print it</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>astrona<span class="w"> </span>res<span class="w"> </span>copy<span class="w"> </span>broken-deployment<span class="w">  </span><span class="c1"># copy it into this folder to edit (--force replaces)</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>astrona<span class="w"> </span>res<span class="w"> </span>path<span class="w"> </span>broken-deployment<span class="w">  </span><span class="c1"># its path, for your own commands:</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>kubectl<span class="w"> </span>diff<span class="w"> </span>-f<span class="w"> </span><span class="k">$(</span>astrona<span class="w"> </span>res<span class="w"> </span>path<span class="w"> </span>broken-deployment<span class="k">)</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>astrona<span class="w"> </span>res<span class="w"> </span>run<span class="w"> </span>load-test<span class="w"> </span>--<span class="w"> </span>--rps<span class="w"> </span><span class="m">50</span><span class="w">   </span><span class="c1"># arguments after the name go to the resource</span>
+<p>The full relative filename and the existing short name both work:
+<code>count-versions.sh</code> and <code>count-versions</code>. Nested entries such as <code>tools/check.sh</code>
+retain their folder structure. In Kind Bash terminals, Tab completes resource
+filenames after <code>astrona res run</code>, <code>show</code>, <code>path</code>, or <code>copy</code>.</p>
+<p><code>SCOUT</code> must be defined in the terminal where you run the command. Shell variables
+are expanded there; Astrona passes the resulting arguments literally, including
+spaces, quotes and arguments beginning with <code>-</code>. Use <code>--</code> before script arguments.</p>
+<p>All terminal tabs for a Kind run share the same editable files. QEMU tabs for the
+same VM share that VM's files. Opening another tab, reconnecting, or running a
+resource again preserves edits. A full reset restores the shipped originals.
+Different labs, and different VMs, have separate workspaces. A VM folder that
+already exists without an Astrona receipt is preserved; move it aside before
+initializing resources.</p>
+<p>The helper supports <code>res</code> / <code>resource</code> / <code>resources</code> with <code>list</code>, <code>show</code>, <code>path</code>,
+<code>copy</code>, and <code>run</code>. It runs entirely inside the terminal or VM. Lifecycle and
+account commands still belong in your host terminal. The helper needs no host
+socket or credentials. <code>copy</code> refuses an existing destination.</p>
+<h2 id="from-your-host-terminal">From your host terminal<a class="headerlink" href="#from-your-host-terminal" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>res<span class="w"> </span>--lab<span class="w"> </span>&lt;lab&gt;
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>astrona<span class="w"> </span>res<span class="w"> </span>run<span class="w"> </span>count-versions.sh<span class="w"> </span>--lab<span class="w"> </span>&lt;lab&gt;<span class="w"> </span>--<span class="w"> </span><span class="s2">"</span><span class="si">${</span><span class="nv">SCOUT</span><span class="si">}</span><span class="s2">/0"</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>astrona<span class="w"> </span>res<span class="w"> </span>copy<span class="w"> </span>broken-deployment.yaml
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>astrona<span class="w"> </span>res<span class="w"> </span>path<span class="w"> </span>broken-deployment.yaml
 </code></pre></div>
-<p>How <code>run</code> runs a resource:</p>
+<p>By default, <code>res run</code> enters the lab environment: an isolated tools container for
+Kind, or the student account in the selected QEMU VM. It uses the same editable
+resources as interactive terminal tabs, never silently falling back to host
+execution. The command prints the lab, execution location and working directory.</p>
+<p>For a Kind script that deliberately requires host tools, opt in explicitly:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>res<span class="w"> </span>run<span class="w"> </span>local-tool.sh<span class="w"> </span>--host<span class="w"> </span>--lab<span class="w"> </span>&lt;lab&gt;<span class="w"> </span>--<span class="w"> </span>--example
+</code></pre></div>
+<p><code>--host</code> can access your host files and uses your host tools. It is unavailable
+inside the resource-only helper and for QEMU resources. The existing host
+execution rules are retained for this explicit compatibility option.</p>
+<p>Host <code>res path</code>, <code>show</code> and <code>copy</code> use the editable Kind workspace when it has
+been initialized; otherwise they use the original snapshot. For QEMU, use those
+commands inside the VM to inspect edits; the host has the shipped snapshot.</p>
+<h2 id="execution-rules">Execution rules<a class="headerlink" href="#execution-rules" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
 <th>Resource</th>
 <th>Runs as</th>
-<th>In</th>
+<th>Working directory in the lab</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>has a <code>run:</code> command in the lab</td>
-<td>that command (split on spaces, no shell)</td>
-<td>the resource's folder</td>
+<td>Has <code>run:</code></td>
+<td>The command split into arguments, without shell evaluation</td>
+<td>Resource folder, or containing folder for a file</td>
 </tr>
 <tr>
 <td><code>*.sh</code></td>
 <td><code>bash &lt;file&gt;</code></td>
-<td>your current folder</td>
+<td>Containing folder</td>
 </tr>
 <tr>
-<td><code>*.yaml</code> / <code>*.yml</code></td>
+<td>Kind <code>*.yaml</code> / <code>*.yml</code></td>
 <td><code>kubectl apply -f &lt;file&gt;</code></td>
-<td>your current folder</td>
+<td>Containing folder</td>
 </tr>
 <tr>
-<td>an executable starting with <code>#!</code></td>
-<td>the file itself</td>
-<td>your current folder</td>
+<td>Executable with <code>#!</code></td>
+<td>The file itself</td>
+<td>Containing folder</td>
 </tr>
 <tr>
-<td>anything else, and folders without <code>run:</code></td>
-<td>— only <code>show</code> / <code>copy</code> / <code>path</code></td>
-<td></td>
+<td>Other file or folder without <code>run:</code></td>
+<td>Use <code>show</code>, <code>copy</code> or <code>path</code></td>
+<td>—</td>
 </tr>
 </tbody>
 </table>
-<p>In a kind lab every resource runs with <strong><code>KUBECONFIG</code> set to the lab's own kubeconfig</strong> (plus its linked clusters'), using the same cluster selection as <a href="../../reference/cli/astrona_shell/"><code>astrona shell</code></a> — so a resource's <code>kubectl</code> never reaches your other clusters, whatever your current context is. <code>$ASTRONA_LAB</code> holds the lab and <code>$ASTRONA_RESOURCE_DIR</code> the folder with all its resources (one resource can use another).</p>
-<p>In a <strong>qemu lab</strong> a resource runs <strong>inside the VM</strong>, as the account <code>astrona ssh</code> logs in with: <code>astrona res run</code> copies it to <code>~/astrona-resources/&lt;name&gt;</code> in the VM (fresh each time) and runs it there — from that folder, with every argument passed through as-is. The VM is <code>--vm &lt;name&gt;</code>, else the resource's <code>vm:</code> in the lab config, else the lab's only VM; a multi-VM lab without either asks which. <code>.yaml</code> files are plain files in a qemu lab (there's no cluster to apply them to).</p>
-<h2 id="several-labs-several-terminals">Several labs, several terminals<a class="headerlink" href="#several-labs-several-terminals" title="Permanent link">&para;</a></h2>
-<p><code>astrona res</code> picks the lab in this order:</p>
+<p>Sibling files are available without additional copying. <code>$ASTRONA_RESOURCE_DIR</code>
+points at all the lab's resources. <code>$ASTRONA_LAB</code> identifies the selected lab.
+Kind commands use the lab's kubeconfigs and linked clusters, without mounting
+host homes, SSH agents or container engine sockets. Scripts requiring tools not
+included in the terminal image must supply those tools or explicitly use <code>--host</code>.</p>
+<p>For QEMU, select a VM with <code>--vm &lt;name&gt;</code>, the resource's <code>vm:</code> field, or the lab's
+only VM. A multi-VM lab without a selection reports which VM to choose. YAML is
+a plain file in QEMU. Resources are installed through the student SSH identity,
+without sudo, on first access. Subsequent access checks the workspace receipt
+without re-uploading files. Custom SSH users/password sessions do not provision
+another user's resources automatically.</p>
+<h2 id="selecting-a-lab">Selecting a lab<a class="headerlink" href="#selecting-a-lab" title="Permanent link">&para;</a></h2>
+<p>From the host, Astrona picks resources in this order:</p>
 <ol>
-<li><code>--lab &lt;lab&gt;</code> (a running lab's name or a catalog name)</li>
-<li><code>$ASTRONA_LAB</code>, if set in the host terminal</li>
-<li>the lab of <code>-c</code> / <code>--git</code>, or the one picked with <a href="../../reference/cli/astrona_use/"><code>astrona use</code></a></li>
-<li>the only lab that has resources</li>
+<li><code>--lab &lt;lab&gt;</code> (running name or catalog name).</li>
+<li><code>$ASTRONA_LAB</code>.</li>
+<li>The lab selected by <code>-c</code> / <code>--git</code> or <code>astrona use</code>.</li>
+<li>The only lab with resource snapshots.</li>
 </ol>
-<p>Otherwise it stops and lists the labs — it never guesses. With two labs open, pass <code>--lab &lt;lab&gt;</code> to select one explicitly.</p>
-<h2 id="tab-completion-and-the-docs">Tab completion and the docs<a class="headerlink" href="#tab-completion-and-the-docs" title="Permanent link">&para;</a></h2>
-<p><code>astrona res run &lt;TAB&gt;</code> (and <code>show</code>, <code>copy</code>, <code>path</code>) completes the lab's resource names, with each one's description. <code>astrona docs</code> lists the lab's resources next to its documents, so the task and the files it uses are in one place.</p>
-<h2 id="trust">Trust<a class="headerlink" href="#trust" title="Permanent link">&para;</a></h2>
-<p>A lab's resources are part of its code: the approval prompt for a remote lab (<code>--git</code> or the catalog) lists them — <em>ships 3 resource(s) … each runs on this machine only when you ask</em> — and an approval is pinned to that exact version of the lab, resources included. Nothing in them runs when the lab starts.</p>
-<h2 id="for-lab-authors">For lab authors<a class="headerlink" href="#for-lab-authors" title="Permanent link">&para;</a></h2>
-<p>Put the files in a <code>resources/</code> folder next to <code>config.yaml</code>; an optional <code>resources:</code> list adds descriptions and run commands. See <a href="../../reference/lab-config/#resources"><code>resources</code> in the lab config reference</a>.</p>
-<p>Resource commands run from your normal host terminal. Astrona itself is not
-installed in the isolated Kind terminal. Copy a resource into
-<code>~/.astrona/runtime/&lt;lab&gt;/work</code> to edit it from a lab tab; development builds use
-<code>~/.astrona-dev</code>. Kind resource scripts invoked with <code>astrona res run</code> still run
-on the host and are outside the terminal's filesystem protection.</p>
+<p>Several possible labs cause an error listing the choices. Inside a lab terminal,
+the helper always works on that terminal's workspace.</p>
+<h2 id="authoring-and-sharing">Authoring and sharing<a class="headerlink" href="#authoring-and-sharing" title="Permanent link">&para;</a></h2>
+<p>Keep resources in the same repository and pinned revision as the task:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>playground/
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  config.yaml
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  resources/
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    count-versions.sh
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    examples.json
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    tools/
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>      check.sh
+</code></pre></div>
+<p>Everything directly in <code>resources/</code> is included automatically, including folder
+contents. The optional <code>resources:</code> list adds descriptions and custom commands,
+or exposes a nested file as its own named resource. No separate student download
+or copy step is needed. See the <a href="../../reference/lab-config/#resources">resource configuration reference</a>.</p>
+<p>Resource short names must be unique. Remote code approval covers the exact lab
+revision and its resources. Copies reject symlinks and escaping paths and retain
+the existing file-count and size limits. Nothing executes while copying or opening
+a terminal. Host snapshots live under <code>~/.astrona/resources/&lt;lab&gt;</code>; development
+builds use <code>~/.astrona-dev</code>. Kind edits live under <code>runtime/&lt;lab&gt;/work/resources</code>.
+Destroy removes the workspace; <code>--keep-resources</code> retains the original snapshot.</p>
 
 
 

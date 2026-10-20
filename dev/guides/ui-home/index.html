@@ -1298,6 +1298,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#copy-while-terminal-focus-is-locked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Copy while terminal focus is locked
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#destroyed-runs-in-the-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Destroyed runs in the overview
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4582,6 +4604,28 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#copy-while-terminal-focus-is-locked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Copy while terminal focus is locked
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#destroyed-runs-in-the-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Destroyed runs in the overview
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -4631,7 +4675,7 @@ the API or verify whether the server has revoked a login. Use <code>astrona whoa
 to check the login with the server and renew the access token if needed.</p>
 <p>Home has three sections:</p>
 <ul>
-<li><strong>Active runs:</strong> saved runs, their container or VM status and active time. Select
+<li><strong>Runs:</strong> current runs and the latest destroyed run per lab, with status and active time. Select
   a running Kind or QEMU lab or playground and press Enter to open its workspace.
   Stopped, missing or unavailable runs remain visible but cannot be opened.</li>
 <li><strong>History:</strong> graded submission attempts, scores and completed local runs,
@@ -4976,6 +5020,16 @@ restarts keep API tracking disabled and skip the reminder.</p>
 <strong>login-reminder</strong> in Preferences. Noninteractive catalog runs still require
 <code>--without-login</code> when signed out.</p>
 <p>For automation, use <a href="../ci-integration/#headless-setup-for-external-checks">headless mode</a>: <code>astrona run &lt;lab&gt; --headless</code> skips the UI and returns after setup.</p>
+<h2 id="copy-while-terminal-focus-is-locked">Copy while terminal focus is locked<a class="headerlink" href="#copy-while-terminal-focus-is-locked" title="Permanent link">&para;</a></h2>
+<p>Hold <strong>Shift</strong> and drag across terminal output to select it, then release the
+mouse to copy. Focus stays locked to the terminal application. Esc clears the
+selection. Ordinary mouse input continues to reach terminal apps. Some terminal
+emulators handle Shift+drag as native selection; their Copy command also works.</p>
+<h2 id="destroyed-runs-in-the-overview">Destroyed runs in the overview<a class="headerlink" href="#destroyed-runs-in-the-overview" title="Permanent link">&para;</a></h2>
+<p>Deleting a playground or lab preserves its latest finished row in the overview
+as <strong>Destroyed</strong>. Press Enter to inspect its recorded details. It does not count
+as running or saved, and it cannot be reopened or deleted again. A new run of
+the same lab replaces that overview row; older runs remain in History.</p>
 
 
 

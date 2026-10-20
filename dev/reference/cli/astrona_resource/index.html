@@ -4660,13 +4660,14 @@
 <p>Show, copy or run the files a lab ships for you (its resources)</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>A lab can ship files you need — a setup script, a YAML file to fix, a small program — in its resources/ folder instead of asking you to paste them from the docs. <code>astrona run</code> copies them to ~/.astrona/resources/<lab> and lists them; nothing runs until you ask.</p>
+<p>Inside the lab terminal, ~/resources contains your editable copy and astrona res works there too. Full filenames such as count-versions.sh and existing short names both work. Opening more tabs preserves edits; full reset restores originals.</p>
 <p>astrona res                       list the lab's resources
   astrona res show <name>           print one (a folder: its files)
   astrona res copy <name> [dest]    copy it here (or to dest) to edit
   astrona res path <name>           print its path, for $(…) in your own commands
   astrona res run <name> [args…]    run it</p>
 <p>Which lab: --lab, else $ASTRONA_LAB if set in your host terminal, else the lab of -c/--git, else the one picked with <code>astrona use</code>, else the only lab with resources. With several labs open in several terminals, run <code>astrona shell &lt;lab&gt;</code> in each and every <code>astrona res</code> there works on that lab.</p>
-<p>How <code>run</code> runs one: its run command from the lab (in its folder), .sh with bash, .yaml with kubectl apply -f, an executable with #! directly — in a kind lab always with KUBECONFIG set to the lab's own kubeconfig, so nothing reaches your other clusters ($ASTRONA_LAB and $ASTRONA_RESOURCE_DIR are set). In a qemu lab it's copied into the VM (~/astrona-resources/<name>) and run there as the account <code>astrona ssh</code> uses; --vm picks the VM of a multi-VM lab. A plain file can only be shown or copied.</p>
+<p>How <code>run</code> runs one: its run command from the lab (in its folder), .sh with bash, .yaml with kubectl apply -f, an executable with #! directly — in a kind lab always with execution inside the isolated terminal by default. --host explicitly runs on your machine using host tools. KUBECONFIG set to the lab's own kubeconfig, so nothing reaches your other clusters ($ASTRONA_LAB and $ASTRONA_RESOURCE_DIR are set). In a qemu lab it's copied into the VM (~/resources) and run there as the account <code>astrona ssh</code> uses; --vm picks the VM of a multi-VM lab. A plain file can only be shown or copied.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona resource [flags]
 </code></pre></div>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
