@@ -1,5 +1,21 @@
 FROM docker.io/library/alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 RUN apk add --no-cache bash ca-certificates coreutils curl git helm jq k9s kubectl nano openssh-client python3 vim
+# Use Linux binaries for the container architecture, including on Apple Silicon.
+# Pin both release and hashes; never execute an unverified download script.
+RUN set -eu; \
+    case "$(apk --print-arch)" in \
+      x86_64) arch=amd64; sha=6ce061447857b54cc90314fd8a72f0f8ed234f67cb0d6e3fb3ef3739caaa5edb ;; \
+      aarch64) arch=arm64; sha=62a493e287f2547397a6a7fc7d0fa2df91e041081800c9ca8b6bbfa3a4e23378 ;; \
+      *) echo 'Unsupported istioctl architecture' >&2; exit 1 ;; \
+    esac; \
+    curl --fail --location --retry 3 --connect-timeout 15 --max-time 120 \
+      "https://github.com/istio/istio/releases/download/1.31.2/istioctl-1.31.2-linux-${arch}.tar.gz" \
+      --output /tmp/istioctl.tar.gz; \
+    printf '%s  %s\n' "$sha" /tmp/istioctl.tar.gz | sha256sum -c -; \
+    tar -xzf /tmp/istioctl.tar.gz -C /usr/local/bin istioctl; \
+    chmod 0755 /usr/local/bin/istioctl; \
+    rm /tmp/istioctl.tar.gz; \
+    istioctl version --remote=false
 WORKDIR /workspace
 ENV HOME=/workspace TERM=xterm-256color
 CMD ["bash", "--noprofile", "--norc", "-i"]

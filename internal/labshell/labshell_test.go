@@ -293,6 +293,7 @@ test "$HOME" = /workspace
 test ! -e "$1"
 test ! -S /var/run/docker.sock
 test -z "${SSH_AUTH_SOCK:-}"
+istioctl version --remote=false
 ln -s "$1" escape
 ! cat escape
 ! sh -c 'echo wrong > /etc/host-isolation-probe'
