@@ -472,11 +472,59 @@ func TestUITerminalLastExitReopensSameTarget(t *testing.T) {
 		}
 		m.Update(result)
 		m.Update(uiTerminalChanged{})
-		if len(m.tabs) != 1 || m.tabs[0].alias != "server" {
+		if len(m.tabs) != 1 || m.tabs[0].alias != "server" || m.tabs[0].label != "server 1" {
 			t.Fatal("replacement terminal missing")
 		}
 		waitUITab(t, m.tabs[0], "tabs-test>")
 		m.lastReplacement = time.Now()
+	}
+}
+
+func TestUITerminalExitBeforeStartResultReopensTabOne(t *testing.T) {
+	for _, observed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("tab-observed=%t", observed), func(t *testing.T) {
+			manager := testUITerminals(t)
+			m := &uiTaskModel{
+				workspace: workspaceModel{width: 120, height: 35, selected: 1,
+					snapshot: workspaceSnapshot{clusters: []workspaceCluster{{alias: "client"}, {alias: "server"}}}},
+				terminals: manager, sized: true,
+			}
+			started := m.start()().(uiTerminalStarted)
+			if started.err != nil {
+				t.Fatal(started.err)
+			}
+			old := manager.snapshot()[0]
+			waitUITab(t, old, "tabs-test>")
+			if observed {
+				m.Update(uiTerminalChanged{})
+			}
+			if _, err := io.WriteString(old.terminal, "exit\n"); err != nil {
+				t.Fatal(err)
+			}
+			deadline := time.Now().Add(5 * time.Second)
+			for len(manager.snapshot()) != 0 && time.Now().Before(deadline) {
+				time.Sleep(10 * time.Millisecond)
+			}
+			if len(manager.snapshot()) != 0 {
+				t.Fatal("exited shell was not removed")
+			}
+			// Process output/exit can be delivered before the pending start result.
+			m.Update(uiTerminalChanged{})
+			m.workspace.selected = 0
+			_, reopen := m.Update(started)
+			if reopen == nil || !m.starting || m.workspace.selected != 1 {
+				t.Fatal("delayed start result left the workspace without a terminal")
+			}
+			replacement := reopen().(uiTerminalStarted)
+			if replacement.err != nil {
+				t.Fatal(replacement.err)
+			}
+			m.Update(replacement)
+			if len(m.tabs) != 1 || m.tabs[0].label != "server 1" || m.tabs[0].id == old.id {
+				t.Fatal("replacement must be tab one with a fresh process identity")
+			}
+			waitUITab(t, m.tabs[0], "tabs-test>")
+		})
 	}
 }
 
