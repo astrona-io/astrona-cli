@@ -1,0 +1,8 @@
+# A resource: a file that ships with the lab. `astrona res show shop-notes`
+# prints it, `astrona res copy shop-notes` copies it here to edit. Use
+# resources for scripts, broken manifests and sample data, instead of asking
+# the student to paste them out of the task text.
+shop:
+  namespace: shop
+  deployment: web
+  replicas: 2
