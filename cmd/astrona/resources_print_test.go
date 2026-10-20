@@ -19,7 +19,7 @@ func TestResourceRiskLines(t *testing.T) {
 	}
 	lab := writeLabFiles(t, map[string]string{"resources/setup.sh": "echo", "resources/app.yaml": "kind: Pod", "resources/notes.txt": "x"})
 	got := strings.Join(resourceRiskLines(&config.LabConfig{}, lab), "\n")
-	for _, want := range []string{"ships 3 resource(s)", "on this machine only when you ask", "setup (bash setup.sh)", "app (kubectl apply -f app.yaml)", "notes (file, never run)"} {
+	for _, want := range []string{"ships 3 resource(s)", "inside the isolated lab terminal", "setup (bash setup.sh)", "app (kubectl apply -f app.yaml)", "notes (file, never run)"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}

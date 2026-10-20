@@ -15,6 +15,8 @@ import (
 
 	"astrona/internal/apphome"
 	"astrona/internal/cluster"
+	"astrona/internal/config"
+	"astrona/internal/resources"
 )
 
 func kubeFixture(name string) string {
@@ -266,6 +268,25 @@ func TestContainerIsolation(t *testing.T) {
 	if err := os.WriteFile(sentinel, []byte("must stay private"), 0600); err != nil {
 		t.Fatal(err)
 	}
+	source := t.TempDir()
+	if err := os.Mkdir(filepath.Join(source, "resources"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for file, body := range map[string]string{
+		"count-versions.sh": "printf '<%s>\\n' \"$@\"; cat sibling.txt",
+		"sibling.txt":       "shared-resource",
+	} {
+		if err := os.WriteFile(filepath.Join(source, "resources", file), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	list, err := resources.Collect(&config.LabConfig{}, source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resources.Snapshot(name, source, list); err != nil {
+		t.Fatal(err)
+	}
 	script := `set -eu
 test "$PWD" = /workspace
 test "$HOME" = /workspace
@@ -277,7 +298,16 @@ ln -s "$1" escape
 ! sh -c 'echo wrong > /etc/host-isolation-probe'
 echo shared > work.txt
 kubectl get namespaces -o name
-kubectl config set-context --current --namespace=kube-system
+for check in 1 2 3 4 5; do kubectl --request-timeout=10s get --raw=/readyz; done
+test -f "$HOME/resources/count-versions.sh"
+astrona res run count-versions.sh -- 'http://scout/0' 'two words' '$(touch injected)' > /tmp/resource-output
+grep -F '<http://scout/0>' /tmp/resource-output
+grep -F '<two words>' /tmp/resource-output
+grep -F '<$(touch injected)>' /tmp/resource-output
+grep -F 'shared-resource' /tmp/resource-output
+test ! -e resources/injected
+printf student-edit > resources/sibling.txt
+kubectl config set-context --current --namespace=kube-system || { id; ls -ld .kube .kube/*; exit 1; }
 printf ISOLATED_OK
 `
 	cmd, err := Command(ctx, name, name, []string{"sh", "-c", script, "smoke", sentinel}, false)
@@ -288,7 +318,7 @@ printf ISOLATED_OK
 	if out, err := cmd.CombinedOutput(); err != nil || !strings.Contains(string(out), "ISOLATED_OK") {
 		t.Fatalf("isolated terminal: %v\n%s", err, out)
 	}
-	second, err := Command(ctx, name, name, []string{"sh", "-c", `test "$(cat work.txt)" = shared && kubectl config view --minify -o 'jsonpath={..namespace}'`}, false)
+	second, err := Command(ctx, name, name, []string{"sh", "-c", `test "$(cat work.txt)" = shared && test "$(cat resources/sibling.txt)" = student-edit && kubectl config view --minify -o 'jsonpath={..namespace}'`}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

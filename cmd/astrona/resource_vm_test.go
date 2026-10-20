@@ -1,10 +1,7 @@
 package main
 
 import (
-	"archive/tar"
 	"encoding/json"
-	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,11 +31,11 @@ func TestVMResourceCommand(t *testing.T) {
 		want string
 	}{
 		{resources.Resource{Name: "setup", File: "setup.sh", How: resources.HowBash}, []string{"--x", "$(id)"},
-			`cd 'astrona-resources/setup' && 'bash' 'setup.sh' '--x' '$(id)'`},
+			`"$HOME/.astrona-resources/bin/astrona" 'res' 'run' 'setup.sh' '--' '--x' '$(id)'`},
 		{resources.Resource{Name: "check", File: "tools/check", How: resources.HowExec}, nil,
-			`cd 'astrona-resources/check' && './check'`},
+			`"$HOME/.astrona-resources/bin/astrona" 'res' 'run' 'tools/check' '--'`},
 		{resources.Resource{Name: "load-test", File: "load-test", Dir: true, How: resources.HowCommand, Run: "go run ."}, []string{"50"},
-			`cd 'astrona-resources/load-test/load-test' && 'go' 'run' '.' '50'`},
+			`"$HOME/.astrona-resources/bin/astrona" 'res' 'run' 'load-test' '--' '50'`},
 	} {
 		got, err := vmResourceCommand(c.r, c.args)
 		if err != nil || got != c.want {
@@ -55,8 +52,8 @@ func TestVMResourceCommand(t *testing.T) {
 func TestRunResourceInVM(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	dir := snapshotLab(t, "astro-vmlab", map[string]string{"setup.sh": "echo hi", "tool/main.go": "package main"},
-		config.LabResource{File: "tool", Run: "go run ."})
+	dir := snapshotLab(t, "astro-vmlab", map[string]string{"setup.sh": "echo hi", "tool/main.sh": "printf 'args:<%s>\\n' \"$@\"; cat ../sibling.txt", "sibling.txt": "shared data"},
+		config.LabResource{File: "tool", Run: "sh main.sh"})
 	list, _, _ := resources.Load("astro-vmlab")
 
 	state := filepath.Join(home, ".astrona", "qemu", "astro-vmlab")
@@ -70,55 +67,32 @@ func TestRunResourceInVM(t *testing.T) {
 	}
 
 	bin := t.TempDir()
-	calls := filepath.Join(bin, "calls")
-	upload := filepath.Join(bin, "upload.tar")
-	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + calls + "\ncase \"$*\" in *'tar -xf -'*) cat > " + upload + " ;; esac\n"
+	remoteHome := t.TempDir()
+	t.Setenv("ASTRONA_TEST_VM_HOME", remoteHome)
+	script := "#!/bin/sh\nfor remote do :; done\nHOME=\"$ASTRONA_TEST_VM_HOME\" exec /bin/sh -c \"$remote\"\n"
 	if err := os.WriteFile(filepath.Join(bin, "ssh"), []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	tool, _ := resources.Find(list, "tool")
-	if err := runResourceInVM("astro-vmlab", dir, tool, []string{"--rps", "50"}, "", true); err != nil {
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = runResourceInVM("astro-vmlab", dir, tool, []string{"a b", "$(touch injected)"}, "", true)
+	})
+	if runErr != nil || !strings.Contains(out, "args:<a b>") || !strings.Contains(out, "args:<$(touch injected)>") || !strings.Contains(out, "shared data") {
+		t.Fatalf("VM resource: %v\n%s", runErr, out)
+	}
+	file := filepath.Join(remoteHome, "resources", "sibling.txt")
+	if err := os.WriteFile(file, []byte("student edit"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	b, _ := os.ReadFile(calls)
-	lines := strings.Split(strings.TrimSpace(string(b)), "\n")
-	if len(lines) != 2 {
-		t.Fatalf("ssh calls:\n%s", b)
+	out = captureStdout(t, func() { runErr = runResourceInVM("astro-vmlab", dir, tool, nil, "", true) })
+	if runErr != nil || !strings.Contains(out, "student edit") {
+		t.Fatalf("reopening replaced VM edits: %v %s", runErr, out)
 	}
-	for _, want := range []string{"-p 2222", "-i /k/student", "UserKnownHostsFile=/k/known_hosts", "student@127.0.0.1", "BatchMode=yes",
-		"rm -rf 'astrona-resources/tool' && mkdir -p 'astrona-resources/tool' && tar -xf - -C 'astrona-resources/tool'"} {
-		if !strings.Contains(lines[0], want) {
-			t.Errorf("upload call lacks %q:\n%s", want, lines[0])
-		}
-	}
-	if !strings.HasPrefix(lines[1], "-T -o BatchMode=yes ") {
-		t.Fatalf("headless resource requested interactive SSH: %s", lines[1])
-	}
-	if !strings.HasSuffix(lines[1], `cd 'astrona-resources/tool/tool' && 'go' 'run' '.' '--rps' '50'`) || !strings.Contains(lines[1], "student@127.0.0.1") {
-		t.Errorf("run call:\n%s", lines[1])
-	}
-
-	f, err := os.Open(upload)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	var names []string
-	tr := tar.NewReader(f)
-	for {
-		hdr, err := tr.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		names = append(names, hdr.Name)
-	}
-	if strings.Join(names, ",") != "tool/,tool/main.go" {
-		t.Errorf("tar entries = %v", names)
+	if _, err := os.Stat(filepath.Join(remoteHome, "resources/tool/injected")); !os.IsNotExist(err) {
+		t.Fatal("evaluated resource arguments")
 	}
 
 	// Several VMs and no --vm / vm: it asks which.

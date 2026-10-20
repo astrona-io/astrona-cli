@@ -83,7 +83,7 @@ func TestUIQEMUTargetsAndStudentTerminal(t *testing.T) {
 	}
 	h := saveUIVM(t, "astro-vms", "astro-vms-server", os.Getpid())
 	bin := t.TempDir()
-	if err := os.WriteFile(filepath.Join(bin, "ssh"), []byte("#!/bin/sh\nexec /bin/sh -i\n"), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(bin, "ssh"), []byte("#!/bin/sh\ncase \"$*\" in *astrona-resources/id*) exit 0 ;; esac\nexec /bin/sh -i\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin)

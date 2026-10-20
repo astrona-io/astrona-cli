@@ -11,6 +11,7 @@ package resources
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -292,6 +293,9 @@ func Snapshot(clusterName, baseDir string, list []Resource) (string, error) {
 	if err := os.WriteFile(filepath.Join(tmp, manifestFile), m, 0o600); err != nil {
 		return "", err
 	}
+	if err := os.WriteFile(filepath.Join(tmp, ".generation"), []byte(rand.Text()), 0o600); err != nil {
+		return "", err
+	}
 	if err := os.RemoveAll(dest); err != nil {
 		return "", err
 	}
@@ -434,6 +438,13 @@ func Load(clusterName string) ([]Resource, string, error) {
 
 // Find looks a resource up by name (case-insensitive).
 func Find(list []Resource, name string) (Resource, bool) {
+	// Prefer the full relative filename, including its extension. Keep the
+	// original short names for existing lab instructions.
+	for _, r := range list {
+		if strings.EqualFold(r.File, name) {
+			return r, true
+		}
+	}
 	for _, r := range list {
 		if strings.EqualFold(r.Name, name) {
 			return r, true

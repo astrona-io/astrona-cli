@@ -1,17 +1,62 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
+	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/resources"
 
 	"github.com/spf13/cobra"
 )
+
+func TestResourceRunDefaultsToLabWithoutHostFallback(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("KIND_EXPERIMENTAL_PROVIDER", "docker")
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nif [ \"$1\" = ps ]; then echo astro-lab-control-plane; fi\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	kube, err := cluster.KubeconfigPath("astro-lab")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(kube), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(kube, []byte("fixture"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	old := isolatedLabCommand
+	t.Cleanup(func() { isolatedLabCommand = old })
+	for _, failure := range []bool{false, true} {
+		called := false
+		isolatedLabCommand = func(ctx context.Context, lab, target string, argv []string, tty bool) (*exec.Cmd, error) {
+			called = true
+			want := []string{"astrona", "res", "run", "count-versions.sh", "--", "http://scout/0", "a b"}
+			if lab != "astro-lab" || target != lab || !reflect.DeepEqual(argv, want) {
+				t.Fatalf("wrong execution target/arguments: %s %s %q", lab, target, argv)
+			}
+			if failure {
+				return nil, errors.New("terminal unavailable")
+			}
+			return exec.CommandContext(ctx, "/usr/bin/true"), nil
+		}
+		err := runResource("astro-lab", t.TempDir(), resources.Resource{Name: "count-versions", File: "count-versions.sh", How: resources.HowBash}, []string{"http://scout/0", "a b"}, "", true)
+		if !called || (err != nil) != failure {
+			t.Fatalf("isolated execution/failure was ignored: %v", err)
+		}
+	}
+}
 
 // snapshotLab gives lab a copy of resources made from files (path →
 // content, "*" suffix = executable) and returns the copy's folder.
