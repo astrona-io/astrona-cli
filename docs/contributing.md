@@ -144,7 +144,27 @@ It needs Linux, Docker or Podman, Kind and kubectl, plus network access to GitHu
 
 ## Dependency updates
 
-[Renovate](https://docs.renovatebot.com/) — Mend's hosted GitHub App, configured by `.github/renovate.json5` — opens PRs for dependency updates; they get the full CI run like any other PR (jobs and logs: [developer.mend.io](https://developer.mend.io)). Go module **minor and patch** updates are set to auto-merge: GitHub merges them as soon as the required checks on `main` (Lint, Unit tests, E2E) pass, and never when they fail. Major updates, the `go`/`toolchain` directive and GitHub Actions updates wait for a human review. New releases are only proposed after they're 3 days old. The Dependency Dashboard issue lists everything pending.
+[Renovate](https://docs.renovatebot.com/) — Mend's hosted GitHub App, configured by `.github/renovate.json5` — opens PRs for dependency updates; they get the full CI run like any other PR (jobs and logs: [developer.mend.io](https://developer.mend.io)). Renovate merges its PRs after checks pass, using its own merge process rather than GitHub's native auto-merge. New releases are only proposed after they're 3 days old. The Dependency Dashboard issue lists everything pending.
+
+When a same-repository `renovate[bot]` PR from a `renovate/` branch merges into
+`main`, **Renovate patch release** creates the next stable patch tag at that exact
+merge commit. For example, `v0.4.6` becomes `v0.4.7`, then `v0.4.8`. Only the final
+number changes, regardless of whether the dependency update itself is major,
+minor, patch, or a digest. Pre-release tags do not affect this calculation.
+Ordinary PRs and closed, unmerged PRs do not trigger a release.
+
+The workflow queues merges and runs the existing binary, Linux package,
+Homebrew, and versioned documentation pipelines. It calls these workflows
+explicitly because [a tag created with `GITHUB_TOKEN` does not trigger another
+push workflow](https://docs.github.com/en/actions/concepts/security/github_token).
+No new token is needed; Homebrew publication still uses the
+existing `HOMEBREW_TAP_TOKEN` secret.
+
+Retry a failed run from Actions: it reuses its existing patch tag. An older merge
+already included in a later stable tag is skipped to avoid releasing older source
+as a newer version. Tags are never moved or overwritten. The first stable tag
+must already exist. The allocation policy tests run with
+`python3 -B -m unittest discover -s .github/scripts -p 'test_renovate_release.py'`.
 
 ## Releases
 

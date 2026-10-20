@@ -48,6 +48,9 @@ jobs:
       - name: go test
         run: go test ./...
 
+      - name: Test Renovate patch release policy
+        run: python3 -B -m unittest discover -s .github/scripts -p 'test_renovate_release.py'
+
       # astrona.exe (the Windows launcher) is built from its own package so
       # it compiles without the CLI's Unix-only code. Keep it compiling.
       - name: Build the Windows launcher
