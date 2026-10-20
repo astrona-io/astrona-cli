@@ -269,8 +269,13 @@ Embedded terminals show `astrona-cli >` in light blue with white input text.
 Set `NO_COLOR=1` before starting Astrona to keep the prompt uncolored.
 Kind terminals use Bash with their own tools and configuration. Your host shell
 startup files, home directory, credentials and container socket are not mounted.
-The first terminal downloads its tools, including kubectl, Helm, k9s, Git, Python,
-Vim and Nano. If preparation fails, the UI shows the error and Retry.
+The first terminal downloads its tools, including kubectl, Helm, k9s, istioctl
+(1.31.2), Git, Python, Vim and Nano. The istioctl Linux binary is checksum-verified
+for the container's Intel or ARM architecture; host-installed tools are not
+inherited. Run `istioctl version --remote=false` to check the bundled client.
+If preparation fails, the UI shows the error and Retry. After upgrading Astrona,
+open a new terminal tab to use its updated tools image; existing tabs keep their
+current image. QEMU terminals use tools installed inside their VM instead.
 
 Files survive reopening and new tabs. Deleting the run or doing a full reset
 removes its workspace; a soft reset preserves it. Development builds use
