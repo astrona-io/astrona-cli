@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labshell"
 	"astrona/internal/lifecycle"
 	"astrona/internal/resources"
 
@@ -31,6 +33,7 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 		Long: "A lab can ship files you need — a setup script, a YAML file to fix, a small program — " +
 			"in its resources/ folder instead of asking you to paste them from the docs. `astrona run` " +
 			"copies them to ~/" + apphome.Name() + "/resources/<lab> and lists them; nothing runs until you ask.\n\n" +
+			"Inside the lab terminal, ~/resources contains your editable copy and astrona res works there too. Full filenames such as count-versions.sh and existing short names both work. Opening more tabs preserves edits; full reset restores originals.\n\n" +
 			"  astrona res                       list the lab's resources\n" +
 			"  astrona res show <name>           print one (a folder: its files)\n" +
 			"  astrona res copy <name> [dest]    copy it here (or to dest) to edit\n" +
@@ -42,9 +45,10 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 			"`astrona res` there works on that lab.\n\n" +
 			"How `run` runs one: its run command from the lab (in its folder), .sh with bash, .yaml " +
 			"with kubectl apply -f, an executable with #! directly — in a kind lab always with " +
+			"execution inside the isolated terminal by default. --host explicitly runs on your machine using host tools. " +
 			"KUBECONFIG set to the lab's own kubeconfig, so nothing reaches your other clusters " +
 			"($ASTRONA_LAB and $" + resourceDirEnv + " are set). In a qemu lab it's copied into the VM " +
-			"(~/" + vmResourceDir + "/<name>) and run there as the account `astrona ssh` uses; --vm picks " +
+			"(~/resources) and run there as the account `astrona ssh` uses; --vm picks " +
 			"the VM of a multi-VM lab. A plain file can only be shown or copied.",
 		Example: `  astrona res
   astrona res run setup-db
@@ -161,10 +165,18 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 			return nil
 		}))
 	var vmFlag string
+	var onHost bool
 	runCmd := withResource("run <name> [args...]", "Run a resource against the lab (in a qemu lab: inside its VM)", cobra.MinimumNArgs(1),
 		func(_ *cobra.Command, lab, dir string, r resources.Resource, rest []string) error {
+			if onHost {
+				if vmFlag != "" || !kindClusterExists(lab) {
+					return fmt.Errorf("--host is only available for Kind resources, without --vm")
+				}
+				return runHostResource(lab, dir, r, rest)
+			}
 			return runResource(lab, dir, r, rest, vmFlag, flags.headless)
 		})
+	runCmd.Flags().BoolVar(&onHost, "host", false, "Run on your host machine instead of inside the lab (requires host tools and can access host files)")
 	runCmd.Flags().StringVar(&vmFlag, "vm", "", "qemu labs: the VM to run it in (default: the resource's vm:, else the lab's only VM)")
 	cmd.AddCommand(runCmd)
 	return cmd
@@ -191,6 +203,13 @@ func resourceLab(cmd *cobra.Command, flags *rootFlags, labFlag string) (string, 
 		return "", nil, "", err
 	}
 	list, dir, err := resources.Load(lab)
+	if err == nil {
+		if editable, workspaceErr := labshell.ResourceDir(lab); workspaceErr == nil {
+			dir = editable
+		} else if !errors.Is(workspaceErr, os.ErrNotExist) {
+			return "", nil, "", workspaceErr
+		}
+	}
 	if err != nil {
 		return "", nil, "", err
 	}
@@ -322,6 +341,17 @@ func runResource(lab, dir string, r resources.Resource, args []string, vmFlag st
 	if vmFlag != "" {
 		return fmt.Errorf("--vm is for qemu labs; %s is a kind lab", strings.TrimPrefix(lab, apphome.ClusterPrefix()))
 	}
+	command := append([]string{"astrona", "res", "run", r.File, "--"}, args...)
+	c, _, err := labShellCommand(lab, "", command)
+	if err != nil {
+		return err
+	}
+	return runAttached(c)
+}
+
+// Host execution is opt-in. Normal resource runs use the same editable files
+// and environment as the student's terminal, with no host fallback.
+func runHostResource(lab, dir string, r resources.Resource, args []string) error {
 	name, argv, workDir, err := resourceCommand(dir, r, args)
 	if err != nil {
 		return err
@@ -342,15 +372,15 @@ func runResource(lab, dir string, r resources.Resource, args []string, vmFlag st
 	c := exec.Command(name, argv...)
 	c.Dir = workDir
 	c.Env = env
-	fmt.Fprintf(os.Stderr, "→ %s  (lab %s)\n", sanitizeLine(strings.Join(append([]string{r.Command()}, args...), " ")), strings.TrimPrefix(lab, apphome.ClusterPrefix()))
+	fmt.Fprintf(os.Stderr, "→ %s  (HOST, lab %s, directory %s)\n", sanitizeLine(strings.Join(append([]string{r.Command()}, args...), " ")), strings.TrimPrefix(lab, apphome.ClusterPrefix()), workDir)
 	return runAttached(c)
 }
 
 // resourceCompletions are a lab's resources as completions: name, and what
 // it is (its description, else how it runs).
 func resourceCompletions(list []resources.Resource) []cobra.Completion {
-	out := make([]cobra.Completion, len(list))
-	for i, r := range list {
+	out := make([]cobra.Completion, 0, len(list)*2)
+	for _, r := range list {
 		desc := r.Description
 		if desc == "" {
 			desc = r.Command()
@@ -358,7 +388,10 @@ func resourceCompletions(list []resources.Resource) []cobra.Completion {
 		if desc == "" {
 			desc = "file"
 		}
-		out[i] = cobra.CompletionWithDesc(sanitizeLine(r.Name), sanitizeLine(desc))
+		out = append(out, cobra.CompletionWithDesc(sanitizeLine(r.File), sanitizeLine(desc)))
+		if r.Name != r.File {
+			out = append(out, cobra.CompletionWithDesc(sanitizeLine(r.Name), sanitizeLine(desc)))
+		}
 	}
 	return out
 }

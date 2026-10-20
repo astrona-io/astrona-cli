@@ -31,7 +31,7 @@ section) so the right tag gets pulled for whichever host runs it.
 
 `image.checksums` is set and checked before the VM ever boots off the pulled
 image — but checksum verification is optional, not enforced by astrona (see
-`CLAUDE.md`'s security-sensitive-areas notes): omit `checksum`/`checksums`
+`agent-notes/security.md`): omit `checksum`/`checksums`
 entirely and it still runs, just unverified, with a `[WARN]` on every run and
 no caching for that image. If you push your own build:
 
@@ -85,6 +85,6 @@ emulation — wrong CPU architecture entirely, not just unaccelerated). See
 [`README.md`](README.md)'s "Multi-arch images" section for how this config
 is meant to pick up an `:amd64` build automatically once one exists.
 aarch64 needs UEFI firmware installed (Homebrew's `qemu` formula already
-bundles it; see `CLAUDE.md`'s "Build & run" section for other OSes).
+bundles it; see `agent-notes/development.md`'s "Build & run" section for other OSes).
 
 Ready? Go to the [exam question](./exam-question.md).

@@ -37,9 +37,10 @@ func printResources(w io.Writer, dir string, list []resources.Resource) {
 		if desc == "" {
 			desc = r.File
 		}
-		fmt.Fprintf(tw, "  %s\t%s\t%s\n", sanitizeLine(r.Name), sanitizeLine(desc), ui.Paint(w, sanitizeLine(how), ui.Dim))
+		fmt.Fprintf(tw, "  %s\t%s\t%s\n", sanitizeLine(r.File), sanitizeLine(desc), ui.Paint(w, sanitizeLine(how), ui.Dim))
 	}
 	tw.Flush()
+	fmt.Fprintln(w, "In the lab terminal: ~/resources · astrona res run <filename> -- <args>")
 }
 
 // resourceRiskLines are the trust prompt's lines about the lab's resources:
@@ -52,7 +53,7 @@ func resourceRiskLines(cfg *config.LabConfig, baseDir string) []string {
 	if len(list) == 0 {
 		return nil
 	}
-	where := "on this machine"
+	where := "inside the isolated lab terminal (--host explicitly runs on this machine)"
 	if cfg.Runtime.Type == "qemu" {
 		where = "inside the lab VM"
 	}

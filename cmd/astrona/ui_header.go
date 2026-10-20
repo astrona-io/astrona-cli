@@ -205,7 +205,7 @@ func (m *uiPaneModel) headerShortcuts() [][2]string {
 	section, _, _ := strings.Cut(m.title, " / ")
 	switch section {
 	case "HOME":
-		return [][2]string{{"<1>", "Active runs"}, {"<2>", "History"}, {"<3>", "Help"}, {"<p>", "Preferences"}, {"<enter>", "Open selected"}, {"<↑/↓>", "Select run"}, {"<ctrl-d>", "Force delete"}, {"<r>", "Refresh"}, {"<tab>", "Next section"}, {"<q>", "Quit"}}
+		return [][2]string{{"<1>", "Runs"}, {"<2>", "History"}, {"<3>", "Help"}, {"<p>", "Preferences"}, {"<enter>", "Open selected"}, {"<↑/↓>", "Select run"}, {"<ctrl-d>", "Force delete"}, {"<r>", "Refresh"}, {"<tab>", "Next section"}, {"<q>", "Quit"}}
 	case "TASK":
 		if m.terminalLocked {
 			return [][2]string{{"<" + uiReleaseFocusKey() + ">", "Release focus"}, {"Keys / mouse", "Terminal app"}}

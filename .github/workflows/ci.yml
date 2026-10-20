@@ -76,6 +76,11 @@ jobs:
       - name: Test cleanup after a server-confirmed submission
         run: go test ./cmd/astrona -run '^TestSubmitCleansUpOnlyAfterConfirmedPass$' -count=1 -timeout=3m
 
+      - name: Test resources, copying locked output, and destroyed run history
+        run: |
+          go test ./internal/resources ./internal/labshell -count=1
+          go test ./cmd/astrona -run 'TestRunResourceInVM|TestVMResourceCommand|TestUILockedTerminalShiftDrag|TestForgetLabPreservesPlaygroundHistory' -count=1
+
   e2e:
     name: E2E (kind runtime)
     needs: test
@@ -278,6 +283,18 @@ jobs:
             sudo env "PATH=$PATH" bash .github/scripts/test-catalog-lab.sh ./astrona catalog-e2e-diagnostics podman
           else
             bash .github/scripts/test-catalog-lab.sh ./astrona catalog-e2e-diagnostics docker
+          fi
+
+      - name: Verify isolated resource workspace and repeated API connections
+        env:
+          CONTAINER_ENGINE: ${{ matrix.engine }}
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          go test -c -o "$RUNNER_TEMP/resource-workspace-tests" ./internal/labshell
+          if [ "$CONTAINER_ENGINE" = podman ]; then
+            sudo env "PATH=$PATH" KIND_EXPERIMENTAL_PROVIDER=podman "$RUNNER_TEMP/resource-workspace-tests" -test.run '^TestContainerIsolation$' -test.v -test.timeout=8m -container-smoke
+          else
+            KIND_EXPERIMENTAL_PROVIDER=docker "$RUNNER_TEMP/resource-workspace-tests" -test.run '^TestContainerIsolation$' -test.v -test.timeout=8m -container-smoke
           fi
 
       - name: Make Podman diagnostics readable by artifact uploader

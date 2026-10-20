@@ -627,8 +627,10 @@ func (m *uiTaskModel) render() string {
 		hint = fmt.Sprintf("Task %d–%d/%d · Wheel scrolls task · Click pane to focus · Ctrl+O switches panes", m.workspace.scroll+1, min(len(m.markdownLines), m.workspace.scroll+h), len(m.markdownLines))
 	}
 	if m.terminalLocked {
-		footer = "LOCKED · " + uiReleaseFocusKey() + " releases focus"
-		hint = "Keys and mouse go to the terminal app · Click the task or a tab to release focus"
+		if m.selection == nil {
+			footer = "LOCKED · " + uiReleaseFocusKey() + " releases focus"
+		}
+		hint = "Shift+drag copies output · Click the task or a tab to release focus"
 	} else if !m.taskFocus {
 		hint = "Type in the terminal to lock focus (red) · " + uiReleaseFocusKey() + " releases it (blue)"
 	}

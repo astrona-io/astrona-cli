@@ -58,6 +58,15 @@ func newSSHCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			lab := handle.LabName
+			if lab == "" {
+				lab = name
+			}
+			if userFlag == "" && passwordFlag == "" && !askPassword {
+				if err := prepareVMResourceWorkspace(cmd.Context(), lab, handle); err != nil {
+					return err
+				}
+			}
 
 			sshPath, err := exec.LookPath("ssh")
 			if err != nil {
@@ -86,7 +95,7 @@ func newSSHCmd() *cobra.Command {
 				sshArgs = append(sshArgs, "-i", handle.SSHKeyPath)
 			}
 
-			sshArgs = append(sshArgs, "-l", user, "--", handle.SSHHost, vmWorkspaceShell(name, false))
+			sshArgs = append(sshArgs, "-l", user, "--", handle.SSHHost, vmWorkspaceShell(lab, false))
 
 			fmt.Printf("Connecting to '%s' (%s@%s:%d)...\n", handle.ClusterName, user, handle.SSHHost, handle.SSHPort)
 

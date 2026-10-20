@@ -30,7 +30,7 @@ to check the login with the server and renew the access token if needed.
 
 Home has three sections:
 
-- **Active runs:** saved runs, their container or VM status and active time. Select
+- **Runs:** current runs and the latest destroyed run per lab, with status and active time. Select
   a running Kind or QEMU lab or playground and press Enter to open its workspace.
   Stopped, missing or unavailable runs remain visible but cannot be opened.
 - **History:** graded submission attempts, scores and completed local runs,
@@ -394,3 +394,17 @@ Restore reminders with `astrona settings set login-reminder yes`, or change
 `--without-login` when signed out.
 
 For automation, use [headless mode](ci-integration.md#headless-setup-for-external-checks): `astrona run <lab> --headless` skips the UI and returns after setup.
+
+## Copy while terminal focus is locked
+
+Hold **Shift** and drag across terminal output to select it, then release the
+mouse to copy. Focus stays locked to the terminal application. Esc clears the
+selection. Ordinary mouse input continues to reach terminal apps. Some terminal
+emulators handle Shift+drag as native selection; their Copy command also works.
+
+## Destroyed runs in the overview
+
+Deleting a playground or lab preserves its latest finished row in the overview
+as **Destroyed**. Press Enter to inspect its recorded details. It does not count
+as running or saved, and it cannot be reopened or deleted again. A new run of
+the same lab replaces that overview row; older runs remain in History.

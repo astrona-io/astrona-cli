@@ -22,6 +22,8 @@ type uiHomeRun struct {
 	name, kind, status, runID string
 	started                   time.Time
 	openable                  bool
+	destroyed                 bool
+	finishedDetails           string
 	reportPlayground          bool
 	activeTime                time.Duration
 	activityTracked           bool
@@ -218,6 +220,12 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 			details += "\nTime spent (excluding idle): " + formatUptime(spent)
 		}
 		data.history = append(data.history, uiHomeHistory{label: label, details: details, at: run.FinishedAt})
+		// Keep the latest destroyed run visible unless a current run with the
+		// same name supersedes it. Active rows always come first.
+		if len(data.runs) < len(names)+100 && !slices.ContainsFunc(data.runs, func(r uiHomeRun) bool { return r.name == run.Lab }) {
+			spent, tracked, _ := labstate.ActiveTime(run.Lab, run.StartedAt.UTC().Format(time.RFC3339))
+			data.runs = append(data.runs, uiHomeRun{name: run.Lab, kind: run.Kind, status: "Destroyed", activity: "Finished", started: run.StartedAt, destroyed: true, finishedDetails: details, activeTime: spent, activityTracked: tracked})
+		}
 	}
 	slices.SortFunc(data.history, func(a, b uiHomeHistory) int { return b.at.Compare(a.at) })
 	data.history = data.history[:min(100, len(data.history))]
@@ -339,6 +347,9 @@ func (m uiHomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+d":
 			if m.width >= 48 && m.height >= 14 && m.tab == 0 && m.selected < len(m.data.runs) {
 				run := m.data.runs[m.selected]
+				if run.destroyed {
+					break
+				}
 				m.deleting = &run
 				m.deleteYes = false
 			}
@@ -370,6 +381,10 @@ func (m uiHomeModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			if m.tab == 0 && m.selected < len(m.data.runs) {
+				if m.data.runs[m.selected].destroyed {
+					m.detail, m.scroll = true, 0
+					return m, nil
+				}
 				if m.data.runs[m.selected].openable {
 					m.open = true
 					return m, tea.Quit
@@ -408,18 +423,21 @@ func (m uiHomeModel) render() string {
 	if message != "" {
 		h -= 4
 	}
-	tabs := []string{"Active runs", "History", "Help", "Preferences"}
+	tabs := []string{"Runs", "History", "Help", "Preferences"}
 	keys := []string{"<1>", "<2>", "<3>", "<p>"}
 	if w < 72 {
 		tabs = []string{"Runs", "History", "Help", "Settings"}
 		keys = []string{"1", "2", "3", "p"}
 	}
 	editor.navigation = workspaceNav(tabs, keys, m.tab)
-	title, content := "ACTIVE RUNS", ""
+	title, content := "RUNS", ""
 	if m.tab == 2 {
 		title = "HELP"
-		content = "1 Active runs · 2 History · 3 Help · p Preferences\nSelect a running lab and press Enter for its task and terminal tabs.\nCtrl+D opens a force-delete confirmation for the selected run.\nCtrl+B returns from a lab to Home and pauses time spent.\nCtrl+T names a new terminal; mouse clicks or Ctrl+N/P change tabs. Ctrl+G opens lab details.\nHistory includes submission attempts and completed labs/playgrounds.\nOnly the latest 100 persistent entries are shown; astrona progress summarizes all graded attempts.\nCtrl+G opens alert details. Esc closes dialogs.\nLogin status uses saved credentials; it does not check the API.\nUse astrona login to sign in, or astrona whoami to check an expired login.\nLocal profile: ~/" + apphome.Name() + "\n" + m.data.warning
+		content = "1 Runs · 2 History · 3 Help · p Preferences\nSelect a running lab and press Enter for its task and terminal tabs.\nCtrl+D opens a force-delete confirmation for the selected run.\nCtrl+B returns from a lab to Home and pauses time spent.\nCtrl+T names a new terminal; mouse clicks or Ctrl+N/P change tabs. Ctrl+G opens lab details.\nHistory includes submission attempts and completed labs/playgrounds.\nOnly the latest 100 persistent entries are shown; astrona progress summarizes all graded attempts.\nCtrl+G opens alert details. Esc closes dialogs.\nLogin status uses saved credentials; it does not check the API.\nUse astrona login to sign in, or astrona whoami to check an expired login.\nLocal profile: ~/" + apphome.Name() + "\n" + m.data.warning
 		content = workspacePage(content, w-4, h-2, m.scroll)
+	} else if m.tab == 0 && m.detail && m.selected < len(m.data.runs) && m.data.runs[m.selected].destroyed {
+		title = "DESTROYED RUN / DETAILS"
+		content = workspacePage(m.data.runs[m.selected].finishedDetails, w-4, h-2, m.scroll)
 	} else if m.tab == 1 && m.detail && m.count() > 0 {
 		title = "HISTORY / DETAILS"
 		content = workspacePage(m.history()[m.selected].details, w-4, h-2, m.scroll)
@@ -487,13 +505,18 @@ func (m uiHomeModel) render() string {
 			body += "\n" + workspacePanel("STATUS", workspacePage(message, w-4, 2, 0), w, 4, workspaceMuted)
 		}
 	}
-	running := 0
+	running, saved, destroyed := 0, 0, 0
 	for _, run := range m.data.runs {
+		if run.destroyed {
+			destroyed++
+		} else {
+			saved++
+		}
 		if run.openable {
 			running++
 		}
 	}
-	view := editor.frame("HOME", fmt.Sprintf("Running: %d  ·  Saved: %d  ·  History: %d  ·  Refresh: every 5s", running, len(m.data.runs), len(m.data.history)), body, footer)
+	view := editor.frame("HOME", fmt.Sprintf("Running: %d  ·  Saved: %d  ·  Destroyed: %d  ·  History: %d  ·  Refresh: every 5s", running, saved, destroyed, len(m.data.history)), body, footer)
 	if m.deleting != nil {
 		if !m.deleteDialogFits() {
 			return workspaceDialog(view, "FORCE DELETE", "Resize the terminal to read the full warning.\nEsc cancels.", m.width, m.height, true)

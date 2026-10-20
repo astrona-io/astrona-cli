@@ -133,6 +133,9 @@ func workspaceQEMUCommand(ctx context.Context, lab, target string) (*exec.Cmd, e
 	if h.SSHUser == "" || h.SSHHost == "" || h.SSHPort < 1 || h.SSHPort > 65535 || h.SSHKeyPath == "" || h.KnownHosts == "" {
 		return nil, fmt.Errorf("VM %s has incomplete SSH connection details", target)
 	}
+	if err := prepareVMResourceWorkspace(ctx, lab, h); err != nil {
+		return nil, err
+	}
 	// Use the student's identity, never the administrative bootstrap key.
 	// A real remote PTY gives editors, resize and job control normal SSH behavior.
 	cmd := exec.CommandContext(ctx, "ssh", append(isolatedSSHOptions(), "-tt", "-i", h.SSHKeyPath,
@@ -151,7 +154,7 @@ func isolatedSSHOptions() []string {
 func vmWorkspaceShell(lab string, prompt bool) string {
 	// lab has passed ValidateName before it is used in a remote command.
 	dir := `"$HOME/.astrona/runtime/` + lab + `"`
-	command := "mkdir -p " + dir + " && cd " + dir + " && exec "
+	command := "mkdir -p " + dir + " && cd " + dir + ` && export PATH="$HOME/.astrona-resources/bin:$PATH" ASTRONA_RESOURCE_DIR="$HOME/resources" ASTRONA_LAB=` + shQuote(lab) + "; exec "
 	if prompt {
 		command += "env PS1='" + uiShellPrompt(os.Getenv("NO_COLOR") != "") + "' "
 	}

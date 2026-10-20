@@ -96,13 +96,18 @@ func Command(ctx context.Context, lab, target string, command []string, tty bool
 		return nil, err
 	}
 	defer root.Close()
+	if err := prepareResources(root, path, lab); err != nil {
+		return nil, fmt.Errorf("prepare lab resources: %w", err)
+	}
 	links, err := cluster.ReadLinks(lab)
 	if err != nil {
 		return nil, err
 	}
 	names := []string{lab}
 	var hosts []string
-	env := []string{"HOME=/workspace", "TERM=xterm-256color", "ASTRONA_LAB=" + lab}
+	env := []string{"HOME=/workspace", "TERM=xterm-256color", "ASTRONA_LAB=" + lab,
+		"ASTRONA_RESOURCE_DIR=/workspace/resources", "ASTRONA_RESOURCE_TARGET=Kind terminal",
+		"PATH=/run/astrona/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"}
 	for _, link := range links {
 		if err := config.ValidateName(link.Cluster); err != nil {
 			return nil, err
@@ -216,6 +221,8 @@ func runArgs(engine, path, lab, name string, env, hosts, command []string, tty b
 	args = append(args, imageName())
 	if len(command) > 0 {
 		args = append(args, command...)
+	} else {
+		args = append(args, "bash", "--noprofile", "--rcfile", "/run/astrona/bashrc", "-i")
 	}
 	return args, nil
 }
