@@ -284,7 +284,8 @@ removes its workspace; a soft reset preserves it. Development builds use
 and the protection boundary.
 
 Click a terminal tab to release focus and switch to it. Type `exit` to close a shell and remove
-its tab. Closing the last shell opens a replacement on the same cluster or VM.
+its tab. Closing the last shell opens a fresh Terminal 1 on the same cluster or
+VM. Your workspace files remain; shell variables from the exited process do not.
 If reconnection fails repeatedly, a Retry tab stays visible; press Enter to retry.
 Closing other tabs frees slots for new terminals. Returning to Home
 preserves shells and their environment until the UI closes or the run is deleted.

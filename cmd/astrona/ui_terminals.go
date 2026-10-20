@@ -41,7 +41,10 @@ type uiTerminalTab struct {
 }
 
 type uiTerminalChanged struct{}
-type uiTerminalStarted struct{ err error }
+type uiTerminalStarted struct {
+	tab *uiTerminalTab
+	err error
+}
 
 type uiTerminals struct {
 	compactPrompt  bool
@@ -58,6 +61,7 @@ type uiTerminals struct {
 	closeOnce      sync.Once
 	active         int
 	nextID         int
+	nextLabel      int
 }
 
 func newUITerminals(ctx context.Context, factory func(context.Context, string) (*exec.Cmd, error)) *uiTerminals {
@@ -128,10 +132,14 @@ func (t *uiTerminals) startNamed(alias, label string, width, height int) tea.Cmd
 			return uiTerminalStarted{err: err}
 		}
 		t.nextID++
+		if len(t.tabs) == 0 {
+			t.nextLabel = 0
+		}
+		t.nextLabel++
 		if label == "" {
-			label = fmt.Sprintf("Terminal %d", t.nextID)
+			label = fmt.Sprintf("Terminal %d", t.nextLabel)
 			if alias != "" {
-				label = fmt.Sprintf("%s %d", alias, t.nextID)
+				label = fmt.Sprintf("%s %d", alias, t.nextLabel)
 			}
 		}
 		tab := &uiTerminalTab{label: label, alias: alias, id: t.nextID, terminal: terminal, cmd: cmd, emulator: vt.NewEmulator(width, height), done: make(chan struct{}), inputDone: make(chan struct{}), outputDone: make(chan struct{})}
@@ -188,7 +196,7 @@ func (t *uiTerminals) startNamed(alias, label string, width, height int) tea.Cmd
 			}
 		})
 		t.notify()
-		return uiTerminalStarted{}
+		return uiTerminalStarted{tab: tab}
 	}
 }
 
@@ -385,45 +393,17 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.starting = false
 		if msg.err != nil {
 			m.workspace.notice = "Could not open terminal: " + msg.err.Error()
+			return m, nil
 		}
-		return m, nil
+		// The process can exit before its start result reaches the UI. Retain
+		// its identity so reconciliation still recognizes the last shell exit.
+		if len(m.tabs) == 0 && msg.tab != nil {
+			m.tabs = []*uiTerminalTab{msg.tab}
+			m.active = 0
+		}
+		return m, m.syncTerminals()
 	case uiTerminalChanged:
-		tabs := m.terminals.snapshot()
-		lostLast := len(m.tabs) > 0 && len(tabs) == 0
-		var selected *uiTerminalTab
-		if m.active < len(m.tabs) {
-			selected = m.tabs[m.active]
-		}
-		for i, tab := range tabs {
-			if tab == selected {
-				m.active = i
-			}
-			if !slices.Contains(m.tabs, tab) {
-				m.active = i
-			}
-		}
-		m.tabs = tabs
-		m.active = min(m.active, max(0, len(tabs)-1))
-		if m.active >= len(tabs) || tabs[m.active] != selected {
-			m.selection = nil
-			m.setTerminalLocked(false)
-		}
-		m.resize()
-		cleanExit := lostLast && selected != nil && selected.cmd != nil && selected.cmd.ProcessState != nil && selected.cmd.ProcessState.Success()
-		if lostLast && !m.starting && (cleanExit || time.Since(m.lastReplacement) >= 3*time.Second) {
-			m.lastReplacement = time.Now()
-			m.tabName = ""
-			if selected != nil {
-				for i, target := range m.workspace.snapshot.clusters {
-					if target.alias == selected.alias {
-						m.workspace.selected = i
-						break
-					}
-				}
-			}
-			return m, tea.Batch(m.next, m.start())
-		}
-		return m, m.next
+		return m, tea.Batch(m.next, m.syncTerminals())
 	case tea.WindowSizeMsg:
 		m.selection = nil
 		m.dragging = false
@@ -463,6 +443,47 @@ func (m *uiTaskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.key(uiKey{paste: true, text: msg.Content})
 	}
 	return m, nil
+}
+
+// syncTerminals reconciles both process notifications and completed starts.
+// Only the notification handler schedules the next notification listener.
+func (m *uiTaskModel) syncTerminals() tea.Cmd {
+	tabs := m.terminals.snapshot()
+	lostLast := len(m.tabs) > 0 && len(tabs) == 0
+	var selected *uiTerminalTab
+	if m.active < len(m.tabs) {
+		selected = m.tabs[m.active]
+	}
+	for i, tab := range tabs {
+		if tab == selected {
+			m.active = i
+		}
+		if !slices.Contains(m.tabs, tab) {
+			m.active = i
+		}
+	}
+	m.tabs = tabs
+	m.active = min(m.active, max(0, len(tabs)-1))
+	if m.active >= len(tabs) || tabs[m.active] != selected {
+		m.selection = nil
+		m.setTerminalLocked(false)
+	}
+	m.resize()
+	cleanExit := lostLast && selected != nil && selected.cmd != nil && selected.cmd.ProcessState != nil && selected.cmd.ProcessState.Success()
+	if lostLast && !m.starting && (cleanExit || time.Since(m.lastReplacement) >= 3*time.Second) {
+		m.lastReplacement = time.Now()
+		m.tabName = ""
+		if selected != nil {
+			for i, target := range m.workspace.snapshot.clusters {
+				if target.alias == selected.alias {
+					m.workspace.selected = i
+					break
+				}
+			}
+		}
+		return m.start()
+	}
+	return nil
 }
 
 func (m *uiTaskModel) resize() {
