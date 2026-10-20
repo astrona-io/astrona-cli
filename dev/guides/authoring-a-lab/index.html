@@ -16,7 +16,7 @@
         <link rel="prev" href="../cli-terms/">
       
       
-        <link rel="next" href="../ci-integration/">
+        <link rel="next" href="../question-banks/">
       
       
         
@@ -1116,6 +1116,8 @@
       
         
       
+        
+      
     
     
     
@@ -1562,6 +1564,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../question-banks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing a Question Bank
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -5005,7 +5035,7 @@
 <p>Checks <code>astrona.yaml</code> the way astrona.io's content sync reads it, and prints the totals (<code>ATS014: 146 readings, 56 labs, 0 playgrounds, 20 quizzes (174 questions)</code>). It fails (✗) on what would keep the training or an item off the site, and warns (!) about what is worth a look:</p>
 <ul>
 <li><code>training.id</code> is set; every item has a title, a known <code>type</code> — <code>reading</code>, <code>lab</code>, <code>playground</code> or <code>quiz</code> — and a path inside the repository that exists: a Markdown file for a reading, a directory with a <code>config.yaml</code> for a lab or playground, a YAML question bank for a quiz.</li>
-<li>A <strong>quiz</strong> (knowledge check) bank has <code>kind: question_bank</code> and <code>schema_version: 1</code>, and each question an unique <code>id</code>, a <code>prompt</code>, 2–6 options with unique ids and a text, a <code>correct_option</code> that is one of them, and <code>type: single_choice</code> (or none). Its <code>source_readings</code> must exist; one that is not a reading in <code>astrona.yaml</code> gets no "read it again" link (warning). The site uses at most 30 questions.</li>
+<li>A <strong>quiz</strong> (knowledge check) bank has <code>kind: question_bank</code> and <code>schema_version: 1</code>, and each question an unique <code>id</code>, a <code>prompt</code>, 2–6 options with unique ids and a text, a <code>correct_option</code> that is one of them, and <code>type: single_choice</code> (or none). Its <code>source_readings</code> must exist; one that is not a reading in <code>astrona.yaml</code> gets no "read it again" link (warning). The site uses at most 30 questions. Fields, an example and the <a href="https://cli.astrona.io/schema/question-bank.schema.json">JSON Schema</a>: <a href="../question-banks/">Writing a Question Bank</a>.</li>
 <li>The quiz item's <code>pass_score</code> is a percentage above 0 and at most 100 (the site's default is 70); a <code>question_count</code> that differs from the bank is a warning — the site counts the bank.</li>
 <li>A bank with <code>status: draft</code>, an option or question without an explanation, and a <code>quiz.yaml</code> the manifest does not list are warnings.</li>
 </ul>
@@ -5230,13 +5260,13 @@ exam deadlines and playground expiry remain separate.</p>
         
         
           
-          <a href="../ci-integration/" class="md-footer__link md-footer__link--next" aria-label="Next: CI Integration">
+          <a href="../question-banks/" class="md-footer__link md-footer__link--next" aria-label="Next: Writing a Question Bank">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                CI Integration
+                Writing a Question Bank
               </div>
             </div>
             <div class="md-footer__button md-icon">
