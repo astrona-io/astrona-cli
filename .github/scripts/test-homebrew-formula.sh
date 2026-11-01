@@ -51,6 +51,8 @@ done > "$work/dist/SHA256SUMS"
 "$root/.github/scripts/homebrew-formula.sh" "$tag" "$work/dist/SHA256SUMS" > "$work/astrona.rb"
 
 brew tap-new --no-git "$tap" >/dev/null
+# Newer Homebrew refuses to load formulae from an untrusted tap.
+if brew trust --help >/dev/null 2>&1; then brew trust "$tap" >/dev/null; fi
 tapdir="$(brew --repository "$tap")"
 
 echo "==> brew style / brew audit --strict"
