@@ -20,6 +20,14 @@ def eligible(pr, repository):
     )
 
 
+SHIPPED = ("go.mod", "go.sum")
+
+
+def ships(paths):
+    """Only Go dependency changes alter the binary; CI, docs and image bumps do not."""
+    return any(path in SHIPPED for path in paths)
+
+
 def stable_tags(tags):
     return sorted(
         (tag for tag in tags if STABLE.fullmatch(tag)),
@@ -88,6 +96,10 @@ def main():
             break
     if pr is None:
         print("Not a merged, same-repository Renovate PR into main; skipping")
+        return
+    files = read_api(f"pulls/{pr['number']}/files?per_page=100", paginate=True)
+    if not ships(item["filename"] for page in files for item in page):
+        print(f"Renovate PR #{pr['number']} does not change go.mod or go.sum; skipping")
         return
     if not ancestor(sha, "origin/main"):
         raise ValueError("Merge commit is not on main")

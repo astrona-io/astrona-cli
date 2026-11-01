@@ -102,6 +102,8 @@ class RenovateReleaseTests(unittest.TestCase):
                         return subprocess.CompletedProcess(command, 0, stdout=json.dumps([[event["pull_request"]]]))
                     if command[2].endswith("/pulls/123"):
                         return subprocess.CompletedProcess(command, 0, stdout=json.dumps(event["pull_request"]))
+                    if "/pulls/123/files" in command[2]:
+                        return subprocess.CompletedProcess(command, 0, stdout=json.dumps([[{"filename": "go.mod"}]]))
                     self.assertEqual(command[2], "repos/astrona-io/astrona-cli/git/refs")
                     payload = json.loads(kwargs["input"])
                     writes.append(payload)
