@@ -106,6 +106,10 @@ jobs:
           go-version-file: go.mod
       - name: Install Snapcraft
         run: sudo snap install snapcraft --classic
+      # Snapcraft runs as the runner user, so it can't refresh apt's package
+      # lists itself; a stale image index then 404s on superseded packages.
+      - name: Refresh apt package lists
+        run: sudo apt-get update
       - name: Build classic Snap on disposable Ubuntu runner
         env:
           ARCH: ${{ matrix.arch }}
