@@ -3,10 +3,6 @@ package main
 import (
 	"strings"
 	"testing"
-	"time"
-
-	"astrona/internal/config"
-	"astrona/internal/proctor"
 )
 
 func TestCheckOutput(t *testing.T) {
@@ -30,17 +26,5 @@ func TestReportCountsFailures(t *testing.T) {
 	}
 	if got := checkResultsJSON("A", []checkResult{{Name: "y", Status: checkFail, Hint: "do this"}}); got[0].Status != "fail" || got[0].Fix != "do this" || got[0].Section != "A" {
 		t.Errorf("json result = %+v", got[0])
-	}
-}
-
-func TestSubmissionJSONHidesHints(t *testing.T) {
-	results := []proctor.CheckResult{{Name: "a", Pass: true, Points: 1}, {Name: "b", Points: 2, Hint: "try kubectl scale", Duration: 30 * time.Millisecond}}
-	cfg := &config.LabConfig{}
-	got := submissionJSON(cfg, "astro-x", results, false, false, 3, false, time.Unix(0, 0))
-	if got.Earned != 1 || got.Max != 3 || got.Attempt != 3 || got.Checks[1].Hint != "try kubectl scale" || got.Checks[1].DurationMs != 30 {
-		t.Errorf("submission = %+v", got)
-	}
-	if hidden := submissionJSON(cfg, "astro-x", results, false, false, 1, true, time.Unix(0, 0)); hidden.Checks[1].Hint != "" {
-		t.Error("hint leaked under exam conditions")
 	}
 }

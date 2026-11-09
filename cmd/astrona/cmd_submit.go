@@ -13,9 +13,7 @@ import (
 	"astrona/internal/junit"
 	"astrona/internal/labops"
 	"astrona/internal/labstate"
-	"astrona/internal/lifecycle"
 	"astrona/internal/proctor"
-	"astrona/internal/runtime"
 	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
@@ -23,8 +21,8 @@ import (
 
 // newSubmitCmd builds `astrona submit`: submit the already-running lab
 // environment to the Proctor for grading. This is the "I'm done" entry
-// point a trainee runs by hand — grading itself is owned entirely by
-// Proctor.Grade, not by this command, so run/destroy/submit never read
+// point a trainee runs by hand — grading itself is owned entirely by the
+// Proctor (labops.Submit calls Proctor.Evaluate), not by this command, so run/destroy/submit never read
 // validation.checks/validation.script directly. flags is bound to the root
 // command's persistent flags.
 func newSubmitCmd(flags *rootFlags) *cobra.Command {
@@ -83,7 +81,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			// only running lab, if there is exactly one.
 			if saved == nil && len(args) == 0 && !flags.fromCurrent && !cmd.Flags().Changed("config") && !cmd.Flags().Changed("git") &&
 				!cmd.Flags().Changed("file") && !labConfigHere(flags) {
-				selectedName, src, pickErr := pickRunningLab(runningLabNames(), labstate.Load)
+				selectedName, src, pickErr := labops.PickRunningLab(labops.RunningLabNames(), labstate.Load)
 				if pickErr != nil {
 					return pickErr
 				}
@@ -140,18 +138,13 @@ type submitOptions struct {
 
 // submitLoadedLab is shared by submit and the workspace. Keeping the loaded
 // config avoids fetching a different revision in the middle of a UI session.
+// The submission itself is labops.Submit; this reads the flags, prints the
+// result (text or JSON), writes the JUnit report and decides the exit code.
 func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, options submitOptions, status io.Writer) error {
-	junitPath, output := options.junitPath, options.output
-	noHints, history, watch, keep, watchInterval := options.noHints, options.history, options.watch, options.keep, options.watchInterval
+	output := options.output
 
-	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
-	before, err := labstate.Load(clusterName)
-	if err != nil {
-		return err
-	}
-
-	if history {
-		attempts, err := proctor.LoadAttempts(clusterName)
+	if options.history {
+		clusterName, attempts, err := labops.SubmitHistory(cfg)
 		if err != nil {
 			return err
 		}
@@ -165,168 +158,59 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 		return nil
 	}
 
-	// A broken config (bad check type, apiVersion…) is an error
-	// (exit 1), not a failed grade (exit 2) — and isn't recorded.
-	if err := lifecycle.Validate(cfg); err != nil {
-		return err
-	}
-	if options.runID != "" {
-		if err := labops.GuardRun(clusterName, options.runID); err != nil {
-			return err
-		}
-	}
-
-	// Grading runs validation scripts and command checks on this
-	// machine.
-	if err := requireTrust(flags, cfg, baseDir); err != nil {
-		return err
-	}
-
-	// Grading a lab that isn't there would fail every check (and
-	// record that as an attempt) — say what's actually wrong.
-	if err := requireRunningKindLab(cfg, clusterName); err != nil {
-		return err
-	}
-
-	env, err := runtime.LoadEnvironment(clusterName, cfg.Runtime)
-	if err != nil {
-		return fmt.Errorf("could not find a running lab environment: %w", err)
-	}
-	links, _ := lifecycle.Links(clusterName)
-	env.WithLinks(links)
-	env.AddEnv(lifecycle.CAEnv(clusterName)...)
-
-	opts := ui.Options{Verbose: flags.verbose, Plain: flags.headless}
-	if output == "json" {
-		opts.Raw = os.Stderr // stdout is the JSON result
-	}
-	rep, err := ui.New("submit", cfg.Metadata.Name, opts)
-	if err != nil {
-		return err
-	}
-	defer rep.Close()
-
-	rep.Section("Proctor")
-	var examState *exam.State
-	if cfg.Exam.Enabled() {
-		if examState, err = exam.Load(clusterName); err != nil {
-			rep.Warn("%s", err)
-		}
-	}
-
-	pr := proctor.NewProctor(baseDir, env)
-	if noHints || cfg.Exam.HideHints {
-		pr.HideHints()
-	}
-	if watch {
-		rep.Close()
-		return watchGrading(pr, cfg, clusterName, watchInterval, examState, flags.headless)
-	}
-	previous, _ := proctor.LoadAttempts(clusterName)
-	grade := pr.Grade
-	if output == "json" {
-		grade = pr.Evaluate          // no human report: the JSON is the output
-		pr.ScriptOutputTo(os.Stderr) // and nothing else on stdout
-	}
-	results, pass, err := grade(cfg)
-	if err != nil {
-		return err
-	}
-	if before != nil {
-		if err := labops.GuardRun(clusterName, labops.RunID(before)); err != nil {
-			return err
-		}
-	}
-
-	now := time.Now()
-	overTime := false
-	if examState != nil {
-		if output != "json" {
-			fmt.Printf("Time: %s\n", examState.Summary(now))
-		}
-		if strictOverTime(examState, cfg.Exam.Strict, pass, now) {
-			pass, overTime = false, true
-			if output != "json" {
-				fmt.Printf("Submitted after the time limit — not counted as a pass (exam.strict).\n")
+	req := labops.SubmitRequest{
+		Config:  cfg,
+		BaseDir: baseDir,
+		Lab:     labOpsSource(flags),
+		RunID:   options.runID,
+		Trust:   trustOptions(flags),
+		UI:      ui.Options{Verbose: flags.verbose, Plain: flags.headless},
+		NoHints: options.noHints,
+		Out:     os.Stdout,
+		Status:  status,
+		Warn:    os.Stderr,
+		Keep:    options.keep,
+		Destroy: destroyOptions(),
+		Graded: func(res *labops.SubmitResult, rep *ui.Reporter) error {
+			if options.junitPath != "" {
+				if err := junit.WriteJUnitReport(options.junitPath, res.ClusterName, res.Results); err != nil {
+					rep.Warn("failed to write JUnit report: %s", err)
+				}
 			}
-		}
-	}
-
-	attempt := proctor.NewAttempt(results, pass, now)
-	if examState != nil {
-		attempt.Timed = true
-		attempt.ElapsedSeconds = int64(examState.Elapsed(now).Seconds())
-		attempt.OverTime = examState.Over(now)
-	}
-	recordErr := proctor.RecordAttempt(clusterName, attempt)
-	if recordErr != nil {
-		rep.Warn("could not record this attempt: %s", recordErr)
-	}
-	if recordErr == nil && before != nil && before.StartedAt != "" && sameSource(before.Source, rememberedSource(flags)) && !before.Session.IsPlayground() {
-		if err := labstate.SaveSubmission(clusterName, before.StartedAt, pass, now); err != nil {
-			rep.Warn("could not mark this run submitted: %s", err)
-		}
-	}
-	result := submissionJSON(cfg, clusterName, results, pass, overTime, len(previous)+1, pr.HintsHidden(), now)
-	if junitPath != "" {
-		if err := junit.WriteJUnitReport(junitPath, clusterName, results); err != nil {
-			rep.Warn("failed to write JUnit report: %s", err)
-		}
-	}
-	if output == "json" {
-		if err := printJSON(result); err != nil {
-			return err
-		}
-	} else {
-		printProgress(os.Stdout, previous, attempt)
-		fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, pass, 0))
-	}
-	rep.Close()
-
-	// The grade stands whatever happens to sending it: a failure
-	// here is a warning, never a different exit code.
-	sent := sendResult(context.Background(), status, clusterName, rememberedSource(flags), result)
-	if options.completed != nil {
-		options.completed(result, sent, recordErr == nil)
-	}
-	// A sent result finishes the attempt, PASS or FAIL: the lab has no
-	// further tracked use, so it goes, as `astrona destroy` would. A local-only
-	// run (a UI restart, --local-only) has nothing to send: its result, once
-	// saved here, is the final one.
-	localRun := before != nil && before.LocalOnly && recordErr == nil
-	if (sent || localRun) && !keep && !cfg.Teardown.KeepCluster {
-		name := clusterName
-		if flags.catalogLab != "" {
-			name = flags.catalogLab
-		}
-		if err := func() error {
-			if before == nil {
-				return fmt.Errorf("the submitted run had no saved identity; the current lab was not deleted")
+			if output == "json" {
+				return printJSON(res.Result)
 			}
-			if options.beforeCleanup != nil {
-				options.beforeCleanup()
-			}
-			drep, err := ui.New("destroy", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless, Raw: status})
-			if err != nil {
-				return err
-			}
-			defer drep.Close()
-			info := teardownInfo{ClusterName: cfg.Metadata.Name, RunID: labops.RunID(before), Status: status, Teardown: cfg.Teardown, Runtime: cfg.Runtime, Config: cfg}
-			if err := destroyLab(info, baseDir, drep); err != nil {
-				return err
-			}
-			drep.Close()
-			fmt.Fprintf(status, "Lab %s deleted.\n", name)
-			if options.deleted != nil {
-				options.deleted()
-			}
+			printProgress(os.Stdout, res.Previous, res.Attempt)
+			fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, res.Passed, 0))
 			return nil
-		}(); err != nil {
-			return fmt.Errorf("result was recorded, but lab cleanup failed: %w; retry with astrona destroy %s", err, name)
-		}
+		},
+		BeforeCleanup: options.beforeCleanup,
+		Deleted:       options.deleted,
 	}
-	if !pass {
-		if sent || localRun {
+	if output == "json" {
+		req.UI.Raw = os.Stderr    // stdout is the JSON result
+		req.Out = nil             // no human report: the JSON is the output
+		req.ScriptOut = os.Stderr // and nothing else on stdout
+	}
+	if options.completed != nil {
+		req.Completed = func(res *labops.SubmitResult) { options.completed(res.Result, res.Sent, res.Recorded) }
+	}
+
+	if options.watch {
+		s, err := labops.PrepareSubmit(req)
+		if err != nil {
+			return err
+		}
+		s.Reporter.Close()
+		return watchGrading(s.Proctor, cfg, s.ClusterName, options.watchInterval, s.Exam, flags.headless)
+	}
+
+	res, err := labops.Submit(context.Background(), req)
+	if err != nil {
+		return err
+	}
+	if !res.Passed {
+		if res.Finished {
 			fmt.Fprintln(status, "Submission complete: FAIL. This attempt is finished; start a new run for another try.")
 		} else {
 			fmt.Fprintln(status, "Submission complete: FAIL. The lab stays available; start a new run for another tracked attempt.")
@@ -354,13 +238,6 @@ func checkWatchFlags(watch bool, output, junitPath string, history, keep bool) e
 		return fmt.Errorf("--keep only applies after a recorded submit; --watch never sends a result or deletes the lab")
 	}
 	return nil
-}
-
-// strictOverTime reports whether a passing grade doesn't count because the
-// exam's time limit has run out and the lab sets exam.strict — the one
-// rule both `submit` and `submit --watch` apply.
-func strictOverTime(examState *exam.State, strict, pass bool, now time.Time) bool {
-	return pass && strict && examState != nil && examState.Over(now)
 }
 
 // printProgress compares this attempt with the previous one: attempt
@@ -438,40 +315,9 @@ func printAttempts(w io.Writer, lab string, attempts []proctor.Attempt) {
 	fmt.Fprintf(w, "\nBest: %d/%d · %d attempt(s)\n", best.Earned, best.Max, len(attempts))
 }
 
-type checkJSON struct {
-	Name       string `json:"name"`
-	Pass       bool   `json:"pass"`
-	Points     int    `json:"points"`
-	Message    string `json:"message,omitempty"`
-	Hint       string `json:"hint,omitempty"`
-	DurationMs int64  `json:"durationMs"`
-}
-
-type submissionResult struct {
-	Lab         string      `json:"lab"`
-	Pass        bool        `json:"pass"`
-	Earned      int         `json:"earned"`
-	Max         int         `json:"max"`
-	Percent     float64     `json:"percent"`
-	PassPercent int         `json:"passPercent,omitempty"`
-	OverTime    bool        `json:"overTime,omitempty"`
-	Attempt     int         `json:"attempt"`
-	Time        time.Time   `json:"time"`
-	Checks      []checkJSON `json:"checks"`
-}
-
-// submissionJSON is `astrona submit -o json`. Hints are left out when the
-// lab hides them (exam conditions).
-func submissionJSON(cfg *config.LabConfig, lab string, results []proctor.CheckResult, pass, overTime bool, attempt int, hideHints bool, now time.Time) submissionResult {
-	sc := proctor.ScoreOf(results)
-	out := submissionResult{Lab: lab, Pass: pass, Earned: sc.Earned, Max: sc.Max, Percent: sc.Percent(),
-		PassPercent: cfg.Validation.PassPercent, OverTime: overTime, Attempt: attempt, Time: now, Checks: []checkJSON{}}
-	for _, r := range results {
-		c := checkJSON{Name: r.Name, Pass: r.Pass, Points: r.Points, Message: r.Message, DurationMs: r.Duration.Milliseconds()}
-		if !r.Pass && !hideHints {
-			c.Hint = r.Hint
-		}
-		out.Checks = append(out.Checks, c)
-	}
-	return out
-}
+// checkJSON and submissionResult are labops' Submission types under their
+// old names, for the workspace and the tests. S15 removes them.
+type (
+	checkJSON        = labops.SubmissionCheck
+	submissionResult = labops.Submission
+)

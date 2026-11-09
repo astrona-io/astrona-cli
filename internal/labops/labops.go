@@ -38,4 +38,14 @@
 // under the lock) and TearDownLabEnvironment, with outcomes written to
 // DestroyOptions.Out; ResolveKindLab, PlanStop/Stop and Start (returning a
 // StartResult) for `astrona stop`/`start`, which take no lab lock.
+//
+// Submit is `astrona submit` grading once: PrepareSubmit (validate, run
+// identity, trust, the lab running, its environment, the Proctor; `submit
+// --watch` re-grades from there), proctor.Evaluate — never Grade — with the
+// human report on SubmitRequest.Out (Proctor.Report), the recorded attempt,
+// the Graded hook where cmd writes JUnit and prints the result, SendResult
+// (texts capped by CapCheckTexts), and the cleanup of a finished attempt.
+// A failed grade is SubmitResult.Passed false, never an error; the exit
+// code is cmd's. FindSavedRun, PickRunningLab and RunningLabNames find
+// the lab to submit; SubmitHistory lists its attempts.
 package labops

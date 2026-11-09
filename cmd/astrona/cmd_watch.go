@@ -12,6 +12,7 @@ import (
 
 	"astrona/internal/config"
 	"astrona/internal/exam"
+	"astrona/internal/labops"
 	"astrona/internal/proctor"
 
 	"github.com/mattn/go-isatty"
@@ -98,7 +99,7 @@ func renderWatchBoard(results []proctor.CheckResult, pass bool, passPercent int,
 		line += " · Time: " + examState.Summary(now)
 	}
 	fmt.Fprintln(w, line)
-	if strictOverTime(examState, strict, pass, now) {
+	if labops.StrictOverTime(examState, strict, pass, now) {
 		fmt.Fprintf(w, "Over the time limit — a submit now would not count as a pass (exam.strict).\n")
 		return b.String()
 	}

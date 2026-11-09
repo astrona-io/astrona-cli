@@ -1,10 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
-	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/labops"
 
@@ -55,17 +53,8 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 	return lab.Config, lab.BaseDir, lab.Cleanup, nil
 }
 
-// requireRunningKindLab fails clearly when a kind lab isn't running — or
-// when the container engine itself isn't (which hides every lab).
+// requireRunningKindLab fails clearly when a kind lab isn't running
+// (labops.RequireRunningKindLab).
 func requireRunningKindLab(cfg *config.LabConfig, clusterName string) error {
-	if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" {
-		return nil
-	}
-	if _, err := cluster.DetectContainerEngine(); err != nil {
-		return err
-	}
-	if !kindClusterExists(clusterName) {
-		return fmt.Errorf("lab %s isn't running — start it: astrona run", clusterName)
-	}
-	return nil
+	return labops.RequireRunningKindLab(cfg, clusterName)
 }

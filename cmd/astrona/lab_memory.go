@@ -31,9 +31,6 @@ func applySource(flags *rootFlags, src *labstate.Source) {
 	flags.fromCurrent = false
 }
 
-// sourceHint is how to name a remembered lab on the command line.
-func sourceHint(src *labstate.Source) string { return labops.SourceHint(src) }
-
 // rememberLab records, once a lab is up, where its config came from and
 // the lab session it runs under. Best effort: a failure is only a warning.
 func rememberLab(clusterName string, flags *rootFlags, sess *labstate.Session) {
