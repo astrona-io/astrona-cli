@@ -1,5 +1,5 @@
 Astrona CLI usage terms and risk notice
-Revision: 2026-10-12
+Revision: 2026-11-10
 
 Astrona runs lab software on your machine. It can execute downloaded scripts,
 change Kubernetes contexts and networks, and create or delete containers, virtual
@@ -19,6 +19,11 @@ license or remove rights that cannot lawfully be excluded.
 
 License: https://www.apache.org/licenses/LICENSE-2.0
 The LICENSE file in the source repository contains the full license.
+
+While you are signed in and a lab runs, astrona sends that lab's CPU and memory
+use to your Astrona lab session, about every 15 seconds, to show it on your labs
+page. Run with --local-only, or turn it off with `astrona settings`, to send
+nothing.
 
 By accepting, you acknowledge these risks and the license terms. Acceptance is
 stored only on this machine; it is not sent to Astrona or linked to your account.

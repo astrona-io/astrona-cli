@@ -126,9 +126,10 @@ func SameSource(a, b *labstate.Source) bool {
 }
 
 // RunUsageReport is the summary of what a run used so far, for submit and
-// destroy; nil when it was never measured.
+// destroy; nil when it was never measured or usage samples are turned off in
+// settings.
 func RunUsageReport(clusterName string, st *labstate.State) *account.UsageReport {
-	if st == nil || st.StartedAt == "" {
+	if st == nil || st.StartedAt == "" || !UsageSamplesAllowed() {
 		return nil
 	}
 	u, err := labstate.ReadUsage(clusterName, st.StartedAt)

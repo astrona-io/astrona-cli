@@ -57,6 +57,11 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"astrona starts a lab session on Astrona; once the lab is ready it prints the lab page URL. " +
 			"Your matching course page connects to it without a redirect, and setup time never counts. Labs from " +
 			"your own files or repositories (-c / --git) run without signing in.\n\n" +
+			"While a signed-in lab runs, a background helper sends its CPU and memory use to the lab session every " +
+			"15 seconds, and submit and playground deletion send a usage summary; `astrona settings set usage-samples no` turns " +
+			"that off. --local-only keeps the whole run on this machine: astrona does not read your sign-in, starts no " +
+			"lab session and sends no progress, results or usage, and `astrona submit` records the result locally only. " +
+			"Starting a running lab over with --local-only detaches its session without closing it on Astrona.\n\n" +
 			"If the lab is already running, run asks whether to destroy it and start over (or keep it as " +
 			"it is); --yes starts over without asking and is required when not in a terminal. If other " +
 			"labs are running, it also offers to destroy them first — only when asked in a terminal; " +
@@ -200,7 +205,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			if flags.localOnly {
-				if !choice.startOver {
+				// --local-only on the command line has no UI restart notice:
+				// the run approved here (under the lab lock) is the one replaced.
+				if !choice.startOver || flags.uiRestart == nil {
 					st, err := labstate.Load(clusterName)
 					if err != nil {
 						return err
@@ -243,6 +250,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	legacy.Hidden, legacy.Deprecated = true, "use --headless instead"
 	cmd.Flags().BoolVar(&uiStartup, "ui-startup", false, "Confirm startup in the UI and return to Home")
 	cmd.Flags().Lookup("ui-startup").Hidden = true
+	cmd.Flags().BoolVar(&flags.localOnly, "local-only", false, "Keep this run on this machine: no lab session, progress, results or CPU/memory samples are sent to Astrona, even when signed in")
 	cmd.Flags().BoolVar(&withoutLogin, "without-login", false, "Confirm running a catalog lab without signing in or tracking progress on Astrona")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "If the lab is already running, destroy it and start over without asking")
 	cmd.AddCommand(newRunRenewCmd())

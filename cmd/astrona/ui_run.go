@@ -93,7 +93,7 @@ func prepareUIRunApproval(cmd *cobra.Command, flags *rootFlags) (uiRunApproval, 
 	preview := *flags
 	preview.uiRestart = restart
 	requestedRestart, _ := cmd.Flags().GetBool("yes")
-	preview.localOnly = restart != nil || requestedRestart
+	preview.localOnly = flags.localOnly || restart != nil || requestedRestart // --local-only stays local
 	approval = uiRunApproval{store: store, termsAccepted: accepted, restart: restart, localOnly: preview.localOnly, notice: buildUIRunNotice(cmd, &preview, !accepted)}
 	return approval, nil
 }

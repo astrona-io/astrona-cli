@@ -190,6 +190,11 @@ func preferenceChangeImpact(key, value string) string {
 			return "Offer login before each guest lab run so catalog progress can be tracked."
 		}
 		return "Allow guest lab runs without login reminders. You can still sign in with astrona login."
+	case "usage-samples":
+		if value == "true" {
+			return "While signed in, send each running lab's CPU and memory use to its Astrona lab session every 15 seconds, and a usage summary with submit and playground deletion."
+		}
+		return "Send no CPU or memory use for your labs: no usage reporter starts, a running one stops within 15 seconds, waiting samples are dropped, and submit and playground deletion send no usage summary."
 	case "update-check":
 		if value == "true" {
 			return "Allow release checks to show update notices. GitHub receives your IP address. CI, non-terminal sessions and development builds still skip checks."

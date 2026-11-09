@@ -38,6 +38,7 @@ func Definitions() []Definition {
 		{"parallel", "1", "Maximum linked clusters to start at once"},
 		{"ui-task-width", "30", "Task pane width as a percentage of the lab view (20–60)"},
 		{"login-reminder", "true", "Ask guests to log in before starting a lab; disabling this allows guest runs without reminders"},
+		{"usage-samples", "true", "While signed in, send a running lab's CPU and memory use to its Astrona lab session; no stops it"},
 		{"update-check", "true", "Check for new CLI releases and show update notices"},
 		{"cache-retention-days", strconv.Itoa(localdata.DefaultRetentionDays), "Maximum disposable-cache age in days (1–36500)"},
 		{"cache-max-size-gb", strconv.Itoa(localdata.DefaultMaxSizeGB), "Combined disposable-cache size in GB; 0 means unlimited"},
@@ -72,11 +73,11 @@ func ValidateParallel(n int) error {
 // Parse validates value for key and returns its normalized JSON form.
 func Parse(key, value string) (json.RawMessage, error) {
 	switch key {
-	case "verbose", "keep-context", "update-check", "login-reminder":
+	case "verbose", "keep-context", "update-check", "login-reminder", "usage-samples":
 		switch strings.ToLower(strings.TrimSpace(value)) {
-		case "yes", "y", "true":
+		case "yes", "y", "true", "on":
 			value = "true"
-		case "no", "n", "false":
+		case "no", "n", "false", "off":
 			value = "false"
 		default:
 			return nil, fmt.Errorf("%s must be yes or no", key)
@@ -110,6 +111,18 @@ func Parse(key, value string) (json.RawMessage, error) {
 		return nil, fmt.Errorf("unknown setting %q; run `astrona settings` to list supported settings", key)
 	}
 	return json.RawMessage(value), nil
+}
+
+// UsageSamples reports whether the settings in path allow sending a running
+// lab's CPU and memory samples (and its usage summary) to its lab session.
+// A settings file that cannot be read counts as no: when in doubt, send nothing.
+func UsageSamples(path string) bool {
+	saved, err := Load(path)
+	if err != nil {
+		return false
+	}
+	value, err := saved.Value("usage-samples")
+	return err == nil && string(value) == "true"
 }
 
 // ValueText shows a stored or typed value the way users answer: yes/no for

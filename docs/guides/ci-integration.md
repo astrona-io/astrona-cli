@@ -46,7 +46,7 @@ deprecated alias for existing scripts and prints a migration notice.
 
 | Commands | Headless behavior |
 | --- | --- |
-| `run`, `reset` | Set up Kind or QEMU without UI prompts or new account sessions. Replacing a run still requires `--yes`; soft and linked-cluster resets also require it. |
+| `run`, `reset` | Set up Kind or QEMU without UI prompts or new account sessions. Replacing a run still requires `--yes`; soft and linked-cluster resets also require it. `run --local-only` also marks the run local only, so a later `submit` records its result on this machine and sends nothing. |
 | `test`, `validate`, `check`, `doctor`, `diagnose` | Run with explicit approvals and static progress output. `test` retains automatic grading and cleanup. |
 | `submit` | Grade and send results for an existing tracked session. Automatically delete after a server-confirmed result, PASS or FAIL; use `--keep` to retain the lab. A local-only run (`--local-only`, a UI restart) has nothing to send, so its saved local result finishes it too. An unsent result of a tracked run keeps it. |
 | `start`, `stop`, `destroy`, `list`, `status`, `progress` | Use the normal command-line behavior and applicable approval rules. Lifecycle progress does not animate. |
