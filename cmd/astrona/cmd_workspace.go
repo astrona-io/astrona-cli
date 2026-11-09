@@ -243,8 +243,8 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		},
 		guard: func() error { return labops.GuardRun(name, runID) },
 		shell: func(alias string) error { return runLabShell(name, alias, nil) },
-		// A sent result finishes the attempt, PASS or FAIL, and deletes the
-		// lab as `astrona submit` does.
+		// A sent (or queued) PASS finishes the attempt and deletes the lab
+		// as `astrona submit` does; a FAIL keeps it for another submit.
 		submit: func() (string, bool, error) {
 			result, deleted := "", false
 			local := false

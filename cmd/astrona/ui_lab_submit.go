@@ -48,7 +48,7 @@ func (m workspaceModel) submitText() string {
 	if m.submitYes {
 		choices = "[ Yes ]      No"
 	}
-	return "Ready to submit this lab?\n\nRun the lab's checks and save the result.\nAccount results follow this run's tracking settings.\nOnce the result is sent, the attempt is finished and the lab is deleted.\n\n" + choices +
+	return "Ready to submit this lab?\n\nRun the lab's checks and save the result.\nAccount results follow this run's tracking settings.\nA FAIL keeps the lab: fix it and submit again.\nA sent PASS finishes the attempt and deletes the lab.\n\n" + choices +
 		"\n\n←/→ or Tab selects · Enter confirms\ny yes · n / Esc cancel"
 }
 
