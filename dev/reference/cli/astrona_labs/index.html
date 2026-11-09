@@ -4666,7 +4666,7 @@
   astrona run astrona.io/ATS014/section-010/module-01/lab-02
   astrona run astrona.io/ATS014/section-010/module-01/playground</p>
 <p>The name may start with the organization — astrona.io/ (as astrona.io shows it) or the GitHub owner astrona-io/ — or leave it out (ATS014/…); another owner is refused. A module's playground is found by its folder.</p>
-<p>A lab from the catalog is a remote lab: it's fetched with git and asks for your trust before it runs, like any --git lab. The catalog is cached for an hour (--refresh reads it again).</p>
+<p>A lab from the catalog is a remote lab: it's fetched with git and asks for your trust before it runs, like any --git lab. An official (astrona-io) lab runs without asking only when its commit is the one astrona.io publishes for the training and the checkout is unchanged; anything else asks as usual. The catalog is cached for an hour (--refresh reads it again).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona labs [training] [flags]
 </code></pre></div>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>

@@ -1520,6 +1520,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Approving remote labs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#official-labs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Official labs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -4580,6 +4597,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Approving remote labs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#official-labs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Official labs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -4656,12 +4690,24 @@
 <li>The approval is pinned: to the <strong>git commit</strong> for <code>--git</code>, to the <strong>SHA-256 of the config</strong> for a URL. Running the same version again doesn't ask; a new commit or a changed config asks again ("This lab changed since you approved it").</li>
 <li>Scripts and manifests with <code>type: url</code> are downloaded when they run, so their content isn't covered by the pin — they're flagged in the prompt.</li>
 <li>Local configs (<code>-c ./my-lab</code>) are your own files and never prompt.</li>
+<li><strong>Official catalog labs</strong> are pre-trusted, but only for the exact commit Astrona published — see <a href="#official-labs">Official labs</a>.</li>
 <li>Everything the lab supplies to the prompt (names, URLs, commands, resource descriptions) is shown on one line with control characters stripped, so a lab can't hide or fake lines of the prompt with terminal escape sequences or newlines. Resource listings (<code>astrona run</code>, <code>astrona docs</code>, <code>astrona res</code>) are cleaned the same way.</li>
 <li><code>astrona destroy</code> asks too, before running a remote lab's teardown scripts (only if it has any). Declining — or no terminal and no <code>--trust</code> — doesn't stop the destroy: the teardown scripts are skipped with a warning and the lab is removed anyway.</li>
 <li><strong>CI / no terminal:</strong> without a terminal, an unapproved remote lab is refused. Pass <code>--trust</code> to approve it — e.g. <code>astrona test --git https://github.com/org/labs --config labs/lab-01 --trust</code>. CI that tests its own checkout (<code>-c .</code>) needs nothing.</li>
 <li>Approvals are stored in <code>~/.astrona/trust.json</code>; delete an entry (or the file) to be asked again.</li>
 <li>A lab whose <code>astronaVersion</code> sends it to another installed astrona is approved here first, before the hand-over — never by the version it asks for (see <a href="../astrona-versions/#what-happens-when-a-lab-needs-another-version">Astrona Versions</a>).</li>
 </ul>
+<h3 id="official-labs">Official labs<a class="headerlink" href="#official-labs" title="Permanent link">&para;</a></h3>
+<p>A lab you run by its catalog name from an official training (a repository in the <code>astrona-io</code> GitHub organization, see <a href="../lab-catalog/">Lab Catalog</a>) runs without the prompt when its content is exactly what Astrona published. Trust is bound to the content, never to the name or URL alone. All of these must hold:</p>
+<ul>
+<li>you named it from the catalog (<code>astrona run astrona.io/ATS014/…</code>), and it is fetched from <code>https://github.com/astrona-io/&lt;repository&gt;</code>;</li>
+<li>the checked-out <strong>git commit</strong> equals the commit astrona.io publishes for that training — the commit Astrona synced the training's catalog entry from, read from <code>https://astrona.io/api/labs</code> over HTTPS when the lab is checked;</li>
+<li>the checkout has no local changes.</li>
+</ul>
+<p>astrona then prints one line on stderr and goes ahead:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Trusted as an official Astrona lab at 3f9c2e7a0d41b6c8e5f2a9d7b1c4e6f8a0b2d4c6 (published by https://astrona.io).
+</code></pre></div>
+<p>Anything else falls back to the normal prompt, with a line saying why: a different commit (a push astrona.io hasn't synced yet, another ref), a training with no published commit, astrona.io not reachable, local changes, a fork or another host, or a lab from a source you added. Only <code>https://astrona.io</code> vouches for official labs — a site set with <code>ASTRONA_URL</code> or a sign-in elsewhere never does (except in an unversioned development build, for testing a local stack). Nothing is written to <code>~/.astrona/trust.json</code>: the next run checks again. <code>--trust</code> works as before; without a terminal (<code>--headless</code>, CI) an official lab at its published commit runs, and any other remote lab still needs <code>--trust</code>.</p>
 
 
 
