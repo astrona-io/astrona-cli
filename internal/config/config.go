@@ -253,6 +253,11 @@ type ResourceItem struct {
 	// see ValidationCheck.
 	Hint   string `yaml:"hint"`
 	Points int    `yaml:"points"`
+	// Timeout is a Go duration ("90s", "10m") a script may run before its
+	// process group is killed — the whole folder for a folder source.
+	// Defaults: DefaultScriptTimeout (bootstrap/testing/teardown),
+	// DefaultValidationScriptTimeout (validation). Not for manifests.
+	Timeout string `yaml:"timeout"`
 }
 
 type BootstrapConfig struct {
@@ -295,6 +300,10 @@ type ValidationCheck struct {
 	// Cluster grades this check in a linked cluster instead of the lab's
 	// own (the name of an entry in runtime.kind.clusters). Not for http checks.
 	Cluster string `yaml:"cluster"`
+	// Timeout is a Go duration ("30s", "2m") the check may take before it
+	// is stopped and fails; default DefaultCheckTimeout. For podReady it is
+	// also how long to wait for readiness.
+	Timeout string `yaml:"timeout"`
 }
 
 type ValidationConfig struct {

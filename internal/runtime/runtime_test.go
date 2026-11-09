@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +18,7 @@ import (
 // distinguish which one got picked, never actually run anything.
 type fakeExecutor struct{ id string }
 
-func (f fakeExecutor) RunScript(string, io.Writer) error { return nil }
+func (f fakeExecutor) RunScript(context.Context, string, io.Writer) error { return nil }
 
 func TestLabEnvironmentExecutorForVM(t *testing.T) {
 	t.Run("vm name resolves to the matching executor", func(t *testing.T) {

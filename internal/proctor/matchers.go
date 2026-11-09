@@ -1,8 +1,10 @@
 package proctor
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"astrona/internal/config"
+	"astrona/internal/executor"
 )
 
 // matchOutput applies every matcher a check sets (expect = exact,
@@ -84,14 +87,25 @@ var httpClient = &http.Client{Timeout: httpCheckTimeout}
 
 // httpCheck GETs c.URL and checks the status (default 200) and, if any
 // matcher is set, the body. Scheme/host were validated at config load
-// (http/https only).
+// (http/https only). The request is bounded by httpCheckTimeout, or by the
+// check's own timeout when it sets one.
 func httpCheck(c config.ValidationCheck) (bool, string) {
 	want := c.ExpectStatus
 	if want == 0 {
 		want = http.StatusOK
 	}
-	resp, err := httpClient.Get(c.URL)
+	client := httpClient
+	if c.Timeout != "" {
+		cp := *httpClient
+		cp.Timeout = c.EffectiveTimeout()
+		client = &cp
+	}
+	resp, err := client.Get(c.URL)
 	if err != nil {
+		var ne net.Error
+		if errors.As(err, &ne) && ne.Timeout() {
+			return false, fmt.Sprintf("GET %s timed out after %s", c.URL, executor.FormatTimeout(client.Timeout))
+		}
 		return false, fmt.Sprintf("GET %s failed: %s", c.URL, err)
 	}
 	defer resp.Body.Close()

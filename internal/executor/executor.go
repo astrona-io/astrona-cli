@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -19,8 +20,12 @@ import (
 // out receives the script's combined stdout and stderr; callers pass the
 // writer their progress UI hands them (a per-step capture/log sink), so a
 // script's chatter only reaches the terminal when the caller wants it to.
+//
+// ctx bounds the run: when it ends, the script's whole process group is
+// killed (see Command). Callers set its deadline from the item's timeout
+// and turn the result into a *TimeoutError with Timed.
 type ScriptExecutor interface {
-	RunScript(scriptPath string, out io.Writer) error
+	RunScript(ctx context.Context, scriptPath string, out io.Writer) error
 }
 
 // LocalExecutor runs a script on the host with bash. This is the same
@@ -36,12 +41,12 @@ type LocalExecutor struct {
 	ExtraEnv []string
 }
 
-func (e LocalExecutor) RunScript(scriptPath string, out io.Writer) error {
-	cmd := exec.Command("bash", scriptPath)
+func (e LocalExecutor) RunScript(ctx context.Context, scriptPath string, out io.Writer) error {
+	cmd := Command(ctx, "bash", scriptPath)
 	cmd.Env = Env(e.Kubeconfig, e.ExtraEnv)
 	cmd.Stdout = out
 	cmd.Stderr = out
-	return cmd.Run()
+	return Run(cmd)
 }
 
 // KubeconfigEnv is the current environment with KUBECONFIG set to
@@ -79,7 +84,10 @@ type SSHExecutor struct {
 	KnownHosts string
 }
 
-func (s SSHExecutor) RunScript(scriptPath string, out io.Writer) error {
+// On timeout the local ssh is killed, which closes the session: the remote
+// shell gets SIGHUP, and the script's children inside the VM go with it
+// unless they ignore that.
+func (s SSHExecutor) RunScript(ctx context.Context, scriptPath string, out io.Writer) error {
 	f, err := os.Open(scriptPath)
 	if err != nil {
 		return fmt.Errorf("failed to open script '%s': %w", scriptPath, err)
@@ -97,11 +105,11 @@ func (s SSHExecutor) RunScript(scriptPath string, out io.Writer) error {
 		"bash", "-s",
 	)
 
-	cmd := exec.Command("ssh", args...)
+	cmd := Command(ctx, "ssh", args...)
 	cmd.Stdin = f
 	cmd.Stdout = out
 	cmd.Stderr = out
-	err = cmd.Run()
+	err = Run(cmd)
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) && exitErr.ExitCode() == sshFailureExit {
 		return &SSHConnectError{Host: s.Host, Port: s.Port}

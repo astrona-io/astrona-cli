@@ -58,7 +58,18 @@ func runInitScripts(scripts []config.ResourceItem, baseDir string, exec executor
 	return nil
 }
 
+// runInitScript runs one bootstrap/testing/teardown entry. Its timeout
+// (config.DefaultScriptTimeout unless set) covers the whole entry — every
+// file of a folder source together; past it the running script's process
+// group is killed and the error is an *executor.TimeoutError.
 func runInitScript(s config.ResourceItem, baseDir string, exec executor.ScriptExecutor, out io.Writer) error {
+	limit := s.EffectiveTimeout(config.DefaultScriptTimeout)
+	ctx, cancel := executor.WithTimeout(limit)
+	defer cancel()
+	run := func(path string) error {
+		return executor.Timed(ctx, limit, exec.RunScript(ctx, path, out))
+	}
+
 	switch strings.ToLower(s.Type) {
 	case "url":
 		tmpPath, cleanup, err := config.DownloadToTemp(s.Source, "astrona-script-*.sh", MaxScriptDownloadBytes)
@@ -66,7 +77,7 @@ func runInitScript(s config.ResourceItem, baseDir string, exec executor.ScriptEx
 			return fmt.Errorf("failed to download script from %s: %w", s.Source, err)
 		}
 
-		err = exec.RunScript(tmpPath, out)
+		err = run(tmpPath)
 		cleanup()
 
 		if err != nil {
@@ -82,7 +93,7 @@ func runInitScript(s config.ResourceItem, baseDir string, exec executor.ScriptEx
 			return fmt.Errorf("local script file does not exist %s: %w", resolved, err)
 		}
 
-		if err := exec.RunScript(resolved, out); err != nil {
+		if err := run(resolved); err != nil {
 			return fmt.Errorf("failed to run script '%s': %w", s.Name, err)
 		}
 	case "folder":
@@ -107,7 +118,7 @@ func runInitScript(s config.ResourceItem, baseDir string, exec executor.ScriptEx
 		}
 		for _, name := range folderScripts {
 			scriptFile := filepath.Join(resolved, name)
-			if err := exec.RunScript(scriptFile, out); err != nil {
+			if err := run(scriptFile); err != nil {
 				return fmt.Errorf("failed to run script '%s' in folder '%s': %w", name, s.Name, err)
 			}
 		}

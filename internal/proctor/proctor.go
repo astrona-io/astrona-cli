@@ -5,6 +5,7 @@
 package proctor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -93,14 +94,16 @@ type Proctor struct {
 	// Quiet). podReadyTimeout bounds podReady checks (60s unless Quiet).
 	scriptOut       io.Writer
 	podReadyTimeout time.Duration
+	quiet           bool
 }
 
 // Quiet makes Evaluate suitable for repeated, live re-grading (`submit
 // --watch`): validation script output is discarded and podReady checks
-// give up after 2s instead of waiting up to a minute.
+// give up after 2s instead of waiting up to a minute (or their timeout).
 func (p *Proctor) Quiet() {
 	p.scriptOut = io.Discard
 	p.podReadyTimeout = 2 * time.Second
+	p.quiet = true
 }
 
 // ScriptOutputTo sends validation scripts' output to w instead of stdout —
@@ -251,28 +254,47 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 				}
 			}
 			if !reachable[t] {
-				if out, err := kubectl(kubectlPath, t.kubeconfig, "--context", t.context, "--request-timeout=10s", "get", "--raw=/readyz"); err != nil {
-					return nil, fmt.Errorf("the lab's cluster (%s) isn't reachable, so check '%s' can't be graded: %s", t.context, c.Name, out)
+				ctx, cancel := executor.WithTimeout(reachabilityTimeout)
+				out, err := kubectl(ctx, reachabilityTimeout, kubectlPath, t.kubeconfig, "--context", t.context, "--request-timeout=10s", "get", "--raw=/readyz")
+				cancel()
+				if err != nil {
+					return nil, fmt.Errorf("the lab's cluster (%s) isn't reachable, so check '%s' can't be graded: %s", t.context, c.Name, withTimeout(out, err))
 				}
 				reachable[t] = true
 			}
 		}
 
+		// Every check is bounded (its timeout, default 1m): past it the
+		// command's whole process group is killed and the check fails
+		// with "timed out after …". podReady waits for its own
+		// --timeout, so its hard limit is that plus a grace period.
+		limit := c.EffectiveTimeout()
+		podWait := p.podReadyTimeout
+		if strings.EqualFold(c.Type, "podready") {
+			if c.Timeout != "" && !p.quiet {
+				podWait = limit
+			}
+			limit = podWait + podReadyGrace
+		}
+		ctx, cancel := executor.WithTimeout(limit)
+
 		switch strings.ToLower(c.Type) {
 		case "resourceexists":
 			args := append([]string{"--context", t.context, "get"}, resourceArgs...)
-			cmd := exec.Command(kubectlPath, args...)
+			cmd := executor.Command(ctx, kubectlPath, args...)
 			cmd.Env = executor.KubeconfigEnv(t.kubeconfig)
-			out, err := cmd.CombinedOutput()
+			out, err := executor.CombinedOutput(cmd)
+			err = executor.Timed(ctx, limit, err)
 			result.Pass = err == nil
-			result.Message = strings.TrimSpace(string(out))
+			result.Message = withTimeout(strings.TrimSpace(string(out)), err)
 		case "podready":
-			args := append([]string{"--context", t.context, "wait", "--for=condition=Ready", fmt.Sprintf("--timeout=%ds", int(p.podReadyTimeout.Seconds()))}, resourceArgs...)
-			cmd := exec.Command(kubectlPath, args...)
+			args := append([]string{"--context", t.context, "wait", "--for=condition=Ready", fmt.Sprintf("--timeout=%ds", int(podWait.Seconds()))}, resourceArgs...)
+			cmd := executor.Command(ctx, kubectlPath, args...)
 			cmd.Env = executor.KubeconfigEnv(t.kubeconfig)
-			out, err := cmd.CombinedOutput()
+			out, err := executor.CombinedOutput(cmd)
+			err = executor.Timed(ctx, limit, err)
 			result.Pass = err == nil
-			result.Message = strings.TrimSpace(string(out))
+			result.Message = withTimeout(strings.TrimSpace(string(out)), err)
 		case "command":
 			parts := strings.Fields(c.Command)
 			if len(parts) == 0 {
@@ -281,13 +303,18 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 				break
 			}
 
-			cmd := exec.Command(parts[0], parts[1:]...)
+			cmd := executor.Command(ctx, parts[0], parts[1:]...)
 			// Same KUBECONFIG lab scripts get, so a `kubectl ...` command
 			// check grades the lab's cluster, not the user's own context —
 			// or the linked cluster's, for a check with cluster.
 			cmd.Env = executor.Env(t.kubeconfig, p.env.ExtraEnv)
-			out, err := cmd.CombinedOutput()
+			out, err := executor.CombinedOutput(cmd)
+			err = executor.Timed(ctx, limit, err)
 			trimmed := strings.TrimSpace(string(out))
+			if executor.IsTimeout(err) {
+				result.Message = withTimeout(trimmed, err)
+				break
+			}
 
 			ok, why := matchOutput(c, trimmed)
 			result.Pass = err == nil && ok
@@ -295,9 +322,9 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 		case "jsonpath":
 			args := append([]string{"--context", t.context, "get"}, resourceArgs...)
 			args = append(args, "-o", "jsonpath="+c.JSONPath)
-			out, err := kubectl(kubectlPath, t.kubeconfig, args...)
+			out, err := kubectl(ctx, limit, kubectlPath, t.kubeconfig, args...)
 			if err != nil {
-				result.Message = out
+				result.Message = withTimeout(out, err)
 				break
 			}
 			ok, why := matchOutput(c, out)
@@ -307,9 +334,9 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 			}
 		case "count":
 			args := append([]string{"--context", t.context, "get"}, resourceArgs...)
-			out, err := kubectl(kubectlPath, t.kubeconfig, append(args, "-o", "name")...)
+			out, err := kubectl(ctx, limit, kubectlPath, t.kubeconfig, append(args, "-o", "name")...)
 			if err != nil {
-				result.Message = out
+				result.Message = withTimeout(out, err)
 				break
 			}
 			n := countLines(out)
@@ -321,6 +348,7 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 			result.Pass = false
 			result.Message = fmt.Sprintf("unsupported check type '%s'", c.Type)
 		}
+		cancel()
 
 		result.Duration = time.Since(checkStart)
 		results = append(results, result)
@@ -349,18 +377,41 @@ func (p *Proctor) targetFor(c config.ValidationCheck) (checkTarget, error) {
 	return checkTarget{context: l.Context(), kubeconfig: cluster.ExistingKubeconfig(l.Cluster)}, nil
 }
 
-// kubectl runs kubectl with kubeconfig and returns trimmed stdout — or,
-// on failure, trimmed stdout+stderr as the error detail.
-func kubectl(kubectlPath, kubeconfig string, args ...string) (string, error) {
-	cmd := exec.Command(kubectlPath, args...)
+// kubectl runs kubectl with kubeconfig, bounded by ctx (whose deadline is
+// limit), and returns trimmed stdout — or, on failure, trimmed
+// stdout+stderr as the error detail. A timeout is an
+// *executor.TimeoutError.
+func kubectl(ctx context.Context, limit time.Duration, kubectlPath, kubeconfig string, args ...string) (string, error) {
+	cmd := executor.Command(ctx, kubectlPath, args...)
 	cmd.Env = executor.KubeconfigEnv(kubeconfig)
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
+	if err := executor.Timed(ctx, limit, executor.Run(cmd)); err != nil {
 		return strings.TrimSpace(stdout.String() + "\n" + stderr.String()), err
 	}
 	return strings.TrimSpace(stdout.String()), nil
+}
+
+const (
+	// podReadyGrace is how long past its own --timeout a podReady
+	// `kubectl wait` may run before it is killed.
+	podReadyGrace = 15 * time.Second
+	// reachabilityTimeout bounds the /readyz probe before a lab's first
+	// Kubernetes check (kubectl's own --request-timeout is 10s).
+	reachabilityTimeout = 30 * time.Second
+)
+
+// withTimeout is a check's message: its output, plus "timed out after …"
+// when err is a timeout.
+func withTimeout(out string, err error) string {
+	if !executor.IsTimeout(err) {
+		return out
+	}
+	if out == "" {
+		return err.Error()
+	}
+	return err.Error() + " — output so far: " + out
 }
 
 // gradeScripts runs every validation script this lab defines: the shared
@@ -422,7 +473,7 @@ func (p *Proctor) runValidationBlock(val config.ValidationConfig, executor execu
 			continue
 		}
 		scriptStart := time.Now()
-		scriptPass, err := p.runScript(&scriptItem, executor)
+		scriptPass, message, err := p.runScript(&scriptItem, executor)
 		if err != nil {
 			return nil, err
 		}
@@ -438,6 +489,7 @@ func (p *Proctor) runValidationBlock(val config.ValidationConfig, executor execu
 		results = append(results, CheckResult{
 			Name:     name,
 			Pass:     scriptPass,
+			Message:  message,
 			Duration: time.Since(scriptStart),
 			Hint:     scriptItem.Hint,
 			Points:   config.EffectivePoints(scriptItem.Points),
@@ -450,8 +502,19 @@ func (p *Proctor) runValidationBlock(val config.ValidationConfig, executor execu
 // runScript runs a single validation script through executor. Exit code 0
 // is a pass, non-zero is a fail — a failing lab is a normal outcome, not a
 // Go error, so only a real execution problem (script missing, bash not
-// found, SSH unable to reach the VM) is returned as an error.
-func (p *Proctor) runScript(script *config.ResourceItem, executor executor.ScriptExecutor) (bool, error) {
+// found, SSH unable to reach the VM) is returned as an error. A script
+// that runs past its timeout (config.DefaultValidationScriptTimeout unless
+// set) is killed with everything it started and fails, with message
+// "timed out after …".
+func (p *Proctor) runScript(script *config.ResourceItem, ex executor.ScriptExecutor) (bool, string, error) {
+	pass, err := p.runScriptErr(script, ex)
+	if executor.IsTimeout(err) {
+		return false, err.Error(), nil
+	}
+	return pass, "", err
+}
+
+func (p *Proctor) runScriptErr(script *config.ResourceItem, ex executor.ScriptExecutor) (bool, error) {
 	if script == nil || script.Source == "" {
 		return false, fmt.Errorf("validation script has no source")
 	}
@@ -481,7 +544,13 @@ func (p *Proctor) runScript(script *config.ResourceItem, executor executor.Scrip
 	}
 	defer cleanup()
 
-	if err := executor.RunScript(scriptPath, p.scriptOut); err != nil {
+	limit := script.EffectiveTimeout(config.DefaultValidationScriptTimeout)
+	ctx, cancel := executor.WithTimeout(limit)
+	defer cancel()
+	if err := executor.Timed(ctx, limit, ex.RunScript(ctx, scriptPath, p.scriptOut)); err != nil {
+		if executor.IsTimeout(err) {
+			return false, err
+		}
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) {
 			return false, nil
