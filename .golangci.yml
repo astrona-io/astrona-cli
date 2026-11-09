@@ -164,6 +164,10 @@ linters:
             - "**/internal/lifecycle/**"
             - "**/internal/diagnostics/**"
             - "**/internal/labshell/**"
+            # The PTY bridge runs a terminal command it is handed (from
+            # labshell or the student SSH login); it never grades, checks
+            # the host or builds a lab, and the workspace adapts it.
+            - "**/internal/termbridge/**"
           deny:
             - pkg: "astrona/internal/proctor"
               desc: "runtimes must not know about grading"
