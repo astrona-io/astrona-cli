@@ -17,7 +17,8 @@
 //     instead of growing a queue.
 //   - One writer. Only the most recently attached Client may write input or
 //     resize the terminal. A new Attach takes over and the previous Client
-//     gets ErrTakenOver, so two tabs never type into the same shell.
+//     gets ErrTakenOver, so two tabs never type into the same shell. A write
+//     in progress at takeover stops within one 1 KiB chunk.
 //   - Clean shutdown. When the process exits, or Close ends it, the bridge
 //     reaps the process, runs the command's Cancel hook (which removes an
 //     isolated terminal container), closes the PTY and stops every goroutine
@@ -51,6 +52,9 @@ const (
 	MaxDimension = 1000
 
 	readChunk = 32 << 10
+	// writeChunk bounds how much input of a replaced view can still reach
+	// the shell after a takeover.
+	writeChunk = 1 << 10
 	// closeGrace is how long Close waits after hanging up the terminal
 	// before it kills the process.
 	closeGrace = 3 * time.Second
@@ -94,6 +98,10 @@ type Session struct {
 	current *Client
 	ended   bool  // process reaped and output drained
 	exitErr error // cmd.Wait's result
+
+	// writeMu serialises Client.Write, so a replaced view's input cannot
+	// interleave with the new view's.
+	writeMu sync.Mutex
 
 	closeOnce sync.Once
 	done      chan struct{}
@@ -238,6 +246,7 @@ func (s *Session) Attach() (*Client, []byte) {
 	defer s.mu.Unlock()
 	if s.current != nil {
 		s.current.reason = ErrTakenOver
+		s.stopWriter()
 	}
 	c := &Client{s: s, pos: s.total}
 	s.current = c
@@ -317,23 +326,47 @@ func (c *Client) Read(p []byte) (int, error) {
 }
 
 // Write sends input to the terminal. Only the attached Client may write.
+// Input goes out in small chunks, and the Client is checked before each
+// one, so a large write stops at the next chunk once another view takes
+// over (Attach also interrupts a write blocked on a full input queue). It
+// then returns the bytes already sent and ErrTakenOver.
 func (c *Client) Write(p []byte) (int, error) {
-	if err := c.usable(); err != nil {
-		return 0, err
+	s := c.s
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	// Clear a deadline Attach set to stop a previous writer.
+	_ = s.master.SetWriteDeadline(time.Time{})
+	n := 0
+	for n < len(p) {
+		if err := c.usable(); err != nil {
+			return n, err
+		}
+		m, err := s.master.Write(p[n:min(n+writeChunk, len(p))])
+		n += m
+		if err != nil {
+			if stopped := c.usable(); stopped != nil {
+				return n, stopped
+			}
+			return n, err
+		}
 	}
-	return c.s.master.Write(p)
+	return n, nil
 }
 
-// Resize sets the terminal size. Only the attached Client may resize.
+// Resize sets the terminal size. Only the attached Client may resize; the
+// check and the resize happen under one lock, so a replaced view cannot
+// overwrite the new view's size.
 func (c *Client) Resize(cols, rows int) error {
 	ws, err := winsize(cols, rows)
 	if err != nil {
 		return err
 	}
-	if err := c.usable(); err != nil {
+	c.s.mu.Lock()
+	defer c.s.mu.Unlock()
+	if err := c.usableLocked(); err != nil {
 		return err
 	}
-	return pty.Setsize(c.s.master, ws)
+	return setsize(c.s.master, ws.Cols, ws.Rows)
 }
 
 // Close detaches the Client. The process keeps running.
@@ -351,13 +384,25 @@ func (c *Client) detach(reason error) {
 	c.reason = reason
 	if c.s.current == c {
 		c.s.current = nil
+		c.s.stopWriter()
 	}
 	c.s.cond.Broadcast()
+}
+
+// stopWriter interrupts a Write of the view that just stopped being the
+// current one, if it is blocked on a full input queue. The next Write
+// clears the deadline under writeMu. Called with s.mu held.
+func (s *Session) stopWriter() {
+	_ = s.master.SetWriteDeadline(time.Now())
 }
 
 func (c *Client) usable() error {
 	c.s.mu.Lock()
 	defer c.s.mu.Unlock()
+	return c.usableLocked()
+}
+
+func (c *Client) usableLocked() error {
 	if c.reason != nil {
 		return c.reason
 	}
