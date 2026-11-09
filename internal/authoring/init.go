@@ -1,6 +1,14 @@
 // Package authoring holds the lab-author workflows behind `astrona init`
 // and friends, free of Cobra so other front ends can call them. The
 // commands, flags and printing stay in cmd/astrona.
+//
+// `astrona validate` is CheckConfig (a preflight.ConfigChecker, which cmd
+// also hands to check, doctor and run) wrapped by ValidateConfig into a
+// ValidateReport. `astrona bundle` is PrepareBundle/CreateBundle (a
+// BundleResult), OpenBundle/Install for load, and InspectBundle; the trust
+// prompt for a loaded bundle and all printing stay in cmd. Results and
+// errors are returned, never printed: progress goes to the *ui.Reporter or
+// io.Writer the caller passes.
 package authoring
 
 import (

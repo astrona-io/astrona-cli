@@ -2,130 +2,19 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 
+	"astrona/internal/authoring"
 	"astrona/internal/config"
-	"astrona/internal/labops"
-	"astrona/internal/lifecycle"
-	"astrona/internal/resources"
-	"astrona/internal/scripts"
+	"astrona/internal/preflight"
 
 	"github.com/spf13/cobra"
 )
 
-// labConfigResults checks a loaded lab config without creating anything:
-// unknown fields (typos), the semantic validation `run` does, check types,
-// and that every local script/manifest/doc it references exists. baseDir
-// is "" for a config fetched from a URL — file checks are skipped then.
-func labConfigResults(cfg *config.LabConfig, baseDir string) []checkResult {
-	var res []checkResult
-	fail := func(name, detail string) {
-		res = append(res, checkResult{Status: checkFail, Name: name, Detail: detail})
-	}
-
-	for _, u := range cfg.UnknownFields {
-		r := checkResult{Status: checkFail, Name: fmt.Sprintf("line %d", u.Line), Detail: fmt.Sprintf("unknown field %q in %s", u.Field, u.In)}
-		if u.Suggestion != "" {
-			r.Hint = fmt.Sprintf("did you mean %q?", u.Suggestion)
-		}
-		res = append(res, r)
-	}
-
-	for _, d := range cfg.Deprecations {
-		res = append(res, checkResult{Status: checkWarn, Name: "deprecated", Detail: d})
-	}
-	if cfg.Metadata.Name == "" {
-		fail("metadata.name", "missing — the lab would be named 'astrona-lab'")
-	}
-	if err := lifecycle.Validate(cfg); err != nil {
-		fail("runtime / gates", err.Error())
-	}
-	// A warning, not a failure: an ungraded playground is a valid lab to
-	// run — only `submit` and `test` refuse it.
-	if !cfg.HasGrading() {
-		res = append(res, checkResult{Status: checkWarn, Name: "validation", Detail: "nothing to grade — no checks and no scripts, so `astrona submit` and `astrona test` exit 1 (fine for a playground)"})
-	}
-	for i, c := range cfg.Validation.Checks {
-		known := false
-		for _, t := range config.CheckTypes {
-			known = known || strings.EqualFold(t, c.Type)
-		}
-		if !known {
-			fail(fmt.Sprintf("validation.checks[%d]", i), fmt.Sprintf("unsupported type '%s' (%s)", c.Type, strings.Join(config.CheckTypes, ", ")))
-		}
-	}
-
-	if baseDir == "" {
-		// No folder to check against, but an absolute local source is
-		// wrong wherever the config lives.
-		for _, ref := range labops.ResourceRefs(cfg) {
-			if t := strings.ToLower(ref.Item.Type); (t == "file" || t == "folder") && filepath.IsAbs(ref.Item.Source) {
-				fail(ref.Where, fmt.Sprintf("path '%s' must be relative to the lab directory, not absolute", ref.Item.Source))
-			}
-		}
-		res = append(res, checkResult{Status: checkWarn, Name: "sources", Detail: "config loaded from a URL — local file references not checked"})
-		return res
-	}
-	for _, ref := range labops.ResourceRefs(cfg) {
-		if _, err := scripts.ResolveLocalSource(ref.Item, baseDir); err != nil {
-			fail(ref.Where, err.Error())
-		}
-	}
-	// A qemu base image of type file is read from the lab directory too
-	// (existence isn't checked: the source may contain {ARCH}).
-	for i, vm := range cfg.Runtime.QEMU {
-		if strings.EqualFold(vm.Image.Type, "file") && vm.Image.Source != "" {
-			if _, err := config.JoinWithinBaseDir(baseDir, vm.Image.Source); err != nil {
-				fail(fmt.Sprintf("runtime.qemu[%d].image.source", i), err.Error())
-			}
-		}
-	}
-	if list, err := resources.Collect(cfg, baseDir); err != nil {
-		fail("resources", err.Error())
-	} else if len(list) > 0 {
-		names := make([]string, len(list))
-		for i, r := range list {
-			names[i] = r.Name
-		}
-		res = append(res, checkResult{Name: "resources", Detail: fmt.Sprintf("%d in %s/: %s", len(list), config.ResourcesDir, strings.Join(names, ", "))})
-	}
-	docs := docRefs(cfg)
-	for _, where := range sortedKeysOf(docs) {
-		path := docs[where]
-		full, err := config.JoinWithinBaseDir(baseDir, path)
-		if err != nil {
-			res = append(res, checkResult{Status: checkWarn, Name: where, Detail: err.Error()})
-			continue
-		}
-		if _, err := os.Stat(full); err != nil {
-			res = append(res, checkResult{Status: checkWarn, Name: where, Detail: fmt.Sprintf("'%s' not found", path)})
-		}
-	}
-
-	if len(res) == 0 {
-		res = append(res, checkResult{Name: "lab config", Detail: "valid"})
-	}
-	return res
-}
-
-func docRefs(cfg *config.LabConfig) map[string]string {
-	refs := map[string]string{}
-	d := cfg.Metadata.Docs
-	for where, path := range map[string]string{
-		"metadata.docs.prerequisites": d.Prerequisites,
-		"metadata.docs.question":      d.Question,
-		"metadata.docs.caseStudy":     d.CaseStudy,
-		"metadata.docs.solution":      d.Solution,
-	} {
-		if path != "" {
-			refs[where] = path
-		}
-	}
-	return refs
-}
+// labConfigResults checks a loaded lab config without creating anything
+// (authoring.CheckConfig). It is the preflight.ConfigChecker that check,
+// doctor and run pass to the lab checks.
+var labConfigResults preflight.ConfigChecker = authoring.CheckConfig
 
 func newValidateCmd(flags *rootFlags) *cobra.Command {
 	var output string
@@ -168,12 +57,8 @@ func newValidateCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer cleanup()
 
-			baseDir := ""
-			if !strings.HasPrefix(finalPath, "http://") && !strings.HasPrefix(finalPath, "https://") {
-				baseDir = filepath.Dir(finalPath)
-			}
-
-			failed := rep.section(finalPath, labConfigResults(cfg, baseDir))
+			vr := authoring.ValidateConfig(cfg, finalPath)
+			failed := rep.section(vr.Path, vr.Results)
 			if rep.json {
 				return rep.done(fmt.Errorf("%d problem(s) in the lab config", failed))
 			}
@@ -186,13 +71,4 @@ func newValidateCmd(flags *rootFlags) *cobra.Command {
 	}
 	addOutputFlag(cmd, &output)
 	return cmd
-}
-
-func sortedKeysOf(m map[string]string) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }
