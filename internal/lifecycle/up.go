@@ -47,6 +47,9 @@ func Validate(cfg *config.LabConfig) error {
 	if err := config.ValidateScoring(cfg); err != nil {
 		return err
 	}
+	if err := config.ValidateTimeouts(cfg); err != nil {
+		return err
+	}
 	if err := config.ValidateWaitFor(cfg); err != nil {
 		return err
 	}

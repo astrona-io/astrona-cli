@@ -2,6 +2,7 @@ package executor
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +27,7 @@ func TestLocalExecutorExportsKubeconfig(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	if err := (LocalExecutor{Kubeconfig: "/lab/kubeconfig"}).RunScript(script, &out); err != nil {
+	if err := (LocalExecutor{Kubeconfig: "/lab/kubeconfig"}).RunScript(context.Background(), script, &out); err != nil {
 		t.Fatal(err)
 	}
 	if got := strings.TrimSpace(out.String()); got != "/lab/kubeconfig" {
@@ -34,7 +35,7 @@ func TestLocalExecutorExportsKubeconfig(t *testing.T) {
 	}
 
 	out.Reset()
-	if err := (LocalExecutor{}).RunScript(script, &out); err != nil {
+	if err := (LocalExecutor{}).RunScript(context.Background(), script, &out); err != nil {
 		t.Fatal(err)
 	}
 	if got := strings.TrimSpace(out.String()); got != "/home/user/.kube/config" {

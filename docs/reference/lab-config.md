@@ -319,6 +319,7 @@ Validation scripts also take `hint` and `points` (see `ValidationCheck`). A lab 
 | `hint` | string | Shown to the student only when this check fails — a nudge, not the answer |
 | `points` | int | Weight in the score (default `1`) |
 | `cluster` | string | Grade the check in this linked cluster (a [`runtime.kind.clusters`](#runtimekindclustersn) name) instead of the lab's own. Not for `http` checks |
+| `timeout` | duration | How long the check may run, e.g. `30s` or `2m`; between `1s` and `30m`. Default `1m` (`http`: `10s`; `podReady`: waits `60s`). Past it the check is stopped, with everything it started, and fails with `timed out after …`. For `podReady` it is also how long `kubectl wait` waits for readiness |
 
 ## `exam`
 
@@ -379,6 +380,35 @@ Shared shape for every script/manifest reference (`bootstrap.init`, `bootstrap.m
 | `source` | string | Path or URL, depending on `type`. A `file`/`folder` path must be relative to the lab's base directory and stay inside it, also once symlinks are resolved: absolute paths, `..` that leaves the lab, and links pointing outside it are refused, by `astrona validate` as well as at run time. A `url` source must be `https://` (redirects to `http://` are refused); scripts and manifests alike are downloaded to a size-capped temp file (50 MiB) and run/applied from there |
 | `hint` | string | Validation scripts only: shown when the script fails |
 | `points` | int | Validation scripts only: weight in the score (default `1`) |
+| `timeout` | duration | Scripts only (refused on manifests): how long the entry may run, e.g. `90s`, `10m`, `1h`; between `1s` and `2h`. A `folder` source's scripts share one limit. Default `30m` for `bootstrap`/`testing`/`teardown` scripts, `5m` for validation scripts. See [Time limits](#time-limits) |
+
+### Time limits
+
+Every script and check has a time limit, so a command that never returns (a `kubectl` waiting on a cluster that is gone, an `ssh` that hangs, a `sleep infinity`) can't hang `astrona run`, `submit`, `test` or `destroy`. When the limit passes, astrona kills the script or check together with every process it started (its whole process group: no `kubectl` or `ssh` is left running), and reports it as `timed out after <limit>`:
+
+- a `bootstrap`/`testing` script that times out fails the step, like a script that exits non-zero;
+- a teardown script that times out is warned about, like any failed teardown script, and the lab is still destroyed;
+- a validation script or check that times out is a **failed** check in the report (it earns no points), not a grading error.
+
+On a `qemu` lab, a script runs over SSH: on timeout the local `ssh` is killed, which closes the session, and the shell in the VM gets `SIGHUP` with it.
+
+| Item | Default | Allowed |
+|---|---|---|
+| `bootstrap.init`, `testing.init`, `teardown.init` script | `30m` | `1s`–`2h` |
+| `validation.script` / `validation.scripts` | `5m` | `1s`–`2h` |
+| `validation.checks` entry | `1m` (`http`: `10s`; `podReady`: waits `60s`) | `1s`–`30m` |
+
+```yaml
+bootstrap:
+  init:
+    - {name: install operator, type: file, source: bootstrap/operator.sh, timeout: 45m}
+validation:
+  checks:
+    - {name: web is ready, type: podReady, resource: pods -l app=web -n shop, timeout: 3m}
+  script: {name: content is right, type: file, source: validate.sh, timeout: 30s}
+```
+
+`astrona validate` rejects a `timeout` that isn't a duration or is out of range.
 
 ## Full example
 

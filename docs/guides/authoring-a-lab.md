@@ -270,6 +270,8 @@ validation:
 
 Start with `resourceExists`/`podReady` checks for "does the thing exist," and reach for a `script` when you need to verify actual content or behavior (see [Grading](../concepts/grading.md) for the full check-type reference). A validation script exits `0` for pass, non-zero for fail — write it the same way you'd write a test assertion.
 
+Scripts and checks have time limits — `30m` for a bootstrap, testing or teardown script, `5m` for a validation script, `1m` for a check — so a command that hangs can't hang the student's `run` or `submit`. A script or check that runs longer is killed with everything it started and reported as `timed out after …` (a failed check when grading). Set `timeout` on the entry when it legitimately needs longer (`timeout: 45m` on a slow install) or should give up sooner (`timeout: 20s` on a check); see [Time limits](../reference/lab-config.md#time-limits).
+
 ## 6. Teardown
 
 ```yaml

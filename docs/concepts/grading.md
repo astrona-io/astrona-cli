@@ -37,11 +37,13 @@ validation:
 | `type` | Runs | Passes when |
 |---|---|---|
 | `resourceExists` | `kubectl --context <ctx> get <resource>` | exit code 0 |
-| `podReady` | `kubectl --context <ctx> wait --for=condition=Ready --timeout=60s <resource>` | exit code 0 within 60s |
+| `podReady` | `kubectl --context <ctx> wait --for=condition=Ready --timeout=60s <resource>` (or the check's `timeout`) | exit code 0 within 60s |
 | `command` | the given shell words directly (not through a shell) | exit code 0, and every matcher set holds on trimmed stdout |
 | `jsonpath` | `kubectl --context <ctx> get <resource> -o jsonpath=<jsonpath>` | every matcher set holds on the value |
 | `count` | `kubectl --context <ctx> get <resource> -o name` | the number of objects is within `min` / `max` |
 | `http` | `GET <url>` (10s timeout) | status is `expectStatus` (default 200), and every matcher set holds on the body |
+
+**Time limits**: every check runs for at most `1m` (`http`: `10s`; `podReady`: its 60s wait) unless it sets `timeout` (e.g. `timeout: 2m`). A check that runs past it is stopped, together with everything it started, and fails with `timed out after …` — it earns no points, and the rest of the lab is still graded. See [Time limits](../reference/lab-config.md#time-limits).
 
 **Matchers** (for `command`, `jsonpath`, `http`): `expect` (exact), `contains`, `expectRegex` — set any combination; all must hold.
 
@@ -76,7 +78,7 @@ On a kind lab, `command` checks (and every script) run with `KUBECONFIG` set to 
 
 ### Script checks (`validation.script` / `validation.scripts`)
 
-Beyond existence checks — for verifying actual content, behavior, or anything a `kubectl get` can't express. `script` (singular) runs first if set, then every entry in `scripts` (plural), in order. Exit code `0` is a pass, non-zero is a fail — a failing lab is a normal graded outcome, not a tool error.
+Beyond existence checks — for verifying actual content, behavior, or anything a `kubectl get` can't express. `script` (singular) runs first if set, then every entry in `scripts` (plural), in order. Exit code `0` is a pass, non-zero is a fail — a failing lab is a normal graded outcome, not a tool error. A validation script may run for `5m` unless it sets `timeout`; one that runs longer is killed, with every process it started, and fails with `timed out after 5m`.
 
 For a `qemu` runtime, scripts run over SSH inside the VM instead of on the host. Exit code `255` is reserved there: it's what `ssh` exits with when it can't reach the VM, so it's treated as "grading couldn't run" (exit 1, nothing recorded or sent), not as a fail — a script must not `exit 255` to mean "fail". For a multi-VM lab, the shared root `validation` block runs once per VM (each result suffixed `(vmName)` in the report), and each VM's own nested `validation` block (if set) runs after that, scoped to just that VM.
 
