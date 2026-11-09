@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"astrona/internal/account"
 	"astrona/internal/apphome"
+	"astrona/internal/labops"
 
 	"github.com/spf13/cobra"
 )
@@ -25,7 +27,7 @@ func newLogoutCmd() *cobra.Command {
 			"`astrona login` again; labs that are already running keep running.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, store, _, err := accountDeps()
+			client, store, _, err := labops.AccountDeps()
 			if err != nil {
 				return err
 			}
@@ -44,7 +46,7 @@ func logout(client *account.Client, store account.Store) error {
 	revoked := "nothing to revoke on the server"
 	if creds != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), revokeTimeout)
-		noticeOtherSite(creds.Site, "the sign-out")
+		labops.NoticeOtherSite(os.Stderr, creds.Site, "the sign-out")
 		err := client.Revoke(ctx, creds.Site, creds.RefreshToken)
 		cancel()
 		if err != nil {

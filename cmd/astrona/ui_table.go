@@ -1,9 +1,11 @@
 package main
 
+import "astrona/internal/labops"
+
 // Reserve space for status even when a long lab name needs truncating.
 func uiRunColumns(name, kind, status, age string, width int) string {
 	column := func(text string, size int) string {
-		return workspaceFit(sanitizeLine(text), size, 1)
+		return workspaceFit(labops.SanitizeLine(text), size, 1)
 	}
 	if width < 70 {
 		return column(name, max(1, width-18)) + "  " + column(status, 16)
@@ -13,7 +15,7 @@ func uiRunColumns(name, kind, status, age string, width int) string {
 
 func uiRunActivityColumns(name, kind, status, activity, age string, width int) string {
 	if width < 70 {
-		return workspaceFit(sanitizeLine(name), max(1, width-25), 1) + "  " + workspaceFit(status, 14, 1) + "  " + workspaceFit(activity, 7, 1)
+		return workspaceFit(labops.SanitizeLine(name), max(1, width-25), 1) + "  " + workspaceFit(status, 14, 1) + "  " + workspaceFit(activity, 7, 1)
 	}
-	return workspaceFit(sanitizeLine(name), width-50, 1) + "  " + workspaceFit(kind, 10, 1) + "  " + workspaceFit(status, 16, 1) + "  " + workspaceFit(age, 9, 1) + "  " + workspaceFit(activity, 7, 1)
+	return workspaceFit(labops.SanitizeLine(name), width-50, 1) + "  " + workspaceFit(kind, 10, 1) + "  " + workspaceFit(status, 16, 1) + "  " + workspaceFit(age, 9, 1) + "  " + workspaceFit(activity, 7, 1)
 }

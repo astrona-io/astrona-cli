@@ -9,7 +9,6 @@ import (
 	"os/signal"
 
 	"astrona/internal/apphome"
-	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/labops"
 	"astrona/internal/lifecycle"
@@ -19,10 +18,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// labShellEnvVar is set inside `astrona shell` — guards against nesting
-// and lets a user show the lab in their prompt.
-const labShellEnvVar = labops.LabShellEnvVar
-
 // resolveKindCluster picks the kind lab a kubeconfig/shell command acts on
 // (labops.ResolveKindCluster), loading the lab config from -c/--file/--git
 // only when no lab-name was given.
@@ -31,12 +26,6 @@ func resolveKindCluster(labArg string, flags *rootFlags) (string, error) {
 		cfg, _, cleanup, err := LoadLabForCommand(flags)
 		return cfg, cleanup, err
 	})
-}
-
-// Thin wrappers over labops, so call sites keep their names. S15 removes them.
-func labKubeconfig(lab string) (string, error) { return labops.LabKubeconfig(lab) }
-func shellKubeconfigs(own, target string, links []cluster.LinkState, kubeconfigOf func(string) string) []string {
-	return labops.ShellKubeconfigs(own, target, links, kubeconfigOf)
 }
 
 func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
@@ -67,7 +56,7 @@ func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 			}
-			path, err := labKubeconfig(lab)
+			path, err := labops.LabKubeconfig(lab)
 			if err != nil {
 				return err
 			}
@@ -88,7 +77,7 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 		Short:             "Open an isolated terminal (or run one command) for a Kind lab",
 		Long: "Open an isolated container terminal with this Kind lab's credentials, so plain " +
 			"`kubectl`, `helm`, `k9s`, … talk to the lab — without changing your own kubectl " +
-			"current-context. Files are saved under ~/" + apphome.Name() + "/runtime/<lab>/work, mounted as /workspace.\nYour home directory and host tools are not mounted. Tools are downloaded on first use.\nType `exit` to leave. $" + labShellEnvVar + " holds the lab name inside " +
+			"current-context. Files are saved under ~/" + apphome.Name() + "/runtime/<lab>/work, mounted as /workspace.\nYour home directory and host tools are not mounted. Tools are downloaded on first use.\nType `exit` to leave. $" + labops.LabShellEnvVar + " holds the lab name inside " +
 			"the shell (add it to your prompt if you like).\n\n" +
 			"After `--`, runs that one command instead of a shell (no shell parsing).\n\n" +
 			"A lab with linked clusters (runtime.kind.clusters) gets all of them: `kubectl --context " +
@@ -109,7 +98,7 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 				return fmt.Errorf("expected at most one lab-name, got %d (put a command after --)", len(labArgs))
 			}
 			if len(command) == 0 {
-				if cur := os.Getenv(labShellEnvVar); cur != "" {
+				if cur := os.Getenv(labops.LabShellEnvVar); cur != "" {
 					return fmt.Errorf("already inside an astrona shell for '%s' — `exit` first", cur)
 				}
 			}

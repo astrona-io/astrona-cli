@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"astrona/internal/cluster"
+	"astrona/internal/labops"
 	"astrona/internal/lifecycle"
 )
 
@@ -16,10 +17,10 @@ func TestShellKubeconfigs(t *testing.T) {
 		}
 		return "/k/" + c
 	}
-	if got := strings.Join(shellKubeconfigs("/k/astro-app", "astro-app", links, kc), " "); got != "/k/astro-app /k/astro-app-idp /k/astro-app-db" {
+	if got := strings.Join(labops.ShellKubeconfigs("/k/astro-app", "astro-app", links, kc), " "); got != "/k/astro-app /k/astro-app-idp /k/astro-app-db" {
 		t.Errorf("own first = %s", got)
 	}
-	if got := strings.Join(shellKubeconfigs("/k/astro-app", "astro-app-db", links, kc), " "); got != "/k/astro-app-db /k/astro-app /k/astro-app-idp" {
+	if got := strings.Join(labops.ShellKubeconfigs("/k/astro-app", "astro-app-db", links, kc), " "); got != "/k/astro-app-db /k/astro-app /k/astro-app-idp" {
 		t.Errorf("--cluster db = %s", got)
 	}
 

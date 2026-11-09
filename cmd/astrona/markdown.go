@@ -9,14 +9,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// sanitizeTerminalText removes every control character except newline and
-// tab (labops.SanitizeTerminalText).
-func sanitizeTerminalText(s string) string { return labops.SanitizeTerminalText(s) }
-
-// sanitizeLine is sanitizeTerminalText for a lab string printed inside one
-// line (labops.SanitizeLine).
-func sanitizeLine(s string) string { return labops.SanitizeLine(s) }
-
 // stripFrontMatter removes a YAML front-matter block — a "---" line, YAML,
 // a "---" line — from the very start of a doc, and returns its title, if
 // it has one. A "---" anywhere else is a horizontal rule and stays, as does
@@ -24,7 +16,7 @@ func sanitizeLine(s string) string { return labops.SanitizeLine(s) }
 func stripFrontMatter(src string) (title, body string) {
 	meta, body := docFrontMatter(src)
 	if t, ok := meta["title"].(string); ok {
-		title = sanitizeLine(strings.TrimSpace(t))
+		title = labops.SanitizeLine(strings.TrimSpace(t))
 	}
 	return title, body
 }

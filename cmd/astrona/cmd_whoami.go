@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"astrona/internal/account"
+	"astrona/internal/labops"
 
 	"github.com/spf13/cobra"
 )
@@ -25,7 +26,7 @@ func newWhoamiCmd() *cobra.Command {
 			if err := checkOutput(output); err != nil {
 				return err
 			}
-			client, store, site, err := accountDeps()
+			client, store, site, err := labops.AccountDeps()
 			if err != nil {
 				return err
 			}

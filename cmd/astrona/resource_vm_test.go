@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/resources"
 )
 
@@ -18,8 +19,8 @@ func TestShQuote(t *testing.T) {
 		"$(rm -rf ~)": "'$(rm -rf ~)'",
 		"a b; c":      "'a b; c'",
 	} {
-		if got := shQuote(in); got != want {
-			t.Errorf("shQuote(%q) = %s, want %s", in, got, want)
+		if got := labops.ShellQuote(in); got != want {
+			t.Errorf("ShellQuote(%q) = %s, want %s", in, got, want)
 		}
 	}
 }

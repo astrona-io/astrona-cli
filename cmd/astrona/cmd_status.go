@@ -16,14 +16,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// labStatus is everything `astrona status` shows about one lab
-// (labops.LabStatus).
-type labStatus = labops.LabStatus
-
-// Thin wrappers over labops, so call sites keep their names. S15 removes them.
-func findLabRow(name string) (labRow, bool) { return labops.FindLabRow(name) }
-func nextStep(st labStatus) string          { return labops.NextStep(st) }
-
 // resolveStatusLab picks the lab: an explicit name, else the lab config
 // from -c/--file/--git, else the only astrona lab on the machine.
 func resolveStatusLab(labArg string, flags *rootFlags) (string, *config.LabConfig, func(), error) {
@@ -73,7 +65,7 @@ func newStatusCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
-func printLabStatus(w io.Writer, st labStatus) {
+func printLabStatus(w io.Writer, st labops.LabStatus) {
 	r := st.Row
 	fmt.Fprintf(w, "Lab %s (%s)\n\n", r.Name, r.Runtime)
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
@@ -140,5 +132,5 @@ func printLabStatus(w io.Writer, st labStatus) {
 	}
 	tw.Flush()
 
-	fmt.Fprintf(w, "\nNext: %s\n", nextStep(st))
+	fmt.Fprintf(w, "\nNext: %s\n", labops.NextStep(st))
 }

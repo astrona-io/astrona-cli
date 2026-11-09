@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"astrona/internal/labops"
 )
 
 func (m workspaceModel) updateHome(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
@@ -57,7 +59,7 @@ func (m workspaceModel) homeView() string {
 		visible := max(1, h-3)
 		start := max(0, m.selected-visible+1)
 		for i := start; i < min(len(m.labs), start+visible); i++ {
-			name := workspaceFit(sanitizeLine(m.labs[i]), nameWidth, 1)
+			name := workspaceFit(labops.SanitizeLine(m.labs[i]), nameWidth, 1)
 			row := name + "  running"
 			if i == m.selected {
 				row = workspaceSelected(row, w-4)

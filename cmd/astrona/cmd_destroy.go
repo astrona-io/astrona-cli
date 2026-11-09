@@ -8,18 +8,12 @@ import (
 	"strings"
 
 	"astrona/internal/apphome"
-	"astrona/internal/cluster"
 	"astrona/internal/config"
-	"astrona/internal/hypervisor"
 	"astrona/internal/labops"
 	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
 )
-
-// teardownInfo is what `astrona destroy` needs from the lab config
-// (labops.Teardown).
-type teardownInfo = labops.Teardown
 
 // destroyOptions are destroy's writers and --keep-resources choice, read
 // when the destroy runs: outcomes on stdout, forget warnings on stderr.
@@ -31,32 +25,12 @@ func destroyOptions() labops.DestroyOptions {
 	}
 }
 
-// Thin wrappers over the labops destroy, so call sites keep their names.
-// S15 removes them.
-func destroyByName(name string, rep *ui.Reporter) error {
-	return labops.DestroyByName(name, rep, destroyOptions())
-}
-
-func destroyByNameLocked(name string, rep *ui.Reporter) error {
-	return labops.DestroyByNameLocked(name, rep, destroyOptions())
-}
-
-func destroyLab(info teardownInfo, baseDir string, rep *ui.Reporter) error {
-	return labops.DestroyLab(info, baseDir, rep, destroyOptions())
-}
-
-// qemuStateExists and kindClusterExists: see hypervisor.StateExists and
-// cluster.Exists.
-func qemuStateExists(name string) bool { return hypervisor.StateExists(name) }
-
-func kindClusterExists(name string) bool { return cluster.Exists(name) }
-
 // teardownTrusted applies run's trust check before destroy runs a lab's
 // teardown scripts. Unlike run it never fails: destroy is best-effort, so an
 // unapproved remote lab (refused, or no terminal and no --trust) is still
 // destroyed — only its scripts are skipped. Labs with no teardown scripts
 // aren't asked about at all; local labs are trusted as everywhere else.
-func teardownTrusted(flags *rootFlags, info teardownInfo, baseDir string, rep *ui.Reporter) bool {
+func teardownTrusted(flags *rootFlags, info labops.Teardown, baseDir string, rep *ui.Reporter) bool {
 	if info.Config == nil || !labops.HasTeardownScripts(info) {
 		return true
 	}
@@ -64,7 +38,7 @@ func teardownTrusted(flags *rootFlags, info teardownInfo, baseDir string, rep *u
 	switch {
 	case err == nil:
 		return true
-	case errors.Is(err, errNotTrusted):
+	case errors.Is(err, labops.ErrNotTrusted):
 		rep.Warn("not trusted — skipping the lab's teardown scripts and destroying it without them (pass --trust to run them)")
 	default:
 		rep.Warn("skipping the lab's teardown scripts: %s — destroying it without them", err) // no terminal: err names --trust
@@ -137,7 +111,7 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 				if strings.ContainsAny(args[0], "*?[") {
 					return labops.DestroyByPattern(args[0], rep, destroyOptions())
 				}
-				return destroyByName(args[0], rep)
+				return labops.DestroyByName(args[0], rep, destroyOptions())
 			}
 
 			finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
@@ -161,7 +135,7 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			// them like run does, but never let a refusal stop the destroy.
 			info.SkipScripts = !teardownTrusted(flags, info, baseDir, rep)
 
-			if err := destroyLab(info, baseDir, rep); err != nil {
+			if err := labops.DestroyLab(info, baseDir, rep, destroyOptions()); err != nil {
 				return err
 			}
 

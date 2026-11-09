@@ -16,9 +16,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// labDoc is one entry of metadata.docs as `astrona docs` exposes it.
-type labDoc = labops.LabDoc
-
 // docKeys are the docs `astrona docs` can show; "guide" is the older name
 // of "solution" and still works.
 var docKeys = []string{"question", "case-study", "prerequisites", "solution", "guide"}
@@ -93,7 +90,7 @@ func newDocsCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 
-			var doc *labDoc
+			var doc *labops.LabDoc
 			for i := range docs {
 				if docs[i].Key == args[0] {
 					doc = &docs[i]
@@ -118,7 +115,7 @@ func newDocsCmd(flags *rootFlags) *cobra.Command {
 				fmt.Fprintln(w)
 			}
 			color := os.Getenv("NO_COLOR") == "" && (paged || colorsEnabled())
-			title, body := stripFrontMatter(sanitizeTerminalText(text))
+			title, body := stripFrontMatter(labops.SanitizeTerminalText(text))
 			if title != "" {
 				body = "# " + title + "\n\n" + body
 			}
@@ -131,7 +128,7 @@ func newDocsCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
-func printDocList(w io.Writer, lab string, docs []labDoc) {
+func printDocList(w io.Writer, lab string, docs []labops.LabDoc) {
 	if len(docs) == 0 {
 		fmt.Fprintf(w, "Lab '%s' has no docs (metadata.docs is empty).\n", lab)
 		return
@@ -158,6 +155,6 @@ func printDocResources(w io.Writer, cfg *config.LabConfig, configPath string) {
 		if desc == "" {
 			desc = r.File
 		}
-		fmt.Fprintf(w, "  %-28s %s\n", sanitizeLine(r.Name), sanitizeLine(desc))
+		fmt.Fprintf(w, "  %-28s %s\n", labops.SanitizeLine(r.Name), labops.SanitizeLine(desc))
 	}
 }

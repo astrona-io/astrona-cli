@@ -17,10 +17,7 @@ import (
 // playground.go): its clock starts with `astrona run` and stops at
 // `astrona destroy`, or at its time limit, when the detached watchdog
 // removes the cluster. What stays here is the watchdog's hidden command,
-// destroying the playground, and the wrappers cmd's callers use.
-
-// isPlaygroundName reports whether a catalog name is a module's playground.
-func isPlaygroundName(name string) bool { return labops.IsPlaygroundName(name) }
+// destroying the playground, and the callbacks cmd hands to labops.
 
 func newPlaygroundWatchdogCmd() *cobra.Command {
 	return &cobra.Command{
@@ -49,16 +46,8 @@ func destroyPlayground(clusterName string) error {
 		return err
 	}
 	defer rep.Close()
-	return destroyByName(clusterName, rep)
+	return labops.DestroyByName(clusterName, rep, destroyOptions())
 }
 
 // endRunSession runs when a lab is forgotten (labops.EndRunSession).
 func endRunSession(clusterName string) { labops.EndRunSession(os.Stderr, clusterName) }
-
-// endOldSession runs before a lab is built again under the same name
-// (labops.EndOldSession).
-func endOldSession(clusterName string) { labops.EndOldSession(os.Stderr, clusterName) }
-
-// stopWatchdog ends clusterName's playground watchdog — unless that is us
-// (labops.StopWatchdog).
-func stopWatchdog(pid int, clusterName string) { labops.StopWatchdog(pid, clusterName) }

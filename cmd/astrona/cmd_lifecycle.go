@@ -29,7 +29,7 @@ func resolveLifecycleLab(labArg string, flags *rootFlags, want func(status strin
 func newStopCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:               "stop [lab-name]",
-		ValidArgsFunction: labCompletion(func(r labRow) bool { return isKind(r) && isRunning(r) }),
+		ValidArgsFunction: labCompletion(func(r labops.LabRow) bool { return isKind(r) && isRunning(r) }),
 		Short:             "Pause a kind lab (frees CPU/RAM, keeps everything) — resume with astrona start",
 		Long: "Stop a kind lab's node containers and pause its port forwards. Nothing is deleted: " +
 			"`astrona start` brings the cluster, its workloads and its port forwards back.\n\n" +

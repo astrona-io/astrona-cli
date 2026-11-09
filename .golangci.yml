@@ -33,6 +33,9 @@ linters:
     - nolintlint
     # architecture — import rules between layers (see depguard below)
     - depguard
+    # architecture — labops, authoring and preflight never print on their
+    # own (see forbidigo below and the exclusion that scopes it)
+    - forbidigo
 
   # Deliberately NOT enabled, with default: none above meaning they simply
   # never run (nothing to "disable"): wsl_v5/funlen/gocyclo/nestif/dupl/
@@ -248,6 +251,34 @@ linters:
               desc: "the terminal UI is cmd-only"
             - pkg: "github.com/spf13/cobra"
               desc: "Cobra belongs to cmd"
+    # labops, authoring and preflight are libraries the CLI and the browser
+    # workspace both call: they write to the io.Writer they are handed and
+    # never to the process's stdout/stderr, so `-o json` stays clean and the
+    # workspace can route output to its event stream. They grade through
+    # proctor.Evaluate + Report(w, ...); Proctor.Grade prints to stdout and
+    # is only the cmd convenience. Scoped to those packages by the
+    # exclusion rule below.
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: '^fmt\.Print(f|ln)?$'
+          pkg: '^fmt$'
+          msg: "write to the io.Writer passed in, not stdout"
+        - pattern: '^os\.(Stdout|Stderr)$'
+          pkg: '^os$'
+          msg: "take an io.Writer from the caller instead of the process's stdout/stderr"
+        - pattern: '^proctor\.Proctor\.Grade$'
+          pkg: '^astrona/internal/proctor$'
+          msg: "Grade prints to stdout; use Evaluate and Report(w, ...)"
+
+  exclusions:
+    rules:
+      # forbidigo only polices the library packages above; cmd prints by
+      # design, and tests may capture the real stdout.
+      - linters: [forbidigo]
+        path-except: '^internal/(labops|authoring|preflight)/'
+      - linters: [forbidigo]
+        path: '_test\.go$'
 
 formatters:
   enable:

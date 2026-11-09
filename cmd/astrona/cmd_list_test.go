@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"astrona/internal/labops"
 )
 
 func TestPrintLabTableAndJSON(t *testing.T) {
-	rows := []labRow{
+	rows := []labops.LabRow{
 		{Name: "astro-a", Runtime: "kind", Status: "Ready (2/2)", Uptime: "5m", NICs: "-", Details: "kubectl --context kind-astro-a", Version: "v1.37.0", Forwards: "1/1 Ready"},
 		{Name: "astro-vm", Runtime: "qemu", Status: "Running", Uptime: "1h", NICs: "1 (mgmt)", Details: "ssh …"},
 	}

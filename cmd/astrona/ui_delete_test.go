@@ -205,7 +205,7 @@ func TestOfflineDeletionReplaysOnlyPlaygroundUsage(t *testing.T) {
 				t.Fatal("stop sent while offline")
 			}
 			labops.FlushOutbox = previous
-			status, err := labops.FlushOutbox(t.Context(), signalTimeout)
+			status, err := labops.FlushOutbox(t.Context(), labops.SignalTimeout)
 			if err != nil || status.Pending != 0 || status.State != outbox.Online {
 				t.Fatalf("replay: %+v, %v", status, err)
 			}

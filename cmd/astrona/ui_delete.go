@@ -23,7 +23,7 @@ func uiDeleteMessage(run uiHomeRun, yes bool) string {
 	} else if strings.HasPrefix(run.kind, "Playground") {
 		tracking = "This playground is not tracked. No data will be sent to Astrona."
 	}
-	return "Delete " + sanitizeLine(run.name) + " and all its VMs and linked clusters?\n\nAll work will be lost. This cannot be undone.\n" + tracking + "\n\n" + choices + "\nTab/arrows choose · Enter confirms · Esc cancels"
+	return "Delete " + labops.SanitizeLine(run.name) + " and all its VMs and linked clusters?\n\nAll work will be lost. This cannot be undone.\n" + tracking + "\n\n" + choices + "\nTab/arrows choose · Enter confirms · Esc cancels"
 }
 
 func (m uiHomeModel) deleteDialogFits() bool {
@@ -66,5 +66,5 @@ func forceDeleteUIRun(ctx context.Context, run uiHomeRun, verbose bool) error {
 		}
 	}
 	closeUITerminals(ctx, run.name)
-	return destroyByNameLocked(run.name, rep)
+	return labops.DestroyByNameLocked(run.name, rep, destroyOptions())
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/resources"
 	"astrona/internal/sshopts"
@@ -37,7 +38,7 @@ func prepareVMResourceWorkspace(ctx context.Context, lab string, h *config.QEMUH
 		return err
 	}
 	args := vmResourceSSHArgs(h)
-	probe := exec.CommandContext(ctx, "ssh", append(args, `test "$(cat "$HOME/.astrona-resources/id" 2>/dev/null)" = `+shQuote(id))...)
+	probe := exec.CommandContext(ctx, "ssh", append(args, `test "$(cat "$HOME/.astrona-resources/id" 2>/dev/null)" = `+labops.ShellQuote(id))...)
 	if err := probe.Run(); err == nil {
 		return nil
 	} else {
@@ -95,6 +96,6 @@ test -d "$stage/workspace/resources" && test -f "$stage/workspace/bin/astrona"
 rm -rf "$HOME/resources" "$base/bin"
 mv "$stage/workspace/resources" "$HOME/resources"
 mv "$stage/workspace/bin" "$base/bin"
-printf '%s\n' ` + shQuote(id) + ` > "$base/id"
+printf '%s\n' ` + labops.ShellQuote(id) + ` > "$base/id"
 `
 }

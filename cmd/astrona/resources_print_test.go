@@ -9,26 +9,27 @@ import (
 	"unicode/utf8"
 
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/resources"
 )
 
 func TestResourceRiskLines(t *testing.T) {
 	dir := t.TempDir()
-	if got := resourceRiskLines(&config.LabConfig{}, dir); got != nil {
+	if got := labops.ResourceRiskLines(&config.LabConfig{}, dir); got != nil {
 		t.Errorf("no resources = %v", got)
 	}
 	lab := writeLabFiles(t, map[string]string{"resources/setup.sh": "echo", "resources/app.yaml": "kind: Pod", "resources/notes.txt": "x"})
-	got := strings.Join(resourceRiskLines(&config.LabConfig{}, lab), "\n")
+	got := strings.Join(labops.ResourceRiskLines(&config.LabConfig{}, lab), "\n")
 	for _, want := range []string{"ships 3 resource(s)", "inside the isolated lab terminal", "setup (bash setup.sh)", "app (kubectl apply -f app.yaml)", "notes (file, never run)"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in %s", want, got)
 		}
 	}
-	if got := strings.Join(resourceRiskLines(&config.LabConfig{Runtime: config.RuntimeConfig{Type: "qemu"}}, lab), ""); !strings.Contains(got, "inside the lab VM") {
+	if got := strings.Join(labops.ResourceRiskLines(&config.LabConfig{Runtime: config.RuntimeConfig{Type: "qemu"}}, lab), ""); !strings.Contains(got, "inside the lab VM") {
 		t.Errorf("qemu = %s", got)
 	}
 	bad := writeLabFiles(t, map[string]string{"resources/a.sh": "", "resources/a.yaml": ""})
-	if got := strings.Join(resourceRiskLines(&config.LabConfig{}, bad), ""); !strings.Contains(got, "can't be read") {
+	if got := strings.Join(labops.ResourceRiskLines(&config.LabConfig{}, bad), ""); !strings.Contains(got, "can't be read") {
 		t.Errorf("broken = %s", got)
 	}
 }
@@ -96,7 +97,7 @@ func TestResourceListingsSanitized(t *testing.T) {
 			t.Errorf("a lab string broke onto its own line: %q", line)
 		}
 	}
-	for _, l := range resourceRiskLines(cfg, lab) {
+	for _, l := range labops.ResourceRiskLines(cfg, lab) {
 		if hasControl(l) {
 			t.Errorf("trust line has control characters: %q", l)
 		}
