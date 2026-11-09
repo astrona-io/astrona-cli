@@ -11,13 +11,12 @@ import (
 	"syscall"
 
 	"astrona/internal/apphome"
+	"astrona/internal/authoring"
 	"astrona/internal/config"
 	"astrona/internal/junit"
 	"astrona/internal/lifecycle"
-	"astrona/internal/manifests"
 	"astrona/internal/proctor"
 	"astrona/internal/runtime"
-	"astrona/internal/scripts"
 	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
@@ -162,7 +161,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 
 // errTestInterrupted is what `astrona test` returns when a signal stopped
 // it — after its deferred diagnostics and teardown have run.
-var errTestInterrupted = errors.New("astrona test was interrupted by a signal")
+var errTestInterrupted = authoring.ErrTestInterrupted
 
 // cancelOnSignal returns a context cancelled by the first of sigs. While
 // it's active those signals no longer kill the process — a later one only
@@ -198,163 +197,23 @@ func cancelOnSignal(onSignal func(sig os.Signal, first bool), sigs ...os.Signal)
 	}
 }
 
-// runTestOnce is one full `astrona test` lifecycle on a fresh environment:
-// clean slate, create, preload, addons, bootstrap, testing, grade, and —
-// always, via defer — diagnostics (per diagMode) and teardown. A cancelled
-// ctx (Ctrl-C, SIGTERM) stops it at the next step; the defers still run.
-func runTestOnce(ctx context.Context, cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir string, flags *rootFlags, rep *ui.Reporter) (results []proctor.CheckResult, pass bool, retErr error) {
-	// Best-effort clean slate: Ctrl-C/SIGTERM are caught (see
-	// cancelOnSignal) so the deferred teardown below runs, but a SIGKILL
-	// or a crash still skips it and can leave clusterName's environment
-	// behind.
-	// DestroyEnvironment is already a documented no-op when nothing
-	// exists (DestroyQEMUVM/DeleteKindCluster both tolerate a
-	// missing target), so this makes every `astrona test` start
-	// fresh without needing to first detect whether a leftover
-	// actually exists.
-	if err := runtime.DestroyEnvironment(clusterName, cfg.Runtime, rep); err != nil {
-		rep.Warn("could not clean up a previous '%s' test environment, proceeding anyway: %s", clusterName, err)
-	}
-	if ctx.Err() != nil {
-		return nil, false, errTestInterrupted
-	}
-
-	// Linked clusters come up first; their teardown is deferred before this
-	// lab's, so it runs after it (LIFO) — even on failure.
-	defer func() {
-		if !cfg.Teardown.KeepCluster { // kept with the lab, like its own cluster
-			lifecycle.DestroyOwnedClusters(lifecycle.OwnedClusters(clusterName, cfg.KindClusters()), rep)
-		}
-	}()
-	if err := lifecycle.PrepareSharedCA(cfg, clusterName); err != nil {
-		return nil, false, err
-	}
-	links, err := lifecycle.StartLinkedClusters(cfg, baseDir, clusterName, true, flags.parallel, rep)
-	if err != nil {
-		return nil, false, err
-	}
-	if ctx.Err() != nil {
-		return nil, false, errTestInterrupted
-	}
-
-	// The same pipeline as `astrona run`, as a test copy (no host ports,
-	// no port forwards).
-	env, _, upErr := lifecycle.Up(cfg, baseDir, clusterName, links, true, rep)
-	if env == nil {
-		// Creation failed partway — kind may already have made the cluster.
-		if err := runtime.DestroyEnvironment(clusterName, cfg.Runtime, rep); err != nil {
-			rep.Warn("could not clean up '%s': %s", clusterName, err)
-		}
-		return nil, false, upErr
-	}
-	// Registered as soon as the environment exists, so every later failure
-	// (addons, bootstrap, …) still gets diagnostics and a teardown.
-	defer func() {
-		if wantDiagnostics(diagMode, retErr) {
-			rep.Section("Diagnostics")
-			collectDiagnostics(env, cfg, clusterName, diagDir, rep)
-		}
-
-		if len(cfg.Teardown.Init) > 0 {
-			rep.Section("Teardown")
-			if err := scripts.RunOnEveryVM(cfg.Teardown.Init, baseDir, env, cfg.Runtime.QEMU, rep); err != nil {
-				rep.Warn("teardown scripts failed: %s", err)
+// runTestOnce is one full `astrona test` lifecycle (authoring.RunTest):
+// the Proctor's report goes to stdout, diagnostics follow diagMode, and a
+// reference solution that didn't pass is a notPassed error (exit 2).
+func runTestOnce(ctx context.Context, cfg *config.LabConfig, baseDir, clusterName, diagMode, diagDir string, flags *rootFlags, rep *ui.Reporter) ([]proctor.CheckResult, bool, error) {
+	run := authoring.RunTest(ctx, cfg, baseDir, authoring.TestOptions{
+		ClusterName: clusterName,
+		Parallel:    flags.parallel,
+		Out:         os.Stdout,
+		Diagnose: func(env *runtime.LabEnvironment, runErr error) {
+			if wantDiagnostics(diagMode, runErr) {
+				rep.Section("Diagnostics")
+				collectDiagnostics(env, cfg, clusterName, diagDir, rep)
 			}
-		}
-		lifecycle.RunLinkedTeardown(cfg.KindClusters(), clusterName, baseDir, rep)
-
-		if cfg.Teardown.KeepCluster {
-			rep.Info("keepCluster is set, leaving cluster '%s' running.", clusterName)
-			return
-		}
-
-		if err := runtime.DestroyEnvironment(clusterName, cfg.Runtime, rep); err != nil {
-			rep.Warn("cluster delete failed: %s", err)
-		}
-	}()
-	if upErr != nil {
-		return nil, false, upErr
+		},
+	}, rep)
+	if errors.Is(run.Err, authoring.ErrReferenceFailed) {
+		return run.Results, run.Pass, notPassed(run.Err.Error())
 	}
-	if ctx.Err() != nil {
-		return nil, false, errTestInterrupted
-	}
-
-	// Each linked cluster's part of the reference solution first, in
-	// dependency order, then the lab's own — which may rely on them.
-	order, err := config.KindClusterOrder(cfg.KindClusters())
-	if err != nil {
-		return nil, false, err
-	}
-	for _, l := range order {
-		if isEmptyBlock(l.Testing) {
-			continue
-		}
-		if ctx.Err() != nil {
-			return nil, false, errTestInterrupted
-		}
-		name := config.LinkedClusterName(clusterName, l.Name)
-		linkEnv, err := runtime.LoadEnvironment(name, lifecycle.LinkedClusterConfig(cfg, l).Runtime)
-		if err != nil {
-			return nil, false, fmt.Errorf("linked cluster '%s': %w", l.Name, err)
-		}
-		if err := applyTesting(l.Testing, baseDir, linkEnv, nil, "Testing: cluster "+l.Name, rep); err != nil {
-			return nil, false, fmt.Errorf("linked cluster '%s': %w", l.Name, err)
-		}
-	}
-	if ctx.Err() != nil {
-		return nil, false, errTestInterrupted
-	}
-	if err := applyTesting(cfg.Testing, baseDir, env, cfg.Runtime.QEMU, "Testing", rep); err != nil {
-		return nil, false, err
-	}
-	if ctx.Err() != nil {
-		return nil, false, errTestInterrupted
-	}
-
-	// Grading prints its own pytest-style report to stdout — pause
-	// the reporter's log-only section header and let it through.
-	rep.Section("Proctor")
-	pr := proctor.NewProctor(baseDir, env)
-	results, pass, err = pr.Grade(cfg)
-	if err != nil {
-		return nil, false, err
-	}
-	if !pass {
-		fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, false, 0))
-		return results, false, notPassed("reference solution did not pass grading")
-	}
-	fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, true, 0))
-	return results, true, nil
-}
-
-func isEmptyBlock(b config.BootstrapConfig) bool {
-	return len(b.Init) == 0 && len(b.Manifests) == 0 && len(b.WaitFor) == 0
-}
-
-// applyTesting applies a testing block (the reference solution) to env:
-// init scripts, manifests, then readiness gates — so the Proctor doesn't
-// race pods that are still starting. title heads its output sections.
-func applyTesting(b config.BootstrapConfig, baseDir string, env *runtime.LabEnvironment, vms []config.QEMUVM, title string, rep *ui.Reporter) error {
-	if len(b.Init) > 0 {
-		rep.Section("%s", title)
-		if err := scripts.RunOnEveryVM(b.Init, baseDir, env, vms, rep); err != nil {
-			return fmt.Errorf("testing init scripts failed: %w", err)
-		}
-	}
-	if len(b.Manifests) > 0 {
-		if env.KubeContext == "" {
-			return fmt.Errorf("testing.manifests requires a kubectl-reachable cluster, but runtime '%s' has none", env.Type)
-		}
-		rep.Section("%s manifests", title)
-		if err := manifests.ApplyManifests(b.Manifests, baseDir, env.KubeContext, rep); err != nil {
-			return fmt.Errorf("testing manifests failed: %w", err)
-		}
-	}
-	if len(b.WaitFor) > 0 {
-		rep.Section("%s readiness", title)
-		if err := manifests.WaitFor(b.WaitFor, env.KubeContext, rep); err != nil {
-			return fmt.Errorf("reference solution did not become ready: %w", err)
-		}
-	}
-	return nil
+	return run.Results, run.Pass, run.Err
 }
