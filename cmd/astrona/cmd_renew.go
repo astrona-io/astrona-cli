@@ -12,6 +12,7 @@ import (
 	"astrona/internal/account"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/ui"
 )
@@ -114,16 +115,7 @@ func runningPlaygrounds(name string) ([]string, error) {
 
 // sameCatalogName compares catalog names, ignoring a leading owner
 // ("astrona-io/ATS014/…" is "ATS014/…").
-func sameCatalogName(a, b string) bool {
-	trim := func(s string) string {
-		s = strings.Trim(s, "/")
-		if parts := strings.Split(s, "/"); len(parts) == 5 {
-			return strings.Join(parts[1:], "/")
-		}
-		return s
-	}
-	return a != "" && strings.EqualFold(trim(a), trim(b))
-}
+func sameCatalogName(a, b string) bool { return labops.SameCatalogName(a, b) }
 
 // renewPlayground has the site bank the playground's time so far and start
 // a new session with a full time limit, remembers that session and its

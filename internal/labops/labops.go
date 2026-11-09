@@ -2,8 +2,11 @@
 // `astrona`'s commands run, without Cobra, prompts or printing of their own,
 // so a browser workspace can call the same logic. Today it holds what
 // astrona remembers about a running lab (where its config came from, the
-// kubectl context it switched away from), the identity of a run, and the
-// lab's docs.
+// kubectl context it switched away from), the identity of a run, the
+// lab's docs, the signed-in account a lab runs under (AccountDeps,
+// AccountForLab), the outbox of lab signals (queueing, the clock, the
+// flusher behind `astrona outbox-flush`) and sending a graded result to
+// the lab page.
 //
 // labops never writes to stdout or stderr itself: operations take an
 // io.Writer or return results. Flags are read in cmd and passed in as

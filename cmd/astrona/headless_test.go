@@ -11,6 +11,7 @@ import (
 
 	"astrona/internal/account"
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/version"
 
 	"github.com/creack/pty"
@@ -119,9 +120,9 @@ func TestHeadlessRequiresApprovalsOnTerminal(t *testing.T) {
 }
 
 func TestHeadlessSkipsAccountAndGuestReminder(t *testing.T) {
-	old := accountDeps
-	t.Cleanup(func() { accountDeps = old })
-	accountDeps = func() (*account.Client, account.Store, string, error) {
+	old := labops.AccountDeps
+	t.Cleanup(func() { labops.AccountDeps = old })
+	labops.AccountDeps = func() (*account.Client, account.Store, string, error) {
 		t.Fatal("headless mode accessed account credentials")
 		return nil, account.Store{}, "", nil
 	}

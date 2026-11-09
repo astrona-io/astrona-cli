@@ -5,61 +5,28 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"astrona/internal/account"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 )
 
 // labAccount is a signed-in student, for a catalog lab's run/reset.
-type labAccount struct {
-	client *account.Client
-	store  account.Store
-	creds  *account.Credentials
-}
+type labAccount = labops.Account
 
-// accountDeps provide optional account tracking (replaced in tests). The
-// site is ASTRONA_URL, else the one this computer signed in to, else
-// the active build profile's default site.
-var accountDeps = func() (*account.Client, account.Store, string, error) {
-	store, err := account.DefaultStore()
-	if err != nil {
-		return nil, account.Store{}, "", err
-	}
-	saved := ""
-	if cr, err := store.Load(); err == nil && cr != nil { // an unreadable file is reported by whoever uses it
-		saved = cr.Site
-	}
-	site, err := account.ResolveSite(os.Getenv, saved)
-	if err != nil {
-		return nil, account.Store{}, "", err
-	}
-	return account.NewClient(), store, site, nil
-}
+// accountDeps are the account, credentials store and site the CLI uses
+// (labops.AccountDeps, replaced in tests).
+func accountDeps() (*account.Client, account.Store, string, error) { return labops.AccountDeps() }
 
 // accountForLab returns the active account for optional catalog session tracking.
 // Local labs and signed-out catalog labs run without a session. Credential
 // storage and renewal failures are still reported rather than hidden.
 func accountForLab(ctx context.Context, flags *rootFlags) (*labAccount, error) {
-	if flags.catalogLab == "" || flags.localOnly || flags.headless {
-		return nil, nil
-	}
-	client, store, site, err := accountDeps()
-	if err != nil {
-		return nil, err
-	}
-	creds, err := client.Active(ctx, store, site)
-	if errors.Is(err, account.ErrSignedOut) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &labAccount{client: client, store: store, creds: creds}, nil
+	return labops.AccountForLab(ctx, flags.catalogLab, flags.localOnly || flags.headless)
 }
 
 // notSignedInError is what a catalog lab says when there is no usable
@@ -85,27 +52,27 @@ func capitalize(s string) string {
 // the lab page URL it returns — all before the lab is built, so a refusal
 // costs nothing. The session token is removed before this URL is retained or
 // printed; an authenticated course page reconnects by the attempt ID.
-func (a *labAccount) startSession(ctx context.Context, command, lab string, opts ...account.SessionOptions) (*url.URL, *labstate.Session, error) {
-	noticeOtherSite(a.creds.Site, "this lab session (your account, the lab and its timing)")
-	ls, err := a.client.CreateLabSession(ctx, a.store, a.creds, lab, opts...)
+func startSession(ctx context.Context, a *labAccount, command, lab string, opts ...account.SessionOptions) (*url.URL, *labstate.Session, error) {
+	noticeOtherSite(a.Creds.Site, "this lab session (your account, the lab and its timing)")
+	ls, err := a.Client.CreateLabSession(ctx, a.Store, a.Creds, lab, opts...)
 	if err != nil {
-		return nil, nil, labSessionError(err, a.creds.Site, command, lab)
+		return nil, nil, labSessionError(err, a.Creds.Site, command, lab)
 	}
 	page, err := validateOpenURL(ls.URL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s returned a lab page URL that can't be opened (%w) — nothing was built", a.creds.Site, err)
+		return nil, nil, fmt.Errorf("%s returned a lab page URL that can't be opened (%w) — nothing was built", a.Creds.Site, err)
 	}
-	if !account.SameSite(page, a.creds.Site) {
-		return nil, nil, fmt.Errorf("%s returned a lab page on another site (%s) — refusing to open it; nothing was built", a.creds.Site, page.Host)
+	if !account.SameSite(page, a.Creds.Site) {
+		return nil, nil, fmt.Errorf("%s returned a lab page on another site (%s) — refusing to open it; nothing was built", a.Creds.Site, page.Host)
 	}
 	page.RawQuery = ""
 	page.ForceQuery = false
 	page.Fragment = ""
-	who := a.creds.Username
+	who := a.Creds.Username
 	if who == "" {
 		who = "your account"
 	}
-	sess := &labstate.Session{Site: a.creds.Site, ID: ls.ID, Lab: ls.Lab, URL: page.String(), ExpiresAt: ls.ExpiresAt, MaxMinutes: ls.MaxMinutes, Kind: ls.Kind, DeadlineAt: ls.DeadlineAt}
+	sess := &labstate.Session{Site: a.Creds.Site, ID: ls.ID, Lab: ls.Lab, URL: page.String(), ExpiresAt: ls.ExpiresAt, MaxMinutes: ls.MaxMinutes, Kind: ls.Kind, DeadlineAt: ls.DeadlineAt}
 	// A playground — whose watchdog removes the lab at its deadline — only
 	// when one was asked for, and never with a deadline outside what was.
 	var opt account.SessionOptions
@@ -121,9 +88,9 @@ func (a *labAccount) startSession(ctx context.Context, command, lab string, opts
 		sess.DeadlineAt = clampDeadline(sess.DeadlineAt, time.Now(), opt.TimeLimitMinutes)
 	}
 	if sess.IsPlayground() {
-		fmt.Printf("Playground time started for %s on %s — %d minutes until it stops and is removed.\n", who, a.creds.Site, ls.MaxMinutes)
+		fmt.Printf("Playground time started for %s on %s — %d minutes until it stops and is removed.\n", who, a.Creds.Site, ls.MaxMinutes)
 	} else {
-		fmt.Printf("Lab session started for %s on %s — the lab page opens once the lab is ready.\n", who, a.creds.Site)
+		fmt.Printf("Lab session started for %s on %s — the lab page opens once the lab is ready.\n", who, a.Creds.Site)
 	}
 	if sess.Lab == "" {
 		sess.Lab = lab

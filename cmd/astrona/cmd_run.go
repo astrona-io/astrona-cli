@@ -410,7 +410,7 @@ func startLabSession(ctx context.Context, acct *labAccount, command string, cfg 
 		opts = append(opts, account.SessionOptions{Kind: "playground", TimeLimitMinutes: minutes})
 	}
 	var err error
-	ls.page, ls.sess, err = acct.startSession(ctx, command, lab, opts...)
+	ls.page, ls.sess, err = startSession(ctx, acct, command, lab, opts...)
 	return ls, err
 }
 

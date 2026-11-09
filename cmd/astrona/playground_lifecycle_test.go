@@ -168,7 +168,7 @@ func TestStartSessionDistrustsKindAndDeadline(t *testing.T) {
 		var sess *labstate.Session
 		captureStdout(t, func() {
 			var err error
-			if _, sess, err = acct.startSession(context.Background(), "run", "L", opts...); err != nil {
+			if _, sess, err = startSession(context.Background(), acct, "run", "L", opts...); err != nil {
 				t.Fatal(err)
 			}
 		})

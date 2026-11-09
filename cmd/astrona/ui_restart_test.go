@@ -139,12 +139,12 @@ func TestUIRestartConsentAndRunChanges(t *testing.T) {
 
 func TestUIRestartNeverUsesAccountAPI(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	oldDeps := accountDeps
-	accountDeps = func() (*account.Client, account.Store, string, error) {
+	oldDeps := labops.AccountDeps
+	labops.AccountDeps = func() (*account.Client, account.Store, string, error) {
 		t.Fatal("local restart accessed the account API or credentials")
 		return nil, account.Store{}, "", errors.New("unexpected account access")
 	}
-	t.Cleanup(func() { accountDeps = oldDeps })
+	t.Cleanup(func() { labops.AccountDeps = oldDeps })
 	st := restartState(t, "astro-demo", "ATS000/lab")
 	approval := &uiRunRestart{"astro-demo", labops.RunID(st)}
 	if err := discardUIRun("astro-demo", approval); err != nil {
