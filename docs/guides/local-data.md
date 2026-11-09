@@ -89,8 +89,9 @@ confirmed cleanup or reset requires an exclusive lock. A command that finds the
 lock taken prints `Waiting for another Astrona command to finish with local
 data...` on stderr and waits up to 5 seconds before it gives up with an error.
 Cleanup or reset therefore fails while a lab command such as `astrona run` is
-still in progress; finish it first. Internal background helpers (usage reporting,
-result sending, playground and port-forward supervisors) do not take the lock.
+still in progress; finish it first. The background helpers that only report
+usage, send saved results or keep port forwards running do not take the lock; a
+playground's time-limit watcher takes it only while it destroys the playground.
 Older CLI releases do not take this lock. Finish those commands before applying
 maintenance. The `.maintenance.lock` and `settings.json.lock` files stay in place;
 their presence does not mean a process is running. Never delete them to unlock

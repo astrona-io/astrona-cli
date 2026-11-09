@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"astrona/internal/labops"
+	"astrona/internal/localdata"
 	"astrona/internal/ui"
 )
 
@@ -42,8 +43,24 @@ func watchPlayground(ctx context.Context, clusterName string, tick time.Duration
 	return labops.WatchPlayground(ctx, os.Stdout, os.Stderr, clusterName, tick, destroyPlayground)
 }
 
-// destroyPlayground destroys a playground whose time limit was reached.
+// watchdogLockWait bounds how long the watchdog waits for a data cleanup or
+// reset to finish before destroying. It runs detached, so nobody waits on it.
+const watchdogLockWait = time.Minute
+
+// destroyPlayground destroys a playground whose time limit was reached. The
+// watchdog holds no data lock while it waits, but destroy may load the lab's
+// config from a cached checkout, so it takes the shared lock like any other
+// command for the destroy itself.
 func destroyPlayground(clusterName string) error {
+	s, err := localdata.DefaultStore()
+	if err != nil {
+		return err
+	}
+	release, err := s.LockWait(context.Background(), false, watchdogLockWait, nil)
+	if err != nil {
+		return err
+	}
+	defer release()
 	rep, err := ui.NewReporter("destroy", clusterName, false)
 	if err != nil {
 		return err

@@ -16,8 +16,8 @@ import (
 // caches: run and test download images, addons and Git checkouts. Every other
 // command skips it, so cleanup is rare and never delays unrelated commands.
 func cacheCleanupWanted(cmd *cobra.Command) bool {
-	if commandHidden(cmd) || settingsReviewExempt(cmd) {
-		return false
+	if cmd.Hidden || settingsReviewExempt(cmd) || (cmd.HasParent() && cmd.Parent().HasParent()) {
+		return false // only the top-level run and test
 	}
 	return cmd.Name() == "run" || cmd.Name() == "test"
 }
