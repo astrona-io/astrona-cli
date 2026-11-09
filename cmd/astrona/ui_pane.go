@@ -48,7 +48,9 @@ func wantsUIPane(args []string) bool {
 	}
 	ui, _ := cmd.Flags().GetBool("ui")
 	startup, _ := cmd.Flags().GetBool("ui-startup")
-	return cmd.Name() == "run" && (ui || startup)
+	// --browser with --ui is refused by the run command itself.
+	browser, _ := cmd.Flags().GetBool("browser")
+	return cmd.Name() == "run" && (ui || startup) && !browser
 }
 
 // Titles are interpreted by the embedded terminal, never passed through to

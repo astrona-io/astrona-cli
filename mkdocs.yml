@@ -103,6 +103,7 @@ nav:
       - Lab Resources: guides/lab-resources.md
   - Reference:
       - Lab Config Schema: reference/lab-config.md
+      - Workspace API: reference/workspace-api.md
       - CLI Reference:
           - reference/cli/astrona.md
           - Take a lab:
@@ -117,6 +118,8 @@ nav:
               - reference/cli/astrona_use.md
               - reference/cli/astrona_run.md
               - reference/cli/astrona_ui.md
+              - reference/cli/astrona_ui_status.md
+              - reference/cli/astrona_ui_stop.md
               - reference/cli/astrona_run_renew.md
               - reference/cli/astrona_docs.md
               - reference/cli/astrona_shell.md

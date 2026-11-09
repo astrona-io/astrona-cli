@@ -86,6 +86,12 @@ func Command(ctx context.Context, lab, target string, command []string, tty bool
 	if err != nil {
 		return nil, fmt.Errorf("isolated terminal requires a running container engine: %w", err)
 	}
+	// The image depends on nothing the lab owns. Building it can take minutes
+	// the first time, so do it before taking the lab's mutation lock: a stop,
+	// reset or destroy of the lab must not wait for a terminal image build.
+	if err := ensureImage(ctx, engine.Path); err != nil {
+		return nil, err
+	}
 	release, err := labstate.LockMutation(lab)
 	if err != nil {
 		return nil, err
@@ -160,9 +166,6 @@ func Command(ctx context.Context, lab, target string, command []string, tty bool
 	}
 	env = append(env, "PS1="+prompt)
 	if err := writePrivate(root, "engine", []byte(engine.Name)); err != nil {
-		return nil, err
-	}
-	if err := ensureImage(ctx, engine.Path); err != nil {
 		return nil, err
 	}
 	name := "astrona-terminal-" + strings.ToLower(rand.Text())

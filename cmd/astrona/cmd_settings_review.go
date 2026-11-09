@@ -86,6 +86,8 @@ func humanSetting(key, value string) string {
 		return value + " GB"
 	case "parallel":
 		return value + " concurrent cluster(s)"
+	case "browser":
+		return settings.ValueText(value)
 	}
 	return value
 }

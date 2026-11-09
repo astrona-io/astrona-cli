@@ -48,7 +48,7 @@ func workspaceRuntime(cfg *config.LabConfig) error {
 }
 
 func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "ui [lab-name]",
 		Short: "Open the UI home with active runs and history",
 		Long: "Open Home to browse saved runs, submission history and completed labs/playgrounds, even when no lab or engine is running. " +
@@ -107,6 +107,10 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			return runLabWorkspace(cmd.Context(), cfg, baseDir, flags)
 		},
 	}
+	// The browser workspace server. A lab named serve, status or stop is
+	// still reachable from Home (astrona ui).
+	cmd.AddCommand(newUIServeCmd(), newUIStatusCmd(), newUIStopCmd())
+	return cmd
 }
 
 // Only remembered primary labs belong in the picker, never unrelated clusters
@@ -435,14 +439,7 @@ func workspaceTaskInfo(cfg *config.LabConfig, baseDir string, flags *rootFlags) 
 	if cfg.Metadata.Docs.Question == "" {
 		return "No task document provided. Use the shell to explore the lab.", 0
 	}
-	configPath := filepath.Join(baseDir, flags.fileName)
-	if strings.HasPrefix(flags.configPath, "https://") || strings.HasPrefix(flags.configPath, "http://") {
-		configPath = flags.configPath
-		if !strings.HasSuffix(configPath, ".yaml") && !strings.HasSuffix(configPath, ".yml") {
-			configPath = strings.TrimRight(configPath, "/") + "/" + flags.fileName
-		}
-	}
-	text, err := labops.ReadLabDoc(configPath, cfg.Metadata.Docs.Question)
+	text, err := readLabDocument(cfg.Metadata.Docs.Question, baseDir, flags)
 	if err != nil {
 		return "Could not read the task: " + sanitizeLine(err.Error()), 0
 	}

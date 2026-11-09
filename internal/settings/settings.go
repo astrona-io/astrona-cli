@@ -41,7 +41,28 @@ func Definitions() []Definition {
 		{"update-check", "true", "Check for new CLI releases and show update notices"},
 		{"cache-retention-days", strconv.Itoa(localdata.DefaultRetentionDays), "Maximum disposable-cache age in days (1–36500)"},
 		{"cache-max-size-gb", strconv.Itoa(localdata.DefaultMaxSizeGB), "Combined disposable-cache size in GB; 0 means unlimited"},
+		{"browser", `"ask"`, "Open a Kind lab in the browser workspace after `astrona run`: ask, always or never"},
 	}
+}
+
+// Browser preferences: the saved answer to "Open this lab in your browser?".
+const (
+	BrowserAsk    = "ask"
+	BrowserAlways = "always"
+	BrowserNever  = "never"
+)
+
+// Browser returns the saved browser preference (BrowserAsk by default).
+func (s Values) Browser() string {
+	value, err := s.Value("browser")
+	if err != nil {
+		return BrowserAsk
+	}
+	var text string
+	if json.Unmarshal(value, &text) != nil {
+		return BrowserAsk
+	}
+	return text
 }
 
 // Values contains only saved overrides; omitted keys use CLI defaults.
@@ -106,6 +127,18 @@ func Parse(key, value string) (json.RawMessage, error) {
 			return nil, fmt.Errorf("%s must be a whole number between %d and %d", key, minValue, maxValue)
 		}
 		value = strconv.FormatInt(n, 10)
+	case "browser":
+		// Stored as a JSON string. Accept the typed word or its stored form.
+		text := strings.ToLower(strings.TrimSpace(value))
+		if unquoted, err := strconv.Unquote(text); err == nil {
+			text = unquoted
+		}
+		switch text {
+		case BrowserAsk, BrowserAlways, BrowserNever:
+			value = strconv.Quote(text)
+		default:
+			return nil, fmt.Errorf("browser must be ask, always or never")
+		}
 	default:
 		return nil, fmt.Errorf("unknown setting %q; run `astrona settings` to list supported settings", key)
 	}
@@ -113,7 +146,7 @@ func Parse(key, value string) (json.RawMessage, error) {
 }
 
 // ValueText shows a stored or typed value the way users answer: yes/no for
-// booleans, anything else unchanged.
+// booleans, words without their JSON quotes, anything else unchanged.
 func ValueText(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "true", "yes", "y":
@@ -121,6 +154,11 @@ func ValueText(value string) string {
 	case "false", "no", "n":
 		return "no"
 	default:
+		if strings.HasPrefix(value, `"`) {
+			if text, err := strconv.Unquote(value); err == nil {
+				return text
+			}
+		}
 		return value
 	}
 }
