@@ -13,6 +13,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/exam"
 	"astrona/internal/hypervisor"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
@@ -414,7 +415,7 @@ func destroyLab(info teardownInfo, baseDir string, rep *ui.Reporter) error {
 		if err != nil {
 			return err
 		}
-		if workspaceRunID(current) != info.runID {
+		if labops.RunID(current) != info.runID {
 			return fmt.Errorf("lab stopped or restarted during submission; the current run was not deleted")
 		}
 	}

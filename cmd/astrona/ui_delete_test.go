@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/outbox"
 	tea "charm.land/bubbletea/v2"
@@ -82,7 +83,7 @@ func TestUIForceDeleteRejectsReplacedRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	after, err := labstate.Load("astro-lab")
-	if err != nil || workspaceRunID(after) != workspaceRunID(st) || after.LocalOnly {
+	if err != nil || labops.RunID(after) != labops.RunID(st) || after.LocalOnly {
 		t.Fatal("stale confirmation modified replacement")
 	}
 }
@@ -123,7 +124,7 @@ func TestDeletionReportsPlaygroundsWithoutSubmittingLabs(t *testing.T) {
 				t.Setenv("PATH", bin)
 				t.Setenv("KIND_EXPERIMENTAL_PROVIDER", "docker")
 				if mode == "ui" {
-					if err := forceDeleteUIRun(context.Background(), uiHomeRun{name: "astro-play", runID: workspaceRunID(st)}, false); err != nil {
+					if err := forceDeleteUIRun(context.Background(), uiHomeRun{name: "astro-play", runID: labops.RunID(st)}, false); err != nil {
 						t.Fatal(err)
 					}
 				} else {

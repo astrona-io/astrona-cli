@@ -100,8 +100,8 @@ linters:
     # proctor, preflight -> labops -> authoring -> workspace -> cmd. Each
     # layer is denied the layers above it, so cmd/astrona can become thin
     # Cobra wiring over internal packages a browser workspace can also call.
-    # Rules for packages that don't exist yet (labops, workspace)
-    # are added with the change that creates them. `pkg` is a prefix match;
+    # The rule for the package that doesn't exist yet (workspace) is
+    # added with the change that creates it. `pkg` is a prefix match;
     # `files` globs match absolute paths.
     depguard:
       rules:
@@ -205,6 +205,14 @@ linters:
               desc: "preflight is below labops"
             - pkg: "astrona/internal/authoring"
               desc: "preflight is below authoring; pass config checks in as a ConfigChecker"
+            - pkg: "astrona/internal/workspace"
+              desc: "workspace is the top layer"
+        labops:
+          list-mode: lax
+          files: ["**/internal/labops/**"]
+          deny:
+            - pkg: "astrona/internal/authoring"
+              desc: "labops is below authoring"
             - pkg: "astrona/internal/workspace"
               desc: "workspace is the top layer"
         authoring:

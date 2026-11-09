@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"astrona/internal/catalog"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"github.com/spf13/cobra"
 )
@@ -46,7 +47,7 @@ func findUIRunRestart(cmd *cobra.Command, flags *rootFlags, containers func(cont
 			return nil, err
 		}
 		if st != nil && sameSource(st.Source, source) {
-			candidates = append(candidates, uiRunRestart{name, workspaceRunID(st)})
+			candidates = append(candidates, uiRunRestart{name, labops.RunID(st)})
 		}
 	}
 	if len(candidates) == 0 {
@@ -78,7 +79,7 @@ func approveUIRestart(cmd *cobra.Command, flags *rootFlags, name string, confirm
 	if err != nil {
 		return err
 	}
-	current := uiRunRestart{name, workspaceRunID(st)}
+	current := uiRunRestart{name, labops.RunID(st)}
 	if flags.uiRestart != nil && *flags.uiRestart != current {
 		return fmt.Errorf("the lab changed after the startup notice; nothing was destroyed. Run the command again to review %s", name)
 	}
@@ -107,7 +108,7 @@ func discardUIRun(name string, approved *uiRunRestart) error {
 	if err != nil {
 		return err
 	}
-	if approved == nil || approved.name != name || approved.runID != workspaceRunID(st) {
+	if approved == nil || approved.name != name || approved.runID != labops.RunID(st) {
 		return fmt.Errorf("the run changed before deletion; nothing was destroyed")
 	}
 	if st == nil {

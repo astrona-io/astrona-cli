@@ -12,6 +12,7 @@ import (
 
 	"astrona/internal/account"
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"github.com/spf13/cobra"
 )
@@ -145,7 +146,7 @@ func TestUIRestartNeverUsesAccountAPI(t *testing.T) {
 	}
 	t.Cleanup(func() { accountDeps = oldDeps })
 	st := restartState(t, "astro-demo", "ATS000/lab")
-	approval := &uiRunRestart{"astro-demo", workspaceRunID(st)}
+	approval := &uiRunRestart{"astro-demo", labops.RunID(st)}
 	if err := discardUIRun("astro-demo", approval); err != nil {
 		t.Fatal(err)
 	}

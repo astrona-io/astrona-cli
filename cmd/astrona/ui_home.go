@@ -11,6 +11,7 @@ import (
 
 	"astrona/internal/apphome"
 	"astrona/internal/cluster"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/proctor"
 	"astrona/internal/settings"
@@ -132,7 +133,7 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 		if st == nil || st.Source == nil { // excludes remembered linked clusters
 			continue
 		}
-		run := uiHomeRun{name: name, kind: "Lab", status: "Unavailable", runID: workspaceRunID(st)}
+		run := uiHomeRun{name: name, kind: "Lab", status: "Unavailable", runID: labops.RunID(st)}
 		run.reportPlayground = st.Session.IsPlayground() && !st.LocalOnly
 		run.started, _ = time.Parse(time.RFC3339, st.StartedAt)
 		run.activeTime, run.activityTracked, err = labstate.ActiveTime(name, st.StartedAt)
@@ -616,7 +617,7 @@ func runUIHome(ctx context.Context, flags *rootFlags, notice string) error {
 			return saveWorkspacePreference(ctx, path, row, value)
 		},
 		open: func(run uiHomeRun) (string, error) {
-			if err := workspaceGuard(run.name, run.runID); err != nil {
+			if err := labops.GuardRun(run.name, run.runID); err != nil {
 				return "", err
 			}
 			st, err := labstate.Load(run.name)

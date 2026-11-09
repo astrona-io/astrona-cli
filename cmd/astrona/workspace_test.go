@@ -13,6 +13,7 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/proctor"
 
@@ -208,8 +209,8 @@ func TestWorkspaceStateAndTimers(t *testing.T) {
 	if err := labstate.Save("astro-lab", st); err != nil {
 		t.Fatal(err)
 	}
-	runID := workspaceRunID(st)
-	if err := workspaceGuard("astro-lab", runID); err != nil {
+	runID := labops.RunID(st)
+	if err := labops.GuardRun("astro-lab", runID); err != nil {
 		t.Fatal("token expiry is not a lab deadline:", err)
 	}
 	snap := readWorkspaceSnapshot(context.Background(), "astro-lab", runID, nil, false, false)
@@ -242,7 +243,7 @@ func TestWorkspaceStateAndTimers(t *testing.T) {
 	if err := labstate.Save("astro-lab", st); err != nil {
 		t.Fatal(err)
 	}
-	if err := workspaceGuard("astro-lab", runID); err == nil {
+	if err := labops.GuardRun("astro-lab", runID); err == nil {
 		t.Fatal("expired playground allowed")
 	}
 	snap = readWorkspaceSnapshot(context.Background(), "astro-lab", runID, nil, true, false)
@@ -253,13 +254,13 @@ func TestWorkspaceStateAndTimers(t *testing.T) {
 	if err := labstate.Save("astro-lab", st); err != nil {
 		t.Fatal(err)
 	}
-	if err := workspaceGuard("astro-lab", runID); err == nil {
+	if err := labops.GuardRun("astro-lab", runID); err == nil {
 		t.Fatal("replacement run allowed")
 	}
 	if err := labstate.Remove("astro-lab"); err != nil {
 		t.Fatal(err)
 	}
-	if err := workspaceGuard("astro-lab", runID); err == nil {
+	if err := labops.GuardRun("astro-lab", runID); err == nil {
 		t.Fatal("destroyed run allowed")
 	}
 }
@@ -454,7 +455,7 @@ func TestWorkspaceTerminalSmoke(t *testing.T) {
 
 func TestWorkspaceRejectsMissingState(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	if err := workspaceGuard("../escape", "anything"); err == nil {
+	if err := labops.GuardRun("../escape", "anything"); err == nil {
 		t.Fatal("path escape")
 	}
 	ctx, cancel := context.WithCancel(context.Background())

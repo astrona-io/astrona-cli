@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/proctor"
@@ -136,37 +136,9 @@ func workspaceLabNames() ([]string, error) {
 	return names, nil
 }
 
-func workspaceRunID(st *labstate.State) string {
-	if st == nil {
-		return ""
-	}
-	session := ""
-	if st.Session != nil {
-		session = st.Session.ID
-	}
-	source, _ := json.Marshal(st.Source) // Source contains only strings.
-	return st.StartedAt + "\n" + session + "\n" + string(source)
-}
-
 func workspaceCanSubmit(cfg *config.LabConfig, playground bool) bool {
 	v := cfg.Validation
 	return !playground && (len(v.Checks) > 0 || v.Script != nil || len(v.Scripts) > 0)
-}
-
-func workspaceGuard(name, runID string) error {
-	st, err := labstate.Load(name)
-	if err != nil {
-		return err
-	}
-	if workspaceRunID(st) != runID {
-		return fmt.Errorf("lab stopped or restarted elsewhere; close and reopen the workspace")
-	}
-	if st != nil && st.Session.IsPlayground() {
-		if deadline, err := time.Parse(time.RFC3339, st.Session.DeadlineAt); err == nil && !time.Now().Before(deadline) {
-			return fmt.Errorf("playground time limit reached; its watchdog handles cleanup")
-		}
-	}
-	return nil
 }
 
 func runLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string, flags *rootFlags) error {
@@ -196,13 +168,13 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 	if st == nil {
 		return "", fmt.Errorf("lab %s has no saved run state; restart it before using the workspace", name)
 	}
-	if expectedRunID != "" && workspaceRunID(st) != expectedRunID {
+	if expectedRunID != "" && labops.RunID(st) != expectedRunID {
 		return "", fmt.Errorf("run changed while opening %s; select it again from Home", name)
 	}
 	if !sameSource(st.Source, rememberedSource(flags)) {
 		return "", fmt.Errorf("lab %s was started from another config; attach using its saved source with astrona ui %s", name, name)
 	}
-	runID := workspaceRunID(st)
+	runID := labops.RunID(st)
 	links, _ := lifecycle.Links(name)
 	clusters := []workspaceCluster{{name: name, status: "Checking…"}}
 	for _, link := range links {
@@ -234,7 +206,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		return "", err
 	}
 	m := workspaceModel{selected: selected, settingsPath: path, runID: runID, taskTerminals: true, terminalCommand: func(ctx context.Context, alias string) (*exec.Cmd, error) {
-		if err := workspaceGuard(name, runID); err != nil {
+		if err := labops.GuardRun(name, runID); err != nil {
 			return nil, err
 		}
 		if cfg.Runtime.Type == "qemu" {
@@ -269,7 +241,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 			}
 			return saveWorkspacePreference(ctx, path, row, value)
 		},
-		guard: func() error { return workspaceGuard(name, runID) },
+		guard: func() error { return labops.GuardRun(name, runID) },
 		shell: func(alias string) error { return runLabShell(name, alias, nil) },
 		// A sent result finishes the attempt, PASS or FAIL, and deletes the
 		// lab as `astrona submit` does.
@@ -470,7 +442,7 @@ func workspaceTaskInfo(cfg *config.LabConfig, baseDir string, flags *rootFlags) 
 			configPath = strings.TrimRight(configPath, "/") + "/" + flags.fileName
 		}
 	}
-	text, err := readLabDoc(configPath, cfg.Metadata.Docs.Question)
+	text, err := labops.ReadLabDoc(configPath, cfg.Metadata.Docs.Question)
 	if err != nil {
 		return "Could not read the task: " + sanitizeLine(err.Error()), 0
 	}
@@ -486,7 +458,7 @@ func readWorkspaceSnapshot(ctx context.Context, name, runID string, clusters []w
 	st, err := labstate.Load(name)
 	if err != nil {
 		snap.blocked = err.Error()
-	} else if workspaceRunID(st) != runID {
+	} else if labops.RunID(st) != runID {
 		snap.blocked = "Lab stopped or restarted elsewhere; close and reopen the workspace."
 	}
 	if st != nil {

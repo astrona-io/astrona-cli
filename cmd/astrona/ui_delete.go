@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/ui"
 )
@@ -49,7 +50,7 @@ func forceDeleteUIRun(ctx context.Context, run uiHomeRun, verbose bool) error {
 	if err != nil {
 		return err
 	}
-	if st == nil || workspaceRunID(st) != run.runID {
+	if st == nil || labops.RunID(st) != run.runID {
 		return fmt.Errorf("the selected run changed; nothing was deleted. Select it again")
 	}
 	rep, err := ui.NewReporter("destroy", run.name, verbose)
