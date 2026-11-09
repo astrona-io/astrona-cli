@@ -66,13 +66,34 @@ The shell runs on your machine, held by the workspace server, not by the page:
   **Use it here** to take it back.
 - **`exit`**: ends the shell. **Open a new shell** starts another one; files in
   the lab are kept.
-- **Connection lost**: the page reconnects on its own and shows the attempt
-  number.
+- **Connection lost**: see below.
 
 The terminal draws with WebGL, so programs that use 24-bit ("truecolor")
 colours show them. Where WebGL is not available, it falls back to a renderer
 that shows those colours as the terminal's default colours; 16 and 256-colour
 output looks the same either way.
+
+### Connection lost
+
+When the page cannot reach the workspace server for more than a second or two
+(the server stopped or hangs, or the computer slept), a dialog covers the
+workspace and the page behind it is blurred, so nothing typed goes into a
+terminal that cannot receive it:
+
+![The connection-lost dialog over the blurred workspace](../assets/browser-workspace-connection-lost.png)
+
+The page keeps reconnecting and shows the attempt number. The dialog cannot be
+closed; it goes away by itself once the server answers, and you continue in
+the same shell, with its output and the task as they were, and the keyboard
+focus back where it was. Shorter drops do not show it.
+
+If it does not come back, check with `astrona ui status` that the server is
+running. If it is not, `astrona ui <lab>` starts it again and prints a new
+link; the lab environment and its files are still there. A page from the
+earlier server then shows **Session ended**.
+
+With reduced motion or reduced transparency set in the system, the workspace
+is dimmed rather than blurred.
 
 ## Stop the workspace
 
@@ -81,9 +102,8 @@ astrona ui status   # address, connections, open terminals and a fresh link
 astrona ui stop     # stops the workspace; labs keep running
 ```
 
-After `astrona ui stop` an open page shows **Workspace unavailable** within
-about a minute. The server also stops by itself after it has been idle for a
-while.
+After `astrona ui stop` an open workspace shows the connection-lost dialog. The
+server also stops by itself after it has been idle for a while.
 
 ## Theme
 

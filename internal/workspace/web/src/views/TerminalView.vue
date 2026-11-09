@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import '@xterm/xterm/css/xterm.css'
 import { closeTerminal, isRunGone, isUnauthorized, listTerminals, openTerminal } from '../api'
+import { serverBack, terminalReconnecting, terminalSettled } from '../connectivity'
 import { mirrorInlineStyles } from '../terminal/cspStyles'
 import { TerminalConnection, type LinkState } from '../terminal/connection'
 import { fontFamily, fontsReady, readTheme } from '../terminal/theme'
@@ -58,8 +59,6 @@ const notice = computed<{ text: string; action?: string } | null>(() => {
         text: 'This terminal is no longer available. If the workspace server restarted, open a new shell; your files are still there.',
         action: 'Open a new shell',
       }
-    case 'unreachable':
-      return { text: 'The workspace server cannot be reached.', action: 'Try again' }
     default:
       return null
   }
@@ -67,6 +66,10 @@ const notice = computed<{ text: string; action?: string } | null>(() => {
 
 function report(state: LinkState): void {
   link.value = state
+  // The workspace covers itself with its "connection lost" dialog while the
+  // terminal reconnects.
+  if (state.kind === 'reconnecting') terminalReconnecting(state.attempt)
+  else terminalSettled()
   const t = term.value
   if (t) t.options.disableStdin = state.kind !== 'connected'
   if (t && state.kind === 'connected' && focusOnConnect) {
@@ -87,17 +90,12 @@ function report(state: LinkState): void {
         return { tone: 'error', label: 'Shell ended' }
       case 'gone':
         return { tone: 'error', label: 'Disconnected' }
-      case 'unreachable':
-        return { tone: 'error', label: 'Server unreachable' }
       case 'unauthorized':
         return { tone: 'error', label: 'Session ended' }
     }
   })()
   emit('status', status)
   if (state.kind === 'unauthorized') emit('unauthorized')
-  // The page checks the run again and, when the server is really gone,
-  // replaces the workspace with its "Workspace unavailable" message.
-  if (state.kind === 'unreachable') emit('runGone')
 }
 
 function scheduleFit(): void {
@@ -158,6 +156,10 @@ async function attach(): Promise<void> {
   if (t) conn.resize(t.cols, t.rows)
   conn.connect()
 }
+
+// The status poll reached the server again: reconnect now rather than at the
+// end of the current backoff.
+watch(serverBack, () => conn?.retryNow())
 
 function act(): void {
   focusOnConnect = true
@@ -228,6 +230,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   unmounted = true
   conn?.close()
+  terminalSettled()
   resizeObserver?.disconnect()
   schemeQuery?.removeEventListener('change', applyTheme)
   if (frame) window.cancelAnimationFrame(frame)

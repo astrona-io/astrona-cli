@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } from 'vue'
+import { onBeforeUnmount, onMounted, ref, shallowRef, watch, watchEffect } from 'vue'
 import { launch, rememberLab } from './boot'
 import {
   ApiError,
@@ -14,6 +14,7 @@ import {
   type Run,
 } from './api'
 import { syncServerClock } from './clock'
+import { apiReachable, apiUnreachable, connectionLost } from './connectivity'
 import MessagePage from './components/MessagePage.vue'
 import IntroPage from './components/IntroPage.vue'
 import WorkspacePage from './components/WorkspacePage.vue'
@@ -95,32 +96,51 @@ async function refresh(): Promise<void> {
   }
 }
 
+const unreachable = (err: unknown) => err instanceof ApiError && err.status === 0
+
 async function onRunGone(): Promise<void> {
   try {
     await refresh()
+    apiReachable()
   } catch (err) {
+    // An open workspace stays as it is behind its "connection lost" dialog,
+    // so the session continues when the server answers again.
+    if (screen.value.kind === 'workspace' && unreachable(err)) {
+      apiUnreachable()
+      schedule()
+      return
+    }
     showError(err)
   }
 }
 
 function schedule(): void {
   window.clearTimeout(poll)
-  // Fast while waiting for the environment, slow once working (keeps the
-  // status and the clock offset fresh until the event stream lands).
-  const delay = screen.value.kind === 'intro' ? 2000 : 30000
+  // Fast while waiting for the environment or for a lost connection to come
+  // back, slow once working (keeps the status and the clock offset fresh
+  // until the event stream lands).
+  const delay = screen.value.kind === 'intro' || connectionLost.value ? 2000 : 30000
   poll = window.setTimeout(async () => {
     try {
       await refresh()
+      apiReachable()
     } catch (err) {
       if (isUnauthorized(err)) {
         showError(err)
         return
       }
-      // Transient: the next poll tries again.
+      if (unreachable(err) && screen.value.kind === 'workspace') apiUnreachable()
+      // Otherwise transient: the next poll tries again.
     }
     if (screen.value.kind === 'intro' || screen.value.kind === 'workspace') schedule()
   }, delay)
 }
+
+// A terminal that starts reconnecting brings the next status poll forward,
+// so the dialog also learns when the server itself answers again.
+watch(connectionLost, (lost) => {
+  if (lost && screen.value.kind === 'workspace') schedule()
+})
 
 async function chooseLab(): Promise<string | null> {
   const runs = await listRuns()
