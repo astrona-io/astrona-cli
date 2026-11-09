@@ -26,12 +26,11 @@ astrona settings -o json
 | `verbose` | `no` | Stream full command output instead of the compact step view |
 | `keep-context` | `no` | Leave kubectl's current-context unchanged on commands with `--keep-context` |
 | `parallel` | `1` | Start up to 1–5 linked clusters at once on commands with `--parallel` |
-| `ui-task-width` | `30` | Default task pane width as a percentage of the lab view (20–60) |
 | `login-reminder` | `yes` | Offer guests login before each lab run; `no` hides reminders |
 | `update-check` | `yes` | Check for new CLI releases and show update notices |
 | `cache-retention-days` | `30` | Maximum disposable-cache age; whole days from 1 to 36500 |
 | `cache-max-size-gb` | `50` | Combined disposable-cache limit in decimal GB; `0` means unlimited size |
-| `browser` | `ask` | After `astrona run` of a Kind lab: `ask` whether to open the [browser workspace](ui-home.md#browser-workspace), or open it `always` or `never` |
+| `browser` | `ask` | After `astrona run` of a Kind lab: `ask` whether to open the [browser workspace](browser-workspace.md), or open it `always` or `never` |
 
 Answering `always` or `never` to "Open this lab in your browser?" saves that
 answer here; `astrona settings set browser ask` brings the question back.
@@ -80,54 +79,9 @@ Unknown keys and invalid values are rejected
 before a normal command runs. A damaged file is never silently overwritten:
 use `astrona settings path` to find and repair it. Settings and lock files must
 not be symlinks. Remote-code trust and automatic confirmation cannot be enabled
-through settings.
-
-## Change settings inside the lab workspace
-
-In `astrona ui` or a lab started with `--ui`, press `p` to open Preferences.
-With no running labs, `astrona ui` opens a home screen. Press `n` or Enter to
-start a Kind lab by catalog ID or local path, `p` for Preferences, or `r` to
-find labs started from another terminal. Select a running lab and press Enter
-to open it. Press `q` to close the home screen. Starting a lab shows one Yes/No
-notice covering terms, settings, lab code and downloads. Tab opens the details.
-Yes starts setup inside the UI; No cancels with a message. Downloads, progress
-and errors stay in the terminal pane. Cancelling or failing returns to Home.
-After startup, select the run and press Enter to open its workspace.
-Inside the workspace, Enter shows the task; `s` opens a shell inside the UI.
-Type `exit` in the shell to return to the workspace. Ctrl+] opens pane controls
-for scrolling recent output or closing the UI.
-
-Starting an existing lab asks whether to destroy its current work and start over.
-No keeps it running. Yes discards it without saving or submitting, then starts a
-local-only run: no account session, progress or results are sent to the Astrona
-API. To reopen a lab without restarting, use `astrona ui`. Both UI commands work
-from inside a lab shell. See [the UI guide](ui-home.md) for details.
-
-The workspace keeps its header and keyboard hints visible around bordered panels.
-Starting a lab, editing a preference and confirming destruction use dialogs.
-Errors appear in an alert panel; press Ctrl+G to read the full message, Page Up/Down
-to scroll it, and Esc to return. Save confirmations appear as status messages.
-
-Use the arrow keys to select a setting. The editor shows its current value,
-whether it is saved or a default, its built-in default and an explanation.
-Press Enter, type a value, then Enter to review the current and proposed values,
-why the change is being proposed, its effect and when it applies. Changes you
-request here are optional. Press `y` to approve or `n` to decline and keep the
-current value; Enter returns to editing without saving. Esc cancels
-the edit without saving; another Esc returns to the lab. Page Up/Down scrolls
-long descriptions. Press `r` in the list to reload choices saved by another command.
-
-The editor uses the same file as `astrona settings path`. It validates values
-before saving and refuses to overwrite a setting changed elsewhere while you
-were editing it. Boolean settings use `yes` / `no`. A blank answer keeps the
-current value, including the default `yes` for `update-check` when no value is
-saved. Editing preferences does not approve new settings definitions or usage terms.
-
-Saved options apply to future CLI commands, not the current workspace's options
-or running lab. Cache policy is checked after the workspace closes; saving a
-cache preference does not itself delete files. Open the UI through `--ui`,
-`astrona ui`, or the Yes/No offer at the start of an interactive `astrona run`.
-This choice is not a persistent setting.
+through settings. `ui-task-width`, which sized the task pane of the former
+terminal UI, is no longer a setting: a saved value is ignored and dropped the
+next time settings are saved.
 
 ## Review settings after an upgrade
 
@@ -141,7 +95,7 @@ read-only and show preferences before flags or environment overrides.
 Settings review is optional. Normal CLI commands, including headless and CI
 runs, use saved preferences and built-in defaults without asking for settings
 confirmation. Missing, outdated or damaged review receipts do not block commands.
-Starting a lab in the UI does not acknowledge settings on your behalf.
+Starting a lab does not acknowledge settings on your behalf.
 
 Run `astrona settings review` explicitly when you want to inspect and save choices.
 The first review covers every setting; later reviews cover only added, removed

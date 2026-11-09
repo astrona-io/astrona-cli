@@ -50,7 +50,7 @@ func TestSettingsReadDoesNotCreateFiles(t *testing.T) {
 
 func TestSettingsSetGetUnset(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".astrona", "settings.json")
-	for _, pair := range [][2]string{{"verbose", "true"}, {"keep-context", "true"}, {"parallel", "3"}, {"update-check", "false"}, {"ui-task-width", "20"}, {"ui-task-width", "60"}} {
+	for _, pair := range [][2]string{{"verbose", "true"}, {"keep-context", "true"}, {"parallel", "3"}, {"update-check", "false"}} {
 		if _, err := executeSettings(t, path, "set", pair[0], pair[1]); err != nil {
 			t.Fatal(err)
 		}
@@ -75,7 +75,7 @@ func TestSettingsSetGetUnset(t *testing.T) {
 		t.Fatalf("unset did not restore the default: %q, %v", got, err)
 	}
 	saved, err := settings.Load(path)
-	if err != nil || len(saved) != 4 || string(saved["parallel"]) != "3" || string(saved["ui-task-width"]) != "60" {
+	if err != nil || len(saved) != 3 || string(saved["parallel"]) != "3" || string(saved["update-check"]) != "false" {
 		t.Fatalf("unset changed other settings: %v, %v", saved, err)
 	}
 	if _, exists := saved["keep-context"]; exists {
@@ -127,8 +127,7 @@ func TestSettingsRejectInvalidEditsWithoutChangingFile(t *testing.T) {
 		{"set", "verbose", "maybe"}, {"set", "parallel", "0"}, {"set", "parallel", "6"},
 		{"set", "parallel", "1.5"}, {"set", "trust", "true"}, {"unset", "unknown"},
 		{"get", "unknown"}, {"set", "keep-context"}, {"set", "verbose", "false", "extra"},
-		{"-o", "yaml"}, {"set", "ui-task-width", "19"}, {"set", "ui-task-width", "61"},
-		{"set", "ui-task-width", "30.5"}, {"set", "ui-task-width", "no"},
+		{"-o", "yaml"}, {"set", "ui-task-width", "30"},
 	} {
 		if _, err := executeSettings(t, path, args...); err == nil {
 			t.Fatalf("accepted invalid arguments: %v", args)
