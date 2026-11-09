@@ -7,21 +7,10 @@ import (
 	"strings"
 
 	"astrona/internal/config"
+	"astrona/internal/preflight"
 
 	"github.com/spf13/cobra"
 )
-
-// depCheck is one external dependency astrona shells out to. required=false
-// only ever produces a warning, never a non-zero exit — those tools back a
-// specific runtime (qemu) or flag (--git), not astrona as a whole.
-type depCheck struct {
-	name        string
-	required    bool
-	note        string // why it's needed, or when it's optional
-	find        func() (found bool, detail string)
-	installHint string
-	brewFormula string // what `brew install` installs it from; "" when Homebrew has nothing for it
-}
 
 // brewAvailable: Homebrew is installed, so a missing tool's hint can be a
 // `brew install` command instead of a web page. Swapped out in tests.
@@ -30,29 +19,16 @@ var brewAvailable = func() bool {
 	return err == nil
 }
 
-// hint is how to install c: the brew command when Homebrew is there and
-// has it, else installHint.
-func (c depCheck) hint() string {
-	if c.brewFormula == "" || !brewAvailable() {
-		return c.installHint
+// depHint is how to install c: the brew command when Homebrew is there and
+// has it, else its InstallHint.
+func depHint(c depCheck) string {
+	if c.BrewFormula == "" || !brewAvailable() {
+		return c.InstallHint
 	}
-	if c.brewFormula == "podman" {
+	if c.BrewFormula == "podman" {
 		return "brew install podman && podman machine init && podman machine start — or Docker Desktop"
 	}
-	return "brew install " + c.brewFormula
-}
-
-// missingDeps is every required (or every optional) check that fails.
-func missingDeps(required bool) []depCheck {
-	var out []depCheck
-	for _, c := range astronaDepChecks() {
-		if c.required == required {
-			if found, _ := c.find(); !found {
-				out = append(out, c)
-			}
-		}
-	}
-	return out
+	return "brew install " + c.BrewFormula
 }
 
 // brewInstallAll is one `brew install …` for every missing check Homebrew
@@ -65,136 +41,15 @@ func brewInstallAll(missing []depCheck) string {
 	var formulas []string
 	seen := map[string]bool{}
 	for _, c := range missing {
-		if c.brewFormula != "" && !seen[c.brewFormula] {
-			seen[c.brewFormula] = true
-			formulas = append(formulas, c.brewFormula)
+		if c.BrewFormula != "" && !seen[c.BrewFormula] {
+			seen[c.BrewFormula] = true
+			formulas = append(formulas, c.BrewFormula)
 		}
 	}
 	if len(formulas) == 0 {
 		return ""
 	}
 	return "brew install " + strings.Join(formulas, " ")
-}
-
-// lookPath is the depCheck.find for the common case: a single binary on
-// PATH.
-func lookPath(bin string) func() (bool, string) {
-	return func() (bool, string) {
-		path, err := exec.LookPath(bin)
-		if err != nil {
-			return false, ""
-		}
-		return true, path
-	}
-}
-
-// astronaDepChecks lists every external binary astrona shells out to,
-// required ones first — newCheckCmd relies on that ordering to print a
-// "Required" section before an "Optional" one in a single pass.
-func astronaDepChecks() []depCheck {
-	return []depCheck{
-		{
-			name:        "kind",
-			required:    true,
-			note:        "creates and deletes the local Kubernetes cluster",
-			find:        lookPath("kind"),
-			installHint: "https://kind.sigs.k8s.io/docs/user/quick-start/#installation",
-			brewFormula: "kind",
-		},
-		{
-			name:     "docker or podman",
-			required: true,
-			note:     "container runtime kind runs on (either one)",
-			find: func() (bool, string) {
-				if path, err := exec.LookPath("docker"); err == nil {
-					return true, "docker: " + path
-				}
-				if path, err := exec.LookPath("podman"); err == nil {
-					return true, "podman: " + path
-				}
-				return false, ""
-			},
-			installHint: "https://docs.docker.com/get-docker/ or https://podman.io/docs/installation",
-			brewFormula: "podman",
-		},
-		{
-			name:        "kubectl",
-			required:    true,
-			note:        "applies manifests and runs the Proctor's checks",
-			find:        lookPath("kubectl"),
-			installHint: "https://kubernetes.io/docs/tasks/tools/#kubectl",
-			brewFormula: "kubernetes-cli",
-		},
-		{
-			name:        "git",
-			required:    false,
-			note:        "only needed for --git (cloning/pulling a lab config from a repo)",
-			find:        lookPath("git"),
-			installHint: "https://git-scm.com/downloads",
-			brewFormula: "git",
-		},
-		{
-			name:        "qemu-system-x86_64",
-			required:    false,
-			note:        "only needed for runtime.type: qemu with an x86_64 guest",
-			find:        lookPath("qemu-system-x86_64"),
-			installHint: "brew install qemu (macOS) / apt install qemu-system-x86 (Debian/Ubuntu)",
-			brewFormula: "qemu",
-		},
-		{
-			name:        "qemu-system-aarch64",
-			required:    false,
-			note:        "only needed for runtime.type: qemu with an aarch64 guest",
-			find:        lookPath("qemu-system-aarch64"),
-			installHint: "brew install qemu (macOS) / apt install qemu-system-arm (Debian/Ubuntu)",
-			brewFormula: "qemu",
-		},
-		{
-			name:        "qemu-img",
-			required:    false,
-			note:        "only needed for runtime.type: qemu (builds the disposable overlay disk)",
-			find:        lookPath("qemu-img"),
-			installHint: "brew install qemu (macOS) / apt install qemu-utils (Debian/Ubuntu)",
-			brewFormula: "qemu",
-		},
-		{
-			name:        "ssh",
-			required:    false,
-			note:        "only needed for runtime.type: qemu (runs scripts inside the VM)",
-			find:        lookPath("ssh"),
-			installHint: "usually preinstalled; on Debian/Ubuntu: apt install openssh-client",
-		},
-		{
-			name:        "ssh-keygen",
-			required:    false,
-			note:        "only needed for runtime.type: qemu (generates the VM's ephemeral SSH key)",
-			find:        lookPath("ssh-keygen"),
-			installHint: "usually preinstalled; on Debian/Ubuntu: apt install openssh-client",
-		},
-		{
-			name:        "oras",
-			required:    false,
-			note:        "only needed for runtime.type: qemu with an image source of type 'oci' (pulls the base image from an OCI registry, e.g. ghcr.io)",
-			find:        lookPath("oras"),
-			installHint: "https://oras.land/docs/installation",
-			brewFormula: "oras",
-		},
-		{
-			name:     "mkisofs / genisoimage / xorriso / hdiutil",
-			required: false,
-			note:     "only needed for runtime.type: qemu (builds the cloud-init seed image, any one of these works)",
-			find: func() (bool, string) {
-				for _, tool := range []string{"mkisofs", "genisoimage", "xorriso", "hdiutil"} {
-					if path, err := exec.LookPath(tool); err == nil {
-						return true, tool + ": " + path
-					}
-				}
-				return false, ""
-			},
-			installHint: "brew install cdrtools (macOS) / apt install genisoimage (Debian/Ubuntu)",
-			brewFormula: "cdrtools",
-		},
-	}
 }
 
 // newCheckCmd builds `astrona check`: verifies every external binary
@@ -221,7 +76,7 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 			if output == "json" {
 				return checkAsJSON(cmd, flags)
 			}
-			checks := astronaDepChecks()
+			checks := preflight.AstronaDepChecks()
 
 			missingRequired := 0
 			printedOptionalHeader := false
@@ -231,26 +86,26 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 
 			fmt.Println("Required:")
 			for _, c := range checks {
-				if !c.required && !printedOptionalHeader {
+				if !c.Required && !printedOptionalHeader {
 					fmt.Println("\nOptional (only needed for specific runtimes/flags):")
 					printedOptionalHeader = true
 				}
 
-				found, detail := c.find()
+				found, detail := c.Find()
 				if found {
-					fmt.Printf("  %s  %-38s %s\n", colorize(ansiGreen, "✓"), c.name, detail)
+					fmt.Printf("  %s  %-38s %s\n", colorize(ansiGreen, "✓"), c.Name, detail)
 					continue
 				}
 
-				if c.required {
+				if c.Required {
 					missingRequired++
 					missingReq = append(missingReq, c)
-					fmt.Printf("  %s  %-38s %s\n", colorize(ansiRed, "✗"), c.name, c.note)
+					fmt.Printf("  %s  %-38s %s\n", colorize(ansiRed, "✗"), c.Name, c.Note)
 				} else {
 					missingOpt = append(missingOpt, c)
-					fmt.Printf("  %s  %-38s %s\n", colorize(ansiYellow, "⚠"), c.name, c.note)
+					fmt.Printf("  %s  %-38s %s\n", colorize(ansiYellow, "⚠"), c.Name, c.Note)
 				}
-				fmt.Printf("        install: %s\n", c.hint())
+				fmt.Printf("        install: %s\n", depHint(c))
 			}
 			if all := brewInstallAll(missingReq); all != "" {
 				fmt.Printf("\nInstall what's required: %s\n", all)
@@ -259,9 +114,9 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 				fmt.Printf("\nOptional tools, all at once: %s\n", all)
 			}
 
-			envRes, engine := checkEngine()
+			envRes, engine := preflight.CheckEngine()
 			if goruntime.GOOS == "linux" {
-				envRes = append(envRes, checkInotify("/proc")...)
+				envRes = append(envRes, preflight.CheckInotify("/proc")...)
 			}
 			envFailed := printCheckResults("Container engine", envRes)
 
@@ -295,21 +150,21 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 func checkAsJSON(cmd *cobra.Command, flags *rootFlags) error {
 	rep := &report{json: true}
 	var deps []checkResult
-	for _, c := range astronaDepChecks() {
-		found, detail := c.find()
+	for _, c := range preflight.AstronaDepChecks() {
+		found, detail := c.Find()
 		switch {
 		case found:
-			deps = append(deps, checkResult{name: c.name, detail: detail})
-		case c.required:
-			deps = append(deps, checkResult{status: checkFail, name: c.name, detail: c.note, hint: "install: " + c.hint()})
+			deps = append(deps, checkResult{Name: c.Name, Detail: detail})
+		case c.Required:
+			deps = append(deps, checkResult{Status: checkFail, Name: c.Name, Detail: c.Note, Hint: "install: " + depHint(c)})
 		default:
-			deps = append(deps, checkResult{status: checkWarn, name: c.name, detail: c.note, hint: "install: " + c.hint()})
+			deps = append(deps, checkResult{Status: checkWarn, Name: c.Name, Detail: c.Note, Hint: "install: " + depHint(c)})
 		}
 	}
 	rep.section("Dependencies", deps)
-	envRes, engine := checkEngine()
+	envRes, engine := preflight.CheckEngine()
 	if goruntime.GOOS == "linux" {
-		envRes = append(envRes, checkInotify("/proc")...)
+		envRes = append(envRes, preflight.CheckInotify("/proc")...)
 	}
 	rep.section("Container engine", envRes)
 	explicit := cmd.Flags().Changed("config") || cmd.Flags().Changed("file") || cmd.Flags().Changed("git")

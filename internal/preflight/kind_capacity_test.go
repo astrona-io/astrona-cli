@@ -1,4 +1,4 @@
-package main
+package preflight
 
 import (
 	"testing"
@@ -17,7 +17,7 @@ func TestOtherKindMemoryIncludesUnmanagedClusters(t *testing.T) {
 	if got.clusters != 2 || got.bytes != want {
 		t.Fatalf("existing clusters = %+v, want 2 clusters, %d bytes", got, want)
 	}
-	if r := evaluateLabMemoryWithOthers(nil, nil, got, 6*gib); r.status != checkWarn {
+	if r := evaluateLabMemoryWithOthers(nil, nil, got, 6*gib); r.Status != Warn {
 		t.Fatalf("expected contention warning: %+v", r)
 	}
 }
@@ -25,16 +25,16 @@ func TestOtherKindMemoryIncludesUnmanagedClusters(t *testing.T) {
 func TestKeyringQuota(t *testing.T) {
 	for _, c := range []struct {
 		name, data string
-		status     checkStatus
+		status     Status
 	}{
-		{"rootless default", "0: 112 112/112 112/200 5823/20000", checkWarn},
-		{"rootful", "0: 112 112/112 112/1000000 5823/25000000", checkOK},
-		{"keys exhausted", "0: 19000 19000/19000 19000/20000 4000/500000", checkWarn},
-		{"bytes exhausted", "0: 112 112/112 112/20000 450000/500000", checkWarn},
+		{"rootless default", "0: 112 112/112 112/200 5823/20000", Warn},
+		{"rootful", "0: 112 112/112 112/1000000 5823/25000000", OK},
+		{"keys exhausted", "0: 19000 19000/19000 19000/20000 4000/500000", Warn},
+		{"bytes exhausted", "0: 112 112/112 112/20000 450000/500000", Warn},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			got := evaluateKeyringQuota(c.data)
-			if len(got) != 1 || got[0].status != c.status {
+			if len(got) != 1 || got[0].Status != c.status {
 				t.Fatalf("quota result: %+v, expected %v", got, c.status)
 			}
 		})

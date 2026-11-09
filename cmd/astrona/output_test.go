@@ -25,10 +25,10 @@ func TestCheckOutput(t *testing.T) {
 
 func TestReportCountsFailures(t *testing.T) {
 	r := &report{json: true}
-	if n := r.section("A", []checkResult{{name: "x"}, {name: "y", status: checkFail}, {name: "z", status: checkWarn}}); n != 1 {
+	if n := r.section("A", []checkResult{{Name: "x"}, {Name: "y", Status: checkFail}, {Name: "z", Status: checkWarn}}); n != 1 {
 		t.Errorf("failed = %d", n)
 	}
-	if got := checkResultsJSON("A", []checkResult{{name: "y", status: checkFail, hint: "do this"}}); got[0].Status != "fail" || got[0].Fix != "do this" || got[0].Section != "A" {
+	if got := checkResultsJSON("A", []checkResult{{Name: "y", Status: checkFail, Hint: "do this"}}); got[0].Status != "fail" || got[0].Fix != "do this" || got[0].Section != "A" {
 		t.Errorf("json result = %+v", got[0])
 	}
 }

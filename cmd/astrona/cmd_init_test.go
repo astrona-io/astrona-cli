@@ -22,8 +22,8 @@ func TestScaffoldLabIsValidAsGenerated(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, r := range labConfigResults(cfg, dir) {
-		if r.status != checkOK {
-			t.Errorf("generated lab doesn't validate: %s %s %s", r.name, r.detail, r.hint)
+		if r.Status != checkOK {
+			t.Errorf("generated lab doesn't validate: %s %s %s", r.Name, r.Detail, r.Hint)
 		}
 	}
 }
@@ -38,8 +38,8 @@ func TestScaffoldLinkedLabIsValidAsGenerated(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, r := range labConfigResults(cfg, dir) {
-		if r.status != checkOK {
-			t.Errorf("generated lab doesn't validate: %s %s %s", r.name, r.detail, r.hint)
+		if r.Status != checkOK {
+			t.Errorf("generated lab doesn't validate: %s %s %s", r.Name, r.Detail, r.Hint)
 		}
 	}
 }

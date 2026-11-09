@@ -13,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"astrona/internal/preflight"
 )
 
 func titles(steps []setupStep) []string {
@@ -76,8 +78,8 @@ func TestWaitForEngineAfterStartup(t *testing.T) {
 	if err := os.WriteFile(enginePath, []byte("#!/bin/sh\nexit 125\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	results, _ := checkEngine()
-	if len(results) == 0 || results[0].status != checkFail {
+	results, _ := preflight.CheckEngine()
+	if len(results) == 0 || results[0].Status != checkFail {
 		t.Fatalf("expected an unreachable engine before startup: %+v", results)
 	}
 
