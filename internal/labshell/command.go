@@ -86,6 +86,12 @@ func Command(ctx context.Context, lab, target string, command []string, tty bool
 	if err != nil {
 		return nil, fmt.Errorf("isolated terminal requires a running container engine: %w", err)
 	}
+	// The image depends on nothing the lab owns. Building it can take minutes
+	// the first time, so do it before taking the lab's mutation lock: a stop,
+	// reset or destroy of the lab must not wait for a terminal image build.
+	if err := ensureImage(ctx, engine.Path); err != nil {
+		return nil, err
+	}
 	release, err := labstate.LockMutation(lab)
 	if err != nil {
 		return nil, err
@@ -162,10 +168,7 @@ func Command(ctx context.Context, lab, target string, command []string, tty bool
 	if err := writePrivate(root, "engine", []byte(engine.Name)); err != nil {
 		return nil, err
 	}
-	if err := ensureImage(ctx, engine.Path); err != nil {
-		return nil, err
-	}
-	name := "astrona-terminal-" + strings.ToLower(rand.Text())
+	name :="astrona-terminal-" + strings.ToLower(rand.Text())
 	args, err := runArgs(engine.Name, path, lab, name, env, hosts, command, tty)
 	if err != nil {
 		return nil, err
@@ -230,6 +233,17 @@ func runArgs(engine, path, lab, name string, env, hosts, command []string, tty b
 // Remove closes terminals before removing their workspace. No engine access is
 // needed for labs which never opened an isolated terminal.
 func Remove(ctx context.Context, lab string) error {
+	return closeTerminals(ctx, lab, true)
+}
+
+// CloseTerminals removes every isolated terminal container of lab and keeps
+// its workspace files. The workspace server uses it when it stops, so no
+// terminal container outlives it.
+func CloseTerminals(ctx context.Context, lab string) error {
+	return closeTerminals(ctx, lab, false)
+}
+
+func closeTerminals(ctx context.Context, lab string, removeWorkspace bool) error {
 	if err := config.ValidateName(lab); err != nil {
 		return err
 	}
@@ -275,6 +289,9 @@ func Remove(ctx context.Context, lab string) error {
 				return fmt.Errorf("close lab terminals: %w", err)
 			}
 		}
+	}
+	if !removeWorkspace {
+		return nil
 	}
 	return r.RemoveAll(lab)
 }
