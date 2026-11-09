@@ -4666,6 +4666,7 @@
 <p>A full reset of a catalog lab asks for confirmation when signed out, like <code>astrona run</code> (--without-login confirms without prompting). When signed in, it starts a fresh session and reports when the rebuilt lab is ready for its course page. --soft and --cluster keep the current session and need no sign-in.</p>
 <p>Like <code>astrona run</code>, a full reset points kubectl at the lab (the context to go back to is still the one from before the lab first ran); --keep-context leaves it alone.</p>
 <p>--soft keeps the clusters: it deletes every namespace created after the platform (kube-system, addons, …) was set up, clears what isn't astrona's from the default namespace, and runs the bootstrap again — seconds instead of minutes. Cluster-wide objects (CRDs, ClusterRoles, …) aren't reverted; use a full reset for those. With --cluster, only that linked cluster.</p>
+<p>Ctrl+C (or SIGTERM) during a full reset or a --cluster rebuild stops at the current step and removes what the rebuild created, like <code>astrona run</code>; a second Ctrl+C quits at once.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona reset [lab] [flags]
 </code></pre></div>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
