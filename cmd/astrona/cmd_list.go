@@ -26,7 +26,6 @@ type kindContainer = labops.KindContainer
 func collectQEMURows() ([]labRow, int, error) { return labops.CollectQEMURows() }
 func collectKindRows() []labRow               { return labops.CollectKindRows() }
 func lookupKindRows() ([]labRow, error)       { return labops.LookupKindRows() }
-func enrichKindHealth(rows []labRow) []labRow { return labops.EnrichKindHealth(rows) }
 func kindAPIHealth(name string) (status, version string) {
 	return labops.KindAPIHealth(name)
 }

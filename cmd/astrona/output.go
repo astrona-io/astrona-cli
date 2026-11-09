@@ -1,6 +1,7 @@
 package main
 
 import (
+	"astrona/internal/labops"
 	"astrona/internal/portforward"
 	"encoding/json"
 	"fmt"
@@ -66,28 +67,10 @@ func failedCount(res []checkResultJSON) int {
 	return n
 }
 
-// forwardJSON is a port forward in -o json output.
-type forwardJSON struct {
-	Name      string `json:"name"`
-	State     string `json:"state"`
-	URL       string `json:"url"`
-	Target    string `json:"target"`
-	Namespace string `json:"namespace"`
-	Cluster   string `json:"cluster,omitempty"`
-	Restarts  int    `json:"restarts"`
-	LastError string `json:"lastError,omitempty"`
-}
+// forwardJSON is a port forward in -o json output (labops.ForwardJSON).
+type forwardJSON = labops.ForwardJSON
 
-func forwardsJSON(fs []portforward.Forward) []forwardJSON {
-	out := make([]forwardJSON, 0, len(fs))
-	for _, f := range fs {
-		pf := f.Spec.Forward.Normalized()
-		out = append(out, forwardJSON{Name: pf.Name, State: string(f.Effective()), URL: portforward.LocalURL(pf),
-			Target: fmt.Sprintf("%s:%d", pf.Resource, pf.TargetPort), Namespace: pf.Namespace, Cluster: pf.Cluster,
-			Restarts: f.Status.Restarts, LastError: f.Status.LastError})
-	}
-	return out
-}
+func forwardsJSON(fs []portforward.Forward) []forwardJSON { return labops.ForwardsJSON(fs) }
 
 // report prints ✓/⚠/✗ sections for people, or collects them into one JSON
 // document (-o json) — so check, doctor and validate share one code path.

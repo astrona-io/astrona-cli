@@ -3,12 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"strconv"
 
-	"astrona/internal/config"
-	"astrona/internal/hypervisor"
-	"astrona/internal/sshopts"
+	"astrona/internal/labops"
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
@@ -50,83 +46,26 @@ func newSSHCmd() *cobra.Command {
 			// Accept the lab name with or without the "astro-" prefix —
 			// `astrona list` prints the prefixed form, but a user typing
 			// the bare lab name should still connect.
-			name := config.NormalizeClusterName(args[0])
-			if err := config.ValidateName(name); err != nil {
-				return err
-			}
-
-			handle, err := hypervisor.LoadQEMUHandle(name)
+			session, err := labops.PrepareSSH(cmd.Context(), args[0], labops.SSHOptions{
+				User: userFlag, Password: passwordFlag, AskPassword: askPassword,
+				PrepareWorkspace: prepareVMResourceWorkspace,
+			})
 			if err != nil {
 				return err
 			}
-			lab := handle.LabName
-			if lab == "" {
-				lab = name
-			}
-			if userFlag == "" && passwordFlag == "" && !askPassword {
-				if err := prepareVMResourceWorkspace(cmd.Context(), lab, handle); err != nil {
-					return err
-				}
-			}
+			handle := session.Handle
 
-			sshPath, err := exec.LookPath("ssh")
+			fmt.Printf("Connecting to '%s' (%s@%s:%d)...\n", handle.ClusterName, session.User, handle.SSHHost, handle.SSHPort)
+
+			// The deprecated --password is answered through SSH_ASKPASS
+			// (labops.SSHSession.Command says how and what that exposes).
+			sshCmd, err := session.Command()
 			if err != nil {
-				return fmt.Errorf("ssh not found in PATH: %w", err)
+				return err
 			}
-
-			user := handle.SSHUser
-			if userFlag != "" {
-				user = userFlag
-			}
-
-			sshArgs := append(sshopts.Isolated(),
-				"-tt",
-				"-p", strconv.Itoa(handle.SSHPort),
-				"-o", "StrictHostKeyChecking=accept-new",
-				"-o", "UserKnownHostsFile="+handle.KnownHosts,
-			)
-
-			if passwordFlag != "" || askPassword {
-				sshArgs = append(sshArgs,
-					"-o", "PubkeyAuthentication=no",
-					"-o", "IdentitiesOnly=yes",
-					"-o", "PreferredAuthentications=password,keyboard-interactive",
-				)
-			} else {
-				sshArgs = append(sshArgs, "-i", handle.SSHKeyPath)
-			}
-
-			sshArgs = append(sshArgs, "-l", user, "--", handle.SSHHost, vmWorkspaceShell(lab, false))
-
-			fmt.Printf("Connecting to '%s' (%s@%s:%d)...\n", handle.ClusterName, user, handle.SSHHost, handle.SSHPort)
-
-			sshCmd := exec.Command(sshPath, sshArgs...)
 			sshCmd.Stdin = os.Stdin
 			sshCmd.Stdout = os.Stdout
 			sshCmd.Stderr = os.Stderr
-
-			// Deprecated --password: ssh has no way to take a password
-			// non-interactively, so astrona answers its SSH_ASKPASS
-			// prompt itself (main re-enters as the askpass helper). The
-			// secret is set only on this ssh process's environment —
-			// never astrona's own, and ssh doesn't forward ASTRONA_* to
-			// the VM — but ssh's local children (the askpass helper, a
-			// ProxyCommand) inherit it, and it is already in argv and
-			// shell history. --ask-password avoids all of that: ssh
-			// prompts itself, with no echo, and astrona never sees it.
-			if passwordFlag != "" {
-				executablePath, err := os.Executable()
-				if err != nil {
-					return fmt.Errorf("failed to get executable path: %w", err)
-				}
-				env := os.Environ()
-				env = append(env, "SSH_ASKPASS="+executablePath)
-				env = append(env, "SSH_ASKPASS_REQUIRE=force")
-				env = append(env, "ASTRONA_INTERNAL_ASKPASS="+passwordFlag)
-				env = append(env, "DISPLAY=dummy:0")
-				sshCmd.Env = env
-			}
-
 			return sshCmd.Run()
 		},
 	}

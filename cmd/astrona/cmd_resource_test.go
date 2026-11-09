@@ -13,6 +13,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/resources"
 
 	"github.com/spf13/cobra"
@@ -36,11 +37,11 @@ func TestResourceRunDefaultsToLabWithoutHostFallback(t *testing.T) {
 	if err := os.WriteFile(kube, []byte("fixture"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	old := isolatedLabCommand
-	t.Cleanup(func() { isolatedLabCommand = old })
+	old := labops.IsolatedLabCommand
+	t.Cleanup(func() { labops.IsolatedLabCommand = old })
 	for _, failure := range []bool{false, true} {
 		called := false
-		isolatedLabCommand = func(ctx context.Context, lab, target string, argv []string, tty bool) (*exec.Cmd, error) {
+		labops.IsolatedLabCommand = func(ctx context.Context, lab, target string, argv []string, tty bool) (*exec.Cmd, error) {
 			called = true
 			want := []string{"astrona", "res", "run", "count-versions.sh", "--", "http://scout/0", "a b"}
 			if lab != "astro-lab" || target != lab || !reflect.DeepEqual(argv, want) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"astrona/internal/labops"
 	"bufio"
 	"bytes"
 	"context"
@@ -413,8 +414,8 @@ func TestUIPaneWheelMouseRouting(t *testing.T) {
 // tests separately exercise the real container boundary and Kubernetes access.
 func stubTerminalContainer(t *testing.T) {
 	t.Helper()
-	previous := isolatedLabCommand
-	isolatedLabCommand = func(ctx context.Context, lab, target string, command []string, tty bool) (*exec.Cmd, error) {
+	previous := labops.IsolatedLabCommand
+	labops.IsolatedLabCommand = func(ctx context.Context, lab, target string, command []string, tty bool) (*exec.Cmd, error) {
 		if len(command) == 0 {
 			command = []string{"/bin/sh"}
 		}
@@ -422,5 +423,5 @@ func stubTerminalContainer(t *testing.T) {
 		cmd.Env = append(os.Environ(), "KUBECONFIG=/test-only/"+target, "ASTRONA_LAB="+lab)
 		return cmd, nil
 	}
-	t.Cleanup(func() { isolatedLabCommand = previous })
+	t.Cleanup(func() { labops.IsolatedLabCommand = previous })
 }

@@ -15,6 +15,7 @@ import (
 	"astrona/internal/apphome"
 	"astrona/internal/config"
 	"astrona/internal/hypervisor"
+	"astrona/internal/labops"
 	"astrona/internal/sshopts"
 )
 
@@ -146,12 +147,12 @@ func workspaceQEMUCommand(ctx context.Context, lab, target string) (*exec.Cmd, e
 	return cmd, nil
 }
 
+// vmWorkspaceShell opens the student's shell in the VM workspace
+// (labops.VMWorkspaceShell), with Astrona's prompt when prompt is set.
 func vmWorkspaceShell(lab string, prompt bool) string {
-	// lab has passed ValidateName before it is used in a remote command.
-	dir := `"$HOME/.astrona/runtime/` + lab + `"`
-	command := "mkdir -p " + dir + " && cd " + dir + ` && export PATH="$HOME/.astrona-resources/bin:$PATH" ASTRONA_RESOURCE_DIR="$HOME/resources" ASTRONA_LAB=` + shQuote(lab) + "; exec "
+	ps1 := ""
 	if prompt {
-		command += "env PS1='" + uiShellPrompt(os.Getenv("NO_COLOR") != "") + "' "
+		ps1 = uiShellPrompt(os.Getenv("NO_COLOR") != "")
 	}
-	return command + "sh -i"
+	return labops.VMWorkspaceShell(lab, ps1)
 }

@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"astrona/internal/config"
 	"astrona/internal/exam"
 	"astrona/internal/proctor"
 )
@@ -14,10 +13,10 @@ import (
 func TestPrintLabStatus(t *testing.T) {
 	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
 	st := labStatus{
-		row:      labRow{Name: "astro-x", Runtime: "kind", Status: "Ready (2/2)", Version: "v1.37.0", Uptime: "20m"},
-		exam:     &exam.State{StartedAt: now.Add(-30 * time.Minute), Limit: 2 * time.Hour},
-		attempts: []proctor.Attempt{{Time: now.Add(-5 * time.Minute), Earned: 3, Max: 4}},
-		now:      now,
+		Row:      labRow{Name: "astro-x", Runtime: "kind", Status: "Ready (2/2)", Version: "v1.37.0", Uptime: "20m"},
+		Exam:     &exam.State{StartedAt: now.Add(-30 * time.Minute), Limit: 2 * time.Hour},
+		Attempts: []proctor.Attempt{{Time: now.Add(-5 * time.Minute), Earned: 3, Max: 4}},
+		Now:      now,
 	}
 	var buf bytes.Buffer
 	printLabStatus(&buf, st)
@@ -35,7 +34,7 @@ func TestPrintLabStatus(t *testing.T) {
 	}
 
 	buf.Reset()
-	printLabStatus(&buf, labStatus{row: labRow{Name: "astro-vm", Runtime: "qemu", Status: "Running"}, now: now})
+	printLabStatus(&buf, labStatus{Row: labRow{Name: "astro-vm", Runtime: "qemu", Status: "Running"}, Now: now})
 	for _, want := range []string{"astrona ssh astro-vm", "Last submit  none yet"} {
 		if !strings.Contains(buf.String(), want) {
 			t.Errorf("qemu status missing %q:\n%s", want, buf.String())
@@ -43,25 +42,5 @@ func TestPrintLabStatus(t *testing.T) {
 	}
 	if strings.Contains(buf.String(), "Exam") {
 		t.Error("non-exam lab shows an Exam line")
-	}
-}
-
-func TestNextStep(t *testing.T) {
-	now := time.Now()
-	withTask := &config.LabConfig{Metadata: config.MetadataConfig{Docs: config.DocsConfig{Question: "q.md"}}}
-	cases := []struct {
-		st   labStatus
-		want string
-	}{
-		{labStatus{cfg: withTask, now: now}, "astrona docs question"},
-		{labStatus{exam: &exam.State{StartedAt: now.Add(-3 * time.Hour), Limit: time.Hour}, attempts: []proctor.Attempt{{}}, now: now}, "time is up"},
-		{labStatus{attempts: []proctor.Attempt{{Pass: true}}, now: now}, "passed"},
-		{labStatus{row: labRow{Name: "astro-x", Status: "Stopped"}, now: now}, "astrona start astro-x"},
-		{labStatus{row: labRow{Status: "Ready (1/1)"}, now: now}, "astrona submit"},
-	}
-	for _, c := range cases {
-		if got := nextStep(c.st); !strings.Contains(got, c.want) {
-			t.Errorf("nextStep = %q, want containing %q", got, c.want)
-		}
 	}
 }
