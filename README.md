@@ -19,8 +19,9 @@ Astrona spins up local Kubernetes labs with [kind](https://kind.sigs.k8s.io/), b
 `astrona ui` opens a terminal home screen with active runs, submission history
 and completed labs/playgrounds. Select a running Kind lab to work on it, or
 start one with `astrona run <lab> --ui`. Submitting or confirming destruction
-in the workspace returns Home. Submission finishes the attempt and stops its
-timer on PASS or FAIL while keeping the environment available. See the
+in the workspace returns Home. A FAIL keeps the attempt and its timer going, so
+fix the lab and submit again; a PASS finishes the attempt and stops its timer
+while keeping the environment available. See the
 [UI guide](docs/guides/ui-home.md) for controls and history details.
 
 Flat, podman-`run`-style verbs at the root — no noun to namespace under. `--config`/`-c`, `--file`/`-f`, `--git`, and `--git-ref` are persistent flags on the root command (shared by every subcommand), not repeated per-command.
