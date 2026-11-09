@@ -22,20 +22,26 @@ import (
 
 // labExists reports whether any part of cfg's environment exists under
 // clusterName: the kind cluster, the single qemu VM, or any VM of a
-// multi-VM qemu lab.
-func labExists(cfg *config.LabConfig, clusterName string) bool {
+// multi-VM qemu lab. A kind lab whose container engine doesn't answer is an
+// error, not "absent": run and reset would otherwise end its session and
+// try to create it over the one still there.
+func labExists(cfg *config.LabConfig, clusterName string) (bool, error) {
 	if cfg.Runtime.Type == string(runtime.RuntimeQEMU) {
 		if qemuStateExists(clusterName) {
-			return true
+			return true, nil
 		}
 		for _, vm := range cfg.Runtime.QEMU {
 			if vm.Name != "" && qemuStateExists(clusterName+"-"+vm.Name) {
-				return true
+				return true, nil
 			}
 		}
-		return false
+		return false, nil
 	}
-	return kindClusterExists(clusterName)
+	ok, err := cluster.Lookup(clusterName)
+	if err != nil {
+		return false, fmt.Errorf("cannot tell whether lab '%s' exists: %w\nStart Docker or Podman and try again", clusterName, err)
+	}
+	return ok, nil
 }
 
 // confirmReset asks on in/out whether to throw lab away.
@@ -170,7 +176,10 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 
-			exists := labExists(cfg, clusterName)
+			exists, err := labExists(cfg, clusterName)
+			if err != nil {
+				return err
+			}
 
 			if exists && !yes {
 				if flags.headless || !isatty.IsTerminal(os.Stdin.Fd()) {

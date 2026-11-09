@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -25,6 +26,12 @@ type ContainerEngine struct {
 	Name string
 	Path string
 }
+
+// ErrEngineNotInstalled is DetectContainerEngine's error when neither Docker
+// nor Podman is on PATH: no kind cluster can exist on this machine. An
+// installed engine that doesn't answer is a different error — its clusters
+// may still be there.
+var ErrEngineNotInstalled = errors.New("neither Docker nor Podman is installed")
 
 // DetectContainerEngine picks Docker or Podman — the first one installed
 // that actually answers, unless KIND_EXPERIMENTAL_PROVIDER selects one.
@@ -74,7 +81,7 @@ func detectContainerEngine() (ContainerEngine, error) {
 		if len(names) == 1 {
 			return ContainerEngine{}, fmt.Errorf("selected container engine %s is not installed — check KIND_EXPERIMENTAL_PROVIDER and PATH", names[0])
 		}
-		return ContainerEngine{}, fmt.Errorf("neither Docker nor Podman is installed — install one (https://docs.docker.com/get-docker/ or https://podman.io/docs/installation), then run `astrona check`")
+		return ContainerEngine{}, fmt.Errorf("%w — install one (https://docs.docker.com/get-docker/ or https://podman.io/docs/installation), then run `astrona check`", ErrEngineNotInstalled)
 	}
 	var failures []string
 	for _, e := range installed {

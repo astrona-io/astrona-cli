@@ -78,6 +78,7 @@ Shows every astrona-managed lab (kind clusters and qemu VMs), with runtime, stat
 | `Unreachable` | node containers are up but the API doesn't answer (3s timeout) |
 | `Degraded (r/n containers running)` | some node containers stopped |
 | `Stopped` | all node containers stopped |
+| `EngineUnreachable` | Docker or Podman is installed but doesn't answer, so this remembered lab can't be checked — start the engine; nothing is forgotten |
 
 `astrona list -o wide` adds the Kubernetes version and port-forward status (`1/1 Ready`); `-o json` prints the same for scripts.
 

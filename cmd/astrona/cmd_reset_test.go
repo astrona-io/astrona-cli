@@ -32,18 +32,27 @@ func TestLabExistsQEMU(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, "handle.json"), []byte("{}"), 0600)
 	}
 
+	exists := func(cfg *config.LabConfig, name string) bool {
+		t.Helper()
+		ok, err := labExists(cfg, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ok
+	}
+
 	multi := &config.LabConfig{Runtime: config.RuntimeConfig{Type: "qemu", QEMU: []config.QEMUVM{{Name: "a"}, {Name: "b"}}}}
-	if labExists(multi, "astro-net") {
+	if exists(multi, "astro-net") {
 		t.Fatal("nothing exists yet")
 	}
 	mark("astro-net-b")
-	if !labExists(multi, "astro-net") {
+	if !exists(multi, "astro-net") {
 		t.Fatal("one VM of a multi-VM lab should count as existing")
 	}
 
 	single := &config.LabConfig{Runtime: config.RuntimeConfig{Type: "qemu", QEMU: []config.QEMUVM{{}}}}
 	mark("astro-one")
-	if !labExists(single, "astro-one") {
+	if !exists(single, "astro-one") {
 		t.Fatal("single-VM lab not detected")
 	}
 }

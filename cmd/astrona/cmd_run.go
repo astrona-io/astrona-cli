@@ -112,7 +112,10 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer release()
-			exists := labExists(cfg, clusterName)
+			exists, err := labExists(cfg, clusterName)
+			if err != nil {
+				return err
+			}
 			label := clusterName
 			if len(args) > 0 && catalog.LooksLikeLabID(args[0]) {
 				label = args[0] + " (" + clusterName + ")"

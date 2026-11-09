@@ -124,24 +124,39 @@ func StartKindCluster(clusterName string, rep *ui.Reporter) error {
 	return nil
 }
 
-// Exists reports whether kind cluster name exists (running or stopped):
-// a container with kind's cluster label named <name>-control-plane.
-func Exists(name string) bool {
+// Lookup reports whether kind cluster name exists (running or stopped): a
+// container with kind's cluster label named <name>-control-plane. With no
+// container engine installed, no kind cluster can exist: false, nil. An
+// installed engine that can't be queried (Docker or Podman stopped) is an
+// error — the cluster may still be there, so a caller that forgets or
+// clears a lab's saved state must not read it as "gone".
+func Lookup(name string) (bool, error) {
 	engine, err := DetectContainerEngine()
+	if errors.Is(err, ErrEngineNotInstalled) {
+		return false, nil
+	}
 	if err != nil {
-		return false
+		return false, err
 	}
 	out, err := exec.Command(engine.Path, "ps", "-a",
 		"--filter", "label=io.x-k8s.kind.cluster",
 		"--format", "{{.Names}}").Output()
 	if err != nil {
-		return false
+		return false, fmt.Errorf("%s ps failed: %w", engine.Name, err)
 	}
 	target := name + "-control-plane"
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		if strings.TrimSpace(line) == target {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
+}
+
+// Exists is Lookup with "couldn't tell" read as absent. Only for checks
+// that keep all saved state either way; use Lookup before forgetting or
+// clearing anything.
+func Exists(name string) bool {
+	ok, _ := Lookup(name)
+	return ok
 }

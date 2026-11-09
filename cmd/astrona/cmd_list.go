@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,7 +19,9 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/executor"
 	"astrona/internal/hypervisor"
+	"astrona/internal/labstate"
 	"astrona/internal/portforward"
+	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -55,7 +58,8 @@ func newListCmd() *cobra.Command {
 		Long: "List astrona labs (qemu VMs and kind clusters) known on this machine.\n\n" +
 			"For kind labs, STATUS is live cluster health: Ready (n/n nodes Ready), NotReady (r/n), " +
 			"Unreachable (node containers up but the API doesn't answer), Degraded (some node " +
-			"containers stopped) or Stopped. -o wide adds the Kubernetes version and port-forward " +
+			"containers stopped) or Stopped. When Docker or Podman is installed but doesn't answer, the labs " +
+			"astrona remembers are listed as EngineUnreachable instead — nothing is forgotten. -o wide adds the Kubernetes version and port-forward " +
 			"status; -o json prints everything for scripts.",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -67,7 +71,15 @@ func newListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			rows = append(rows, enrichKindHealth(collectKindRows())...)
+			kind, kindErr := lookupKindRows()
+			if kindErr != nil {
+				// Not "no kind labs": show what's remembered as unknown.
+				ui.Warnf("container engine unreachable, kind labs can't be checked — start Docker or Podman: %s", kindErr)
+				kind = unreachableKindRows(rows)
+			} else {
+				kind = enrichKindHealth(kind)
+			}
+			rows = append(rows, kind...)
 			markLinkedClusters(rows, linkedClusterOwners())
 			markCurrentLab(rows)
 
@@ -227,10 +239,24 @@ func collectQEMURows() ([]labRow, int, error) {
 //
 // Filtered to show only names starting with the "astro-" prefix, so only
 // astrona-generated kind clusters are listed.
+//
+// An engine that can't be queried counts as no kind labs here; callers that
+// must tell that apart from "none" use lookupKindRows.
 func collectKindRows() []labRow {
+	rows, _ := lookupKindRows()
+	return rows
+}
+
+// lookupKindRows is collectKindRows, but an installed container engine that
+// doesn't answer (Docker or Podman stopped) is an error rather than an
+// empty list. No engine installed at all is no kind labs: nil, nil.
+func lookupKindRows() ([]labRow, error) {
 	engine, err := cluster.DetectContainerEngine()
+	if errors.Is(err, cluster.ErrEngineNotInstalled) {
+		return nil, nil
+	}
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	// {{.Label "k"}} works on both docker and podman; podman's
@@ -239,7 +265,7 @@ func collectKindRows() []labRow {
 		"--filter", "label=io.x-k8s.kind.cluster",
 		"--format", `{{.Names}}|{{.State}}|{{.Label "io.x-k8s.kind.cluster"}}|{{.Label "io.x-k8s.kind.role"}}`).Output()
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("%s ps failed: %w", engine.Name, err)
 	}
 
 	clusters := groupKindContainers(string(out))
@@ -274,6 +300,40 @@ func collectKindRows() []labRow {
 		})
 	}
 
+	return rows, nil
+}
+
+// engineUnreachableStatus is the STATUS of a remembered lab `astrona list`
+// can't check because the container engine doesn't answer.
+const engineUnreachableStatus = "EngineUnreachable"
+
+// unreachableKindRows are the remembered labs (~/.astrona/labs) that have
+// no qemu VM, shown when the container engine can't be asked about kind
+// clusters — such a lab may well still exist, so it's listed, never
+// forgotten. qemu holds the qemu rows already found.
+func unreachableKindRows(qemu []labRow) []labRow {
+	names, _ := labstate.Names()
+	seen := map[string]bool{}
+	for _, r := range qemu {
+		seen[r.name] = true
+		if r.lab != "" {
+			seen[r.lab] = true
+		}
+	}
+	var rows []labRow
+	for _, n := range names {
+		if seen[n] || hypervisor.StateExists(n) || len(hypervisor.MultiVMs(n)) > 0 {
+			continue
+		}
+		rows = append(rows, labRow{
+			name:    n,
+			runtime: "kind",
+			status:  engineUnreachableStatus,
+			uptime:  "-",
+			nics:    "-",
+			details: "start Docker or Podman to check this lab",
+		})
+	}
 	return rows
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"astrona/internal/account"
+	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/labstate"
 	"astrona/internal/ui"
@@ -64,9 +65,13 @@ func newRunRenewCmd() *cobra.Command {
 
 // playgroundExists reports whether any part of a playground's lab still
 // exists: its kind cluster, its qemu VM, or a VM of it ("<lab>-<vm>").
-// Replaced in tests.
+// A container engine that can't be asked counts as existing: the playground
+// may still be there, and a false "gone" would forget it. Replaced in tests.
 var playgroundExists = func(name string) bool {
-	if kindClusterExists(name) || qemuStateExists(name) {
+	if qemuStateExists(name) {
+		return true
+	}
+	if ok, err := cluster.Lookup(name); ok || err != nil {
 		return true
 	}
 	rows, _, _ := collectQEMURows() // an unreadable qemu dir just means no qemu labs here
