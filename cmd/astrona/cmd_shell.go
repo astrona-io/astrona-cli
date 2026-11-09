@@ -55,8 +55,8 @@ func resolveKindCluster(labArg string, flags *rootFlags) (string, error) {
 	owners := linkedClusterOwners()
 	var kindClusters []string
 	for _, r := range collectKindRows() {
-		if _, linked := owners[r.name]; !linked && !strings.HasPrefix(r.name, apphome.TestClusterPrefix()) {
-			kindClusters = append(kindClusters, r.name)
+		if _, linked := owners[r.Name]; !linked && !strings.HasPrefix(r.Name, apphome.TestClusterPrefix()) {
+			kindClusters = append(kindClusters, r.Name)
 		}
 	}
 	switch len(kindClusters) {

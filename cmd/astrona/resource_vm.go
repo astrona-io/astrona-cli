@@ -63,7 +63,7 @@ func vmTarget(lab string, r resources.Resource, vmFlag string) (string, error) {
 	var vms []string
 	if rows, _, err := collectQEMURows(); err == nil {
 		for _, row := range rows {
-			if v, ok := strings.CutPrefix(row.name, lab+"-"); ok {
+			if v, ok := strings.CutPrefix(row.Name, lab+"-"); ok {
 				vms = append(vms, v)
 			}
 		}

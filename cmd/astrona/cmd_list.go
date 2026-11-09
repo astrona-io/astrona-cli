@@ -2,48 +2,49 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"sort"
-	"strings"
-	"sync"
 	"text/tabwriter"
 	"time"
 
-	"astrona/internal/apphome"
-	"astrona/internal/cluster"
-	"astrona/internal/config"
-	"astrona/internal/executor"
-	"astrona/internal/hypervisor"
-	"astrona/internal/labstate"
-	"astrona/internal/portforward"
+	"astrona/internal/labops"
 	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
 )
 
-// labRow is one line of `astrona list`'s output table — one qemu VM or one
-// kind cluster, shaped the same way regardless of runtime so both print
-// through the same tabwriter (the kubectl-get-style aligned-columns look
-// this command is going for).
-type labRow struct {
-	name    string
-	runtime string
-	status  string
-	uptime  string
-	nics    string
-	details string
-	lab     string // qemu: the lab the VM belongs to ("" if its handle predates recording it)
+// labRow is one line of `astrona list`'s output table. The inventory
+// (collecting VMs and kind clusters, their status) lives in labops.
+type labRow = labops.LabRow
 
-	// Filled for kind by enrichKindHealth (`astrona list` only — other
-	// callers just need names); "-" when unknown/not applicable.
-	version  string // Kubernetes version (kubelet) of the nodes
-	forwards string // e.g. "2/2 Ready"
-	current  bool   // the lab picked with `astrona use`
+// kindContainer is one container of a kind cluster (labops.KindContainer).
+type kindContainer = labops.KindContainer
+
+// Thin wrappers over the labops inventory, so call sites keep their names
+// (the UI files call them too). S15 removes them.
+func collectQEMURows() ([]labRow, int, error) { return labops.CollectQEMURows() }
+func collectKindRows() []labRow               { return labops.CollectKindRows() }
+func lookupKindRows() ([]labRow, error)       { return labops.LookupKindRows() }
+func enrichKindHealth(rows []labRow) []labRow { return labops.EnrichKindHealth(rows) }
+func kindAPIHealth(name string) (status, version string) {
+	return labops.KindAPIHealth(name)
+}
+func nodeHealth(data []byte) (status, version string) { return labops.NodeHealth(data) }
+func groupKindContainers(out string) map[string][]kindContainer {
+	return labops.GroupKindContainers(out)
+}
+func containerStatus(cs []kindContainer) string { return labops.ContainerStatus(cs) }
+func formatUptime(d time.Duration) string       { return labops.FormatUptime(d) }
+func linkedClusterOwners() map[string]string    { return labops.LinkedClusterOwners() }
+
+// markCurrentLab marks the lab picked with `astrona use`.
+func markCurrentLab(rows []labRow) {
+	c, err := loadCurrentLab()
+	if err != nil || c == nil {
+		return
+	}
+	labops.MarkCurrentLab(rows, c.Name)
 }
 
 // newListCmd builds `astrona list`. It lists every running qemu VM and kind
@@ -67,20 +68,20 @@ func newListCmd() *cobra.Command {
 				return fmt.Errorf("unsupported --output '%s' (use wide or json)", output)
 			}
 
-			rows, stale, err := collectQEMURows()
+			rows, stale, err := labops.CollectQEMURows()
 			if err != nil {
 				return err
 			}
-			kind, kindErr := lookupKindRows()
+			kind, kindErr := labops.LookupKindRows()
 			if kindErr != nil {
 				// Not "no kind labs": show what's remembered as unknown.
 				ui.Warnf("container engine unreachable, kind labs can't be checked — start Docker or Podman: %s", kindErr)
-				kind = unreachableKindRows(rows)
+				kind = labops.UnreachableKindRows(rows)
 			} else {
-				kind = enrichKindHealth(kind)
+				kind = labops.EnrichKindHealth(kind)
 			}
 			rows = append(rows, kind...)
-			markLinkedClusters(rows, linkedClusterOwners())
+			labops.MarkLinkedClusters(rows, labops.LinkedClusterOwners())
 			markCurrentLab(rows)
 
 			if output == "json" {
@@ -119,11 +120,11 @@ func printLabTable(w io.Writer, rows []labRow, wide bool) {
 	}
 	fmt.Fprintln(tw, header+"\tDETAILS")
 	for _, r := range rows {
-		line := fmt.Sprintf("%s\t%s\t%s\t%s\t%s", r.name, r.runtime, r.status, r.uptime, r.nics)
+		line := fmt.Sprintf("%s\t%s\t%s\t%s\t%s", r.Name, r.Runtime, r.Status, r.Uptime, r.NICs)
 		if wide {
-			line += fmt.Sprintf("\t%s\t%s", orDash(r.version), orDash(r.forwards))
+			line += fmt.Sprintf("\t%s\t%s", orDash(r.Version), orDash(r.Forwards))
 		}
-		fmt.Fprintln(tw, line+"\t"+r.details)
+		fmt.Fprintln(tw, line+"\t"+r.Details)
 	}
 	tw.Flush()
 }
@@ -151,407 +152,13 @@ type labJSON struct {
 func printLabJSON(w io.Writer, rows []labRow) error {
 	out := make([]labJSON, 0, len(rows))
 	for _, r := range rows {
-		j := labJSON{Name: r.name, Runtime: r.runtime, Status: r.status, Uptime: r.uptime, Kubernetes: r.version, PortForwards: r.forwards, Details: r.details, Current: r.current}
-		if r.nics != "-" {
-			j.NICs = r.nics
+		j := labJSON{Name: r.Name, Runtime: r.Runtime, Status: r.Status, Uptime: r.Uptime, Kubernetes: r.Version, PortForwards: r.Forwards, Details: r.Details, Current: r.Current}
+		if r.NICs != "-" {
+			j.NICs = r.NICs
 		}
 		out = append(out, j)
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(out)
-}
-
-// collectQEMURows gathers a labRow for every live qemu VM found under
-// ~/.astrona/qemu, and separately counts (without deleting) stale state dirs
-// left behind by a VM that's no longer running — the state dir alone doesn't
-// mean the VM is still up, LoadQEMUHandle's processAlive check is the only
-// source of truth.
-func collectQEMURows() ([]labRow, int, error) {
-	base, err := hypervisor.QEMUBaseDir()
-	if err != nil {
-		return nil, 0, err
-	}
-
-	entries, err := os.ReadDir(base)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to read qemu state dir '%s': %w", base, err)
-	}
-
-	var rows []labRow
-	stale := 0
-
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-
-		if !strings.HasPrefix(e.Name(), apphome.ClusterPrefix()) {
-			continue
-		}
-
-		data, err := os.ReadFile(filepath.Join(base, e.Name(), "handle.json"))
-		if err != nil {
-			continue
-		}
-
-		var h config.QEMUHandle
-		if err := json.Unmarshal(data, &h); err != nil {
-			continue
-		}
-
-		if !hypervisor.ProcessAlive(h.PID) {
-			stale++
-			continue
-		}
-
-		uptime := "unknown"
-		if !h.StartedAt.IsZero() {
-			uptime = formatUptime(time.Since(h.StartedAt))
-		}
-
-		rows = append(rows, labRow{
-			name:    h.ClusterName,
-			runtime: "qemu",
-			status:  "Running",
-			uptime:  uptime,
-			nics:    formatNICs(h),
-			details: fmt.Sprintf("ssh %s@%s -p %d", h.SSHUser, h.SSHHost, h.SSHPort),
-			lab:     h.LabName,
-		})
-	}
-
-	return rows, stale, nil
-}
-
-// collectKindRows gathers a labRow for every astrona-generated kind cluster
-// by querying the container engine directly for containers carrying kind's
-// own "io.x-k8s.kind.cluster" label, rather than shelling out to `kind get
-// clusters`. Deliberate: `kind get clusters` has a known bug against podman
-// where its output template fails on podman's `ps` JSON shape (confirmed on
-// this repo's own dev machine — "error calling index: cannot index
-// slice/array with type string"), which would make this permanently broken
-// on any podman-only host. kind always names a cluster's control-plane
-// container "<cluster>-control-plane" regardless of provider, so filtering
-// on the label and stripping that suffix gets the same answer without going
-// through kind's broken path — and conveniently, `docker`/`podman inspect`
-// on that same container name is exactly how uptime is derived too.
-//
-// Filtered to show only names starting with the "astro-" prefix, so only
-// astrona-generated kind clusters are listed.
-//
-// An engine that can't be queried counts as no kind labs here; callers that
-// must tell that apart from "none" use lookupKindRows.
-func collectKindRows() []labRow {
-	rows, _ := lookupKindRows()
-	return rows
-}
-
-// lookupKindRows is collectKindRows, but an installed container engine that
-// doesn't answer (Docker or Podman stopped) is an error rather than an
-// empty list. No engine installed at all is no kind labs: nil, nil.
-func lookupKindRows() ([]labRow, error) {
-	engine, err := cluster.DetectContainerEngine()
-	if errors.Is(err, cluster.ErrEngineNotInstalled) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	// {{.Label "k"}} works on both docker and podman; podman's
-	// {{index .Labels "k"}} doesn't (same template quirk as above).
-	out, err := exec.Command(engine.Path, "ps", "-a",
-		"--filter", "label=io.x-k8s.kind.cluster",
-		"--format", `{{.Names}}|{{.State}}|{{.Label "io.x-k8s.kind.cluster"}}|{{.Label "io.x-k8s.kind.role"}}`).Output()
-	if err != nil {
-		return nil, fmt.Errorf("%s ps failed: %w", engine.Name, err)
-	}
-
-	clusters := groupKindContainers(string(out))
-	names := make([]string, 0, len(clusters))
-	for name := range clusters {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	rows := make([]labRow, 0, len(names))
-	for _, name := range names {
-		status := containerStatus(clusters[name])
-		uptime := "unknown"
-		if status == "Stopped" {
-			uptime = "-"
-		} else if started, err := containerStartedAt(engine, name+"-control-plane"); err == nil {
-			uptime = formatUptime(time.Since(started))
-		}
-
-		details := "kubectl --context kind-" + name
-		if n := portforward.Count(name); n > 0 {
-			details += fmt.Sprintf(" (+%d port-forward(s): astrona pf list %s)", n, name)
-		}
-
-		rows = append(rows, labRow{
-			name:    name,
-			runtime: "kind",
-			status:  status,
-			uptime:  uptime,
-			nics:    "-", // kind's networking is the container engine's pod/service network, not a per-lab NIC concept astrona owns
-			details: details,
-		})
-	}
-
-	return rows, nil
-}
-
-// engineUnreachableStatus is the STATUS of a remembered lab `astrona list`
-// can't check because the container engine doesn't answer.
-const engineUnreachableStatus = "EngineUnreachable"
-
-// unreachableKindRows are the remembered labs (~/.astrona/labs) that have
-// no qemu VM, shown when the container engine can't be asked about kind
-// clusters — such a lab may well still exist, so it's listed, never
-// forgotten. qemu holds the qemu rows already found.
-func unreachableKindRows(qemu []labRow) []labRow {
-	names, _ := labstate.Names()
-	seen := map[string]bool{}
-	for _, r := range qemu {
-		seen[r.name] = true
-		if r.lab != "" {
-			seen[r.lab] = true
-		}
-	}
-	var rows []labRow
-	for _, n := range names {
-		if seen[n] || hypervisor.StateExists(n) || len(hypervisor.MultiVMs(n)) > 0 {
-			continue
-		}
-		rows = append(rows, labRow{
-			name:    n,
-			runtime: "kind",
-			status:  engineUnreachableStatus,
-			uptime:  "-",
-			nics:    "-",
-			details: "start Docker or Podman to check this lab",
-		})
-	}
-	return rows
-}
-
-// kindContainer is one node (or load balancer) container of a kind
-// cluster, as `docker/podman ps` reports it.
-type kindContainer struct {
-	name, state, role string
-}
-
-// groupKindContainers parses collectKindRows' ps output into astrona
-// clusters (the "astro-" prefix) → their containers.
-func groupKindContainers(out string) map[string][]kindContainer {
-	clusters := map[string][]kindContainer{}
-	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
-		parts := strings.Split(strings.TrimSpace(line), "|")
-		if len(parts) != 4 || !strings.HasPrefix(parts[2], apphome.ClusterPrefix()) {
-			continue
-		}
-		clusters[parts[2]] = append(clusters[parts[2]], kindContainer{name: parts[0], state: strings.ToLower(parts[1]), role: parts[3]})
-	}
-	return clusters
-}
-
-// containerStatus is the status a cluster gets from its containers alone:
-// "Running" (all up — enrichKindHealth refines it), "Stopped" (none up),
-// or "Degraded (r/n containers running)".
-func containerStatus(cs []kindContainer) string {
-	running := 0
-	for _, c := range cs {
-		if c.state == "running" {
-			running++
-		}
-	}
-	switch running {
-	case len(cs):
-		return "Running"
-	case 0:
-		return "Stopped"
-	default:
-		return fmt.Sprintf("Degraded (%d/%d containers running)", running, len(cs))
-	}
-}
-
-// kindHealthTimeout bounds each cluster's API query, so one wedged
-// cluster can't stall `astrona list`.
-const kindHealthTimeout = "3s"
-
-// enrichKindHealth replaces each running kind cluster's "Running" with
-// live API health and fills version/forwards — queried in parallel, one
-// kubectl call per cluster.
-func enrichKindHealth(rows []labRow) []labRow {
-	var wg sync.WaitGroup
-	for i := range rows {
-		if rows[i].runtime != "kind" {
-			continue
-		}
-		rows[i].forwards = forwardSummary(rows[i].name)
-		if rows[i].status != "Running" {
-			continue
-		}
-		wg.Add(1)
-		go func(r *labRow) {
-			defer wg.Done()
-			r.status, r.version = kindAPIHealth(r.name)
-		}(&rows[i])
-	}
-	wg.Wait()
-	return rows
-}
-
-func kindAPIHealth(name string) (status, version string) {
-	cmd := exec.Command("kubectl", "--context", "kind-"+name, "get", "nodes", "-o", "json", "--request-timeout="+kindHealthTimeout)
-	cmd.Env = executor.KubeconfigEnv(cluster.ExistingKubeconfig(name))
-	out, err := cmd.Output()
-	if err != nil {
-		return "Unreachable", ""
-	}
-	return nodeHealth(out)
-}
-
-type nodeListJSON struct {
-	Items []struct {
-		Status struct {
-			Conditions []struct {
-				Type   string `json:"type"`
-				Status string `json:"status"`
-			} `json:"conditions"`
-			NodeInfo struct {
-				KubeletVersion string `json:"kubeletVersion"`
-			} `json:"nodeInfo"`
-		} `json:"status"`
-	} `json:"items"`
-}
-
-// nodeHealth summarizes `kubectl get nodes -o json`: "Ready (n/n)" or
-// "NotReady (r/n)", plus the (first node's) Kubernetes version.
-func nodeHealth(data []byte) (status, version string) {
-	var nodes nodeListJSON
-	if err := json.Unmarshal(data, &nodes); err != nil || len(nodes.Items) == 0 {
-		return "Unreachable", ""
-	}
-	ready := 0
-	for _, n := range nodes.Items {
-		for _, c := range n.Status.Conditions {
-			if c.Type == "Ready" && c.Status == "True" {
-				ready++
-			}
-		}
-	}
-	version = nodes.Items[0].Status.NodeInfo.KubeletVersion
-	if ready == len(nodes.Items) {
-		return fmt.Sprintf("Ready (%d/%d)", ready, len(nodes.Items)), version
-	}
-	return fmt.Sprintf("NotReady (%d/%d)", ready, len(nodes.Items)), version
-}
-
-// forwardSummary is "<ready>/<total> Ready" for name's port forwards, ""
-// when it has none.
-func forwardSummary(name string) string {
-	fs, err := portforward.List(name)
-	if err != nil || len(fs) == 0 {
-		return ""
-	}
-	ready := 0
-	for _, f := range fs {
-		if f.Effective() == portforward.StateReady {
-			ready++
-		}
-	}
-	return fmt.Sprintf("%d/%d Ready", ready, len(fs))
-}
-
-// containerTimeLayouts covers both engines' `inspect -f '{{.State.StartedAt}}'`
-// output: docker prints RFC3339Nano, podman prints Go's default
-// time.Time.String() layout (e.g. "2026-08-11 21:14:17.140921448 +0200
-// CEST") — different enough that one layout can't parse both.
-var containerTimeLayouts = []string{
-	time.RFC3339Nano,
-	"2006-01-02 15:04:05.999999999 -0700 MST",
-}
-
-// containerStartedAt reads a container's start time via `docker`/`podman
-// inspect` (same `-f`/Go-template syntax for both), used to derive a kind
-// cluster's uptime from its control-plane container.
-func containerStartedAt(engine cluster.ContainerEngine, containerName string) (time.Time, error) {
-	out, err := exec.Command(engine.Path, "inspect", "-f", "{{.State.StartedAt}}", containerName).Output()
-	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to inspect container '%s': %w", containerName, err)
-	}
-
-	trimmed := strings.TrimSpace(string(out))
-
-	var lastErr error
-	for _, layout := range containerTimeLayouts {
-		if t, err := time.Parse(layout, trimmed); err == nil {
-			return t, nil
-		} else {
-			lastErr = err
-		}
-	}
-
-	return time.Time{}, fmt.Errorf("failed to parse container start time '%s': %w", trimmed, lastErr)
-}
-
-// formatNICs summarizes a qemu VM's NICs: the implicit mgmt NIC (net0,
-// host-only, always present — it's astrona's only control channel for
-// bootstrap/validate/ssh/submit/destroy, not part of a lab's own topology)
-// spelled out by name rather than folded into a bare count, plus every
-// extra NIC's segment name and static IP.
-func formatNICs(h config.QEMUHandle) string {
-	parts := make([]string, 0, 1+len(h.Networks))
-	parts = append(parts, "mgmt")
-	for _, n := range h.Networks {
-		parts = append(parts, fmt.Sprintf("%s=%s", n.Name, n.IP))
-	}
-	return fmt.Sprintf("%d (%s)", len(parts), strings.Join(parts, ", "))
-}
-
-// formatUptime renders d as the coarsest human unit that fits (Xh Ym, Xm Ys,
-// or Xs) — a VM's uptime doesn't need sub-second precision.
-func formatUptime(d time.Duration) string {
-	d = d.Round(time.Second)
-	h := d / time.Hour
-	d -= h * time.Hour
-	m := d / time.Minute
-	d -= m * time.Minute
-	s := d / time.Second
-
-	if h > 0 {
-		return fmt.Sprintf("%dh%dm", h, m)
-	}
-	if m > 0 {
-		return fmt.Sprintf("%dm%ds", m, s)
-	}
-	return fmt.Sprintf("%ds", s)
-}
-
-// markLinkedClusters notes which rows are a lab's linked cluster
-// (runtime.kind.clusters) — managed with that lab, not on their own.
-func markLinkedClusters(rows []labRow, owners map[string]string) {
-	for i := range rows {
-		if owner, ok := owners[rows[i].name]; ok {
-			rows[i].details = "linked cluster of " + owner + " · " + rows[i].details
-		}
-	}
-}
-
-// markCurrentLab marks the lab picked with `astrona use`.
-func markCurrentLab(rows []labRow) {
-	c, err := loadCurrentLab()
-	if err != nil || c == nil || c.Name == "" {
-		return
-	}
-	name := config.NormalizeClusterName(c.Name)
-	for i := range rows {
-		if rows[i].name == name {
-			rows[i].current = true
-			rows[i].details += " · current lab (astrona use)"
-		}
-	}
 }

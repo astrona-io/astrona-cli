@@ -16,7 +16,7 @@ import (
 )
 
 func TestOtherQEMULabs(t *testing.T) {
-	vm := func(name, lab string) labRow { return labRow{name: name, lab: lab} }
+	vm := func(name, lab string) labRow { return labRow{Name: name, Lab: lab} }
 	for _, c := range []struct {
 		name string
 		rows []labRow

@@ -97,8 +97,8 @@ func readUIContainerUsage(ctx context.Context, provider string, containers map[s
 	names := []string{}
 	for _, nodes := range containers {
 		for _, node := range nodes {
-			if node.state == "running" {
-				names = append(names, node.name)
+			if node.State == "running" {
+				names = append(names, node.Name)
 			}
 		}
 	}
@@ -166,11 +166,11 @@ func uiRunUsage(name, started string, containers map[string][]kindContainer, sam
 			return labstate.ResourceUsage{}
 		}
 		for _, node := range nodes {
-			if seen[node.name] {
+			if seen[node.Name] {
 				continue
 			}
-			seen[node.name] = true
-			sample, ok := samples[node.name]
+			seen[node.Name] = true
+			sample, ok := samples[node.Name]
 			if !ok {
 				return labstate.ResourceUsage{}
 			} // Never report partial totals as the whole lab.

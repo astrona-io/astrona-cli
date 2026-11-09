@@ -77,7 +77,7 @@ var playgroundExists = func(name string) bool {
 	}
 	rows, _, _ := collectQEMURows() // an unreadable qemu dir just means no qemu labs here
 	for _, r := range rows {
-		if strings.HasPrefix(r.name, name+"-") {
+		if strings.HasPrefix(r.Name, name+"-") {
 			return true
 		}
 	}

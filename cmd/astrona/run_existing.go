@@ -83,15 +83,15 @@ func otherQEMULabs(clusterName string, rows []labRow) []string {
 	var out []string
 	seen := map[string]bool{}
 	for _, r := range rows {
-		lab := r.lab
+		lab := r.Lab
 		if lab == "" {
 			// A handle from before VMs recorded their lab: a VM named
 			// "<clusterName>-…" may be one of this lab's own, so leave it be
 			// (it can't be told from an unrelated lab with a longer name).
-			if strings.HasPrefix(r.name, clusterName+"-") {
+			if strings.HasPrefix(r.Name, clusterName+"-") {
 				continue
 			}
-			lab = r.name
+			lab = r.Name
 		}
 		if lab == clusterName || strings.HasPrefix(lab, apphome.TestClusterPrefix()) || seen[lab] {
 			continue

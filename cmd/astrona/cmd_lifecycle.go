@@ -46,8 +46,8 @@ func resolveLifecycleLab(labArg string, flags *rootFlags, want func(status strin
 	var matches []string
 	owners := linkedClusterOwners()
 	for _, r := range collectKindRows() {
-		if _, linked := owners[r.name]; !linked && !strings.HasPrefix(r.name, apphome.TestClusterPrefix()) && want(r.status) {
-			matches = append(matches, r.name)
+		if _, linked := owners[r.Name]; !linked && !strings.HasPrefix(r.Name, apphome.TestClusterPrefix()) && want(r.Status) {
+			matches = append(matches, r.Name)
 		}
 	}
 	switch len(matches) {

@@ -101,10 +101,10 @@ func destroyByDiscovery(rep *ui.Reporter) error {
 	owners := linkedClusterOwners()
 	var realLabs, test []labRow
 	for _, r := range rows {
-		if _, linked := owners[r.name]; linked {
+		if _, linked := owners[r.Name]; linked {
 			continue
 		}
-		if strings.HasPrefix(r.name, apphome.TestClusterPrefix()) {
+		if strings.HasPrefix(r.Name, apphome.TestClusterPrefix()) {
 			test = append(test, r)
 		} else {
 			realLabs = append(realLabs, r)
@@ -114,7 +114,7 @@ func destroyByDiscovery(rep *ui.Reporter) error {
 	if len(realLabs) > 1 {
 		var names []string
 		for _, r := range realLabs {
-			names = append(names, fmt.Sprintf("  %s (%s)", r.name, r.runtime))
+			names = append(names, fmt.Sprintf("  %s (%s)", r.Name, r.Runtime))
 		}
 		return fmt.Errorf("no lab config found and multiple astrona labs are running — specify which to destroy with -c/--file/--git:\n%s", strings.Join(names, "\n"))
 	}
@@ -125,21 +125,21 @@ func destroyByDiscovery(rep *ui.Reporter) error {
 	}
 
 	for _, r := range realLabs {
-		rep.Info("No lab config found — auto-detected the only running astrona lab: '%s' (%s runtime). Destroying it (teardown scripts skipped, config unknown).", r.name, r.runtime)
-		owned := lifecycle.OwnedClusters(r.name, nil)
-		releaseLab(os.Stdout, r.name) // before the delete unsets the lab's context
-		err := runtime.DestroyEnvironment(r.name, config.RuntimeConfig{Type: r.runtime}, rep)
+		rep.Info("No lab config found — auto-detected the only running astrona lab: '%s' (%s runtime). Destroying it (teardown scripts skipped, config unknown).", r.Name, r.Runtime)
+		owned := lifecycle.OwnedClusters(r.Name, nil)
+		releaseLab(os.Stdout, r.Name) // before the delete unsets the lab's context
+		err := runtime.DestroyEnvironment(r.Name, config.RuntimeConfig{Type: r.Runtime}, rep)
 		lifecycle.DestroyOwnedClusters(owned, rep) // even when the lab itself failed — never leak them
 		if err != nil {
-			return fmt.Errorf("failed to destroy '%s': %w", r.name, err)
+			return fmt.Errorf("failed to destroy '%s': %w", r.Name, err)
 		}
-		forgetLab(r.name)
+		forgetLab(r.Name)
 	}
 	for _, r := range test {
-		rep.Info("Cleaning up leftover test lab '%s' (%s runtime).", r.name, r.runtime)
-		owned := lifecycle.OwnedClusters(r.name, nil)
-		if err := runtime.DestroyEnvironment(r.name, config.RuntimeConfig{Type: r.runtime}, rep); err != nil {
-			rep.Warn("failed to destroy leftover test lab '%s': %s", r.name, err)
+		rep.Info("Cleaning up leftover test lab '%s' (%s runtime).", r.Name, r.Runtime)
+		owned := lifecycle.OwnedClusters(r.Name, nil)
+		if err := runtime.DestroyEnvironment(r.Name, config.RuntimeConfig{Type: r.Runtime}, rep); err != nil {
+			rep.Warn("failed to destroy leftover test lab '%s': %s", r.Name, err)
 		}
 		lifecycle.DestroyOwnedClusters(owned, rep)
 	}
@@ -254,7 +254,7 @@ func destroyByPattern(pattern string, rep *ui.Reporter) error {
 
 	var matched []string
 	for _, r := range rows {
-		ok, err := filepath.Match(pattern, r.name)
+		ok, err := filepath.Match(pattern, r.Name)
 		if err != nil {
 			return fmt.Errorf("invalid pattern '%s': %w", pattern, err)
 		}
@@ -262,17 +262,17 @@ func destroyByPattern(pattern string, rep *ui.Reporter) error {
 			// Also match against the name with the "astro-" prefix
 			// stripped, so `destroy 'my-lab-*'` behaves the same as
 			// `destroy 'astro-my-lab-*'`.
-			ok, _ = filepath.Match(pattern, strings.TrimPrefix(r.name, apphome.ClusterPrefix()))
+			ok, _ = filepath.Match(pattern, strings.TrimPrefix(r.Name, apphome.ClusterPrefix()))
 		}
 		if ok {
-			matched = append(matched, r.name)
+			matched = append(matched, r.Name)
 		}
 	}
 
 	if len(matched) == 0 {
 		var running []string
 		for _, r := range rows {
-			running = append(running, fmt.Sprintf("  %s (%s)", r.name, r.runtime))
+			running = append(running, fmt.Sprintf("  %s (%s)", r.Name, r.Runtime))
 		}
 		return fmt.Errorf("pattern '%s' matched none of the %d running astrona lab(s) — nothing was destroyed. Currently running:\n%s",
 			pattern, len(rows), strings.Join(running, "\n"))

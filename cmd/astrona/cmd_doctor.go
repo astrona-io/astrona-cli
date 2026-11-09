@@ -264,11 +264,11 @@ func doctorRunning(clusterName string) []checkResult {
 		switch {
 		case !ok:
 			r.Status, r.Detail, r.Hint = checkFail, "not running", "astrona reset --cluster "+l.Name
-		case strings.HasPrefix(row.status, "Ready"):
-			r.Detail = row.status + " · " + l.Hostname()
+		case strings.HasPrefix(row.Status, "Ready"):
+			r.Detail = row.Status + " · " + l.Hostname()
 			clusters = append(clusters, diagnostics.Kind{Name: l.Cluster, KubeContext: l.Context(), Kubeconfig: cluster.ExistingKubeconfig(l.Cluster)})
 		default:
-			r.Status, r.Detail, r.Hint = checkFail, row.status, "astrona start (starts the lab's linked clusters too)"
+			r.Status, r.Detail, r.Hint = checkFail, row.Status, "astrona start (starts the lab's linked clusters too)"
 		}
 		res = append(res, r)
 	}

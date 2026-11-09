@@ -37,12 +37,12 @@ type labStatus struct {
 func findLabRow(name string) (labRow, bool) {
 	qemu, _, _ := collectQEMURows()
 	for _, r := range qemu {
-		if r.name == name {
+		if r.Name == name {
 			return r, true
 		}
 	}
 	for _, r := range collectKindRows() {
-		if r.name == name {
+		if r.Name == name {
 			return enrichKindHealth([]labRow{r})[0], true
 		}
 	}
@@ -73,8 +73,8 @@ func resolveStatusLab(labArg string, flags *rootFlags) (string, *config.LabConfi
 	qemu, _, _ := collectQEMURows()
 	var names []string
 	for _, r := range append(qemu, collectKindRows()...) {
-		if !strings.HasPrefix(r.name, apphome.TestClusterPrefix()) {
-			names = append(names, r.name)
+		if !strings.HasPrefix(r.Name, apphome.TestClusterPrefix()) {
+			names = append(names, r.Name)
 		}
 	}
 	switch len(names) {
@@ -117,7 +117,7 @@ func newStatusCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			st := labStatus{row: row, cfg: cfg, now: time.Now()}
-			if row.runtime == "kind" {
+			if row.Runtime == "kind" {
 				st.forwards, _ = portforward.List(name)
 			}
 			st.exam, _ = exam.Load(name)
@@ -170,18 +170,18 @@ type examJSON struct {
 }
 
 func statusJSON(st labStatus) statusResult {
-	out := statusResult{Name: st.row.name, Runtime: st.row.runtime, Status: st.row.status, Uptime: st.row.uptime,
+	out := statusResult{Name: st.row.Name, Runtime: st.row.Runtime, Status: st.row.Status, Uptime: st.row.Uptime,
 		PortForwards: forwardsJSON(st.forwards), LinkedClusters: []linkedClusterJSON{}, Attempts: len(st.attempts), Next: nextStep(st)}
-	if st.row.version != "-" {
-		out.Kubernetes = st.row.version
+	if st.row.Version != "-" {
+		out.Kubernetes = st.row.Version
 	}
-	if st.row.runtime == "kind" {
-		out.Context = "kind-" + st.row.name
+	if st.row.Runtime == "kind" {
+		out.Context = "kind-" + st.row.Name
 	}
 	for _, l := range st.links {
 		status := "not running"
 		if r, ok := st.linkRows[l.Cluster]; ok {
-			status = r.status
+			status = r.Status
 		}
 		out.LinkedClusters = append(out.LinkedClusters, linkedClusterJSON{Name: l.Name, Cluster: l.Cluster, Status: status, Hostname: l.Hostname()})
 	}
@@ -197,23 +197,23 @@ func statusJSON(st labStatus) statusResult {
 
 func printLabStatus(w io.Writer, st labStatus) {
 	r := st.row
-	fmt.Fprintf(w, "Lab %s (%s)\n\n", r.name, r.runtime)
+	fmt.Fprintf(w, "Lab %s (%s)\n\n", r.Name, r.Runtime)
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 	field := func(label, value string) { fmt.Fprintf(tw, "  %s\t%s\n", label, value) }
 
-	health := r.status
-	if r.version != "" {
-		health += " · Kubernetes " + r.version
+	health := r.Status
+	if r.Version != "" {
+		health += " · Kubernetes " + r.Version
 	}
-	if r.uptime != "" && r.uptime != "-" {
-		health += " · up " + r.uptime
+	if r.Uptime != "" && r.Uptime != "-" {
+		health += " · up " + r.Uptime
 	}
 	field("Cluster", health)
 
-	if r.runtime == "kind" {
-		field("Connect", "astrona shell "+r.name)
+	if r.Runtime == "kind" {
+		field("Connect", "astrona shell "+r.Name)
 	} else {
-		field("Connect", "astrona ssh "+r.name)
+		field("Connect", "astrona ssh "+r.Name)
 	}
 
 	for i, f := range st.forwards {
@@ -232,7 +232,7 @@ func printLabStatus(w io.Writer, st labStatus) {
 		}
 		state := "not running"
 		if r, ok := st.linkRows[l.Cluster]; ok {
-			state = r.status
+			state = r.Status
 		}
 		line := fmt.Sprintf("%s → %s (%s) · %s", l.Name, l.Cluster, state, l.Hostname())
 		if !l.WAN.IsZero() {
@@ -276,8 +276,8 @@ func nextStep(st labStatus) string {
 	if n := len(st.attempts); n > 0 && st.attempts[n-1].Pass {
 		return "passed — astrona reset to practice again, astrona destroy when done"
 	}
-	if strings.HasPrefix(st.row.status, "Stopped") {
-		return "astrona start " + st.row.name
+	if strings.HasPrefix(st.row.Status, "Stopped") {
+		return "astrona start " + st.row.Name
 	}
 	if n := len(st.attempts); n > 0 {
 		return "astrona submit --watch for live feedback while you fix it — or astrona reset --soft to start over"

@@ -70,7 +70,7 @@ func printHome(w io.Writer, lab homeLab, ok bool, now time.Time) {
 	row, running := findLabRow(lab.cluster)
 	state := "not running"
 	if running {
-		state = row.status + " (" + row.runtime + ")"
+		state = row.Status + " (" + row.Runtime + ")"
 	}
 	fmt.Fprintf(w, "%s %s  %s\n", bold("Lab"), bold(lab.name), ui.Paint(w, "(from "+lab.source+")", ui.Dim))
 	fmt.Fprintf(w, "  State     %s\n", state)
@@ -102,10 +102,10 @@ func otherRunningLabs(except string) []string {
 	owners := linkedClusterOwners()
 	var out []string
 	for _, r := range collectKindRows() {
-		if _, linked := owners[r.name]; linked || r.name == except || strings.HasPrefix(r.name, apphome.TestClusterPrefix()) || r.status == "Stopped" {
+		if _, linked := owners[r.Name]; linked || r.Name == except || strings.HasPrefix(r.Name, apphome.TestClusterPrefix()) || r.Status == "Stopped" {
 			continue
 		}
-		out = append(out, strings.TrimPrefix(r.name, apphome.ClusterPrefix()))
+		out = append(out, strings.TrimPrefix(r.Name, apphome.ClusterPrefix()))
 	}
 	return out
 }
