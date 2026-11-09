@@ -176,7 +176,8 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.R
 // see/reach each VM individually: they already work off whatever names show
 // up under ~/.astrona/qemu, and each VM gets its own directory there.
 //
-// If any VM fails to start, every VM already started in this same call is
+// If any VM fails to start, CreateQEMUVM has already removed that VM's own
+// process and state, and every VM already started in this same call is
 // torn down before returning the error — a half-started multi-VM lab never
 // lingers as a set of ghost VMs the caller doesn't know exist yet (nothing
 // has been returned to it to run `astrona destroy` against).
