@@ -367,7 +367,9 @@ func PrepareSubmit(req SubmitRequest) (*SubmitSession, error) {
 // it to the lab page (SendResult) and, once the attempt is finished,
 // deletes the lab unless req.Keep or teardown.keepCluster. An error means
 // the submission could not be graded, or its cleanup failed (the result
-// is then already recorded and sent).
+// is then already recorded and sent). Cancelling ctx (Ctrl+C) while it
+// grades stops before the next check with ErrInterrupted, recording and
+// sending nothing; once grading is done, the rest runs to its end.
 func Submit(ctx context.Context, req SubmitRequest) (*SubmitResult, error) {
 	s, err := PrepareSubmit(req)
 	if err != nil {
@@ -383,10 +385,19 @@ func Submit(ctx context.Context, req SubmitRequest) (*SubmitResult, error) {
 		pr.ScriptOutputTo(req.ScriptOut)
 	}
 	start := time.Now()
+	pr.StopOn(ctx)
 	results, pass, err := pr.Evaluate(cfg)
+	// An interrupted grade (Ctrl+C) is incomplete: nothing is recorded,
+	// sent or cleaned up, and the lab stays as it is.
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("%w: grading stopped, nothing was recorded or sent", ErrInterrupted)
+	}
 	if err != nil {
 		return nil, err
 	}
+	// Past this point the attempt is recorded and sent as one: a Ctrl+C no
+	// longer cuts that short.
+	ctx = context.WithoutCancel(ctx)
 	if req.Out != nil {
 		pr.Report(req.Out, cfg, results, time.Since(start))
 	}

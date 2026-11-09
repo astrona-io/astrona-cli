@@ -10,6 +10,7 @@ import (
 	"astrona/internal/runtime"
 	"astrona/internal/scripts"
 	"astrona/internal/ui"
+	"context"
 	"fmt"
 )
 
@@ -68,7 +69,14 @@ func Validate(cfg *config.LabConfig) error {
 //
 // Once the environment exists it's returned even when a later step fails,
 // so the caller can collect diagnostics and tear it down (astrona test).
-func Up(cfg *config.LabConfig, baseDir, clusterName string, links []cluster.LinkState, forTest bool, rep *ui.Reporter) (*runtime.LabEnvironment, []portforward.Forward, error) {
+//
+// Cancelling ctx (Ctrl+C) stops it at the next step with ctx's error;
+// a kind cluster still being created is removed, anything later is the
+// caller's to tear down.
+func Up(ctx context.Context, cfg *config.LabConfig, baseDir, clusterName string, links []cluster.LinkState, forTest bool, rep *ui.Reporter) (*runtime.LabEnvironment, []portforward.Forward, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
 	// A test copy of a lab mustn't fight its real `run` for host ports.
 	if forTest && cfg.Runtime.Kind != nil {
 		k := *cfg.Runtime.Kind
@@ -88,11 +96,19 @@ func Up(cfg *config.LabConfig, baseDir, clusterName string, links []cluster.Link
 		}
 	}
 
-	env, err := runtime.CreateEnvironment(clusterName, baseDir, cfg.Runtime, rep)
+	env, err := runtime.CreateEnvironment(ctx, clusterName, baseDir, cfg.Runtime, rep)
 	if err != nil {
 		return env, nil, fmt.Errorf("lab setup failed: %w", err)
 	}
+	// ctx is checked between steps: a step Ctrl+C killed fails on its
+	// own, and the next one isn't started.
+	if err := ctx.Err(); err != nil {
+		return env, nil, err
+	}
 	if err := AttachLinks(env, clusterName, links, rep); err != nil {
+		return env, nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return env, nil, err
 	}
 
@@ -112,12 +128,18 @@ func Up(cfg *config.LabConfig, baseDir, clusterName string, links []cluster.Link
 		}
 	}
 
+	if err := ctx.Err(); err != nil {
+		return env, nil, err
+	}
 	if err := InstallSharedCA(cfg, env, rep); err != nil {
 		return env, nil, err
 	}
 
 	if err := WaitForClusterDNS(cfg, env, rep); err != nil {
 		return env, nil, fmt.Errorf("cluster DNS not ready: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return env, nil, err
 	}
 
 	// What exists now is the platform (kube-system, addons, …); the soft
@@ -126,6 +148,9 @@ func Up(cfg *config.LabConfig, baseDir, clusterName string, links []cluster.Link
 		rep.Warn("could not record the lab's baseline (reset --soft won't work): %s", err)
 	}
 	if err := Bootstrap(cfg, baseDir, env, rep); err != nil {
+		return env, nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return env, nil, err
 	}
 

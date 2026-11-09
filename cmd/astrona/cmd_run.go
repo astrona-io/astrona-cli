@@ -3,6 +3,7 @@ package main
 import (
 	"astrona/internal/apphome"
 	"astrona/internal/authoring"
+	"context"
 	"fmt"
 	"os"
 
@@ -38,6 +39,10 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"On startup failure, collect diagnostics under ~/" + apphome.Name() + "/diagnostics. Failed Kind creation exports " +
 			"retained node logs before cleaning up that new cluster; later failures leave the lab available for diagnosis. " +
 			"CoreDNS readiness defaults to 3m; runtime.kind.dnsTimeout can override it.\n\n" +
+			"Ctrl+C (or SIGTERM) while the lab is being built stops at the current step, removes what this " +
+			"run created (its clusters or VMs, port forwards, the copy of its resources), closes the lab " +
+			"session it started and exits 1. A second Ctrl+C quits at once; `astrona destroy` removes " +
+			"whatever is left.\n\n" +
 			"Once a kind lab is ready, kubectl points at it: its context (kind-<lab>) becomes the " +
 			"current-context of your kubeconfig ($KUBECONFIG is respected), and `astrona destroy` " +
 			"switches back to the context you had before — unless you've switched elsewhere " +
@@ -168,6 +173,11 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
+			// Every question is answered: from here Ctrl+C stops the build
+			// and removes what this run created (a second one quits now).
+			ctx, disarm := interruptible(cmd, interruptBuildNotice)
+			defer disarm()
+
 			// The session is started before the build, so a refusal costs
 			// nothing; the page is only opened once the lab is ready.
 			start, err := labops.StartLabSession(ctx, os.Stdout, os.Stderr, acct, "run", cfg, flags.catalogLab)
@@ -209,11 +219,15 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("could not remove the running lab, nothing was started: %w", err)
 				}
 			}
-			if err := bringUpLab(cfg, baseDir, flags, rep, start.Session); err != nil {
+			if err := bringUpLab(ctx, cfg, baseDir, flags, rep, start.Session); err != nil {
+				if ctx.Err() != nil {
+					start.Interrupted()
+				}
 				return err
 			}
 			start.Done(clusterName)
 			release()
+			disarm() // the workspace reads Ctrl+C itself
 			if workspace {
 				return runLabWorkspace(cmd.Context(), cfg, baseDir, flags)
 			}
@@ -297,9 +311,11 @@ func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clust
 // bringUpLab creates the lab (labops.Provision: preflight, linked
 // clusters, the lab itself, the exam clock, remembering it, the kubectl
 // switch) and prints how to connect. sess is its lab session (nil for
-// none). Shared by run and reset.
-func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui.Reporter, sess *labstate.Session) error {
+// none). Shared by run and reset. Cancelling ctx (Ctrl+C) removes what
+// was built and returns labops.ErrInterrupted.
+func bringUpLab(ctx context.Context, cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui.Reporter, sess *labstate.Session) error {
 	res, err := labops.Provision(labops.ProvisionRequest{
+		Context:      ctx,
 		Config:       cfg,
 		BaseDir:      baseDir,
 		Source:       rememberedSource(flags),

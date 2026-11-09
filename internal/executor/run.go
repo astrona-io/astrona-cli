@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"sync/atomic"
 	"time"
 
 	"astrona/internal/config"
@@ -34,6 +35,15 @@ func WithTimeout(d time.Duration) (context.Context, context.CancelFunc) {
 	}
 	return context.WithTimeout(context.Background(), d)
 }
+
+// interruptsHandled: see HandleInterrupts.
+var interruptsHandled atomic.Bool
+
+// HandleInterrupts tells Run whether astrona handles SIGINT/SIGTERM itself
+// (a command that cleans up after Ctrl+C). Run still passes the signal on
+// to the command's process group, but no longer raises it again in
+// astrona, which already received it.
+func HandleInterrupts(on bool) { interruptsHandled.Store(on) }
 
 // killGrace is how long Run waits, after killing a command's process
 // group, for its output pipes to close before giving up on them — a

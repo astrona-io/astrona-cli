@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -101,7 +102,8 @@ func withPreservedContext(preserve func() func(), create func() error) error {
 
 // CreateEnvironment brings up a fresh lab environment: a kind cluster, or —
 // for qemu — one VM or several named ones (runtime.qemu, see IsMultiVM).
-func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.Reporter) (*LabEnvironment, error) {
+// ctx stops a kind cluster's creation (and removes what it started).
+func CreateEnvironment(ctx context.Context, name, baseDir string, cfg config.RuntimeConfig, rep *ui.Reporter) (*LabEnvironment, error) {
 	runtimeType, err := resolveRuntimeType(cfg)
 	if err != nil {
 		return nil, err
@@ -116,7 +118,7 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.R
 		// new cluster; put it back once it's done, success or not.
 		err := withPreservedContext(
 			func() func() { return cluster.PreserveCurrentContext(rep) },
-			func() error { return cluster.CreateKindCluster(name, cfg.Kind, rep) },
+			func() error { return cluster.CreateKindCluster(ctx, name, cfg.Kind, rep) },
 		)
 		if err != nil {
 			return nil, err
