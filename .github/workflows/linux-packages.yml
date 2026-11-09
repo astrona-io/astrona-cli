@@ -69,7 +69,8 @@ jobs:
           - {image: 'fedora:42', format: rpm}
           - {image: 'almalinux:9', format: rpm}
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
-    timeout-minutes: 20
+    # Normally ~30 s; the install itself retries within 3 x 2 min.
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v7
         with:
