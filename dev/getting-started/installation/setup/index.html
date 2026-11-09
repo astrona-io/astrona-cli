@@ -4694,7 +4694,7 @@
 </tr>
 <tr>
 <td>Linux without Homebrew</td>
-<td>downloads kind (GitHub release) and kubectl (<code>dl.k8s.io</code>) into <code>~/.local/bin</code>, verified against their published SHA-256 before anything is moved into place</td>
+<td>downloads the kind (GitHub release) and kubectl (<code>dl.k8s.io</code>) versions pinned in this astrona release into <code>~/.local/bin</code>, verified against SHA-256 checksums pinned in astrona (amd64 and arm64) before anything is moved into place; a mismatch installs nothing. On other architectures it tells you to install them yourself</td>
 </tr>
 <tr>
 <td>Linux, no container engine</td>

@@ -4644,9 +4644,9 @@
 </table>
 <p>To check a download yourself: <code>gh attestation verify astrona-darwin-arm64 --repo astrona-io/astrona-cli</code>, or <code>sha256sum -c SHA256SUMS</code> with the checksum file attached to each release. Add <code>~/.astrona/bin</code> to your <code>PATH</code> to run e.g. <code>astrona-0.2.1</code> yourself.</p>
 <h2 id="what-happens-when-a-lab-needs-another-version">What happens when a lab needs another version<a class="headerlink" href="#what-happens-when-a-lab-needs-another-version" title="Permanent link">&para;</a></h2>
-<p>Commands that run, test, grade or validate a lab (<code>run</code>, <code>test</code>, <code>submit</code>, <code>reset</code>, <code>validate</code>, <code>status</code>, …) check its <code>astronaVersion</code>. If this astrona isn't allowed, it hands the whole command over to the <strong>newest installed <code>astrona-&lt;version&gt;</code> that is</strong> — you just keep typing <code>astrona</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$ astrona test ./labs/old-lab
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>[INFO] this lab needs astrona &lt;=0.2.1 — running it with astrona 0.2.1 (~/.astrona/bin/astrona-0.2.1)
+<p>Commands that run, test, grade or validate a lab (<code>run</code>, <code>test</code>, <code>submit</code>, <code>reset</code>, <code>validate</code>, <code>status</code>, …) check its <code>astronaVersion</code>. If this astrona isn't allowed, it hands the whole command over to the <strong>newest installed <code>astrona-&lt;version&gt;</code> that is</strong> — you just keep typing <code>astrona</code> (when that version is older than the one you run, it asks first; see below):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$ astrona test ./labs/new-lab
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>[INFO] this lab needs astrona &gt;=0.6.0 — running it with astrona 0.6.0 (~/.astrona/bin/astrona-0.6.0)
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>…
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>PROCTOR: PASS
 </code></pre></div>
@@ -4655,15 +4655,19 @@
 <li><strong>Flags the other version doesn't have stop it first.</strong> Before handing over, astrona asks that version which flags the command takes (its <code>--help</code>); one it doesn't know — newer than it, like <code>run --keep-context</code> or <code>--yes</code> — ends the command here, naming the flag: <code>this lab needs astrona &lt;0.3.0, so it runs with astrona 0.2.4 — which has no --keep-context for `astrona run`; run it again without --keep-context</code>. If that version can't be asked, it is handed the command and its own flag parsing decides.</li>
 <li><strong>None installed?</strong> astrona never downloads anything just because a lab config says so — a config may come from someone else's repository. Instead:<ul>
 <li><strong>At a terminal it asks first:</strong>
-  <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>This lab needs astrona &lt;=0.2.1 (this is 0.2.2). Download and install astrona 0.2.1,
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>This lab needs astrona &gt;=0.6.0 (this is 0.5.2). Download and install astrona 0.6.0,
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>verified against GitHub's SHA-256 digest? [y/N]
 </code></pre></div>
   Yes installs the newest release that fits and continues the same command with it; no (the default) stops, and tells you the <code>astrona versions install …</code> command for later.</li>
 <li><strong>Without a terminal</strong> (CI, scripts) it stops with that command — or pass <strong><code>--install-version</code></strong> to install it without asking.</li>
 </ul>
 </li>
+<li><strong>An older release is always asked about.</strong> When the version a lab needs is older than the astrona you're running — installed or not — astrona asks at the terminal every time, whatever flags you pass (<code>--install-version</code> included):
+  <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>This lab needs astrona &lt;=0.5.1, which is older than this one (0.5.2). Run it with astrona 0.5.1? [y/N]
+</code></pre></div>
+  Without a terminal (CI, <code>--headless</code>) it refuses and prints how to run that version yourself: <code>astrona versions install 0.5.1</code>, then <code>astrona-0.5.1 &lt;command&gt; …</code>.</li>
 <li><strong>A remote lab is approved first.</strong> For a lab from <code>--git</code> or a URL, the <a href="../remote-config/#approving-remote-labs">trust prompt</a> happens in <em>this</em> astrona, before anything is installed or handed over — for every command that hands over, not only <code>run</code>/<code>submit</code>/<code>test</code>/<code>reset</code>. The approval is stored in <code>~/.astrona/trust.json</code>, so the version it's handed to doesn't ask again. If this astrona can't even parse the lab's config (it was written for another version), it can't show what the lab does, so there's no prompt: the lab must already be approved at this exact version, or you pass <code>--trust</code> after reviewing it.</li>
-<li><strong>Never older than 0.2.0.</strong> astrona never hands a lab over to — or installs for one — a release older than 0.2.0, the first with trust prompts: a lab asking for one could otherwise get its scripts run without your approval. A lab that only fits an older release stops with an explanation; if you trust it, install that version yourself and run it as <code>astrona-&lt;version&gt;</code>.</li>
+<li><strong>Never older than 0.4.15.</strong> astrona never hands a lab over to — or installs for one — a release older than 0.4.15, the newest release with security fixes: a lab asking for an older one would otherwise run without them. The floor moves up with every release that fixes a security issue. A lab that only fits an older release stops with an explanation; if you trust it, install that version yourself and run it as <code>astrona-&lt;version&gt;</code>.</li>
 <li>Only <code>astrona-*</code> binaries in <code>~/.astrona/bin</code> (where <code>astrona versions install</code> puts them) are used — ones elsewhere on your <code>PATH</code> are ignored, so a stray binary never runs a lab.</li>
 <li><code>astrona docs</code> and <code>astrona destroy</code> don't check: reading a lab's docs doesn't depend on the version, and cleaning up must always work.</li>
 <li>A developer build (no release number) runs every lab and doesn't hand over.</li>
