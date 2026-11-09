@@ -19,6 +19,7 @@
 | `just vet` | `go vet ./...` |
 | `just test` | `go test ./...` |
 | `just check` | `fmt` + `vet` + `test` — run before committing |
+| `just oat` | Build `./astrona` and run the acceptance suite's smoke tier (see [Acceptance suite](#acceptance-suite)) |
 | `just docs-gen-cli` | Regenerate `docs/reference/cli/` from the actual `astrona` command tree |
 | `just docs` | Serve the docs site locally at `http://127.0.0.1:8000` with live reload |
 | `just build-docs` | Build the static docs site (`mkdocs build --strict`) — what CI runs |
@@ -141,6 +142,24 @@ bash .github/scripts/test-catalog-lab.sh ./astrona /tmp/astrona-catalog-diagnost
 For Podman, pass `podman` as the third argument and run with rootful Podman (for example, `sudo env "PATH=$PATH" bash .github/scripts/test-catalog-lab.sh ./astrona /tmp/astrona-catalog-diagnostics podman`). The script explicitly selects the requested engine using `KIND_EXPERIMENTAL_PROVIDER`.
 
 It needs Linux, Docker or Podman, Kind and kubectl, plus network access to GitHub and Docker Hub. It isolates credentials and kubeconfig, uses `--headless` for headless setup without a new account session, verifies node readiness, repairs the first lab's intentional image typo with `imagePullPolicy: Never` to confirm the Alpine preload, then destroys the lab and checks that its cluster, containers, context and saved state are gone. Failures retain logs and diagnostics and trigger cleanup. CI runs it on Ubuntu 24.04 with Docker's classic and containerd image stores and with rootful Podman.
+
+### Acceptance suite
+
+`acceptance/` holds a [Robot Framework](https://robotframework.org/) suite that drives the built `./astrona` the way a learner and a lab author would. CI runs its `smoke` tier on every pull request and uploads the HTML report and log as the `oat-smoke-report` artifact.
+
+```sh
+just oat                    # build ./astrona, run the smoke tier, write oat-report/
+just oat --exclude kind     # only the checks that create no cluster
+just oat --test "Run Creates The Lab"
+```
+
+It needs kind, kubectl and Docker or Podman, plus `uv` (Robot Framework is pinned in `acceptance/requirements.txt`). Each suite gets a throwaway `HOME`, so your own labs and settings under `~/.astrona-dev` are untouched; the container engine's config still comes from your real home. kind cluster names are shared by the whole engine, so a suite refuses to start while a cluster named after its example lab (`k8s-basics-01`) exists. Set `OAT_ISOLATE_HOME=false` to run against your real `HOME`.
+
+| Path | Contents |
+|---|---|
+| `acceptance/suites/` | One `.robot` file per area; tag each test `smoke` (every PR) and `kind` (creates a cluster) |
+| `acceptance/resources/astrona.resource` | Shared keywords: `Run Astrona`, `Run Astrona Json`, `Run Kubectl On Lab` |
+| `acceptance/libraries/AstronaLib.py` | Only what Robot cannot express cleanly: isolated `HOME`, JSON parsing, kind lookups |
 
 ## Dependency updates
 
