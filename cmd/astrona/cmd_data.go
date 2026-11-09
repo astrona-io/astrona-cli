@@ -8,6 +8,7 @@ import (
 
 	"astrona/internal/apphome"
 	"astrona/internal/localdata"
+	"astrona/internal/settings"
 	"github.com/spf13/cobra"
 )
 
@@ -104,7 +105,7 @@ func dataChangeCommand(store func() (localdata.Store, error), reset bool) *cobra
 				p, err = s.PlanReset(cmd.Context())
 			} else if policyOnly {
 				var policy localdata.CachePolicy
-				policy, err = loadCachePolicy(filepath.Join(s.Data, "settings.json"))
+				policy, err = settings.LoadCachePolicy(filepath.Join(s.Data, "settings.json"))
 				if err == nil {
 					p, err = s.PlanPolicy(cmd.Context(), policy, time.Now())
 				}

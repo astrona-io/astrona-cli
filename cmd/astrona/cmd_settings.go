@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"astrona/internal/apphome"
+	"astrona/internal/settings"
 )
 
 func newSettingsCmd(flags *rootFlags) *cobra.Command {
@@ -38,18 +39,18 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 			if err := checkOutput(output, "text"); err != nil {
 				return err
 			}
-			path, err := settingsPath(flags)
+			path, err := settings.Path(flags.settingsFile)
 			if err != nil {
 				return err
 			}
-			saved, err := loadSettings(path)
+			saved, err := settings.Load(path)
 			if err != nil {
 				return err
 			}
 			if output == "json" {
-				values := userSettings{}
-				for _, def := range settingsDefinitions() {
-					values[def.key], _ = saved.value(def.key) // definitions are known keys
+				values := settings.Values{}
+				for _, def := range settings.Definitions() {
+					values[def.Key], _ = saved.Value(def.Key) // definitions are known keys
 				}
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
@@ -58,13 +59,13 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "Settings: %s\n\n", path)
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
 			fmt.Fprintln(w, "SETTING\tVALUE\tSOURCE\tDESCRIPTION")
-			for _, def := range settingsDefinitions() {
-				value, _ := saved.value(def.key) // definitions are known keys
+			for _, def := range settings.Definitions() {
+				value, _ := saved.Value(def.Key) // definitions are known keys
 				source := "default"
-				if _, ok := saved[def.key]; ok {
+				if _, ok := saved[def.Key]; ok {
 					source = "saved"
 				}
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", def.key, settingValueText(string(value)), source, def.description)
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", def.Key, settings.ValueText(string(value)), source, def.Description)
 			}
 			return w.Flush()
 		},
@@ -74,7 +75,7 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(&cobra.Command{
 		Use: "path", Short: "Print the settings file path", Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path, err := settingsPath(flags)
+			path, err := settings.Path(flags.settingsFile)
 			if err != nil {
 				return err
 			}
@@ -95,33 +96,33 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 			Use: use, Short: short, Args: cobra.ExactArgs(nargs),
 			ValidArgsFunction: completeSetting,
 			RunE: func(cmd *cobra.Command, args []string) error {
-				path, err := settingsPath(flags)
+				path, err := settings.Path(flags.settingsFile)
 				if err != nil {
 					return err
 				}
 				if action == "get" {
-					saved, err := loadSettings(path)
+					saved, err := settings.Load(path)
 					if err != nil {
 						return err
 					}
-					value, err := saved.value(args[0])
+					value, err := saved.Value(args[0])
 					if err != nil {
 						return err
 					}
-					_, err = fmt.Fprintln(cmd.OutOrStdout(), settingValueText(string(value)))
+					_, err = fmt.Fprintln(cmd.OutOrStdout(), settings.ValueText(string(value)))
 					return err
 				}
 				var value *string
 				if action == "set" {
 					value = &args[1]
 				}
-				if err := changeSetting(path, args[0], value); err != nil {
+				if err := settings.Change(path, args[0], value); err != nil {
 					return err
 				}
 				if value == nil {
 					fmt.Fprintf(cmd.OutOrStdout(), "%s restored to its default\n", args[0])
 				} else {
-					fmt.Fprintf(cmd.OutOrStdout(), "%s = %s\n", args[0], settingValueText(*value))
+					fmt.Fprintf(cmd.OutOrStdout(), "%s = %s\n", args[0], settings.ValueText(*value))
 				}
 				return nil
 			},
@@ -133,8 +134,8 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 func completeSetting(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	var values []string
 	if len(args) == 0 {
-		for _, def := range settingsDefinitions() {
-			values = append(values, def.key+"\t"+def.description)
+		for _, def := range settings.Definitions() {
+			values = append(values, def.Key+"\t"+def.Description)
 		}
 	} else if len(args) == 1 && cmd.Name() == "set" {
 		switch args[0] {
@@ -146,28 +147,28 @@ func completeSetting(cmd *cobra.Command, args []string, toComplete string) ([]st
 }
 
 func applyUserSettings(cmd *cobra.Command, flags *rootFlags) error {
-	path, err := settingsPath(flags)
+	path, err := settings.Path(flags.settingsFile)
 	if err != nil {
 		return err
 	}
-	saved, err := loadSettings(path)
+	saved, err := settings.Load(path)
 	if err != nil {
 		return err
 	}
 	flags.settingsArgs = nil
-	for _, def := range settingsDefinitions() {
-		value, ok := saved[def.key]
-		flag := cmd.Flags().Lookup(def.key)
+	for _, def := range settings.Definitions() {
+		value, ok := saved[def.Key]
+		flag := cmd.Flags().Lookup(def.Key)
 		if !ok || flag == nil || flag.Changed {
 			continue
 		}
 		if err := flag.Value.Set(string(value)); err != nil {
-			return fmt.Errorf("apply setting %s: %w", def.key, err)
+			return fmt.Errorf("apply setting %s: %w", def.Key, err)
 		}
 		// Older releases do not read settings.json. Forward lab preferences
 		// as flags so version hand-over cannot silently drop them.
-		if def.key != "update-check" && string(value) != def.defaultValue {
-			flags.settingsArgs = append(flags.settingsArgs, "--"+def.key+"="+string(value))
+		if def.Key != "update-check" && string(value) != def.Default {
+			flags.settingsArgs = append(flags.settingsArgs, "--"+def.Key+"="+string(value))
 		}
 	}
 	return nil
@@ -189,18 +190,18 @@ func newSettingsResetCmd(flags *rootFlags) *cobra.Command {
 		// with a damaged file, so no root settings load.
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error { return nil },
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path, err := settingsPath(flags)
+			path, err := settings.Path(flags.settingsFile)
 			if err != nil {
 				return err
 			}
-			saved, damaged, existed, err := resetSettings(path, yes)
+			saved, damaged, existed, err := settings.Reset(path, yes)
 			if err != nil {
 				return err
 			}
 			out := cmd.OutOrStdout()
 			defaults := map[string]string{}
-			for _, def := range settingsDefinitions() {
-				defaults[def.key] = def.defaultValue
+			for _, def := range settings.Definitions() {
+				defaults[def.Key] = def.Default
 			}
 			switch {
 			case !existed:
@@ -226,7 +227,7 @@ func newSettingsResetCmd(flags *rootFlags) *cobra.Command {
 			fmt.Fprintf(out, "%s %s in %s:\n\n", verb, pluralSettings(len(keys)), path)
 			fmt.Fprintln(w, "SETTING\tSAVED\tDEFAULT")
 			for _, key := range keys {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", key, settingValueText(string(saved[key])), settingValueText(defaults[key]))
+				fmt.Fprintf(w, "%s\t%s\t%s\n", key, settings.ValueText(string(saved[key])), settings.ValueText(defaults[key]))
 			}
 			if err := w.Flush(); err != nil {
 				return err

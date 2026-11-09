@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"astrona/internal/settings"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
@@ -12,7 +13,7 @@ import (
 type workspaceSetting struct {
 	key, value string
 	saved      bool
-	definition reviewedSetting
+	definition settings.ReviewedSetting
 }
 
 type workspacePreferences struct {
@@ -25,18 +26,18 @@ type workspacePreferences struct {
 
 func loadWorkspacePreferences(path string) (workspacePreferences, error) {
 	p := workspacePreferences{path: path}
-	saved, err := loadSettings(path)
+	saved, err := settings.Load(path)
 	if err != nil {
 		return p, err
 	}
-	defs := reviewDefinitions()
-	for _, setting := range settingsDefinitions() {
-		value, err := saved.value(setting.key)
+	defs := settings.ReviewDefinitions()
+	for _, setting := range settings.Definitions() {
+		value, err := saved.Value(setting.Key)
 		if err != nil {
 			return p, err
 		}
-		_, explicit := saved[setting.key]
-		p.rows = append(p.rows, workspaceSetting{setting.key, string(value), explicit, defs[setting.key]})
+		_, explicit := saved[setting.Key]
+		p.rows = append(p.rows, workspaceSetting{setting.Key, string(value), explicit, defs[setting.Key]})
 	}
 	return p, nil
 }
@@ -44,19 +45,19 @@ func loadWorkspacePreferences(path string) (workspacePreferences, error) {
 // Re-read under the CLI's settings lock. Preserve unrelated concurrent edits,
 // and reject a stale choice instead of silently replacing another writer's value.
 func saveWorkspacePreference(ctx context.Context, path string, row workspaceSetting, value string) error {
-	parsed, err := parseSetting(row.key, value)
+	parsed, err := settings.Parse(row.key, value)
 	if err != nil {
 		return err
 	}
-	return withSettingsLock(path, func() error {
+	return settings.WithLock(path, func() error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		current, err := loadSettings(path)
+		current, err := settings.Load(path)
 		if err != nil {
 			return err
 		}
-		got, err := current.value(row.key)
+		got, err := current.Value(row.key)
 		if err != nil {
 			return err
 		}
@@ -66,7 +67,7 @@ func saveWorkspacePreference(ctx context.Context, path string, row workspaceSett
 		}
 		current[row.key] = parsed
 		// Editing a value is not approval of new definitions, terms or tracking.
-		return writeSettingsFile(path, current)
+		return settings.WriteFile(path, current)
 	})
 }
 
@@ -120,7 +121,7 @@ func (m workspaceModel) updatePreferences(msg tea.KeyPressMsg) (tea.Model, tea.C
 				p.noticeError = false
 				return m, nil
 			}
-			parsed, err := parseSetting(row.key, value)
+			parsed, err := settings.Parse(row.key, value)
 			if err != nil {
 				p.notice = err.Error()
 				p.noticeError = true
@@ -220,12 +221,12 @@ func (m workspaceModel) preferencesView() string {
 		if row.saved {
 			source = "saved"
 		}
-		context = fmt.Sprintf("Current: %s (%s)  Default: %s", settingValueText(row.value), source, settingValueText(row.definition.Default))
+		context = fmt.Sprintf("Current: %s (%s)  Default: %s", settings.ValueText(row.value), source, settings.ValueText(row.definition.Default))
 		title = row.key
 		details = row.definition.Description + "\n\n" + preferenceEffect(row.key)
 		if p.confirming {
 			title = "APPLY PREFERENCE"
-			details = fmt.Sprintf("Change: %s -> %s\nDefault: %s\nWhy: You requested this preference; changing it is optional.\nEffect: %s\n\n%s", settingValueText(row.value), settingValueText(p.draft), settingValueText(row.definition.Default), preferenceChangeImpact(row.key, p.draft), preferenceEffect(row.key))
+			details = fmt.Sprintf("Change: %s -> %s\nDefault: %s\nWhy: You requested this preference; changing it is optional.\nEffect: %s\n\n%s", settings.ValueText(row.value), settings.ValueText(p.draft), settings.ValueText(row.definition.Default), preferenceChangeImpact(row.key, p.draft), preferenceEffect(row.key))
 			if row.key == "update-check" || row.definition.ExplicitChoice {
 				details += "\n\n" + row.definition.Description
 			}
@@ -251,7 +252,7 @@ func (m workspaceModel) preferencesView() string {
 	rows = append(rows, workspaceMuted.Render("  SETTING                 VALUE"))
 	for i := start; i < min(len(p.rows), start+visible); i++ {
 		row := p.rows[i]
-		text := fmt.Sprintf("%-22s %s", row.key, settingValueText(row.value))
+		text := fmt.Sprintf("%-22s %s", row.key, settings.ValueText(row.value))
 		if i == p.selected {
 			rows = append(rows, workspaceSelected(text, listWidth-4))
 		} else {

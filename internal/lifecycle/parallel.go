@@ -4,6 +4,7 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/runtime"
+	"astrona/internal/settings"
 	"astrona/internal/ui"
 	"fmt"
 	"io"
@@ -11,7 +12,7 @@ import (
 )
 
 // MaxParallel bounds --parallel: every cluster at once is a lot of memory.
-const MaxParallel = 5
+const MaxParallel = settings.MaxParallel
 
 // scheduleHooks are called on the scheduling goroutine only — safe to
 // touch a Reporter from.

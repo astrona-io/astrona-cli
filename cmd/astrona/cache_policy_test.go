@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"astrona/internal/localdata"
+	"astrona/internal/settings"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +34,7 @@ func oldCacheFile(t *testing.T, s localdata.Store) string {
 
 func TestCacheSettings(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	policy, err := loadCachePolicy(path)
+	policy, err := settings.LoadCachePolicy(path)
 	if err != nil || policy.MaxAge != 30*24*time.Hour || policy.MaxBytes != 50_000_000_000 {
 		t.Fatalf("defaults=%+v, %v", policy, err)
 	}
@@ -49,7 +50,7 @@ func TestCacheSettings(t *testing.T) {
 			t.Fatal("integer setting completed with booleans")
 		}
 	}
-	policy, err = loadCachePolicy(path)
+	policy, err = settings.LoadCachePolicy(path)
 	if err != nil || policy.MaxAge != 60*24*time.Hour || policy.MaxBytes != 0 {
 		t.Fatalf("saved=%+v, %v", policy, err)
 	}
@@ -61,7 +62,7 @@ func TestCacheSettings(t *testing.T) {
 	if _, err := executeSettings(t, path, "unset", "cache-max-size-gb"); err != nil {
 		t.Fatal(err)
 	}
-	policy, err = loadCachePolicy(path)
+	policy, err = settings.LoadCachePolicy(path)
 	if err != nil || policy.MaxBytes != 50_000_000_000 {
 		t.Fatalf("unset=%+v, %v", policy, err)
 	}

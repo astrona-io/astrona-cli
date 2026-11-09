@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode"
 
+	"astrona/internal/settings"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -731,16 +732,16 @@ func runUITaskScreen(ctx context.Context, workspace workspaceModel, refresh func
 	path := workspace.settingsPath
 	if path == "" {
 		var err error
-		path, err = settingsPath(&rootFlags{})
+		path, err = settings.Path("")
 		if err != nil {
 			return workspace, err
 		}
 	}
-	saved, err := loadSettings(path)
+	saved, err := settings.Load(path)
 	if err != nil {
 		return workspace, err
 	}
-	value, err := saved.value("ui-task-width")
+	value, err := saved.Value("ui-task-width")
 	if err != nil {
 		return workspace, err
 	}

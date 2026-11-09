@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"astrona/internal/settings"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-isatty"
 )
@@ -108,7 +109,7 @@ func TestWorkspacePreferenceConfirmationExplainsChange(t *testing.T) {
 			old := m.preferences.rows[m.preferences.selected].value
 			m = workspaceKey(workspaceKey(workspaceKey(m, "enter"), tc.value), "enter")
 			view := strings.Join(strings.Fields(strings.ReplaceAll(ansi.Strip(m.render()), "│", " ")), " ")
-			for _, want := range []string{"Change: " + settingValueText(old) + " -> " + settingValueText(tc.value), "Why:", "optional", tc.effect, "Apply this change? [y/N]", "n no"} {
+			for _, want := range []string{"Change: " + settings.ValueText(old) + " -> " + settings.ValueText(tc.value), "Why:", "optional", tc.effect, "Apply this change? [y/N]", "n no"} {
 				if !strings.Contains(view, want) {
 					t.Fatalf("missing %q: %s", want, view)
 				}
@@ -211,7 +212,7 @@ func TestWorkspacePreferenceTerminalSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved, err := loadSettings(path)
+	saved, err := settings.Load(path)
 	if err != nil || string(saved["parallel"]) != "2" || len(saved) != 1 {
 		t.Fatalf("expected only parallel=2: %v, %v", saved, err)
 	}
@@ -229,7 +230,7 @@ func TestSaveWorkspacePreference(t *testing.T) {
 			if err := saveWorkspacePreference(t.Context(), m.preferences.path, row, value); err != nil {
 				t.Fatal(err)
 			}
-			saved, err := loadSettings(m.preferences.path)
+			saved, err := settings.Load(m.preferences.path)
 			if err != nil || string(saved[key]) != value {
 				t.Fatalf("save: %v %v", saved, err)
 			}
@@ -237,7 +238,7 @@ func TestSaveWorkspacePreference(t *testing.T) {
 			if err != nil || info.Mode().Perm() != 0o600 {
 				t.Fatalf("settings permissions: %v", err)
 			}
-			if _, err := os.Stat(settingsReceiptPath(m.preferences.path)); !os.IsNotExist(err) {
+			if _, err := os.Stat(settings.ReceiptPath(m.preferences.path)); !os.IsNotExist(err) {
 				t.Fatal("settings edit created review consent")
 			}
 		})
@@ -246,13 +247,13 @@ func TestSaveWorkspacePreference(t *testing.T) {
 	path := m.preferences.path
 	row := m.preferences.rows[m.preferences.selected]
 	other := "true"
-	if err := changeSetting(path, "verbose", &other); err != nil {
+	if err := settings.Change(path, "verbose", &other); err != nil {
 		t.Fatal(err)
 	}
 	if err := saveWorkspacePreference(t.Context(), path, row, "3"); err != nil {
 		t.Fatal(err)
 	}
-	saved, err := loadSettings(path)
+	saved, err := settings.Load(path)
 	if err != nil || string(saved["verbose"]) != "true" {
 		t.Fatalf("lost unrelated edit: %v, %v", saved, err)
 	}
@@ -267,7 +268,7 @@ func TestSaveWorkspacePreference(t *testing.T) {
 	if err := saveWorkspacePreference(ctx, path, row, "2"); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
-	if err := withSettingsLock(path, func() error {
+	if err := settings.WithLock(path, func() error {
 		if err := saveWorkspacePreference(t.Context(), path, row, "2"); err == nil {
 			t.Fatal("bypassed settings lock")
 		}

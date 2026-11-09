@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"astrona/internal/account"
+	"astrona/internal/settings"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-isatty"
@@ -86,15 +87,15 @@ func (m guestRunModel) render() string {
 }
 
 func guestReminderEnabled(flags *rootFlags) (bool, error) {
-	path, err := settingsPath(flags)
+	path, err := settings.Path(flags.settingsFile)
 	if err != nil {
 		return false, err
 	}
-	saved, err := loadSettings(path)
+	saved, err := settings.Load(path)
 	if err != nil {
 		return false, err
 	}
-	value, err := saved.value("login-reminder")
+	value, err := saved.Value("login-reminder")
 	return string(value) == "true", err
 }
 
@@ -102,12 +103,12 @@ func saveGuestChoice(flags *rootFlags, choice guestRunChoice) error {
 	if !choice.accepted || !choice.never {
 		return nil
 	}
-	path, err := settingsPath(flags)
+	path, err := settings.Path(flags.settingsFile)
 	if err != nil {
 		return err
 	}
 	value := "false"
-	return changeSetting(path, "login-reminder", &value)
+	return settings.Change(path, "login-reminder", &value)
 }
 
 // Explicit local-only restarts never access credentials or the account API.

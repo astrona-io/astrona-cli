@@ -1,4 +1,9 @@
-package main
+// Package settings owns the user's saved CLI preferences: their schema and
+// validation, the settings.json file and its lock, the settings review model
+// and the cache policy derived from the saved values. It is a foundation
+// package: it never prompts and must not depend on command, UI or lab
+// orchestration packages.
+package settings
 
 import (
 	"encoding/json"
@@ -17,12 +22,17 @@ import (
 	"astrona/internal/localdata"
 )
 
-type settingDefinition struct {
-	key, defaultValue, description string
+// MaxParallel bounds --parallel: every cluster at once is a lot of memory.
+const MaxParallel = 5
+
+// Definition describes one supported setting and its built-in default.
+type Definition struct {
+	Key, Default, Description string
 }
 
-func settingsDefinitions() []settingDefinition {
-	return []settingDefinition{
+// Definitions lists every supported setting in display order.
+func Definitions() []Definition {
+	return []Definition{
 		{"verbose", "false", "Stream full command output"},
 		{"keep-context", "false", "Leave your kubectl current-context unchanged"},
 		{"parallel", "1", "Maximum linked clusters to start at once"},
@@ -34,12 +44,15 @@ func settingsDefinitions() []settingDefinition {
 	}
 }
 
-// userSettings contains only saved overrides; omitted keys use CLI defaults.
-type userSettings map[string]json.RawMessage
+// Values contains only saved overrides; omitted keys use CLI defaults.
+type Values map[string]json.RawMessage
 
-func settingsPath(flags *rootFlags) (string, error) {
-	if flags.settingsFile != "" {
-		return flags.settingsFile, nil
+// Path returns the settings file: file when set (--settings-file), otherwise
+// settings.json in the active profile's home directory. It is computed on
+// each call so it follows apphome.Configure.
+func Path(file string) (string, error) {
+	if file != "" {
+		return file, nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -48,7 +61,16 @@ func settingsPath(flags *rootFlags) (string, error) {
 	return filepath.Join(home, apphome.Name(), "settings.json"), nil
 }
 
-func parseSetting(key, value string) (json.RawMessage, error) {
+// ValidateParallel checks --parallel.
+func ValidateParallel(n int) error {
+	if n < 1 || n > MaxParallel {
+		return fmt.Errorf("--parallel must be between 1 and %d", MaxParallel)
+	}
+	return nil
+}
+
+// Parse validates value for key and returns its normalized JSON form.
+func Parse(key, value string) (json.RawMessage, error) {
 	switch key {
 	case "verbose", "keep-context", "update-check", "login-reminder":
 		switch strings.ToLower(strings.TrimSpace(value)) {
@@ -70,7 +92,7 @@ func parseSetting(key, value string) (json.RawMessage, error) {
 		if err != nil {
 			return nil, fmt.Errorf("parallel must be a whole number")
 		}
-		if err := validateParallel(n); err != nil {
+		if err := ValidateParallel(n); err != nil {
 			return nil, err
 		}
 		value = strconv.Itoa(n)
@@ -90,7 +112,9 @@ func parseSetting(key, value string) (json.RawMessage, error) {
 	return json.RawMessage(value), nil
 }
 
-func settingValueText(value string) string {
+// ValueText shows a stored or typed value the way users answer: yes/no for
+// booleans, anything else unchanged.
+func ValueText(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "true", "yes", "y":
 		return "yes"
@@ -101,13 +125,14 @@ func settingValueText(value string) string {
 	}
 }
 
-func loadCachePolicy(path string) (localdata.CachePolicy, error) {
-	saved, err := loadSettings(path)
+// LoadCachePolicy reads the disposable-cache limits saved in path.
+func LoadCachePolicy(path string) (localdata.CachePolicy, error) {
+	saved, err := Load(path)
 	if err != nil {
 		return localdata.CachePolicy{}, err
 	}
-	age, _ := saved.value("cache-retention-days") // known keys with validated integers
-	size, _ := saved.value("cache-max-size-gb")
+	age, _ := saved.Value("cache-retention-days") // known keys with validated integers
+	size, _ := saved.Value("cache-max-size-gb")
 	days, err := strconv.ParseInt(string(age), 10, 64)
 	if err != nil {
 		return localdata.CachePolicy{}, err
@@ -119,33 +144,34 @@ func loadCachePolicy(path string) (localdata.CachePolicy, error) {
 	return localdata.CachePolicy{MaxAge: time.Duration(days) * 24 * time.Hour, MaxBytes: gb * localdata.BytesPerGB}, nil
 }
 
-func (s userSettings) value(key string) (json.RawMessage, error) {
-	for _, def := range settingsDefinitions() {
-		if def.key == key {
+// Value returns the saved value for key, or its default when none is saved.
+func (s Values) Value(key string) (json.RawMessage, error) {
+	for _, def := range Definitions() {
+		if def.Key == key {
 			if value, ok := s[key]; ok {
 				return value, nil
 			}
-			return json.RawMessage(def.defaultValue), nil
+			return json.RawMessage(def.Default), nil
 		}
 	}
 	return nil, fmt.Errorf("unknown setting %q; run `astrona settings` to list supported settings", key)
 }
 
-// loadSettings never creates files and refuses malformed settings rather than
+// Load never creates files and refuses malformed settings rather than
 // silently changing command behavior or replacing a file that needs repair.
-func loadSettings(path string) (userSettings, error) {
-	return loadSettingsWithRetired(path, nil)
+func Load(path string) (Values, error) {
+	return loadWithRetired(path, nil)
 }
 
-func loadSettingsWithRetired(path string, retired map[string]bool) (userSettings, error) {
-	data, err := readSettingsFile(path)
+func loadWithRetired(path string, retired map[string]bool) (Values, error) {
+	data, err := readFile(path)
 	if err != nil {
 		return nil, err
 	}
 	if data == nil {
-		return userSettings{}, nil
+		return Values{}, nil
 	}
-	var saved userSettings
+	var saved Values
 	if err := json.Unmarshal(data, &saved); err != nil {
 		return nil, fmt.Errorf("invalid settings in %s; edit the file to repair it: %w", path, err)
 	}
@@ -156,7 +182,7 @@ func loadSettingsWithRetired(path string, retired map[string]bool) (userSettings
 		if retired[key] {
 			continue
 		}
-		parsed, err := parseSetting(key, strings.TrimSpace(string(value)))
+		parsed, err := Parse(key, strings.TrimSpace(string(value)))
 		if err != nil {
 			return nil, fmt.Errorf("invalid settings in %s; edit the file to repair it: %w", path, err)
 		}
@@ -165,7 +191,7 @@ func loadSettingsWithRetired(path string, retired map[string]bool) (userSettings
 	return saved, nil
 }
 
-func readSettingsFile(path string) ([]byte, error) {
+func readFile(path string) ([]byte, error) {
 	info, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
@@ -199,22 +225,22 @@ func readSettingsFile(path string) ([]byte, error) {
 	return data, nil
 }
 
-// changeSetting serializes CLI writers with a file lock, then atomically
-// replaces settings.json with a private file. A nil value removes an override.
-func changeSetting(path, key string, value *string) error {
-	if _, err := (userSettings{}).value(key); err != nil {
+// Change serializes CLI writers with a file lock, then atomically replaces
+// settings.json with a private file. A nil value removes an override.
+func Change(path, key string, value *string) error {
+	if _, err := (Values{}).Value(key); err != nil {
 		return err
 	}
 	var parsed json.RawMessage
 	if value != nil {
 		var err error
-		parsed, err = parseSetting(key, *value)
+		parsed, err = Parse(key, *value)
 		if err != nil {
 			return err
 		}
 	}
-	return withSettingsLock(path, func() error {
-		saved, err := loadSettings(path)
+	return WithLock(path, func() error {
+		saved, err := Load(path)
 		if err != nil {
 			return err
 		}
@@ -223,11 +249,13 @@ func changeSetting(path, key string, value *string) error {
 		} else {
 			saved[key] = parsed
 		}
-		return writeSettingsFile(path, saved)
+		return WriteFile(path, saved)
 	})
 }
 
-func withSettingsLock(path string, change func() error) error {
+// WithLock runs change while holding path+".lock", creating the settings
+// directory if needed. It fails at once when another writer holds the lock.
+func WithLock(path string, change func() error) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("create settings directory: %w", err)
@@ -245,9 +273,10 @@ func withSettingsLock(path string, change func() error) error {
 	return change()
 }
 
-// Callers hold settings.json.lock while replacing preferences or their review.
-func writeSettingsFile(path string, value any) error {
-	if _, err := readSettingsFile(path); err != nil {
+// WriteFile atomically replaces path with value as indented JSON. Callers
+// hold settings.json.lock while replacing preferences or their review.
+func WriteFile(path string, value any) error {
+	if _, err := readFile(path); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(value, "", "  ")
@@ -275,16 +304,16 @@ func writeSettingsFile(path string, value any) error {
 	return nil
 }
 
-// resetSettings removes every saved override under the settings lock, so each
-// setting falls back to its default. It works on a file loadSettings refuses
+// Reset removes every saved override under the settings lock, so each
+// setting falls back to its default. It works on a file Load refuses
 // (invalid JSON, an unknown key): resetting is how such a file is repaired. It
 // returns the values that were saved (nil when the file was unreadable as
 // settings). Anything but a regular file is left alone. Unless apply is set it
 // only reports. settings-review.json is kept: resetting values does not ask
 // the review questions again.
-func resetSettings(path string, apply bool) (saved map[string]json.RawMessage, damaged, existed bool, err error) {
+func Reset(path string, apply bool) (saved map[string]json.RawMessage, damaged, existed bool, err error) {
 	change := func() error {
-		data, err := readSettingsFile(path)
+		data, err := readFile(path)
 		if err != nil {
 			return err
 		}
@@ -307,6 +336,6 @@ func resetSettings(path string, apply bool) (saved map[string]json.RawMessage, d
 		err = change() // a preview takes no lock and writes nothing
 		return saved, damaged, existed, err
 	}
-	err = withSettingsLock(path, change)
+	err = WithLock(path, change)
 	return saved, damaged, existed, err
 }

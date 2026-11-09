@@ -13,6 +13,7 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/labstate"
 	"astrona/internal/proctor"
+	"astrona/internal/settings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -601,14 +602,14 @@ func runUIHome(ctx context.Context, flags *rootFlags, notice string) error {
 		screen:  runUIHomeScreen,
 		destroy: func(run uiHomeRun) error { return forceDeleteUIRun(ctx, run, flags.verbose) },
 		preferences: func() (workspacePreferences, error) {
-			path, err := settingsPath(flags)
+			path, err := settings.Path(flags.settingsFile)
 			if err != nil {
 				return workspacePreferences{}, err
 			}
 			return loadWorkspacePreferences(path)
 		},
 		savePreference: func(row workspaceSetting, value string) error {
-			path, err := settingsPath(flags)
+			path, err := settings.Path(flags.settingsFile)
 			if err != nil {
 				return err
 			}

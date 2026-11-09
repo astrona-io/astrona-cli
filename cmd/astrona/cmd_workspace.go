@@ -21,6 +21,7 @@ import (
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/proctor"
+	"astrona/internal/settings"
 	"astrona/internal/terms"
 	"astrona/internal/ui"
 
@@ -228,7 +229,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 	task, expected := workspaceTaskInfo(cfg, baseDir, flags)
 	stopActivity := uiActivityStart(name, st.StartedAt, uiLabProgress{Lab: !playground, Expected: expected})
 	defer stopActivity()
-	path, err := settingsPath(flags)
+	path, err := settings.Path(flags.settingsFile)
 	if err != nil {
 		return "", err
 	}
@@ -255,14 +256,14 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 		returnHome: func(message string) { notice = message },
 		screen:     runWorkspaceScreen, refresh: refresh,
 		preferences: func() (workspacePreferences, error) {
-			path, err := settingsPath(flags)
+			path, err := settings.Path(flags.settingsFile)
 			if err != nil {
 				return workspacePreferences{}, err
 			}
 			return loadWorkspacePreferences(path)
 		},
 		savePreference: func(row workspaceSetting, value string) error {
-			path, err := settingsPath(flags)
+			path, err := settings.Path(flags.settingsFile)
 			if err != nil {
 				return err
 			}

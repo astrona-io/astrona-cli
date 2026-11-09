@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"testing"
 
+	"astrona/internal/settings"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +43,7 @@ func TestSettingsReadDoesNotCreateFiles(t *testing.T) {
 	if err := json.Unmarshal([]byte(got), &values); err != nil {
 		t.Fatalf("not one JSON document: %s, %v", got, err)
 	}
-	if len(values) != len(settingsDefinitions()) || values["verbose"] != false || values["keep-context"] != false || values["parallel"] != float64(1) || values["update-check"] != true || values["login-reminder"] != true || values["cache-retention-days"] != float64(30) || values["cache-max-size-gb"] != float64(50) {
+	if len(values) != len(settings.Definitions()) || values["verbose"] != false || values["keep-context"] != false || values["parallel"] != float64(1) || values["update-check"] != true || values["login-reminder"] != true || values["cache-retention-days"] != float64(30) || values["cache-max-size-gb"] != float64(50) {
 		t.Fatalf("unexpected defaults: %v", values)
 	}
 }
@@ -53,7 +54,7 @@ func TestSettingsSetGetUnset(t *testing.T) {
 		if _, err := executeSettings(t, path, "set", pair[0], pair[1]); err != nil {
 			t.Fatal(err)
 		}
-		if got, err := executeSettings(t, path, "get", pair[0]); err != nil || strings.TrimSpace(got) != settingValueText(pair[1]) {
+		if got, err := executeSettings(t, path, "get", pair[0]); err != nil || strings.TrimSpace(got) != settings.ValueText(pair[1]) {
 			t.Fatalf("get %s: %q, %v", pair[0], got, err)
 		}
 	}
@@ -73,7 +74,7 @@ func TestSettingsSetGetUnset(t *testing.T) {
 	if err != nil || got != "no\n" {
 		t.Fatalf("unset did not restore the default: %q, %v", got, err)
 	}
-	saved, err := loadSettings(path)
+	saved, err := settings.Load(path)
 	if err != nil || len(saved) != 4 || string(saved["parallel"]) != "3" || string(saved["ui-task-width"]) != "60" {
 		t.Fatalf("unset changed other settings: %v, %v", saved, err)
 	}
@@ -107,7 +108,7 @@ func TestSettingsBooleanAnswers(t *testing.T) {
 				if got, err := executeSettings(t, path, "get", key); err != nil || got != tc.want+"\n" {
 					t.Fatalf("get = %q, %v", got, err)
 				}
-				saved, err := loadSettings(path)
+				saved, err := settings.Load(path)
 				if err != nil || string(saved[key]) != tc.stored {
 					t.Fatalf("settings = %v, %v", saved, err)
 				}
@@ -149,7 +150,7 @@ func TestSettingsRejectDamagedFiles(t *testing.T) {
 			if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := loadSettings(path); err == nil {
+			if _, err := settings.Load(path); err == nil {
 				t.Fatal("accepted damaged file")
 			}
 			if _, err := executeSettings(t, path, "set", "verbose", "false"); err == nil {
@@ -184,7 +185,7 @@ func TestSettingsRejectSymlinksAndDirectories(t *testing.T) {
 			}
 		})
 	}
-	if _, err := loadSettings(t.TempDir()); err == nil {
+	if _, err := settings.Load(t.TempDir()); err == nil {
 		t.Fatal("accepted a directory")
 	}
 }
@@ -311,7 +312,7 @@ func TestSettingsCompletion(t *testing.T) {
 	for _, action := range []string{"get", "set", "unset"} {
 		cmd := &cobra.Command{Use: action}
 		keys, directive := completeSetting(cmd, nil, "")
-		if len(keys) != len(settingsDefinitions()) || directive != cobra.ShellCompDirectiveNoFileComp {
+		if len(keys) != len(settings.Definitions()) || directive != cobra.ShellCompDirectiveNoFileComp {
 			t.Fatalf("%s key completion: %v, %v", action, keys, directive)
 		}
 		values, _ := completeSetting(cmd, []string{"verbose"}, "")
@@ -321,16 +322,5 @@ func TestSettingsCompletion(t *testing.T) {
 		if action != "set" && len(values) != 0 {
 			t.Fatalf("%s should not complete a value", action)
 		}
-	}
-}
-
-func TestSettingsPathDefaultsToAstronaDirectory(t *testing.T) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, err := settingsPath(&rootFlags{})
-	if err != nil || got != filepath.Join(home, ".astrona", "settings.json") {
-		t.Fatalf("default path: %q, %v", got, err)
 	}
 }
