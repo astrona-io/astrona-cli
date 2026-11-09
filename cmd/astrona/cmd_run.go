@@ -14,6 +14,7 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
+	"astrona/internal/labops"
 	"astrona/internal/labshell"
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
@@ -200,7 +201,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 					if err != nil {
 						return err
 					}
-					flags.uiRestart = &uiRunRestart{clusterName, workspaceRunID(st)}
+					flags.uiRestart = &uiRunRestart{clusterName, labops.RunID(st)}
 				}
 				if err := discardUIRun(clusterName, flags.uiRestart); err != nil {
 					return err

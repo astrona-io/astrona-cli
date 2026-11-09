@@ -11,6 +11,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/exam"
 	"astrona/internal/junit"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/proctor"
@@ -105,7 +106,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 				defer cleanup()
-				return submitLoadedLab(flags, cfg, baseDir, submitOptions{runID: workspaceRunID(saved), junitPath: junitPath, output: output, noHints: noHints, history: history, watch: watch, keep: keep, watchInterval: watchInterval}, status)
+				return submitLoadedLab(flags, cfg, baseDir, submitOptions{runID: labops.RunID(saved), junitPath: junitPath, output: output, noHints: noHints, history: history, watch: watch, keep: keep, watchInterval: watchInterval}, status)
 			}
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
@@ -170,7 +171,7 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 		return err
 	}
 	if options.runID != "" {
-		if err := workspaceGuard(clusterName, options.runID); err != nil {
+		if err := labops.GuardRun(clusterName, options.runID); err != nil {
 			return err
 		}
 	}
@@ -232,7 +233,7 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 		return err
 	}
 	if before != nil {
-		if err := workspaceGuard(clusterName, workspaceRunID(before)); err != nil {
+		if err := labops.GuardRun(clusterName, labops.RunID(before)); err != nil {
 			return err
 		}
 	}
@@ -310,7 +311,7 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 				return err
 			}
 			defer drep.Close()
-			info := teardownInfo{clusterName: cfg.Metadata.Name, runID: workspaceRunID(before), status: status, teardown: cfg.Teardown, runtime: cfg.Runtime, cfg: cfg}
+			info := teardownInfo{clusterName: cfg.Metadata.Name, runID: labops.RunID(before), status: status, teardown: cfg.Teardown, runtime: cfg.Runtime, cfg: cfg}
 			if err := destroyLab(info, baseDir, drep); err != nil {
 				return err
 			}

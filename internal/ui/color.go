@@ -30,7 +30,13 @@ func Paint(w io.Writer, s string, styles ...string) string {
 
 // Warnf prints "[WARN] …" to stderr, the tag in yellow.
 func Warnf(format string, a ...any) {
-	fmt.Fprintf(os.Stderr, "%s %s\n", Paint(os.Stderr, "[WARN]", Yellow, Bold), fmt.Sprintf(format, a...))
+	Fwarnf(os.Stderr, format, a...)
+}
+
+// Fwarnf prints "[WARN] …" to w, the tag in yellow when w is a color
+// terminal.
+func Fwarnf(w io.Writer, format string, a ...any) {
+	fmt.Fprintf(w, "%s %s\n", Paint(w, "[WARN]", Yellow, Bold), fmt.Sprintf(format, a...))
 }
 
 // Infof prints "[INFO] …" to stderr, the tag in cyan.

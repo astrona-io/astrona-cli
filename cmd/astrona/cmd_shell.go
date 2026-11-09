@@ -12,6 +12,7 @@ import (
 	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/labshell"
 	"astrona/internal/lifecycle"
 	"astrona/internal/runtime"
@@ -23,7 +24,7 @@ import (
 
 // labShellEnvVar is set inside `astrona shell` — guards against nesting
 // and lets a user show the lab in their prompt.
-const labShellEnvVar = "ASTRONA_LAB"
+const labShellEnvVar = labops.LabShellEnvVar
 
 // resolveKindCluster picks the kind lab a kubeconfig/shell command acts on, in
 // order: an explicit lab-name argument; the lab config resolved from

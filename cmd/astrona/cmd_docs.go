@@ -3,84 +3,21 @@ package main
 import (
 	"fmt"
 	"io"
-	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"slices"
 	"strings"
 
 	"astrona/internal/catalog"
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/resources"
 
 	"github.com/spf13/cobra"
 )
 
-// maxDocBytes bounds a lab doc fetched from a URL.
-const maxDocBytes = 2 * 1024 * 1024
-
 // labDoc is one entry of metadata.docs as `astrona docs` exposes it.
-type labDoc struct {
-	key, title, path string
-	spoiler          bool // shown with a warning: it gives the solution away
-}
-
-func labDocs(cfg *config.LabConfig) []labDoc {
-	d := cfg.Metadata.Docs
-	all := []labDoc{
-		{"question", "The task", d.Question, false},
-		{"case-study", "Case study — the same task, with hints", d.CaseStudy, false},
-		{"prerequisites", "Prerequisites — what to know first", d.Prerequisites, false},
-		{"solution", "Solution — step by step", d.Solution, true},
-	}
-	var out []labDoc
-	for _, doc := range all {
-		if doc.path != "" {
-			out = append(out, doc)
-		}
-	}
-	return out
-}
-
-// readLabDoc reads a doc relative to the lab's config: within baseDir for
-// a local/git config (JoinWithinBaseDir — a doc path must be
-// relative and can't escape it), or
-// resolved against the config's URL (https only, size-capped) for a remote
-// config.
-func readLabDoc(configPath, docPath string) (string, error) {
-	if strings.HasPrefix(configPath, "http://") || strings.HasPrefix(configPath, "https://") {
-		base, err := url.Parse(configPath)
-		if err != nil {
-			return "", fmt.Errorf("parse config URL: %w", err)
-		}
-		if strings.Contains(docPath, "://") || strings.HasPrefix(docPath, "/") {
-			return "", fmt.Errorf("doc path '%s' must be relative to the config", docPath)
-		}
-		ref := *base
-		ref.Path = path.Join(path.Dir(base.Path), docPath)
-		if !strings.HasPrefix(ref.Path, path.Dir(base.Path)+"/") {
-			return "", fmt.Errorf("doc path '%s' escapes the config's location", docPath)
-		}
-		tmp, cleanup, err := config.DownloadToTemp(ref.String(), "astrona-doc-*.md", maxDocBytes)
-		if err != nil {
-			return "", fmt.Errorf("fetch %s: %w", ref.String(), err)
-		}
-		defer cleanup()
-		data, err := os.ReadFile(tmp)
-		return string(data), err
-	}
-
-	full, err := config.JoinWithinBaseDir(filepath.Dir(configPath), docPath)
-	if err != nil {
-		return "", err
-	}
-	data, err := os.ReadFile(full)
-	if err != nil {
-		return "", fmt.Errorf("read %s: %w", docPath, err)
-	}
-	return string(data), nil
-}
+type labDoc = labops.LabDoc
 
 // docKeys are the docs `astrona docs` can show; "guide" is the older name
 // of "solution" and still works.
@@ -149,7 +86,7 @@ func newDocsCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer cleanup()
 
-			docs := labDocs(cfg)
+			docs := labops.LabDocs(cfg)
 			if len(args) == 0 {
 				printDocList(os.Stdout, cfg.Metadata.Name, docs)
 				printDocResources(os.Stdout, cfg, finalPath)
@@ -158,15 +95,15 @@ func newDocsCmd(flags *rootFlags) *cobra.Command {
 
 			var doc *labDoc
 			for i := range docs {
-				if docs[i].key == args[0] {
+				if docs[i].Key == args[0] {
 					doc = &docs[i]
 				}
 			}
 			if doc == nil {
-				return fmt.Errorf("lab '%s' has no %s doc (no %s next to its config.yaml, none in metadata.docs) — `astrona docs` lists what it has", cfg.Metadata.Name, args[0], docFileFor(args[0]))
+				return fmt.Errorf("lab '%s' has no %s doc (no %s next to its config.yaml, none in metadata.docs) — `astrona docs` lists what it has", cfg.Metadata.Name, args[0], labops.DocFileFor(args[0]))
 			}
 
-			text, err := readLabDoc(finalPath, doc.path)
+			text, err := labops.ReadLabDoc(finalPath, doc.Path)
 			if err != nil {
 				return err
 			}
@@ -176,7 +113,7 @@ func newDocsCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer closePager()
-			if doc.spoiler {
+			if doc.Spoiler {
 				fmt.Fprintln(w, colorize(ansiYellow, "⚠  This is the full solution."))
 				fmt.Fprintln(w)
 			}
@@ -201,7 +138,7 @@ func printDocList(w io.Writer, lab string, docs []labDoc) {
 	}
 	fmt.Fprintf(w, "Docs for %s:\n\n", lab)
 	for _, d := range docs {
-		fmt.Fprintf(w, "  astrona docs %-14s %s\n", d.key, d.title)
+		fmt.Fprintf(w, "  astrona docs %-14s %s\n", d.Key, d.Title)
 	}
 }
 
@@ -223,13 +160,4 @@ func printDocResources(w io.Writer, cfg *config.LabConfig, configPath string) {
 		}
 		fmt.Fprintf(w, "  %-28s %s\n", sanitizeLine(r.Name), sanitizeLine(desc))
 	}
-}
-
-// docFileFor is the usual file name of a doc key ("case-study" →
-// case-study.md).
-func docFileFor(key string) string {
-	if key == "case-study" {
-		return config.DocFileNames["caseStudy"]
-	}
-	return config.DocFileNames[key]
 }

@@ -2,12 +2,11 @@ package main
 
 import (
 	"bytes"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"astrona/internal/config"
+	"astrona/internal/labops"
 )
 
 func TestSanitizeTerminalText(t *testing.T) {
@@ -76,31 +75,11 @@ func TestRenderMarkdown(t *testing.T) {
 	}
 }
 
-func TestReadLabDocStaysInsideLab(t *testing.T) {
-	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "docs"), 0700)
-	os.WriteFile(filepath.Join(dir, "docs", "q.md"), []byte("# Q\n"), 0600)
-	cfgPath := filepath.Join(dir, "config.yaml")
-
-	if got, err := readLabDoc(cfgPath, "docs/q.md"); err != nil || got != "# Q\n" {
-		t.Fatalf("readLabDoc = %q, %v", got, err)
-	}
-	if _, err := readLabDoc(cfgPath, "../../etc/passwd"); err == nil {
-		t.Fatal("doc path escaping the lab dir was read")
-	}
-
-	for _, bad := range []string{"../secret.md", "/etc/passwd", "https://evil.example/x.md"} {
-		if _, err := readLabDoc("https://labs.example/lab/config.yaml", bad); err == nil {
-			t.Errorf("remote doc path %q accepted", bad)
-		}
-	}
-}
-
 func TestLabDocsAndList(t *testing.T) {
 	cfg := &config.LabConfig{Metadata: config.MetadataConfig{Name: "x", Docs: config.DocsConfig{Question: "q.md", Solution: "g.md"}}}
-	docs := labDocs(cfg)
-	if len(docs) != 2 || docs[0].key != "question" || docs[1].key != "solution" || !docs[1].spoiler || docs[0].spoiler {
-		t.Fatalf("labDocs = %+v", docs)
+	docs := labops.LabDocs(cfg)
+	if len(docs) != 2 || docs[0].Key != "question" || docs[1].Key != "solution" || !docs[1].Spoiler || docs[0].Spoiler {
+		t.Fatalf("LabDocs = %+v", docs)
 	}
 
 	var buf bytes.Buffer
