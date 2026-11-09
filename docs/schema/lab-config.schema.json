@@ -609,9 +609,6 @@
         "cluster": {
           "type": "string"
         },
-        "embed": {
-          "type": "boolean"
-        },
         "file": {
           "type": "string"
         },

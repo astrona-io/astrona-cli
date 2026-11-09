@@ -92,7 +92,6 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | `GET /runs/{lab}/terminals` | Open terminals. |
 | `GET /runs/{lab}/tabs/{name}/doc` | A docs tab's Markdown, rendered to HTML. After **Start** only. |
 | `POST /runs/{lab}/terminals` | Open the shell of a terminal tab. After **Start** only. |
-| `DELETE /runs/{lab}/terminals/{id}` | Close a terminal. |
 | `GET /ws/v1/terminals/{id}?ticket=…` | Attach to a terminal (WebSocket). |
 | *later* `PUT /runs/{lab}/progress`, `POST /runs/{lab}/submit`, `GET /runs/{lab}/submission`, `GET /runs/{lab}/events` | Not implemented yet. |
 
@@ -173,7 +172,7 @@ GET routes never change saved state, so polling them is safe.
 | `intro` | For the intro page. `prerequisitesHtml` is `""` when the lab has none; `estimatedDuration` is `""` when its task does not say. |
 | `questions` | Summaries only, never the text. Today every lab has exactly one question, `q1`, built from `metadata.docs.question`. `points` is `null` until per-question points exist. |
 | `targets` | Where terminals run. `label` is the display name (`main`, or a linked cluster's name). `views` lists what the target offers: `["terminal"]` today; a desktop will add `"desktop"`. |
-| `tabs` | The right panel, as the lab declares it (lab config `tabs`). The first is always the focus tab: `name` `main`, a terminal on the lab's own cluster. The page shows exactly these and cannot add or close one. `kind` is `terminal` (`target` says where its shell runs), `browser` (`url` is a loopback port forward of the lab), or `docs`: either `url` (an `https` documentation page; `embed: true` when the lab says it may be framed) or `document: true` (Markdown shipped with the lab, fetched from `GET /tabs/{name}/doc`). A lab that declares no tabs gets the focus tab plus one terminal tab per linked cluster (`cluster-<name>`). |
+| `tabs` | The right panel, as the lab declares it (lab config `tabs`). The first is always the focus tab: `name` `main`, a terminal on the lab's own cluster. The page shows exactly these and cannot add or close one. `kind` is `terminal` (`target` says where its shell runs), `browser` (`url` is a loopback port forward of the lab), or `docs`: either `url` (an `https` documentation page, shown in a frame) or `document: true` (Markdown shipped with the lab, fetched from `GET /tabs/{name}/doc`). A lab that declares no tabs gets only the focus tab. |
 | `canSubmit` | Always `false` until submit lands in the browser. Submit with `astrona submit` meanwhile. |
 
 Responses never contain the solution document, validation scripts, check
@@ -241,8 +240,9 @@ when the lab is ready.
 ```
 
 `status` is `running` or `ended`; `exitCode` is set once it ended (`-1` when
-the process was killed by a signal). Ended terminals stay listed until they are
-deleted, so the page can show "Shell ended".
+the process was killed by a signal). Ended terminals stay listed until the tab
+opens a new shell, which replaces the ended one, so the page can show "Shell
+ended". The page cannot close a terminal; `astrona ui stop` ends them all.
 
 ### `POST /runs/{lab}/terminals`
 
@@ -265,12 +265,6 @@ the lab's own workspace directory; its prompt is `astrona-cli >` and `$HOME` is
 Errors: `409 not_started`, `409 run_changed`, `409 run_stopped`,
 `409 terminal_starting`, `400 unknown_tab`, `429 too_many_terminals`,
 `501 unsupported`.
-
-### `DELETE /runs/{lab}/terminals/{id}`
-
-Ends the shell (hang-up, then kill after three seconds), removes its container,
-and forgets the terminal. Response `204`, also for a terminal that had already
-ended. Unknown id: `404 not_found`.
 
 ### `GET /ws/v1/terminals/{id}?ticket=<ticket>`
 
@@ -304,7 +298,7 @@ Client to server:
 | `{"type":"ping"}` | Keep-alive; answered with `pong`. |
 
 Other close codes: `1001` when the server shuts down or the terminal is
-deleted, `1008` for a control frame that is not valid JSON, `1009` for a frame
+replaced, `1008` for a control frame that is not valid JSON, `1009` for a frame
 larger than 64 KiB.
 
 Opening the same terminal again takes it over: only the newest view can type.
@@ -315,12 +309,14 @@ reload.
 ## Framing
 
 The page is served with the strict policy above plus a `frame-src` that names
-exactly the origins of the current runs' `browser` tabs and embedded `docs`
+exactly the origins of the current runs' `browser` tabs and `docs` URL
 tabs, computed when the page is loaded. It never names the server's own
 origin. A lab started after the page was opened needs a reload before its page
 tabs can be framed. Frames are sandboxed (`allow-scripts allow-same-origin
 allow-forms allow-popups allow-downloads`); nothing is proxied through the
-server. A docs URL that is not embedded opens in a separate window instead.
+server. A site that refuses to be framed (`X-Frame-Options` or CSP
+`frame-ancestors`) stays blank; the tab's **Open in new window** shows it in a
+separate window instead.
 
 ## Lifetime
 

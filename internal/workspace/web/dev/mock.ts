@@ -221,15 +221,6 @@ function mockPlugin(): Plugin {
           shells.set(name, sh)
           return send(res, 201, sh.info())
         }
-        const del = /^\/runs\/demo\/terminals\/([^/]+)$/.exec(p)
-        if (m === 'DELETE' && del) {
-          const sh = [...shells.values()].find((x) => x.id === del[1])
-          if (!sh) return fail(res, 404, 'not_found', 'unknown terminal')
-          sh.forget()
-          shells.delete(sh.tab)
-          res.statusCode = 204
-          return res.end()
-        }
         return fail(res, 404, 'not_found', 'not found')
       })
 

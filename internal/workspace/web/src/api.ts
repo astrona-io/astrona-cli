@@ -38,8 +38,6 @@ export interface RunTab {
   target?: string
   /** browser: http(s)://127.0.0.1:<port>/… of a port forward; docs: an https URL. */
   url?: string
-  /** docs with a url: frame it in the tab instead of offering a window. */
-  embed?: boolean
   /** docs shipped with the lab: GET /tabs/{name}/doc renders it. */
   document?: boolean
 }
@@ -286,11 +284,6 @@ export function isTerminalStarting(err: unknown): boolean {
 /** A docs tab's Markdown, rendered. 409 not_started before Start. */
 export function getTabDoc(id: string, tab: string): Promise<TabDoc> {
   return request<TabDoc>('GET', `${lab(id)}/tabs/${encodeURIComponent(tab)}/doc`)
-}
-
-/** Ends the shell and forgets the terminal. */
-export async function closeTerminal(id: string, terminalId: string): Promise<void> {
-  await request<null>('DELETE', `${lab(id)}/terminals/${encodeURIComponent(terminalId)}`)
 }
 
 // ---------------------------------------------------------------- terminal frames

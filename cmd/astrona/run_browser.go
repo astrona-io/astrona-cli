@@ -264,8 +264,8 @@ func readLabDocument(doc, baseDir string, flags *rootFlags) (string, error) {
 }
 
 // browserTabs are the right panel's tabs: the focus tab (the lab's own
-// cluster), then the lab's tabs: or, when it declares none, one terminal
-// per linked cluster. Only what the lab declares becomes a tab.
+// cluster), then the lab's tabs. Only what the lab declares becomes a tab;
+// without `tabs` there is only the focus tab.
 func browserTabs(cfg *config.LabConfig, targets []workspace.Target, links []cluster.LinkState, baseDir string, flags *rootFlags) ([]workspace.Tab, error) {
 	if len(cfg.Tabs) == 0 {
 		return workspace.DefaultTabs(targets), nil
@@ -303,7 +303,7 @@ func browserTabs(cfg *config.LabConfig, targets []workspace.Target, links []clus
 			tab.URL = workspace.BrowserTabURL(pf.Scheme, pf.HostPort, path)
 		case config.TabDocs:
 			if t.URL != "" {
-				tab.URL, tab.Embed = t.URL, t.Embed
+				tab.URL = t.URL
 				break
 			}
 			text, err := readLabDocument(t.File, baseDir, flags)

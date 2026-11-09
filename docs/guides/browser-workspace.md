@@ -107,9 +107,14 @@ a terminal on a linked cluster, a page the lab serves through one of its port
 forwards, or documentation. You switch between them with the mouse or with the
 arrow keys and Enter; you cannot add or close a tab. Tabs keep running while
 another one is shown, so a terminal keeps its shell and its scrollback. When a
-shell ends, **Open a new shell** starts another in the same tab. Documentation
-sites that refuse to be shown inside another page open in their own window
-instead.
+shell ends, **Open a new shell** starts another in the same tab. Without
+`tabs` in the lab, the panel shows only the **Terminal** tab.
+
+A page or documentation tab shows the page inside the workspace. **Back to
+start** returns to the page the lab configured, wherever you navigated, and
+**Open in new window** shows it in a separate window. Some documentation sites
+refuse to be shown inside another page: if a tab stays blank, use **Open in new
+window**.
 
 ### The terminal
 

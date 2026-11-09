@@ -373,6 +373,7 @@
 
 .frame__bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
@@ -387,6 +388,11 @@
   color: var(--muted);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.frame__note {
+  flex-basis: 100%;
+  margin: 0;
 }
 
 .frame__iframe {
@@ -409,17 +415,12 @@
   outline: none;
 }
 
-.docs__problem,
-.docs__external {
+.docs__problem {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
   max-width: 60ch;
-}
-
-.docs__title {
-  font-size: 22px;
 }
 
 /* ---------------------------------------------------------------- terminal view */

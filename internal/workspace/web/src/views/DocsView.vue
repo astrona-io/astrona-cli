@@ -1,11 +1,10 @@
 <script setup lang="ts">
-// A documentation tab. Three forms:
+// A documentation tab. Two forms:
 //   - a Markdown document shipped in the lab: rendered and sanitised on the
 //     server, like the task;
-//   - a documentation URL the lab marked embeddable: framed (FrameView);
-//   - any other documentation URL: many documentation sites forbid being
-//     framed, so the tab offers to open it in a separate window. Nothing is
-//     proxied.
+//   - a documentation URL: framed (FrameView), with Back to start and Open in
+//     new window. A site that refuses framing stays blank; FrameView says so
+//     and offers the window. Nothing is proxied.
 import { onMounted, ref } from 'vue'
 import { getTabDoc, isRunGone, isUnauthorized, type TabDoc } from '../api'
 import FrameView from './FrameView.vue'
@@ -40,14 +39,8 @@ async function load(): Promise<void> {
   }
 }
 
-function openWindow(): void {
-  if (!props.tab.url) return
-  window.open(props.tab.url, '_blank', 'popup,width=1100,height=800,noopener,noreferrer')
-}
-
 onMounted(() => {
   if (props.tab.document) void load()
-  else if (!props.tab.embed) emit('status', { tone: 'ok', label: 'Docs' })
 })
 
 defineExpose({
@@ -57,7 +50,7 @@ defineExpose({
 
 <template>
   <FrameView
-    v-if="!tab.document && tab.embed"
+    v-if="!tab.document"
     ref="frame"
     :lab="lab"
     :run-id="runId"
@@ -65,26 +58,12 @@ defineExpose({
     @status="emit('status', $event)"
   />
   <div v-else ref="root" class="docs" tabindex="-1">
-    <template v-if="tab.document">
-      <div v-if="problem" class="docs__problem" role="alert">
-        <p class="error">Could not load the document: {{ problem }}</p>
-        <button type="button" class="btn btn--sm btn--primary" @click="load">Try again</button>
-      </div>
-      <p v-else-if="!doc" class="muted">Loading the document…</p>
-      <!-- Rendered and sanitised on the server; innerHTML never runs scripts and CSP blocks inline handlers. -->
-      <article v-else class="prose" v-html="doc.html" />
-    </template>
-    <div v-else class="docs__external">
-      <p class="eyebrow">Documentation</p>
-      <h2 class="docs__title">{{ tab.title }}</h2>
-      <p class="muted">
-        Many documentation sites do not allow being shown inside another page, so this one opens in its own window.
-        Keep it next to the workspace while you work.
-      </p>
-      <p><code class="small">{{ tab.url }}</code></p>
-      <p>
-        <button type="button" class="btn btn--primary" @click="openWindow">Open the documentation</button>
-      </p>
+    <div v-if="problem" class="docs__problem" role="alert">
+      <p class="error">Could not load the document: {{ problem }}</p>
+      <button type="button" class="btn btn--sm btn--primary" @click="load">Try again</button>
     </div>
+    <p v-else-if="!doc" class="muted">Loading the document…</p>
+    <!-- Rendered and sanitised on the server; innerHTML never runs scripts and CSP blocks inline handlers. -->
+    <article v-else class="prose" v-html="doc.html" />
   </div>
 </template>

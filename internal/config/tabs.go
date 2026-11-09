@@ -36,8 +36,11 @@ const MaxTabDocBytes = 64 << 10
 //     forward's own 127.0.0.1 address is ever framed.
 //   - docs: documentation the learner may read during the lab, either a
 //     Markdown file shipped with the lab (File, relative to config.yaml) or
-//     an https URL. A URL opens in its own browser window; with Embed it is
-//     framed in the tab, for a site that allows it.
+//     an https URL, framed in the tab (a site that refuses framing stays
+//     blank there; the tab can open it in its own window).
+//
+// Without `tabs:` the workspace shows only the focus tab; a linked cluster
+// gets a terminal tab only when the lab lists it.
 type Tab struct {
 	Name        string `yaml:"name"`
 	Title       string `yaml:"title"`
@@ -47,7 +50,6 @@ type Tab struct {
 	Path        string `yaml:"path"`
 	URL         string `yaml:"url"`
 	File        string `yaml:"file"`
-	Embed       bool   `yaml:"embed"`
 }
 
 // TabTypes are the values of tabs[].type.
@@ -151,9 +153,6 @@ func ValidateTabs(cfg *LabConfig) error {
 					return err
 				}
 			}
-			if t.Embed {
-				return fmt.Errorf("%s: embed does not apply to a terminal tab", where)
-			}
 			if t.Cluster != "" && !clusters[t.Cluster] {
 				return fmt.Errorf("%s: cluster '%s' is not one of runtime.kind.clusters (leave it out for the lab's own cluster)", where, t.Cluster)
 			}
@@ -162,9 +161,6 @@ func ValidateTabs(cfg *LabConfig) error {
 				if err = set(f[0], f[1]); err != nil {
 					return err
 				}
-			}
-			if t.Embed {
-				return fmt.Errorf("%s: embed does not apply to a browser tab (it is always shown in the page)", where)
 			}
 			pf, ok := forwards[t.PortForward]
 			if !ok {
@@ -190,9 +186,6 @@ func ValidateTabs(cfg *LabConfig) error {
 					return fmt.Errorf("%s: %w", where, err)
 				}
 				break
-			}
-			if t.Embed {
-				return fmt.Errorf("%s: embed applies to a url; a file is always shown in the tab", where)
 			}
 			if err = validateTabFile(cfg, t.File); err != nil {
 				return fmt.Errorf("%s: %w", where, err)

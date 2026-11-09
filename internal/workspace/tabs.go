@@ -31,8 +31,6 @@ type Tab struct {
 	// URL is a browser tab's http(s)://127.0.0.1:<port>/… (a port forward of
 	// the lab) or a docs tab's https URL.
 	URL string `json:"url,omitempty"`
-	// Embed frames a docs URL in the tab instead of offering a window.
-	Embed bool `json:"embed,omitempty"`
 	// Doc is a docs tab's Markdown, shipped with the lab. It is served by
 	// GET /runs/{lab}/tabs/{name}/doc, never in the run itself.
 	Doc string `json:"doc,omitempty"`
@@ -46,7 +44,6 @@ type tabView struct {
 	Focus    bool   `json:"focus"`
 	Target   string `json:"target,omitempty"`
 	URL      string `json:"url,omitempty"`
-	Embed    bool   `json:"embed,omitempty"`
 	Document bool   `json:"document,omitempty"`
 }
 
@@ -55,17 +52,13 @@ func FocusTab(target string) Tab {
 	return Tab{Name: config.FocusTabName, Title: "Terminal", Kind: TabTerminal, Target: target}
 }
 
-// DefaultTabs are the tabs of a lab that declares none: the focus tab, then
-// one terminal tab per linked cluster.
+// DefaultTabs are the tabs of a lab that declares none: only the focus tab.
+// A linked cluster gets a tab only when the lab lists it.
 func DefaultTabs(targets []Target) []Tab {
 	if len(targets) == 0 {
 		return nil
 	}
-	tabs := []Tab{FocusTab(targets[0].Name)}
-	for _, t := range targets[1:] {
-		tabs = append(tabs, Tab{Name: "cluster-" + t.Label, Title: t.Label, Kind: TabTerminal, Target: t.Name})
-	}
-	return tabs
+	return []Tab{FocusTab(targets[0].Name)}
 }
 
 // tabs are the run's tabs; a record from before tabs gets DefaultTabs.
@@ -88,7 +81,7 @@ func (r RunRecord) tab(name string) (Tab, bool) {
 func tabViews(tabs []Tab) []tabView {
 	out := make([]tabView, 0, len(tabs))
 	for i, t := range tabs {
-		out = append(out, tabView{Name: t.Name, Title: t.Title, Kind: t.Kind, Focus: i == 0, Target: t.Target, URL: t.URL, Embed: t.Embed, Document: t.Kind == TabDocs && t.URL == ""})
+		out = append(out, tabView{Name: t.Name, Title: t.Title, Kind: t.Kind, Focus: i == 0, Target: t.Target, URL: t.URL, Document: t.Kind == TabDocs && t.URL == ""})
 	}
 	return out
 }
@@ -158,7 +151,7 @@ func BrowserTabURL(scheme string, hostPort int, path string) string {
 }
 
 // frameSources are the origins the page may frame: the browser tabs and
-// embedded docs of every lab that still runs, never the server's own
+// docs URLs of every lab that still runs, never the server's own
 // origin (a framed page there could read the session token).
 func (s *Server) frameSources() []string {
 	labs, err := RecordedLabs()
@@ -180,7 +173,7 @@ func (s *Server) frameSources() []string {
 			switch {
 			case t.Kind == TabBrowser:
 				origin, err = browserOrigin(t.URL)
-			case t.Kind == TabDocs && t.URL != "" && t.Embed:
+			case t.Kind == TabDocs && t.URL != "":
 				origin, err = config.TabDocsOrigin(t.URL)
 			default:
 				continue
