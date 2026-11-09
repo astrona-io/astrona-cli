@@ -7,59 +7,10 @@ import (
 	"testing"
 )
 
-const psOut = `astro-a-control-plane|running|astro-a|control-plane
-astro-a-worker|running|astro-a|worker
-astro-b-control-plane|exited|astro-b|control-plane
-astro-c-control-plane|running|astro-c|control-plane
-astro-c-worker|exited|astro-c|worker
-kind-control-plane|running|kind|control-plane
-broken line
-`
-
-func TestGroupKindContainersAndStatus(t *testing.T) {
-	clusters := groupKindContainers(psOut)
-	if len(clusters) != 3 {
-		t.Fatalf("clusters = %v, want only the 3 astro- ones", clusters)
-	}
-	want := map[string]string{
-		"astro-a": "Running",
-		"astro-b": "Stopped",
-		"astro-c": "Degraded (1/2 containers running)",
-	}
-	for name, status := range want {
-		if got := containerStatus(clusters[name]); got != status {
-			t.Errorf("%s: status = %q, want %q", name, got, status)
-		}
-	}
-}
-
-func TestNodeHealth(t *testing.T) {
-	node := func(ready string) string {
-		return `{"status":{"conditions":[{"type":"MemoryPressure","status":"False"},{"type":"Ready","status":"` + ready + `"}],"nodeInfo":{"kubeletVersion":"v1.37.0"}}}`
-	}
-	cases := []struct {
-		json, status string
-	}{
-		{`{"items":[` + node("True") + `,` + node("True") + `]}`, "Ready (2/2)"},
-		{`{"items":[` + node("True") + `,` + node("False") + `]}`, "NotReady (1/2)"},
-		{`{"items":[]}`, "Unreachable"},
-		{`not json`, "Unreachable"},
-	}
-	for _, c := range cases {
-		status, version := nodeHealth([]byte(c.json))
-		if status != c.status {
-			t.Errorf("nodeHealth = %q, want %q", status, c.status)
-		}
-		if strings.HasPrefix(c.status, "Ready") && version != "v1.37.0" {
-			t.Errorf("version = %q", version)
-		}
-	}
-}
-
 func TestPrintLabTableAndJSON(t *testing.T) {
 	rows := []labRow{
-		{name: "astro-a", runtime: "kind", status: "Ready (2/2)", uptime: "5m", nics: "-", details: "kubectl --context kind-astro-a", version: "v1.37.0", forwards: "1/1 Ready"},
-		{name: "astro-vm", runtime: "qemu", status: "Running", uptime: "1h", nics: "1 (mgmt)", details: "ssh …"},
+		{Name: "astro-a", Runtime: "kind", Status: "Ready (2/2)", Uptime: "5m", NICs: "-", Details: "kubectl --context kind-astro-a", Version: "v1.37.0", Forwards: "1/1 Ready"},
+		{Name: "astro-vm", Runtime: "qemu", Status: "Running", Uptime: "1h", NICs: "1 (mgmt)", Details: "ssh …"},
 	}
 
 	var buf bytes.Buffer

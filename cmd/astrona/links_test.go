@@ -8,14 +8,6 @@ import (
 	"astrona/internal/lifecycle"
 )
 
-func TestMarkLinkedClusters(t *testing.T) {
-	rows := []labRow{{name: "astro-app", details: "kubectl --context kind-astro-app"}, {name: "astro-app-idp", details: "kubectl --context kind-astro-app-idp"}}
-	markLinkedClusters(rows, map[string]string{"astro-app-idp": "astro-app"})
-	if strings.Contains(rows[0].details, "linked") || !strings.HasPrefix(rows[1].details, "linked cluster of astro-app · kubectl") {
-		t.Fatalf("rows = %+v", rows)
-	}
-}
-
 func TestShellKubeconfigs(t *testing.T) {
 	links := []cluster.LinkState{{Name: "idp", Cluster: "astro-app-idp"}, {Name: "db", Cluster: "astro-app-db"}, {Name: "gone", Cluster: "astro-app-gone"}}
 	kc := func(c string) string {

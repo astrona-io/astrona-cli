@@ -37,7 +37,7 @@ func labNameCandidates(rows []labRow, keep func(labRow) bool, toComplete string)
 		if keep != nil && !keep(r) {
 			continue
 		}
-		name := r.name
+		name := r.Name
 		if unprefixed {
 			name = strings.TrimPrefix(name, apphome.ClusterPrefix())
 		}
@@ -45,16 +45,16 @@ func labNameCandidates(rows []labRow, keep func(labRow) bool, toComplete string)
 			continue
 		}
 		seen[name] = true
-		out = append(out, cobra.CompletionWithDesc(name, r.runtime+", "+r.status))
+		out = append(out, cobra.CompletionWithDesc(name, r.Runtime+", "+r.Status))
 	}
 	return out
 }
 
-func isKind(r labRow) bool    { return r.runtime == "kind" }
-func isQEMU(r labRow) bool    { return r.runtime == "qemu" }
-func isRunning(r labRow) bool { return r.status != "Stopped" }
+func isKind(r labRow) bool    { return r.Runtime == "kind" }
+func isQEMU(r labRow) bool    { return r.Runtime == "qemu" }
+func isRunning(r labRow) bool { return r.Status != "Stopped" }
 func isStoppedKind(r labRow) bool {
-	return isKind(r) && (r.status == "Stopped" || strings.HasPrefix(r.status, "Degraded"))
+	return isKind(r) && (r.Status == "Stopped" || strings.HasPrefix(r.Status, "Degraded"))
 }
 
 // clusterFlagCompletion completes --cluster with the lab's linked

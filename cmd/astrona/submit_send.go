@@ -45,16 +45,16 @@ var runningLabNames = func() []string {
 		}
 	}
 	for _, r := range kindRows {
-		if _, linked := owners[r.name]; linked || strings.HasPrefix(r.name, apphome.TestClusterPrefix()) || !isRunning(r) {
+		if _, linked := owners[r.Name]; linked || strings.HasPrefix(r.Name, apphome.TestClusterPrefix()) || !isRunning(r) {
 			continue
 		}
-		add(r.name)
+		add(r.Name)
 	}
 	for _, r := range qemuRows {
-		if strings.HasPrefix(r.name, apphome.TestClusterPrefix()) {
+		if strings.HasPrefix(r.Name, apphome.TestClusterPrefix()) {
 			continue
 		}
-		add(labOfVM(r.name, known))
+		add(labOfVM(r.Name, known))
 	}
 	return names
 }

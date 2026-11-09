@@ -18,7 +18,7 @@ func TestUIResourcesParseAndAggregateLinkedNodes(t *testing.T) {
 	if err := cluster.WriteLinks("astro-lab", []cluster.LinkState{{Name: "idp", Cluster: "astro-linked"}}); err != nil {
 		t.Fatal(err)
 	}
-	containers := map[string][]kindContainer{"astro-lab": {{name: "main"}, {name: "worker"}}, "astro-linked": {{name: "linked"}}}
+	containers := map[string][]kindContainer{"astro-lab": {{Name: "main"}, {Name: "worker"}}, "astro-linked": {{Name: "linked"}}}
 	usage := uiRunUsage("astro-lab", time.Now().UTC().Format(time.RFC3339), containers, samples)
 	if usage.Samples != 1 || usage.CPU != 40 || usage.Memory != 2*(1<<30)+100e6 {
 		t.Fatalf("bad total: %+v", usage)

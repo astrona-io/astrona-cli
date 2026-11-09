@@ -51,9 +51,9 @@ func TestUIRestartMatchesRequestedLab(t *testing.T) {
 			restartState(t, "astro-other", "ATS111/section-010/module-01/lab-01")
 			cmd, flags := uiRestartCommand(t, "astrona.io/"+lab)
 			read := func(context.Context) (map[string][]kindContainer, error) {
-				live := map[string][]kindContainer{"astro-other": {{state: "running"}}}
+				live := map[string][]kindContainer{"astro-other": {{State: "running"}}}
 				if exists {
-					live["astro-demo"] = []kindContainer{{state: "running"}}
+					live["astro-demo"] = []kindContainer{{State: "running"}}
 				}
 				return live, nil
 			}

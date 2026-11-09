@@ -22,9 +22,9 @@ func names(cs []cobra.Completion) []string {
 
 func TestLabNameCandidates(t *testing.T) {
 	rows := []labRow{
-		{name: "astro-web", runtime: "kind", status: "Ready (1/1)"},
-		{name: "astro-db", runtime: "kind", status: "Stopped"},
-		{name: "astro-vm", runtime: "qemu", status: "Running"},
+		{Name: "astro-web", Runtime: "kind", Status: "Ready (1/1)"},
+		{Name: "astro-db", Runtime: "kind", Status: "Stopped"},
+		{Name: "astro-vm", Runtime: "qemu", Status: "Running"},
 	}
 	cases := []struct {
 		keep       func(labRow) bool

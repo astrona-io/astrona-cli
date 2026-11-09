@@ -76,7 +76,7 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			names, _ := workspaceLabNames()
 			rows := make([]labRow, 0, len(names))
 			for _, name := range names {
-				rows = append(rows, labRow{name: name, status: "Running"})
+				rows = append(rows, labRow{Name: name, Status: "Running"})
 			}
 			return labNameCandidates(rows, nil, prefix), cobra.ShellCompDirectiveNoFileComp
 		},
@@ -122,8 +122,8 @@ func workspaceLabNames() ([]string, error) {
 	owners := linkedClusterOwners()
 	var names []string
 	for _, row := range collectKindRows() {
-		if _, linked := owners[row.name]; !linked && isRunning(row) && slices.Contains(known, row.name) && !strings.HasPrefix(row.name, apphome.TestClusterPrefix()) {
-			names = append(names, row.name)
+		if _, linked := owners[row.Name]; !linked && isRunning(row) && slices.Contains(known, row.Name) && !strings.HasPrefix(row.Name, apphome.TestClusterPrefix()) {
+			names = append(names, row.Name)
 		}
 	}
 	groups, _ := readUIQEMUVMs()
