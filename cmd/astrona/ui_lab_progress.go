@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"astrona/internal/labops"
 )
 
 // Expected time is guidance from the task document, never an expiry deadline.
@@ -13,9 +15,9 @@ type uiLabProgress struct {
 }
 
 func labTaskDocument(text string) (string, time.Duration) {
-	meta, body := docFrontMatter(sanitizeTerminalText(text))
+	meta, body := docFrontMatter(labops.SanitizeTerminalText(text))
 	if title, ok := meta["title"].(string); ok && strings.TrimSpace(title) != "" {
-		body = "# " + sanitizeLine(strings.TrimSpace(title)) + "\n\n" + body
+		body = "# " + labops.SanitizeLine(strings.TrimSpace(title)) + "\n\n" + body
 	}
 	estimate, _ := meta["estimated_duration"].(string)
 	expected, err := time.ParseDuration(strings.TrimSpace(estimate))
@@ -32,13 +34,13 @@ func (m *uiPaneModel) labTimeProgress() string {
 		return ""
 	}
 	used, expected := m.timeSpent(), m.labProgress.Expected
-	text := "Used " + formatUptime(used)
+	text := "Used " + labops.FormatUptime(used)
 	if expected <= 0 {
 		text += " · Expected time not provided"
 	} else {
-		text += " / Expected " + formatUptime(expected)
+		text += " / Expected " + labops.FormatUptime(expected)
 		if used > expected {
-			text += " · +" + formatUptime(used-expected) + " over estimate"
+			text += " · +" + labops.FormatUptime(used-expected) + " over estimate"
 		}
 	}
 	if m.finished != nil {

@@ -6,8 +6,8 @@ import (
 
 	"astrona/internal/apphome"
 	"astrona/internal/config"
+	"astrona/internal/hypervisor"
 	"astrona/internal/labops"
-	"astrona/internal/runtime"
 	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
@@ -32,14 +32,6 @@ func wantDiagnostics(mode string, runErr error) bool {
 	return mode == diagnosticsAlways || (mode == diagnosticsOnFailure && runErr != nil)
 }
 
-// collectDiagnostics gathers env's bundle into dir (default
-// ~/.astrona/diagnostics/<lab>-<stamp>) and prints where it went plus the
-// unhealthy pods on stderr (labops.CollectDiagnostics; the collectors live
-// in internal/labops, diagnose.go). S15 removes this wrapper.
-func collectDiagnostics(env *runtime.LabEnvironment, cfg *config.LabConfig, clusterName, dir string, rep *ui.Reporter) {
-	labops.CollectDiagnostics(os.Stderr, env, cfg, clusterName, dir, rep)
-}
-
 func newDiagnoseCmd(flags *rootFlags) *cobra.Command {
 	var outDir string
 
@@ -59,7 +51,7 @@ func newDiagnoseCmd(flags *rootFlags) *cobra.Command {
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lab := ""
-			if len(args) == 1 && qemuStateExists(config.NormalizeClusterName(args[0])) {
+			if len(args) == 1 && hypervisor.StateExists(config.NormalizeClusterName(args[0])) {
 				lab = config.NormalizeClusterName(args[0])
 			}
 

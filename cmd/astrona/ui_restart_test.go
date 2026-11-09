@@ -45,15 +45,15 @@ func TestUIRestartMatchesRequestedLab(t *testing.T) {
 	for _, exists := range []bool{false, true} {
 		t.Run(map[bool]string{true: "existing", false: "stale shell"}[exists], func(t *testing.T) {
 			t.Setenv("HOME", t.TempDir())
-			t.Setenv(labShellEnvVar, "astro-other")
+			t.Setenv(labops.LabShellEnvVar, "astro-other")
 			lab := "ATS000/section-010/module-01/lab-01"
 			restartState(t, "astro-demo", lab)
 			restartState(t, "astro-other", "ATS111/section-010/module-01/lab-01")
 			cmd, flags := uiRestartCommand(t, "astrona.io/"+lab)
-			read := func(context.Context) (map[string][]kindContainer, error) {
-				live := map[string][]kindContainer{"astro-other": {{State: "running"}}}
+			read := func(context.Context) (map[string][]labops.KindContainer, error) {
+				live := map[string][]labops.KindContainer{"astro-other": {{State: "running"}}}
 				if exists {
-					live["astro-demo"] = []kindContainer{{State: "running"}}
+					live["astro-demo"] = []labops.KindContainer{{State: "running"}}
 				}
 				return live, nil
 			}
@@ -155,20 +155,20 @@ func TestUIRestartNeverUsesAccountAPI(t *testing.T) {
 	if err != nil || acct != nil {
 		t.Fatal("local restart attempted account tracking")
 	}
-	start, err := startLabSession(t.Context(), acct, "run", &config.LabConfig{}, flags.catalogLab)
+	start, err := labops.StartLabSession(t.Context(), os.Stdout, os.Stderr, acct, "run", &config.LabConfig{}, flags.catalogLab)
 	if err != nil {
 		t.Fatal(err)
 	}
-	start.progress("preparing", "test")
-	start.abandon()
-	rememberLab("astro-demo", flags, start.sess)
-	start.done("astro-demo")
+	start.Progress("preparing", "test")
+	start.Abandon()
+	rememberLab("astro-demo", flags, start.Session)
+	start.Done("astro-demo")
 	state, err := labstate.Load("astro-demo")
 	if err != nil || !state.LocalOnly || state.Session != nil {
 		t.Fatal("local-only state was not preserved")
 	}
 	var out bytes.Buffer
-	if sendResult(t.Context(), &out, "astro-demo", state.Source, submissionResult{}) || !strings.Contains(out.String(), "local only") {
+	if sendResult(t.Context(), &out, "astro-demo", state.Source, labops.Submission{}) || !strings.Contains(out.String(), "local only") {
 		t.Fatal("local result was sent or not explained")
 	}
 	// Even a stale session cannot turn uploads or playground reporting back on.
@@ -176,7 +176,7 @@ func TestUIRestartNeverUsesAccountAPI(t *testing.T) {
 	if err := labstate.Save("astro-demo", state); err != nil {
 		t.Fatal(err)
 	}
-	if sendResult(t.Context(), io.Discard, "astro-demo", state.Source, submissionResult{}) {
+	if sendResult(t.Context(), io.Discard, "astro-demo", state.Source, labops.Submission{}) {
 		t.Fatal("stale session allowed upload")
 	}
 	endRunSession("astro-demo")

@@ -15,10 +15,6 @@ func withNoLabHint(err error, flags *rootFlags) error {
 	return labops.WithNoLabHint(err, labOpsSource(flags))
 }
 
-// labVersionFromLoadError is the astronaVersion of a config this version
-// couldn't parse, if it declares one.
-func labVersionFromLoadError(err error) string { return labops.LabVersionFromLoadError(err) }
-
 // versionGate is the CLI's labops.VersionGate: ensureLabVersion with the
 // command's flags, gated as a local-only run when localOnly says so.
 func versionGate(flags *rootFlags) labops.VersionGate {
@@ -51,10 +47,4 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 		return nil, "", func() {}, err
 	}
 	return lab.Config, lab.BaseDir, lab.Cleanup, nil
-}
-
-// requireRunningKindLab fails clearly when a kind lab isn't running
-// (labops.RequireRunningKindLab).
-func requireRunningKindLab(cfg *config.LabConfig, clusterName string) error {
-	return labops.RequireRunningKindLab(cfg, clusterName)
 }

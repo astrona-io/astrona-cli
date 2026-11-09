@@ -171,9 +171,9 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 	rec := workspace.RunRecord{
 		Lab:         name,
 		RunID:       workspace.RunDigest(labops.RunID(st)),
-		Title:       sanitizeLine(cfg.Metadata.Name),
+		Title:       labops.SanitizeLine(cfg.Metadata.Name),
 		Exam:        cfg.Exam.Enabled(),
-		Playground:  st.Session.IsPlayground() || isPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground",
+		Playground:  st.Session.IsPlayground() || labops.IsPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground",
 		Strict:      cfg.Exam.Strict,
 		HintsHidden: cfg.Exam.HideHints,
 		Targets:     []workspace.Target{{Name: name, Label: "main", Kind: "kind", Views: []string{"terminal"}}},
@@ -192,9 +192,9 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 		if err != nil {
 			return workspace.RunRecord{}, fmt.Errorf("read the task: %w", err)
 		}
-		meta, body := docFrontMatter(sanitizeTerminalText(text))
+		meta, body := docFrontMatter(labops.SanitizeTerminalText(text))
 		if title, ok := meta["title"].(string); ok && strings.TrimSpace(title) != "" {
-			rec.Title = sanitizeLine(strings.TrimSpace(title))
+			rec.Title = labops.SanitizeLine(strings.TrimSpace(title))
 			rec.QuestionTitle = rec.Title
 		}
 		if estimate, ok := meta["estimated_duration"].(string); ok {
@@ -209,7 +209,7 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 		if err != nil {
 			return workspace.RunRecord{}, fmt.Errorf("read the prerequisites: %w", err)
 		}
-		_, rec.Prerequisites = docFrontMatter(sanitizeTerminalText(text))
+		_, rec.Prerequisites = docFrontMatter(labops.SanitizeTerminalText(text))
 	}
 	return rec, nil
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 
 	tea "charm.land/bubbletea/v2"
@@ -280,7 +281,7 @@ func (m *uiPaneModel) idleView(background string) string {
 		clockLine = line + "\n"
 	}
 	message := "No input in this lab window for 3 minutes.\n" +
-		"Time spent paused at " + formatUptime(m.timeSpent()) + ".\n\n" +
+		"Time spent paused at " + labops.FormatUptime(m.timeSpent()) + ".\n\n" +
 		"This idle interval is excluded. The lab and running commands keep running.\n" +
 		"Exam and playground expiry limits still apply.\n" + clockLine + "\n" + choices +
 		"\n←/→ or Tab selects · Enter confirms · Esc goes to overview"

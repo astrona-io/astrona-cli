@@ -4,6 +4,8 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"astrona/internal/labops"
 )
 
 func TestValidateOpenURL(t *testing.T) {
@@ -12,8 +14,8 @@ func TestValidateOpenURL(t *testing.T) {
 		"http://localhost:3000/labs/ATS000/section-010/module-01/lab-01?clock=start&t=abc",
 	}
 	for _, raw := range ok {
-		if _, err := validateOpenURL(raw); err != nil {
-			t.Errorf("validateOpenURL(%q) = %v, want ok", raw, err)
+		if _, err := labops.ValidateOpenURL(raw); err != nil {
+			t.Errorf("ValidateOpenURL(%q) = %v, want ok", raw, err)
 		}
 	}
 	bad := []string{
@@ -25,8 +27,8 @@ func TestValidateOpenURL(t *testing.T) {
 		"ftp://astrona.io/x",
 	}
 	for _, raw := range bad {
-		if _, err := validateOpenURL(raw); err == nil {
-			t.Errorf("validateOpenURL(%q) accepted, want an error", raw)
+		if _, err := labops.ValidateOpenURL(raw); err == nil {
+			t.Errorf("ValidateOpenURL(%q) accepted, want an error", raw)
 		}
 	}
 }

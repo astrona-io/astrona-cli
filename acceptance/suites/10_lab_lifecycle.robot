@@ -5,7 +5,8 @@ Documentation       A learner's path through a Kind lab: run, inspect, fail a su
 Resource            ../resources/astrona.resource
 Suite Setup         Start Lifecycle Suite
 Suite Teardown      Finish Lifecycle Suite
-Test Setup          Skip Unless Previous Test Passed
+Test Setup          Skip After Failed Step
+Test Teardown       Remember Failed Step
 Test Tags           smoke    kind
 
 
@@ -42,9 +43,6 @@ Destroy Removes The Lab
 
 
 *** Keywords ***
-Skip Unless Previous Test Passed
-    # Each step needs the lab the previous one left behind.
-    Skip If    "${PREV TEST STATUS}" not in ("", "PASS")    Skipped: an earlier lifecycle step did not pass
 Start Lifecycle Suite
     Kind Cluster Should Not Exist    ${LAB_NAME}
     Prepare Astrona Environment

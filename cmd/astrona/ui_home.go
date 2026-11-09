@@ -44,12 +44,12 @@ type uiHomeSnapshot struct {
 	warning string
 }
 
-func readHomeContainers(ctx context.Context) (map[string][]kindContainer, error) {
+func readHomeContainers(ctx context.Context) (map[string][]labops.KindContainer, error) {
 	containers, _, err := readHomeEngine(ctx)
 	return containers, err
 }
 
-func readHomeEngine(ctx context.Context) (map[string][]kindContainer, string, error) {
+func readHomeEngine(ctx context.Context) (map[string][]labops.KindContainer, string, error) {
 	providers := []string{"docker", "podman"}
 	if provider := os.Getenv("KIND_EXPERIMENTAL_PROVIDER"); provider != "" {
 		if provider != "docker" && provider != "podman" {
@@ -71,7 +71,7 @@ func readHomeEngine(ctx context.Context) (map[string][]kindContainer, string, er
 		err = cmd.Run()
 		cancel()
 		if err == nil {
-			return groupKindContainers(string(out.Bytes())), path, nil
+			return labops.GroupKindContainers(string(out.Bytes())), path, nil
 		}
 		failures = append(failures, fmt.Sprintf("%s: %v", provider, err))
 	}
@@ -98,7 +98,7 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 			needEngine = true
 		}
 	}
-	containers := map[string][]kindContainer{}
+	containers := map[string][]labops.KindContainer{}
 	engineAvailable := false
 	var usageSamples map[string]uiContainerUsage
 	if needEngine {
@@ -140,14 +140,14 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 		if err != nil {
 			warn(err)
 		}
-		if st.Session.IsPlayground() || isPlaygroundName(st.Source.Catalog) {
+		if st.Session.IsPlayground() || labops.IsPlaygroundName(st.Source.Catalog) {
 			run.kind = "Playground"
 		}
 		if vms := qemu[name]; len(vms) > 0 {
 			run.status, run.openable = uiQEMUStatus(vms)
 			run.kind += " / QEMU"
 		} else if cs := containers[name]; len(cs) > 0 {
-			run.status = containerStatus(cs)
+			run.status = labops.ContainerStatus(cs)
 			run.openable = run.status == "Running" || strings.HasPrefix(run.status, "Degraded")
 		} else if engineAvailable {
 			run.status = "Not found"
@@ -219,7 +219,7 @@ func readUIHome(ctx context.Context) uiHomeSnapshot {
 		if spent, tracked, err := labstate.ActiveTime(run.Lab, run.StartedAt.UTC().Format(time.RFC3339)); err != nil {
 			warn(err)
 		} else if tracked {
-			details += "\nTime spent (excluding idle): " + formatUptime(spent)
+			details += "\nTime spent (excluding idle): " + labops.FormatUptime(spent)
 		}
 		data.history = append(data.history, uiHomeHistory{label: label, details: details, at: run.FinishedAt})
 		// Keep the latest destroyed run visible unless a current run with the
@@ -468,7 +468,7 @@ func (m uiHomeModel) render() string {
 					r := m.data.runs[i]
 					age := "—"
 					if r.activityTracked {
-						age = formatUptime(r.activeTime)
+						age = labops.FormatUptime(r.activeTime)
 					}
 					label = uiRunActivityColumns(r.name, r.kind, r.status, r.activity, age, w-6)
 				} else {
@@ -485,7 +485,7 @@ func (m uiHomeModel) render() string {
 					if m.tab == 0 && m.data.runs[i].openable {
 						style = workspaceFocus
 					}
-					rows = append(rows, style.Render("  "+sanitizeLine(label)))
+					rows = append(rows, style.Render("  "+labops.SanitizeLine(label)))
 				}
 			}
 			content = strings.Join(rows, "\n")

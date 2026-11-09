@@ -13,10 +13,13 @@ import (
 	"astrona/internal/apphome"
 	"astrona/internal/authoring"
 	"astrona/internal/config"
+	"astrona/internal/executor"
 	"astrona/internal/junit"
+	"astrona/internal/labops"
 	"astrona/internal/lifecycle"
 	"astrona/internal/proctor"
 	"astrona/internal/runtime"
+	"astrona/internal/settings"
 	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
@@ -59,7 +62,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 			if err := validateDiagnosticsMode(diagMode); err != nil {
 				return err
 			}
-			if err := validateParallel(flags.parallel); err != nil {
+			if err := settings.ValidateParallel(flags.parallel); err != nil {
 				return err
 			}
 
@@ -115,6 +118,10 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				ui.Warnf("received %s — already stopping, teardown is still running", sig)
 			}, os.Interrupt, syscall.SIGTERM)
 			defer stopSignals()
+			// Tools run through internal/executor pass the signal on to
+			// their process group without raising it in astrona again.
+			executor.HandleInterrupts(true)
+			defer executor.HandleInterrupts(false)
 
 			var runs []testRun
 			for i := 1; i <= repeat && ctx.Err() == nil; i++ {
@@ -129,7 +136,7 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				runs = append(runs, testRun{results: results, pass: pass, err: err})
 			}
 			if ctx.Err() != nil {
-				return errTestInterrupted
+				return authoring.ErrTestInterrupted
 			}
 
 			final := runs[len(runs)-1].results
@@ -158,10 +165,6 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 
 	return cmd
 }
-
-// errTestInterrupted is what `astrona test` returns when a signal stopped
-// it — after its deferred diagnostics and teardown have run.
-var errTestInterrupted = authoring.ErrTestInterrupted
 
 // cancelOnSignal returns a context cancelled by the first of sigs. While
 // it's active those signals no longer kill the process — a later one only
@@ -208,7 +211,7 @@ func runTestOnce(ctx context.Context, cfg *config.LabConfig, baseDir, clusterNam
 		Diagnose: func(env *runtime.LabEnvironment, runErr error) {
 			if wantDiagnostics(diagMode, runErr) {
 				rep.Section("Diagnostics")
-				collectDiagnostics(env, cfg, clusterName, diagDir, rep)
+				labops.CollectDiagnostics(os.Stderr, env, cfg, clusterName, diagDir, rep)
 			}
 		},
 	}, rep)

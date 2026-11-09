@@ -73,7 +73,8 @@ func TestAutomaticCacheCleanupAfterCommandAndLockRelease(t *testing.T) {
 		s, provider := dataTestStore(t)
 		path := oldCacheFile(t, s)
 		want := errors.New("command failed")
-		root := &cobra.Command{Use: "astrona", SilenceErrors: true, SilenceUsage: true, RunE: func(*cobra.Command, []string) error {
+		root := &cobra.Command{Use: "astrona", SilenceErrors: true, SilenceUsage: true}
+		root.AddCommand(&cobra.Command{Use: "run", RunE: func(*cobra.Command, []string) error {
 			if _, err := os.Stat(path); err != nil {
 				t.Fatal("cache deleted during command")
 			}
@@ -85,11 +86,11 @@ func TestAutomaticCacheCleanupAfterCommandAndLockRelease(t *testing.T) {
 				return want
 			}
 			return nil
-		}}
+		}})
 		var out, notice bytes.Buffer
 		root.SetOut(&out)
 		root.SetErr(&notice)
-		root.SetArgs([]string{})
+		root.SetArgs([]string{"run"})
 		err := executeWithDataLock(root, provider)
 		if (fail && !errors.Is(err, want)) || (!fail && err != nil) {
 			t.Fatalf("result changed: %v", err)

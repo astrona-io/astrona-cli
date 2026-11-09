@@ -6,6 +6,7 @@ import (
 	"astrona/internal/runtime"
 	"astrona/internal/settings"
 	"astrona/internal/ui"
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -102,7 +103,7 @@ func scheduleClusters(order []config.KindCluster, parallel int, start func(i int
 // created at once. Each one logs to its own run log (its output would
 // interleave on screen); rep only prints when one starts, is ready or
 // fails — always from this goroutine.
-func startLinkedClustersParallel(cfg *config.LabConfig, order []config.KindCluster, states []cluster.LinkState, baseDir string, forTest bool, parallel int, rep *ui.Reporter) error {
+func startLinkedClustersParallel(ctx context.Context, cfg *config.LabConfig, order []config.KindCluster, states []cluster.LinkState, baseDir string, forTest bool, parallel int, rep *ui.Reporter) error {
 	byName := map[string]cluster.LinkState{}
 	for _, s := range states {
 		byName[s.Name] = s
@@ -129,6 +130,9 @@ func startLinkedClustersParallel(cfg *config.LabConfig, order []config.KindClust
 
 	start := func(i int) error {
 		l, name, subRep := order[i], states[i].Cluster, subReps[i]
+		if err := ctx.Err(); err != nil { // interrupted: start nothing new
+			return linkedClusterError(l, name, err)
+		}
 		sub := LinkedClusterConfig(cfg, l)
 		var deps []cluster.LinkState
 		for _, d := range l.DependsOn {
@@ -137,7 +141,7 @@ func startLinkedClustersParallel(cfg *config.LabConfig, order []config.KindClust
 		if err := runtime.DestroyEnvironment(name, sub.Runtime, subRep); err != nil {
 			subRep.Warn("could not clean up a previous '%s', proceeding anyway: %s", name, err)
 		}
-		_, _, err := Up(sub, baseDir, name, deps, forTest, subRep)
+		_, _, err := Up(ctx, sub, baseDir, name, deps, forTest, subRep)
 		if err == nil {
 			err = ApplyWAN(name, l.WAN, subRep)
 		}

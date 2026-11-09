@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"astrona/internal/config"
 	"astrona/internal/ui"
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -113,7 +114,7 @@ func TestStartLinkedClustersParallelWrapsError(t *testing.T) {
 		Metadata: config.MetadataConfig{Name: "lab"},
 		Runtime:  config.RuntimeConfig{Kind: &config.KindConfig{Clusters: []config.KindCluster{{Name: "db"}, {Name: "cache"}}}},
 	}
-	_, err := StartLinkedClusters(cfg, t.TempDir(), "astro-lab", false, 2, ui.Discard())
+	_, err := StartLinkedClusters(context.Background(), cfg, t.TempDir(), "astro-lab", false, 2, ui.Discard())
 	if err == nil {
 		t.Fatal("expected an error")
 	}

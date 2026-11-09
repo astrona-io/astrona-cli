@@ -2,6 +2,7 @@ package labops
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -145,6 +146,37 @@ type ProvisionRequest struct {
 	// DeferExamClock leaves an exam lab's clock stopped once it is ready:
 	// the browser workspace starts it when the learner clicks Start.
 	DeferExamClock bool
+	// Context stops the build when cancelled (Ctrl+C in cmd): what this
+	// run created is removed and Provision returns ErrInterrupted. nil:
+	// never cancelled.
+	Context context.Context
+}
+
+// ErrInterrupted is returned by an operation stopped by its context
+// (Ctrl+C) — after it undid what it had started.
+var ErrInterrupted = errors.New("interrupted")
+
+// removeInterrupted removes what an interrupted Provision of clusterName
+// created — the lab's environment, its linked clusters, port forwards, the
+// copy of its resources and its terminal workspace — and returns
+// ErrInterrupted. Provision only gets this far once the clusters it starts
+// were absent or replaced, so nothing here existed before the run.
+func removeInterrupted(cfg *config.LabConfig, clusterName, baseDir string, rep *ui.Reporter) error {
+	rep.Section("Interrupted — removing what this run created")
+	// No teardown scripts: the lab never got to run its bootstrap through.
+	info := Teardown{ClusterName: clusterName, Runtime: cfg.Runtime, SkipScripts: true}
+	if err := TearDownLabEnvironment(clusterName, info, baseDir, false, rep); err != nil {
+		rep.Warn("could not remove lab %s: %s — run `astrona destroy %s`", clusterName, err, clusterName)
+	}
+	// The lab's own environment may never have existed (TearDownLabEnvironment
+	// then stops early): its linked clusters and forwards still go.
+	portforward.StopForLab(clusterName, rep)
+	lifecycle.DestroyOwnedClusters(lifecycle.OwnedClusters(clusterName, cfg.KindClusters()), rep)
+	if err := resources.Remove(clusterName); err != nil {
+		rep.Warn("could not remove the lab's resources copy: %s", err)
+	}
+	_ = labshell.Remove(context.Background(), clusterName)
+	return fmt.Errorf("%w: lab %s was not started", ErrInterrupted, clusterName)
 }
 
 // ProvisionResult is what Provision built, for cmd to print how to reach
@@ -175,6 +207,13 @@ type ProvisionResult struct {
 func Provision(req ProvisionRequest, rep *ui.Reporter) (*ProvisionResult, error) {
 	cfg, baseDir := req.Config, req.BaseDir
 	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
+	ctx := req.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if ctx.Err() != nil {
+		return nil, fmt.Errorf("%w: lab %s was not started", ErrInterrupted, clusterName)
+	}
 	if err := preflight.RunEnvironment(cfg, baseDir, rep, req.ConfigChecks); err != nil {
 		return nil, err
 	}
@@ -199,12 +238,20 @@ func Provision(req ProvisionRequest, rep *ui.Reporter) (*ProvisionResult, error)
 	if err := lifecycle.PrepareSharedCA(cfg, clusterName); err != nil {
 		return nil, err
 	}
-	links, err := lifecycle.StartLinkedClusters(cfg, baseDir, clusterName, false, req.Parallel, rep)
+	// From here on, Ctrl+C removes what this run created (removeInterrupted)
+	// instead of leaving it for diagnosis.
+	links, err := lifecycle.StartLinkedClusters(ctx, cfg, baseDir, clusterName, false, req.Parallel, rep)
+	if ctx.Err() != nil {
+		return nil, removeInterrupted(cfg, clusterName, baseDir, rep)
+	}
 	if err != nil {
 		collectRunLinkedFailure(req.Warn, cfg, clusterName, rep)
 		return nil, err
 	}
-	env, forwards, err := lifecycle.Up(cfg, baseDir, clusterName, links, false, rep)
+	env, forwards, err := lifecycle.Up(ctx, cfg, baseDir, clusterName, links, false, rep)
+	if ctx.Err() != nil {
+		return nil, removeInterrupted(cfg, clusterName, baseDir, rep)
+	}
 	if err != nil {
 		if env != nil {
 			CollectDiagnostics(req.Warn, env, cfg, clusterName, "", rep)
@@ -256,8 +303,18 @@ type LabStart struct {
 	Page    *url.URL
 	Session *labstate.Session
 	ready   bool
-	out     io.Writer
-	warn    io.Writer
+	// interrupted: see Interrupted.
+	interrupted bool
+	out         io.Writer
+	warn        io.Writer
+}
+
+// Interrupted marks the lab's setup as stopped by the user (Ctrl+C), so
+// Abandon closes its session instead of leaving it open for a retry.
+func (ls *LabStart) Interrupted() {
+	if ls != nil {
+		ls.interrupted = true
+	}
 }
 
 // StartLabSession starts acct's session for the catalog lab (nil acct:
@@ -282,13 +339,23 @@ func StartLabSession(ctx context.Context, out, warn io.Writer, acct *Account, co
 // Abandon stops a playground's clock when the playground never became
 // ready (deferred right after StartLabSession) — it started with the
 // session and would otherwise run on to the deadline with nothing to show
-// for it. A Lab has no timer until its course page connects.
+// for it. A Lab has no timer until its course page connects; it is left
+// open after a failure (the page shows it failed, a retry continues it),
+// but one the user interrupted (Interrupted) is closed as destroyed, as
+// `astrona destroy` would.
 func (ls *LabStart) Abandon() {
 	if ls.ready {
 		return
 	}
-	ls.Progress("failed", "Lab setup stopped before it was ready")
+	if ls.interrupted {
+		ls.Progress("failed", "Lab setup was interrupted")
+	} else {
+		ls.Progress("failed", "Lab setup stopped before it was ready")
+	}
 	if !ls.Session.IsPlayground() {
+		if ls.interrupted && ls.Session != nil {
+			EndLabSession(context.Background(), ls.warn, ls.Session)
+		}
 		return
 	}
 	StopPlaygroundClock(context.Background(), ls.warn, ls.Session, "destroyed", nil)
@@ -384,8 +451,10 @@ func PlanLinkedReset(cfg *config.LabConfig, clusterName, name string) (*LinkedRe
 // ResetLinkedCluster rebuilds plan's linked cluster: teardown scripts,
 // destroy, then create + bootstrap it again from the config, with its
 // dependencies' addresses. Port forwards into it are restarted (their
-// supervisors give up when the cluster goes away) and returned.
-func ResetLinkedCluster(cfg *config.LabConfig, baseDir string, plan *LinkedResetPlan, rep *ui.Reporter) ([]portforward.Forward, error) {
+// supervisors give up when the cluster goes away) and returned. Cancelling
+// ctx (Ctrl+C) during the rebuild removes the half-built linked cluster —
+// the lab's other clusters stay — and returns ErrInterrupted.
+func ResetLinkedCluster(ctx context.Context, cfg *config.LabConfig, baseDir string, plan *LinkedResetPlan, rep *ui.Reporter) ([]portforward.Forward, error) {
 	clusterName, l, target := plan.Lab, plan.cluster, plan.Target
 	lifecycle.RunLinkedTeardown([]config.KindCluster{l}, clusterName, baseDir, rep)
 	if cluster.Exists(target) {
@@ -406,7 +475,17 @@ func ResetLinkedCluster(cfg *config.LabConfig, baseDir string, plan *LinkedReset
 		deps = append(deps, byName[d])
 	}
 	rep.Section("Linked cluster '%s'", l.Name)
-	if _, _, err := lifecycle.Up(lifecycle.LinkedClusterConfig(cfg, l), baseDir, target, deps, false, rep); err != nil {
+	_, _, err := lifecycle.Up(ctx, lifecycle.LinkedClusterConfig(cfg, l), baseDir, target, deps, false, rep)
+	if ctx.Err() != nil {
+		rep.Section("Interrupted — removing linked cluster %s", target)
+		if cluster.Exists(target) {
+			if err := lifecycle.DestroyKindCluster(target, rep); err != nil {
+				rep.Warn("could not remove linked cluster %s: %s — run `astrona destroy %s`", target, err, clusterName)
+			}
+		}
+		return nil, fmt.Errorf("%w: linked cluster '%s' was not recreated — `astrona reset --cluster %s` builds it again", ErrInterrupted, l.Name, l.Name)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("linked cluster '%s' (%s): %w", l.Name, target, err)
 	}
 	if err := lifecycle.ApplyWAN(target, l.WAN, rep); err != nil {

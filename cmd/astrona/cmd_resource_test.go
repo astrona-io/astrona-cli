@@ -97,7 +97,7 @@ func resourceTestCmd() *cobra.Command {
 
 func TestPickResourceLab(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv(labShellEnvVar, "")
+	t.Setenv(labops.LabShellEnvVar, "")
 	flags := &rootFlags{configPath: ".", fileName: "config.yaml"}
 
 	if _, err := pickResourceLab(resourceTestCmd(), flags, ""); err == nil || !strings.Contains(err.Error(), "no lab has resources") {
@@ -112,7 +112,7 @@ func TestPickResourceLab(t *testing.T) {
 		t.Errorf("several = %v", err)
 	}
 	// An explicit environment selection wins over guessing.
-	t.Setenv(labShellEnvVar, "astro-db-02")
+	t.Setenv(labops.LabShellEnvVar, "astro-db-02")
 	if lab, _ := pickResourceLab(resourceTestCmd(), flags, ""); lab != "astro-db-02" {
 		t.Errorf("$ASTRONA_LAB = %q", lab)
 	}
@@ -199,7 +199,7 @@ func TestResourceCopyTo(t *testing.T) {
 // `astrona res run <TAB>` offers the lab's resources, with descriptions.
 func TestResourceNameCompletion(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv(labShellEnvVar, "")
+	t.Setenv(labops.LabShellEnvVar, "")
 	t.Setenv("ASTRONA_NO_UPDATE_CHECK", "1")
 	t.Chdir(t.TempDir())
 	snapshotLab(t, "astro-lab", map[string]string{"setup.sh": "", "notes.txt": ""},
@@ -223,7 +223,7 @@ func TestResourceNameCompletion(t *testing.T) {
 // `astrona res list -o json` is one document: the lab, its folder, the list.
 func TestResourceListJSON(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv(labShellEnvVar, "")
+	t.Setenv(labops.LabShellEnvVar, "")
 	dir := snapshotLab(t, "astro-lab", map[string]string{"setup.sh": "echo hi"})
 	for _, args := range [][]string{{"-o", "json"}, {"list", "-o", "json"}} {
 		out := captureStdout(t, func() {

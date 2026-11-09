@@ -43,7 +43,3 @@ func rememberLab(clusterName string, flags *rootFlags, sess *labstate.Session) {
 func forgetLab(clusterName string) {
 	labops.ForgetLab(os.Stderr, clusterName, labops.ForgetOptions{KeepResources: keepResources, EndSession: endRunSession})
 }
-
-// previousContextLabel is how the context `astrona destroy` restores is
-// shown.
-func previousContextLabel(sw *labstate.Switched) string { return labops.PreviousContextLabel(sw) }

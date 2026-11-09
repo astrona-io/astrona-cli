@@ -1,0 +1,155 @@
+name: Acceptance (full)
+
+# The Robot Framework suite's smoke and full tiers against the binary a
+# release would ship. Release builds wait on it; it also runs by hand and on
+# pull requests that change the suite itself.
+on:
+  pull_request:
+    paths:
+      - 'acceptance/**'
+      - '.github/workflows/acceptance-full.yml'
+  workflow_call:
+    inputs:
+      version:
+        description: Version stamped into the binary (vX.Y.Z or vX.Y.Z-rcN)
+        required: true
+        type: string
+      ref:
+        description: Git ref to test
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version stamped into the binary (defaults to a development build)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  kind:
+    name: Acceptance full (kind)
+    runs-on: ubuntu-latest
+    # Several kind labs and a catalog lab one after another.
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.3
+
+      - name: Build astrona
+        env:
+          # Through env, never interpolated into the script: a tag name is
+          # attacker-influenced text as far as the shell is concerned.
+          VERSION: ${{ inputs.version || 'developer' }}
+        run: go build -ldflags "-X main.Version=$VERSION" -o astrona ./cmd/astrona
+
+      - name: Install kubectl
+        run: |
+          version="$(curl -L -s https://dl.k8s.io/release/stable.txt)"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+      - name: Install kind
+        run: go install sigs.k8s.io/kind@v0.32.0
+
+      - name: Robot Framework smoke and full tiers
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          uv run --with-requirements acceptance/requirements.txt \
+            robot --include smoke --include full --exclude vm --exclude login \
+            --outputdir oat-report --xunit xunit.xml acceptance/suites
+
+      # One zip, so a release attaches the report as a single asset.
+      - name: Pack report
+        if: always()
+        env:
+          VERSION: ${{ inputs.version || 'developer' }}
+        run: (cd oat-report && zip -qr "../oat-report-$VERSION-kind.zip" .)
+
+      - name: Upload acceptance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: oat-report-kind
+          path: oat-report-*-kind.zip
+
+  vm:
+    name: Acceptance full (vm)
+    runs-on: ubuntu-latest
+    # Two QEMU labs, each booting a Debian cloud image under KVM.
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.3
+
+      - name: Build astrona
+        env:
+          VERSION: ${{ inputs.version || 'developer' }}
+        run: go build -ldflags "-X main.Version=$VERSION" -o astrona ./cmd/astrona
+
+      # Without KVM astrona falls back to software emulation: slow, flaky and
+      # not what learners run. A runner without it is a broken runner.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          # trigger returns before the rule is applied.
+          sudo udevadm settle
+          if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+            echo "::error::/dev/kvm is missing or not usable on this runner; the VM suites need hardware acceleration"
+            ls -l /dev/kvm || true
+            exit 1
+          fi
+
+      # qemu-system-gui gives qemu its GTK window (the desktop target), drawn
+      # on Xvfb; xwininfo finds it. genisoimage builds the cloud-init seed.
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-system-gui qemu-utils genisoimage xvfb x11-utils
+          qemu-system-x86_64 --version
+
+      - name: Robot Framework VM suites
+        run: |
+          xvfb-run --auto-servernum uv run --with-requirements acceptance/requirements.txt \
+            robot --include vm \
+            --outputdir oat-report --xunit xunit.xml acceptance/suites
+
+      - name: Pack report
+        if: always()
+        env:
+          VERSION: ${{ inputs.version || 'developer' }}
+        run: (cd oat-report && zip -qr "../oat-report-$VERSION-vm.zip" .)
+
+      - name: Upload acceptance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: oat-report-vm
+          path: oat-report-*-vm.zip

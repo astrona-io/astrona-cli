@@ -185,28 +185,56 @@ func newUIStopCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ctx := cmd.Context()
-			if ctx == nil {
-				ctx = context.Background()
-			}
-			if err := info.Stop(ctx); err != nil {
-				// The control route failed; ask the process directly. It
-				// handles SIGTERM like stop and closes its terminals.
-				if p, findErr := os.FindProcess(info.PID); findErr == nil {
-					_ = p.Signal(syscall.SIGTERM)
-				}
-			}
-			deadline := time.Now().Add(20 * time.Second)
-			for info.Alive() && time.Now().Before(deadline) {
-				time.Sleep(100 * time.Millisecond)
-			}
-			if info.Alive() {
-				return fmt.Errorf("the workspace server (pid %d) did not stop within 20s", info.PID)
+			if err := stopWorkspaceServer(cmd.Context(), info); err != nil {
+				return err
 			}
 			_, err = fmt.Fprintln(out, "Browser workspace stopped. Labs keep running.")
 			return err
 		},
 	}
+}
+
+// stopWorkspaceServer asks the running server to stop over the control
+// channel, falls back to SIGTERM, and waits up to 20s for it to exit. Its
+// terminals close; labs keep running.
+func stopWorkspaceServer(ctx context.Context, info workspace.ServerInfo) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := info.Stop(ctx); err != nil {
+		// The control route failed; ask the process directly. It
+		// handles SIGTERM like stop and closes its terminals.
+		if p, findErr := os.FindProcess(info.PID); findErr == nil {
+			_ = p.Signal(syscall.SIGTERM)
+		}
+	}
+	deadline := time.Now().Add(20 * time.Second)
+	for info.Alive() && time.Now().Before(deadline) {
+		time.Sleep(100 * time.Millisecond)
+	}
+	if info.Alive() {
+		return fmt.Errorf("the workspace server (pid %d) did not stop within 20s", info.PID)
+	}
+	return nil
+}
+
+// stopWorkspaceForMaintenance stops a running browser workspace server
+// before data clean or data reset takes the exclusive data lock: the server
+// holds the shared lock until it has been idle for 15 minutes. It says so
+// in one line on stderr, keeping JSON stdout clean.
+func stopWorkspaceForMaintenance(cmd *cobra.Command) error {
+	info, err := workspace.RunningServer()
+	if errors.Is(err, workspace.ErrServerNotRunning) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check the browser workspace server: %w; run astrona ui stop, then try again", err)
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(), "Stopping the browser workspace server (pid %d) so local data can be changed; labs keep running.\n", info.PID)
+	if err := stopWorkspaceServer(cmd.Context(), info); err != nil {
+		return fmt.Errorf("%w; run astrona ui stop, then try again", err)
+	}
+	return nil
 }
 
 // launchWorkspaceURL adds the lab to a launch URL's fragment, so the page

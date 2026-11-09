@@ -39,14 +39,6 @@ func labSource(flags *rootFlags, cfg *config.LabConfig, baseDir string) (*trust.
 	return labops.TrustSource(labOpsSource(flags), cfg, baseDir)
 }
 
-// labRiskSummary lists everything a lab does that reaches beyond its own
-// cluster (labops.RiskSummary).
-func labRiskSummary(cfg *config.LabConfig) []string { return labops.RiskSummary(cfg) }
-
-// errNotTrusted is requireTrust's error when the user answers no to the
-// prompt.
-var errNotTrusted = labops.ErrNotTrusted
-
 // requireTrust stops a remote lab from running anything until the user
 // has approved this exact version of it (labops.RequireTrust).
 func requireTrust(flags *rootFlags, cfg *config.LabConfig, baseDir string) error {
@@ -63,13 +55,13 @@ func handoverApproval(flags *rootFlags, cfg *config.LabConfig, loadErr error, ba
 
 func confirmTrust(in io.Reader, out io.Writer, src trust.Source, status trust.Status, prevPin string, summary []string) bool {
 	if status == trust.Changed {
-		fmt.Fprintf(out, "\nThis lab changed since you approved it (%s → %s):\n", shortPin(prevPin), shortPin(src.Pin))
+		fmt.Fprintf(out, "\nThis lab changed since you approved it (%s → %s):\n", labops.ShortPin(prevPin), labops.ShortPin(src.Pin))
 	} else {
 		fmt.Fprintf(out, "\nFirst time running this lab:\n")
 	}
-	fmt.Fprintf(out, "  %s (%s)\n\nIt will:\n", sanitizeLine(src.Location), sanitizeLine(shortPin(src.Pin)))
+	fmt.Fprintf(out, "  %s (%s)\n\nIt will:\n", labops.SanitizeLine(src.Location), labops.SanitizeLine(labops.ShortPin(src.Pin)))
 	for _, l := range summary {
-		fmt.Fprintf(out, "  • %s\n", sanitizeLine(l))
+		fmt.Fprintf(out, "  • %s\n", labops.SanitizeLine(l))
 	}
 	fmt.Fprintf(out, "\nOnly continue if you trust its author. Run it? [y/N] ")
 	line, _ := bufio.NewReader(in).ReadString('\n')
@@ -80,6 +72,3 @@ func confirmTrust(in io.Reader, out io.Writer, src trust.Source, status trust.St
 		return false
 	}
 }
-
-// shortPin is a pin as the prompt shows it (labops.ShortPin).
-func shortPin(pin string) string { return labops.ShortPin(pin) }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"astrona/internal/account"
+	"astrona/internal/labops"
 	"astrona/internal/settings"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -112,7 +113,7 @@ func saveGuestChoice(flags *rootFlags, choice guestRunChoice) error {
 }
 
 // Explicit local-only restarts never access credentials or the account API.
-func confirmGuestLabRun(cmd *cobra.Command, flags *rootFlags, acct *labAccount, withoutLogin bool) (*labAccount, bool, error) {
+func confirmGuestLabRun(cmd *cobra.Command, flags *rootFlags, acct *labops.Account, withoutLogin bool) (*labops.Account, bool, error) {
 	if flags.localOnly || flags.headless || acct != nil {
 		return acct, true, nil
 	}
@@ -126,7 +127,7 @@ func confirmGuestLabRun(cmd *cobra.Command, flags *rootFlags, acct *labAccount, 
 		return acct, err == nil, err
 	}
 	if flags.catalogLab == "" {
-		_, store, site, err := accountDeps()
+		_, store, site, err := labops.AccountDeps()
 		if err != nil {
 			return nil, false, err
 		}
@@ -151,7 +152,7 @@ func confirmGuestLabRun(cmd *cobra.Command, flags *rootFlags, acct *labAccount, 
 	if !choice.accepted || !choice.login {
 		return nil, choice.accepted, nil
 	}
-	client, store, site, err := accountDeps()
+	client, store, site, err := labops.AccountDeps()
 	if err != nil {
 		return nil, false, err
 	}
@@ -161,7 +162,7 @@ func confirmGuestLabRun(cmd *cobra.Command, flags *rootFlags, acct *labAccount, 
 	return loginForRun(ctx, flags, client, store, site)
 }
 
-func loginForRun(ctx context.Context, flags *rootFlags, client *account.Client, store account.Store, site string) (*labAccount, bool, error) {
+func loginForRun(ctx context.Context, flags *rootFlags, client *account.Client, store account.Store, site string) (*labops.Account, bool, error) {
 	if err := login(ctx, client, store, site, thisDevice()); err != nil {
 		return nil, false, err
 	}

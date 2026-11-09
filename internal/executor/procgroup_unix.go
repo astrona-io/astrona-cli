@@ -29,7 +29,9 @@ func killProcessGroup(cmd *exec.Cmd) error {
 // group is not the terminal's foreground group, so the terminal's SIGINT
 // reaches only astrona: pass it (and SIGTERM/SIGHUP) on to cmd's group,
 // as the terminal would have, then raise it again here so astrona reacts
-// as it would without this handler. The returned func stops forwarding.
+// as it would without this handler — unless astrona handles interrupts
+// itself (HandleInterrupts): it got the same signal already, and a raised
+// copy would read as a second Ctrl+C. The returned func stops forwarding.
 func forwardSignals(cmd *exec.Cmd) func() {
 	ch := make(chan os.Signal, 1)
 	done := make(chan struct{})
@@ -40,7 +42,9 @@ func forwardSignals(cmd *exec.Cmd) func() {
 			s := sig.(syscall.Signal)
 			_ = syscall.Kill(-cmd.Process.Pid, s)
 			signal.Stop(ch)
-			_ = syscall.Kill(os.Getpid(), s)
+			if !interruptsHandled.Load() {
+				_ = syscall.Kill(os.Getpid(), s)
+			}
 		case <-done:
 		}
 	}()

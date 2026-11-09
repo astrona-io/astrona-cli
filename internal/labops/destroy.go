@@ -346,6 +346,8 @@ func TearDownLabEnvironment(clusterName string, info Teardown, baseDir string, h
 	// The side-destroy of a test copy that isn't there has nothing to tear
 	// down — don't run the lab's teardown scripts for it.
 	if !hardFail && !lifecycle.EnvironmentExists(clusterName, info.Runtime) {
+		// No cluster or VM, but a forward supervisor of it may still run.
+		portforward.StopForLab(clusterName, rep)
 		return nil
 	}
 	var labs []config.KindCluster
@@ -369,6 +371,10 @@ func TearDownLabEnvironment(clusterName string, info Teardown, baseDir string, h
 		return nil
 	}
 
+	// Whatever the runtime, and even when no environment is found (a kind
+	// cluster removed behind astrona's back, a config that no longer
+	// resolves): a forward supervisor must never outlive its lab.
+	portforward.StopForLab(clusterName, rep)
 	owned := lifecycle.OwnedClusters(clusterName, labs) // read before destroy removes the saved state
 	err := runtime.DestroyEnvironment(clusterName, info.Runtime, rep)
 	lifecycle.DestroyOwnedClusters(owned, rep) // even when the lab itself failed — never leak them

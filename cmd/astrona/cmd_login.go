@@ -10,6 +10,7 @@ import (
 
 	"astrona/internal/account"
 	"astrona/internal/apphome"
+	"astrona/internal/labops"
 
 	"github.com/spf13/cobra"
 )
@@ -39,7 +40,7 @@ func newLoginCmd() *cobra.Command {
   ASTRONA_URL=https://staging.astrona.io astrona whoami`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, store, site, err := accountDeps()
+			client, store, site, err := labops.AccountDeps()
 			if err != nil {
 				return err
 			}
@@ -90,7 +91,7 @@ func loginWithBrowser(ctx context.Context, client *account.Client, store account
 	if err != nil {
 		return err
 	}
-	noticeOtherSite(site, "your sign-in (this device's name)")
+	labops.NoticeOtherSite(os.Stderr, site, "your sign-in (this device's name)")
 	dc, err := client.StartDeviceFlow(ctx, site, sc, device)
 	if err != nil {
 		return err

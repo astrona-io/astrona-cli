@@ -19,7 +19,7 @@
 | `just vet` | `go vet ./...` |
 | `just test` | `go test ./...` |
 | `just check` | `fmt` + `vet` + `test` — run before committing |
-| `just oat` | Build `./astrona` and run the acceptance suite's smoke tier (see [Acceptance suite](#acceptance-suite)) |
+| `just oat` | Build `./astrona` and run the acceptance suite's smoke tier; `--include full` adds the full tier (see [Acceptance suite](#acceptance-suite)) |
 | `just docs-gen-cli` | Regenerate `docs/reference/cli/` from the actual `astrona` command tree |
 | `just docs` | Serve the docs site locally at `http://127.0.0.1:8000` with live reload |
 | `just build-docs` | Build the static docs site (`mkdocs build --strict`) — what CI runs |
@@ -145,21 +145,39 @@ It needs Linux, Docker or Podman, Kind and kubectl, plus network access to GitHu
 
 ### Acceptance suite
 
-`acceptance/` holds a [Robot Framework](https://robotframework.org/) suite that drives the built `./astrona` the way a learner and a lab author would. CI runs its `smoke` tier on every pull request and uploads the HTML report and log as the `oat-smoke-report` artifact.
+`acceptance/` holds a [Robot Framework](https://robotframework.org/) suite that drives the built `./astrona` the way a learner and a lab author would. It has two tiers, chosen by tag:
+
+- **`smoke`** runs on every pull request (`Acceptance (smoke)` in CI, report in the `oat-smoke-report` artifact).
+- **`full`** adds the lab tools (shell, soft reset, doctor, diagnose, port forwards), a signed-out catalog lab and the two VM targets. The `Acceptance (full)` workflow runs it on every release tag, RCs included, before anything is built, in two jobs: `Acceptance full (kind)` runs the smoke and full tiers without the `vm` tests, `Acceptance full (vm)` runs only the `vm` tests. The release only builds when both pass, and their reports are attached to the GitHub release as `oat-report-<version>-kind.zip` and `oat-report-<version>-vm.zip`. Run it by hand from the Actions tab.
 
 ```sh
 just oat                    # build ./astrona, run the smoke tier, write oat-report/
+just oat --include full     # smoke and full tiers
 just oat --exclude kind     # only the checks that create no cluster
+just oat --include vm       # smoke tier plus both VM targets
+just oat --include vm --exclude kind    # VM targets only (and the smoke checks that need neither)
+just oat --include vm --exclude desktop # VM with terminal only, e.g. on a Linux box without X
 just oat --test "Run Creates The Lab"
 ```
 
+Other tags say what a test needs: `kind` creates a cluster, `network` reaches astrona.io, `vm` boots a QEMU VM, `desktop` opens that VM's window. The workspace UI is a terminal app that needs an interactive terminal, so it is covered by the PTY tests in `go test`, not here.
+
 It needs kind, kubectl and Docker or Podman, plus `uv` (Robot Framework is pinned in `acceptance/requirements.txt`). Each suite gets a throwaway `HOME`, so your own labs and settings under `~/.astrona-dev` are untouched; the container engine's config still comes from your real home. kind cluster names are shared by the whole engine, so a suite refuses to start while a cluster named after its example lab (`k8s-basics-01`) exists. Set `OAT_ISOLATE_HOME=false` to run against your real `HOME`.
+
+#### VM suites
+
+`60_vm_terminal.robot` and `70_vm_desktop.robot` cover astrona's two VM targets with the labs in `acceptance/labs/`: run, list, status, a failed and then a passing submit (the answer is typed into `astrona ssh`), `stop` refusing a VM lab, and destroy, after which no qemu process and no VM state may be left. The desktop suite also checks that the VM opens its window (`display: true`), the desktop astrona offers today: on macOS the window server must list a window owned by the qemu process; on Linux an X display must show a window titled after it. That window has no graphics or input devices configured yet, so the suite checks that it exists, not what it shows.
+
+They need qemu with hardware acceleration: on macOS `brew install qemu` (HVF, Apple Silicon or Intel), on Linux `qemu-system-x86` (or `qemu-system-arm` with `qemu-efi-aarch64`), `qemu-utils`, `genisoimage` and a usable `/dev/kvm`. The desktop suite on Linux also needs `qemu-system-gui`, `x11-utils` and a display: run it under `xvfb-run` on a machine without one. Without KVM astrona falls back to software emulation, which is too slow for the suite; CI fails the `vm` job when `/dev/kvm` is missing rather than skipping it. A suite refuses to start while a qemu process for its lab (`oat-vm-terminal`, `oat-vm-desktop`) is running.
+
+The VM base image is a Debian 13 genericcloud qcow2 (about 330 MB, amd64 or arm64 to match the host) from a dated build at cloud.debian.org. Its URL and the SHA-512 sums from that build's `SHA512SUMS` are pinned in `acceptance/resources/astrona.resource`. It is downloaded once into `~/.cache/astrona-oat/images/` (`$XDG_CACHE_HOME/astrona-oat`, or `OAT_CACHE_DIR` when set), verified on every run and hard-linked into a copy of the lab (astrona refuses a symlinked base image). To move to a newer build, change the date in the URL and both sums together. Delete the cache folder to free the space.
 
 | Path | Contents |
 |---|---|
-| `acceptance/suites/` | One `.robot` file per area; tag each test `smoke` (every PR) and `kind` (creates a cluster) |
+| `acceptance/suites/` | One `.robot` file per area; tag each test with its tier (`smoke` or `full`) and what it needs (`kind`, `network`, `vm`, `desktop`) |
+| `acceptance/labs/` | The VM labs the VM suites run; their `base.qcow2` is linked in at run time, never committed |
 | `acceptance/resources/astrona.resource` | Shared keywords: `Run Astrona`, `Run Astrona Json`, `Run Kubectl On Lab` |
-| `acceptance/libraries/AstronaLib.py` | Only what Robot cannot express cleanly: isolated `HOME`, JSON parsing, kind lookups |
+| `acceptance/libraries/AstronaLib.py` | Only what Robot cannot express cleanly: isolated `HOME`, JSON parsing, kind and qemu lookups, the VM image cache, the desktop window check |
 
 ## Dependency updates
 

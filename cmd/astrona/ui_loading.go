@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"astrona/internal/labops"
 )
 
 func uiLoadingPhase(title string) bool {
@@ -36,7 +38,7 @@ func (m *uiPaneModel) loadingBackground() string {
 	for _, run := range m.dashboard.runs {
 		spent := "—"
 		if run.activityTracked {
-			spent = formatUptime(run.activeTime)
+			spent = labops.FormatUptime(run.activeTime)
 		}
 		rows = append(rows, workspaceMuted.Render("  "+uiRunColumns(run.name, run.kind, run.status, spent, w-6)))
 	}

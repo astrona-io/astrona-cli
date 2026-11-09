@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"astrona/internal/labops"
 	"astrona/internal/settings"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -264,7 +265,7 @@ func (m workspaceModel) preferencesView() string {
 		if i == p.selected {
 			rows = append(rows, workspaceSelected(text, listWidth-4))
 		} else {
-			rows = append(rows, "  "+sanitizeLine(text))
+			rows = append(rows, "  "+labops.SanitizeLine(text))
 		}
 	}
 	body := workspacePanel("PREFERENCES", strings.Join(rows, "\n"), listWidth, h, workspaceFocus)

@@ -1,18 +1,10 @@
 package main
 
 import (
-	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
-
-	"astrona/internal/labops"
-	"astrona/internal/labstate"
 )
-
-// validateOpenURL checks a URL before it is handed to the browser
-// (labops.ValidateOpenURL).
-func validateOpenURL(raw string) (*url.URL, error) { return labops.ValidateOpenURL(raw) }
 
 // browserCommand is the command that opens rawURL in the default browser on
 // this machine, or nil when there is no browser to open (a headless Linux box).
@@ -69,7 +61,3 @@ func openInBrowser(rawURL string) bool {
 
 // browserOpener opens a URL in the browser: openInBrowser, replaced in tests.
 var browserOpener = openInBrowser
-
-// printTimeLimit says how long the attempt runs once the lab page opens,
-// when the site gave a limit.
-func printTimeLimit(sess *labstate.Session) { labops.WriteTimeLimit(os.Stdout, sess) }

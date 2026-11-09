@@ -95,6 +95,22 @@ type Proctor struct {
 	scriptOut       io.Writer
 	podReadyTimeout time.Duration
 	quiet           bool
+	// stop, when set, ends grading before its next check or script once
+	// it is cancelled (StopOn).
+	stop context.Context
+}
+
+// StopOn makes Evaluate give up before its next check or validation
+// script once ctx is cancelled (Ctrl+C), returning ctx's error — the
+// grade is then incomplete and must not be recorded.
+func (p *Proctor) StopOn(ctx context.Context) { p.stop = ctx }
+
+// stopped is the cancelled StopOn context's error (nil: carry on).
+func (p *Proctor) stopped() error {
+	if p.stop == nil {
+		return nil
+	}
+	return p.stop.Err()
 }
 
 // Quiet makes Evaluate suitable for repeated, live re-grading (`submit
@@ -225,6 +241,9 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 	results := make([]CheckResult, 0, len(checks))
 
 	for _, c := range checks {
+		if err := p.stopped(); err != nil {
+			return nil, err
+		}
 		result := CheckResult{Name: c.Name, Hint: c.Hint, Points: config.EffectivePoints(c.Points)}
 		checkStart := time.Now()
 
@@ -468,6 +487,9 @@ func (p *Proctor) runValidationBlock(val config.ValidationConfig, executor execu
 	}
 
 	for _, scriptItem := range scriptsList {
+		if err := p.stopped(); err != nil {
+			return nil, err
+		}
 		if scriptItem.Source == "" {
 			// No script configured: nothing ran, so no result either way.
 			continue
