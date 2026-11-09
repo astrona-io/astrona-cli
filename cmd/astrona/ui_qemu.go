@@ -83,7 +83,7 @@ func readUIQEMUVMs() (map[string][]*config.QEMUHandle, error) {
 func uiQEMUStatus(vms []*config.QEMUHandle) (string, bool) {
 	running := 0
 	for _, vm := range vms {
-		if hypervisor.ProcessAlive(vm.PID) {
+		if hypervisor.VMRunning(vm) {
 			running++
 		}
 	}
@@ -118,7 +118,7 @@ func workspaceQEMUHealth(lab, name string) string {
 	if err != nil || h.LabName != lab {
 		return "VM unavailable"
 	}
-	if !hypervisor.ProcessAlive(h.PID) {
+	if !hypervisor.VMRunning(h) {
 		return "Stopped"
 	}
 	return "Running · SSH terminal"
@@ -129,7 +129,7 @@ func workspaceQEMUCommand(ctx context.Context, lab, target string) (*exec.Cmd, e
 	if err != nil {
 		return nil, fmt.Errorf("read VM %s: %w", target, err)
 	}
-	if h.LabName != lab || !hypervisor.ProcessAlive(h.PID) {
+	if h.LabName != lab || !hypervisor.VMRunning(h) {
 		return nil, fmt.Errorf("VM %s is not running in lab %s", target, lab)
 	}
 	if h.SSHUser == "" || h.SSHHost == "" || h.SSHPort < 1 || h.SSHPort > 65535 || h.SSHKeyPath == "" || h.KnownHosts == "" {

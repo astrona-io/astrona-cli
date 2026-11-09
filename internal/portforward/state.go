@@ -9,6 +9,7 @@
 //
 //	spec.json       what to forward (written once, before the supervisor starts)
 //	supervisor.pid  the supervisor's PID (its own process group leader)
+//	supervisor.start  when that PID started, so a recycled PID is not trusted
 //	status.json     the supervisor's latest view of kubectl (see Status)
 //	supervisor.log  the supervisor's own log, kubectl's stderr included
 package portforward
@@ -68,17 +69,19 @@ type Status struct {
 // Forward is one forward as found on disk, with its effective (live
 // checked) state — see Effective.
 type Forward struct {
-	Spec    Spec
-	PID     int
-	Status  Status
-	LogPath string
+	Spec     Spec
+	PID      int
+	PIDStart string
+	Status   Status
+	LogPath  string
 }
 
 const (
-	specFile   = "spec.json"
-	pidFile    = "supervisor.pid"
-	statusFile = "status.json"
-	logFile    = "supervisor.log"
+	specFile     = "spec.json"
+	pidFile      = "supervisor.pid"
+	pidStartFile = "supervisor.start"
+	statusFile   = "status.json"
+	logFile      = "supervisor.log"
 )
 
 // validateLabName bounds what may be used as the <lab> path component, so
@@ -200,12 +203,22 @@ func readPID(dir string) int {
 	return pid
 }
 
+// readPIDStart is the supervisor's recorded start time ("" when none was
+// recorded, e.g. by an older version).
+func readPIDStart(dir string) string {
+	data, err := os.ReadFile(filepath.Join(dir, pidStartFile))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
 func loadForward(dir string) (Forward, error) {
 	spec, err := loadSpec(dir)
 	if err != nil {
 		return Forward{}, err
 	}
-	f := Forward{Spec: spec, PID: readPID(dir), LogPath: filepath.Join(dir, logFile)}
+	f := Forward{Spec: spec, PID: readPID(dir), PIDStart: readPIDStart(dir), LogPath: filepath.Join(dir, logFile)}
 	if err := readJSON(filepath.Join(dir, statusFile), &f.Status); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return Forward{}, err

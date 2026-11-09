@@ -78,7 +78,7 @@ func CollectQEMURows() ([]LabRow, int, error) {
 			continue
 		}
 
-		if !hypervisor.ProcessAlive(h.PID) {
+		if !hypervisor.VMRunning(&h) {
 			stale++
 			continue
 		}
