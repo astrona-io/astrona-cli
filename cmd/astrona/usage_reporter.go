@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"astrona/internal/account"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/outbox"
 	"astrona/internal/ui"
@@ -174,15 +175,15 @@ type keptCounter struct {
 }
 
 func (k *keptCounter) Usage(ctx context.Context, site, session string, samples []account.UsageSample) error {
-	cr, err := k.active(ctx, site)
+	cr, err := k.Active(ctx, site)
 	if err != nil {
 		return err
 	}
-	kept, err := k.client.SendLabUsage(ctx, k.store, cr, session, samples)
+	kept, err := k.Client.SendLabUsage(ctx, k.Store, cr, session, samples)
 	if err == nil {
 		k.kept = kept
 	}
-	return k.classify(err)
+	return k.Classify(err)
 }
 
 // pauseForQuietWindows pauses the run's clock from the last heartbeat when
@@ -205,18 +206,5 @@ func pauseForQuietWindows(ctx context.Context, clusterName string, st *labstate.
 // runUsageReport is the summary of what a run used so far, for submit and
 // destroy; nil when it was never measured.
 func runUsageReport(clusterName string, st *labstate.State) *account.UsageReport {
-	if st == nil || st.StartedAt == "" {
-		return nil
-	}
-	u, err := labstate.ReadUsage(clusterName, st.StartedAt)
-	if err != nil || u.Samples == 0 {
-		return nil
-	}
-	return &account.UsageReport{
-		AverageCPUCores:    u.AverageCPU / 100,
-		AverageMemoryBytes: int64(u.AverageMemory),
-		PeakCPUCores:       u.PeakCPU / 100,
-		PeakMemoryBytes:    int64(u.PeakMemory),
-		Samples:            u.Samples,
-	}
+	return labops.RunUsageReport(clusterName, st)
 }

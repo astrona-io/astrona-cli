@@ -192,9 +192,9 @@ func TestOfflineDeletionReplaysOnlyPlaygroundUsage(t *testing.T) {
 			if _, err := labstate.RecordUsage("astro-offline", started, 50, 1024, time.Now()); err != nil {
 				t.Fatal(err)
 			}
-			previous := flushOutbox
-			t.Cleanup(func() { flushOutbox = previous })
-			flushOutbox = func(context.Context, time.Duration) (outbox.Status, error) {
+			previous := labops.FlushOutbox
+			t.Cleanup(func() { labops.FlushOutbox = previous })
+			labops.FlushOutbox = func(context.Context, time.Duration) (outbox.Status, error) {
 				return outbox.Status{State: outbox.Offline, Pending: 1}, nil
 			}
 			forgetLab("astro-offline")
@@ -204,8 +204,8 @@ func TestOfflineDeletionReplaysOnlyPlaygroundUsage(t *testing.T) {
 			if len(site.stopped()) != 0 {
 				t.Fatal("stop sent while offline")
 			}
-			flushOutbox = previous
-			status, err := flushOutbox(t.Context(), signalTimeout)
+			labops.FlushOutbox = previous
+			status, err := labops.FlushOutbox(t.Context(), signalTimeout)
 			if err != nil || status.Pending != 0 || status.State != outbox.Online {
 				t.Fatalf("replay: %+v, %v", status, err)
 			}
