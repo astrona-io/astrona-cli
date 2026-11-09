@@ -4660,18 +4660,19 @@
 <p>View and change your saved CLI preferences</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>View saved preferences and defaults from ~/.astrona/settings.json. Explicit command-line flags override saved preferences. Settings never store credentials or approve remote code. Viewing settings does not create a file.</p>
-<p>Use view for a detailed overview, review to approve settings changes, set to save a value, unset to restore one default, reset to restore all of them, and path to locate the file. Boolean settings use yes/no; true/false are also accepted.</p>
+<p>Use view for a detailed overview, review to approve settings changes, set to save a value, unset to restore one default, reset to restore all of them, and path to locate the file. Boolean settings use yes/no; true/false and on/off are also accepted.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona settings [flags]
 </code></pre></div>
 <h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>  astrona settings
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  astrona settings set keep-context yes
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  astrona settings set parallel 2
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  astrona settings set cache-retention-days 30
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  astrona settings set cache-max-size-gb 50
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  astrona settings get keep-context
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  astrona settings unset keep-context
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  astrona settings reset --yes
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>  astrona settings set usage-samples off   # send no lab CPU/memory samples
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>  astrona settings set parallel 2
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  astrona settings set cache-retention-days 30
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  astrona settings set cache-max-size-gb 50
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  astrona settings get keep-context
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  astrona settings unset keep-context
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  astrona settings reset --yes
 </code></pre></div>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>  -h, --help            help for settings

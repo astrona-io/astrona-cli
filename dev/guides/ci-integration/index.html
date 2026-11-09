@@ -4670,7 +4670,7 @@ deprecated alias for existing scripts and prints a migration notice.</p>
 <tbody>
 <tr>
 <td><code>run</code>, <code>reset</code></td>
-<td>Set up Kind or QEMU without UI prompts or new account sessions. Replacing a run still requires <code>--yes</code>; soft and linked-cluster resets also require it.</td>
+<td>Set up Kind or QEMU without UI prompts or new account sessions. Replacing a run still requires <code>--yes</code>; soft and linked-cluster resets also require it. <code>run --local-only</code> also marks the run local only, so a later <code>submit</code> records its result on this machine and sends nothing.</td>
 </tr>
 <tr>
 <td><code>test</code>, <code>validate</code>, <code>check</code>, <code>doctor</code>, <code>diagnose</code></td>

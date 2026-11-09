@@ -4595,6 +4595,11 @@ separate from credentials, lab state, and remote-code approvals.</p>
 <td>Offer guests login before each lab run; <code>no</code> hides reminders</td>
 </tr>
 <tr>
+<td><code>usage-samples</code></td>
+<td><code>yes</code></td>
+<td>While signed in, send a running lab's CPU and memory use to its lab session (every 15 seconds) and a usage summary with submit and playground deletion; <code>no</code> sends none of it — see <a href="../lab-catalog/#resource-usage">Resource usage</a></td>
+</tr>
+<tr>
 <td><code>update-check</code></td>
 <td><code>yes</code></td>
 <td>Check for new CLI releases and show update notices</td>
@@ -4622,7 +4627,8 @@ defaults. It leaves your lab, sign-in, trust decisions and catalog sources
 alone, and keeps <code>settings-review.json</code>, so the review questions are not asked
 again. To also forget the selected lab and the cached catalog, use
 <code>astrona data reset</code>.</p>
-<p><code>settings</code>, <code>settings get</code> and <code>settings view</code> display booleans as <code>yes</code> / <code>no</code>.
+<p><code>settings</code>, <code>settings get</code> and <code>settings view</code> display booleans as <code>yes</code> / <code>no</code>;
+<code>set</code> also accepts <code>true</code> / <code>false</code> and <code>on</code> / <code>off</code>.
 JSON output and saved files retain <code>true</code> / <code>false</code>.</p>
 <p>Explicit flags override saved values, including <code>--verbose=false</code>,
 <code>--keep-context=false</code>, and <code>--parallel=1</code>. <code>--update-check=false</code> disables

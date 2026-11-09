@@ -4452,6 +4452,10 @@ piping <code>yes</code> is not sufficient. Detected CI requires <code>--accept-t
 operational command, even with a saved receipt. The flag accepts the terms in
 the binary being run, so review them when upgrading a pipeline's pinned CLI.
 <code>--yes</code>, <code>--trust</code>, and saved settings never imply terms acceptance.</p>
+<p>The notice also says what astrona sends while a signed-in lab runs (its CPU and
+memory use, see <a href="../lab-catalog/#resource-usage">Resource usage</a>) and how to
+turn that off. Revision 2026-11-10 added that paragraph, so a receipt for an
+earlier revision asks again.</p>
 <p>Help, version output, completions and <code>astrona terms</code> remain available without
 acceptance. So do <code>settings</code>, <code>data</code>, <code>logout</code>, <code>stop</code>, <code>destroy</code>, and
 <code>port-forward stop</code>, so declining cannot prevent cleanup or preference repair.
