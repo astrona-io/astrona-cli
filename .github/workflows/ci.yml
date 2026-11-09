@@ -209,7 +209,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v10.3.3
 
       - name: Build astrona
         run: go build -ldflags "-X main.Version=developer" -o astrona ./cmd/astrona
