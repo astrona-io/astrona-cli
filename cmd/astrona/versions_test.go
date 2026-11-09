@@ -412,9 +412,9 @@ func TestLoadLabForCommandTrustsBeforeHandover(t *testing.T) {
 				t.Fatalf("untrusted = %v, handed to %v", err, *handed)
 			}
 			if tc.name == "doesn't parse" {
-				_, _, _, err = LoadLabForCommand(&rootFlags{configPath: url, fileName: "config.yaml", uiStartupApproved: true, installVersion: true})
+				_, _, _, err = LoadLabForCommand(&rootFlags{configPath: url, fileName: "config.yaml", installVersion: true})
 				if err == nil || !strings.Contains(err.Error(), "--trust") || len(*handed) != 0 {
-					t.Fatalf("UI notice authorized an unreadable config: %v, handovers: %v", err, *handed)
+					t.Fatalf("--install-version authorized an unreadable config: %v, handovers: %v", err, *handed)
 				}
 			}
 

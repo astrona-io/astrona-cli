@@ -5,8 +5,8 @@
 ## Headless setup for external checks
 
 Use `--headless` when your own script needs to check a running lab. This works
-with Kind and QEMU and keeps running without the UI when the UI becomes the
-default in v0.5.0 and later.
+with Kind and QEMU and keeps running without a UI, including in v0.5.0 and
+later, when the terminal UI is replaced by a browser workspace.
 
 Settings confirmation is not required, including on a fresh runner:
 

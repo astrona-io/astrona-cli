@@ -60,7 +60,9 @@ func approveUIRun(cmd *cobra.Command, flags *rootFlags, confirm func(*cobra.Comm
 	if err := approval.save(cmd); err != nil {
 		return err
 	}
-	flags.uiStartupApproved, flags.installVersion = true, true
+	// Startup consent is not code trust or version-install approval: a remote
+	// lab's trust prompt and any astrona version install still ask in this
+	// terminal (or take --trust / --install-version), exactly like a plain run.
 	flags.uiRestart, flags.localOnly = approval.restart, approval.localOnly
 	return nil
 }
@@ -146,7 +148,7 @@ func buildUIRunNotice(cmd *cobra.Command, flags *rootFlags, needsTerms bool) uiR
 	} else {
 		summary += "Your CLI terms agreement is saved.\n"
 	}
-	summary += "\nYes authorizes downloads, required CLI installation, containers, virtual machines, lab scripts and manifests, and configured local ports. Lab code may run on your machine. Only accept if you trust this lab and its sources. This code approval applies to this run only.\n\n"
+	summary += "\nYes starts the lab: downloads, containers, virtual machines and configured local ports. A lab from a remote source asks separately, in this terminal, before any of its code runs, and a different astrona version is only installed after its own prompt.\n\n"
 	if tracking != "" {
 		summary += tracking + "\n\n"
 	}

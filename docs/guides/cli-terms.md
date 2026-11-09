@@ -32,8 +32,10 @@ the binary being run, so review them when upgrading a pipeline's pinned CLI.
 Help, version output, completions and `astrona terms` remain available without
 acceptance. So do `settings`, `data`, `logout`, `stop`, `destroy`, and
 `port-forward stop`, so declining cannot prevent cleanup or preference repair.
-Their other safety checks still apply. Internal documentation generators and
-already-started background supervisors do not prompt.
+Their other safety checks still apply. Internal documentation generators and the
+background helpers an operational command starts (port-forward supervisors,
+the playground watchdog, the usage reporter and the offline-signal sender) do
+not prompt; the command that starts them has already passed the terms check.
 
 Cache cleanup and `data reset` preserve the receipt. To forget it, remove only
 `~/.astrona/terms.json`; the next operational command will ask again. A malformed

@@ -120,14 +120,18 @@ astrona run ./labs/my-lab --ui
 
 If you omit `--ui`, an interactive run first offers the UI, before terms
 acceptance or downloads. Press Enter or type `yes` to open it; `no`
-continues with the command-line prompts. The offer explains that the UI will
-become the default in v0.5.0. Use `--ui=false` to skip it. Runs with `--yes`,
+continues with the command-line prompts. The offer explains that in v0.5.0 the
+terminal UI is replaced by a browser workspace. Use `--ui=false` to skip it. Runs with `--yes`,
 CI jobs and redirected input/output keep the command-line flow without this
 question. The UI supports Kind and QEMU labs.
 
 Inside the UI, startup shows one Yes/No box before downloads or lab changes.
-Yes authorizes the lab's code and required downloads for this invocation and
-continues with setup. The first run also asks you to accept the CLI terms;
+Yes starts setup. It is not code trust: a lab from a remote source (a URL or
+`--git` repository) then shows the same trust prompt as a plain `astrona run`
+(source, pinned revision and what it runs on your machine) before any of its
+code runs, and a lab that needs another astrona release asks before that
+release is installed. `--trust` and `--install-version` approve these without
+asking. The first run also asks you to accept the CLI terms;
 that agreement is saved and only needs renewal if the terms change. Later runs
 show that the agreement is saved. The box does not list settings: saved choices
 are kept, and you can change them in **Preferences** (`p` in the overview).
@@ -171,11 +175,10 @@ not choose which lab to replace; the command's lab argument or selected config
 does. Startup leaves that shell's Kubernetes context unchanged. To continue
 working on an existing lab without restarting, use `astrona ui <lab-name>`.
 
-Accepting startup saves approval for the parsed source revision. A later CLI
-submission reuses it without another trust prompt. Changed revisions still
-require approval. The startup notice cannot approve a remote config this CLI cannot parse.
-Version handover still requires trust for that exact source or an explicit
-`--trust` supplied after reviewing it.
+Answering yes to the trust prompt saves approval for that exact source
+revision. A later CLI submission reuses it without another trust prompt.
+Changed revisions require approval again. Version handover requires trust for
+that exact source or an explicit `--trust` supplied after reviewing it.
 
 Or open an existing lab directly:
 

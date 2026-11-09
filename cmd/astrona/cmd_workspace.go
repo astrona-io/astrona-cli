@@ -279,6 +279,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 				local = st.LocalOnly
 			}
 			err := submitLoadedLab(flags, cfg, baseDir, submitOptions{
+				runID: runID, // a lab re-created since the UI opened is not graded
 				completed: func(r submissionResult, sent, recorded bool) {
 					result = workspaceSubmission(r, sent, recorded)
 					if local && !sent {
@@ -297,7 +298,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 				return false, err
 			}
 			defer rep.Close()
-			info := teardownInfo{clusterName: name, teardown: cfg.Teardown, runtime: cfg.Runtime, cfg: cfg}
+			info := teardownInfo{clusterName: name, runID: runID, teardown: cfg.Teardown, runtime: cfg.Runtime, cfg: cfg} // only the run this UI opened
 			info.skipScripts = !teardownTrusted(flags, info, baseDir, rep)
 			err = destroyLab(info, baseDir, rep)
 			return err == nil && !cfg.Teardown.KeepCluster, err
