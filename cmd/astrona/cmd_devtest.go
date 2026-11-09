@@ -13,6 +13,7 @@ import (
 	"astrona/internal/apphome"
 	"astrona/internal/authoring"
 	"astrona/internal/config"
+	"astrona/internal/executor"
 	"astrona/internal/junit"
 	"astrona/internal/labops"
 	"astrona/internal/lifecycle"
@@ -117,6 +118,10 @@ func newTestCmd(flags *rootFlags) *cobra.Command {
 				ui.Warnf("received %s — already stopping, teardown is still running", sig)
 			}, os.Interrupt, syscall.SIGTERM)
 			defer stopSignals()
+			// Tools run through internal/executor pass the signal on to
+			// their process group without raising it in astrona again.
+			executor.HandleInterrupts(true)
+			defer executor.HandleInterrupts(false)
 
 			var runs []testRun
 			for i := 1; i <= repeat && ctx.Err() == nil; i++ {

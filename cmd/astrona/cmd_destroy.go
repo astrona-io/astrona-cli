@@ -82,7 +82,10 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			"--trust approves it up front. If it isn't approved (declined, or no terminal and no --trust), " +
 			"its teardown scripts are skipped and the lab is still destroyed.\n\n" +
 			"The lab's copy of its resources (~/" + apphome.Name() + "/resources/<lab>) is removed too; " +
-			"--keep-resources keeps it.",
+			"--keep-resources keeps it.\n\n" +
+			"Port forwards of the lab are always stopped, even when its cluster or VM is already gone.\n\n" +
+			"Ctrl+C (or SIGTERM) stops only the step that is running: astrona carries on with the " +
+			"remaining steps, so less is left behind. A second Ctrl+C quits at once.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			labName := "-"
@@ -107,7 +110,16 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 
+			// A destroy half done leaves more behind than one finished:
+			// the first Ctrl+C lets it finish, a second one quits. Armed
+			// once nothing more is asked (teardownTrusted may ask below).
+			finishOnInterrupt := func() func() {
+				_, disarm := interruptible(cmd, interruptDestroyNotice)
+				return disarm
+			}
+
 			if len(args) == 1 {
+				defer finishOnInterrupt()()
 				if strings.ContainsAny(args[0], "*?[") {
 					return labops.DestroyByPattern(args[0], rep, destroyOptions())
 				}
@@ -117,6 +129,7 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
 			if err != nil {
 				rep.Warn("path resolution failed (%s) — falling back to auto-discovery of running astrona labs", err)
+				defer finishOnInterrupt()()
 				return labops.DestroyByDiscovery(rep, destroyOptions())
 			}
 
@@ -128,12 +141,14 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 
 			if loadErr != nil {
 				rep.Warn("could not load lab config from '%s' (%s) — falling back to auto-discovery of running astrona labs", finalPath, loadErr)
+				defer finishOnInterrupt()()
 				return labops.DestroyByDiscovery(rep, destroyOptions())
 			}
 
 			// A remote lab's teardown scripts are its code too: approve
 			// them like run does, but never let a refusal stop the destroy.
 			info.SkipScripts = !teardownTrusted(flags, info, baseDir, rep)
+			defer finishOnInterrupt()()
 
 			if err := labops.DestroyLab(info, baseDir, rep, destroyOptions()); err != nil {
 				return err

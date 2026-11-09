@@ -88,7 +88,7 @@ func runTest(ctx context.Context, cfg *config.LabConfig, baseDir string, opts Te
 	if err := lifecycle.PrepareSharedCA(cfg, clusterName); err != nil {
 		return nil, false, err
 	}
-	links, err := lifecycle.StartLinkedClusters(cfg, baseDir, clusterName, true, opts.Parallel, rep)
+	links, err := lifecycle.StartLinkedClusters(ctx, cfg, baseDir, clusterName, true, opts.Parallel, rep)
 	if err != nil {
 		return nil, false, err
 	}
@@ -98,7 +98,7 @@ func runTest(ctx context.Context, cfg *config.LabConfig, baseDir string, opts Te
 
 	// The same pipeline as `astrona run`, as a test copy (no host ports,
 	// no port forwards).
-	env, _, upErr := lifecycle.Up(cfg, baseDir, clusterName, links, true, rep)
+	env, _, upErr := lifecycle.Up(ctx, cfg, baseDir, clusterName, links, true, rep)
 	if env == nil {
 		// Creation failed partway — kind may already have made the cluster.
 		if err := runtime.DestroyEnvironment(clusterName, cfg.Runtime, rep); err != nil {

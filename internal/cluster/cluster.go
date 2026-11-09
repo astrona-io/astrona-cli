@@ -15,6 +15,7 @@ import (
 
 	"astrona/internal/apphome"
 	"astrona/internal/config"
+	"astrona/internal/executor"
 	"astrona/internal/ui"
 
 	"gopkg.in/yaml.v3"
@@ -245,8 +246,9 @@ func writeKindConfig(data []byte) (string, func(), error) {
 }
 
 // CreateKindCluster creates clusterName, shaped by k (runtime.kind; nil
-// for kind's defaults).
-func CreateKindCluster(clusterName string, k *config.KindConfig, rep *ui.Reporter) error {
+// for kind's defaults). Cancelling ctx (Ctrl+C) stops kind and deletes the
+// half-created cluster — never one that existed before this call.
+func CreateKindCluster(ctx context.Context, clusterName string, k *config.KindConfig, rep *ui.Reporter) error {
 	if err := config.ValidateName(clusterName); err != nil {
 		return err
 	}
@@ -262,8 +264,8 @@ func CreateKindCluster(clusterName string, k *config.KindConfig, rep *ui.Reporte
 	}
 	// Never collect/delete a pre-existing cluster after a name-collision
 	// failure. Only a new cluster created by this attempt is ours to clean.
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	list := exec.CommandContext(ctx, kindPath, "get", "clusters")
+	listCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	list := exec.CommandContext(listCtx, kindPath, "get", "clusters")
 	list.Env = kindEnv()
 	existing, err := list.Output()
 	cancel()
@@ -298,7 +300,9 @@ func CreateKindCluster(clusterName string, k *config.KindConfig, rep *ui.Reporte
 		fmt.Fprintf(out, "kind cluster config:\n%s\n", data)
 	}
 
-	cmd := exec.Command(kindPath, kindCreateArgs(clusterName, configPath, k.NodeImage())...)
+	// In its own process group (executor): Ctrl+C reaches kind through
+	// ctx, and astrona is still there to clean up after it.
+	cmd := executor.Command(ctx, kindPath, kindCreateArgs(clusterName, configPath, k.NodeImage())...)
 	collision := &kindCollisionOutput{}
 	creationOutput := io.MultiWriter(out, collision)
 	cmd.Stdout = creationOutput
@@ -309,7 +313,14 @@ func CreateKindCluster(clusterName string, k *config.KindConfig, rep *ui.Reporte
 		cmd.Env = append(cmd.Env, "KIND_EXPERIMENTAL_PROVIDER=podman")
 	}
 
-	if err := cmd.Run(); err != nil {
+	if err := executor.Run(cmd); err != nil {
+		if ctx.Err() != nil {
+			// Interrupted: no diagnostics wanted, only the new cluster gone.
+			if !collision.exists {
+				deleteFailedKindCluster(kindPath, clusterName, cmd.Env, rep)
+			}
+			return t.Fail(fmt.Errorf("interrupted: %w", ctx.Err()))
+		}
 		// --retain keeps bootstrap evidence that Kind otherwise deletes.
 		// Export it before restoring Kind's usual failure cleanup behavior.
 		if !collision.exists {
@@ -375,6 +386,12 @@ func collectFailedKindCreation(kindPath, name string, env []string, rep *ui.Repo
 	} else {
 		rep.Warn("could not resolve diagnostics directory: %v", err)
 	}
+	deleteFailedKindCluster(kindPath, name, env, rep)
+}
+
+// deleteFailedKindCluster deletes the cluster a failed or interrupted
+// `kind create cluster --retain` left behind.
+func deleteFailedKindCluster(kindPath, name string, env []string, rep *ui.Reporter) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, kindPath, "delete", "cluster", "--name", name)

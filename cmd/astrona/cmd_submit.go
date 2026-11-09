@@ -51,6 +51,9 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			"teardown.keepCluster is also respected. A local-only run has nothing to send, so its saved result finishes it too. " +
 			"An unsent result of a tracked run keeps the environment. Start a new run " +
 			"for another tracked attempt.\n\n" +
+			"Ctrl+C (or SIGTERM) while grading stops before the next check and exits 1 without " +
+			"recording or sending anything; the lab is left as it is. Once grading is done, the " +
+			"result is recorded and sent regardless. A second Ctrl+C quits at once.\n\n" +
 			"Exit code: 0 passed, 2 graded but didn't pass, 1 something else went wrong. Sending the " +
 			"result to Astrona never changes the grade. A cleanup failure exits 1 and leaves the uploaded result intact.",
 		SilenceUsage: true,
@@ -104,14 +107,14 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 				defer cleanup()
-				return submitLoadedLab(flags, cfg, baseDir, submitOptions{runID: labops.RunID(saved), junitPath: junitPath, output: output, noHints: noHints, history: history, watch: watch, keep: keep, watchInterval: watchInterval}, status)
+				return submitLoadedLab(flags, cfg, baseDir, submitOptions{runID: labops.RunID(saved), junitPath: junitPath, output: output, noHints: noHints, history: history, watch: watch, keep: keep, watchInterval: watchInterval, interruptOf: cmd}, status)
 			}
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err
 			}
 			defer configCleanup()
-			return submitLoadedLab(flags, cfg, baseDir, submitOptions{junitPath: junitPath, output: output, noHints: noHints, history: history, watch: watch, keep: keep, watchInterval: watchInterval}, status)
+			return submitLoadedLab(flags, cfg, baseDir, submitOptions{junitPath: junitPath, output: output, noHints: noHints, history: history, watch: watch, keep: keep, watchInterval: watchInterval, interruptOf: cmd}, status)
 		},
 	}
 
@@ -134,6 +137,9 @@ type submitOptions struct {
 	// beforeCleanup runs just before a sent result deletes the lab (the UI
 	// closes its terminals); deleted runs once the lab is gone.
 	beforeCleanup, deleted func()
+	// interruptOf, when set (the submit command; never the workspace, which
+	// reads Ctrl+C itself), makes Ctrl+C stop the grading (interruptible).
+	interruptOf *cobra.Command
 }
 
 // submitLoadedLab is shared by submit and the workspace. Keeping the loaded
@@ -205,7 +211,13 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 		return watchGrading(s.Proctor, cfg, s.ClusterName, options.watchInterval, s.Exam, flags.headless)
 	}
 
-	res, err := labops.Submit(context.Background(), req)
+	ctx := context.Background()
+	if options.interruptOf != nil {
+		var disarm func()
+		ctx, disarm = interruptible(options.interruptOf, interruptGradeNotice)
+		defer disarm()
+	}
+	res, err := labops.Submit(ctx, req)
 	if err != nil {
 		return err
 	}

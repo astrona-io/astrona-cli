@@ -5,6 +5,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
+	"context"
 	"fmt"
 	"strings"
 )
@@ -46,8 +47,9 @@ func ClusterStates(cfg *config.LabConfig, labCluster string) ([]config.KindClust
 // leftover cluster of the same name (a failed earlier run) is replaced —
 // linked clusters belong to the lab, nothing else uses them. The states
 // are saved before anything is created, so `astrona destroy` finds every
-// cluster even if this fails halfway.
-func StartLinkedClusters(cfg *config.LabConfig, baseDir, labCluster string, forTest bool, parallel int, rep *ui.Reporter) ([]cluster.LinkState, error) {
+// cluster even if this fails halfway. Cancelling ctx stops it like a
+// failure: nothing more is started.
+func StartLinkedClusters(ctx context.Context, cfg *config.LabConfig, baseDir, labCluster string, forTest bool, parallel int, rep *ui.Reporter) ([]cluster.LinkState, error) {
 	order, states, err := ClusterStates(cfg, labCluster)
 	if err != nil || len(states) == 0 {
 		return nil, err
@@ -56,7 +58,7 @@ func StartLinkedClusters(cfg *config.LabConfig, baseDir, labCluster string, forT
 		return nil, fmt.Errorf("save linked clusters: %w", err)
 	}
 	if parallel > 1 && len(order) > 1 {
-		if err := startLinkedClustersParallel(cfg, order, states, baseDir, forTest, parallel, rep); err != nil {
+		if err := startLinkedClustersParallel(ctx, cfg, order, states, baseDir, forTest, parallel, rep); err != nil {
 			return nil, err
 		}
 		// Clusters created earlier learn the names of later ones.
@@ -71,11 +73,14 @@ func StartLinkedClusters(cfg *config.LabConfig, baseDir, labCluster string, forT
 			deps = append(deps, byName[d])
 		}
 		sub := LinkedClusterConfig(cfg, l)
+		if err := ctx.Err(); err != nil { // interrupted: start nothing new
+			return nil, linkedClusterError(l, name, err)
+		}
 		if err := runtime.DestroyEnvironment(name, sub.Runtime, rep); err != nil {
 			rep.Warn("could not clean up a previous '%s', proceeding anyway: %s", name, err)
 		}
 		rep.Section("Linked cluster '%s'", l.Name)
-		_, _, err := Up(sub, baseDir, name, deps, forTest, rep)
+		_, _, err := Up(ctx, sub, baseDir, name, deps, forTest, rep)
 		if err == nil {
 			err = ApplyWAN(name, l.WAN, rep)
 		}
