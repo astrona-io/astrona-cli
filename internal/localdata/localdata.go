@@ -406,8 +406,45 @@ func (s Store) openRepos() (*os.Root, error) {
 	return openChild(parent, filepath.Base(s.Repos))
 }
 
+// ErrBusy reports that another process holds a lock this one asked for.
+var ErrBusy = errors.New("another Astrona command is using local data")
+
+// lockPoll is how often LockWait retries a lock that is held.
+const lockPoll = 50 * time.Millisecond
+
+// LockWait takes the maintenance lock like Lock, but retries for up to wait
+// while another command holds it. waiting, if set, is called once before the
+// first retry so the caller can say why it pauses. The wait is bounded so a
+// long-running command never blocks another one indefinitely.
+func (s Store) LockWait(ctx context.Context, exclusive bool, wait time.Duration, waiting func()) (func(), error) {
+	release, err := s.Lock(exclusive)
+	if !errors.Is(err, ErrBusy) {
+		return release, err
+	}
+	if waiting != nil {
+		waiting()
+	}
+	deadline := time.NewTimer(wait)
+	defer deadline.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-deadline.C:
+			return nil, fmt.Errorf("%w (waited %s); wait for it to finish and retry", ErrBusy, wait)
+		case <-time.After(lockPoll):
+		}
+		release, err = s.Lock(exclusive)
+		if !errors.Is(err, ErrBusy) {
+			return release, err
+		}
+	}
+}
+
 // Lock coordinates current CLI processes. The lock inode must never be removed.
 // Shared locks let ordinary commands overlap; maintenance takes an exclusive lock.
+// It never waits: when another command holds a conflicting lock, the error
+// wraps ErrBusy.
 func (s Store) Lock(exclusive bool) (func(), error) {
 	if !filepath.IsAbs(s.Data) || filepath.Clean(s.Data) == string(filepath.Separator) {
 		return nil, fmt.Errorf("unsafe local data path %q", s.Data)
@@ -463,7 +500,10 @@ func lockFile(r *os.Root, name string, exclusive bool) (func(), error) {
 	}
 	if err := syscall.Flock(int(f.Fd()), how|syscall.LOCK_NB); err != nil {
 		f.Close()
-		return nil, fmt.Errorf("another Astrona command is using local data; wait for it to finish and retry: %w", err)
+		if errors.Is(err, syscall.EWOULDBLOCK) {
+			return nil, fmt.Errorf("%w; wait for it to finish and retry", ErrBusy)
+		}
+		return nil, fmt.Errorf("lock %s: %w", name, err)
 	}
 	return func() { f.Close() }, nil
 }

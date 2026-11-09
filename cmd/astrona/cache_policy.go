@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"astrona/internal/localdata"
@@ -13,26 +12,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// cacheCleanupWanted limits automatic cleanup to the commands that fill the
+// caches: run and test download images, addons and Git checkouts. Every other
+// command skips it, so cleanup is rare and never delays unrelated commands.
 func cacheCleanupWanted(cmd *cobra.Command) bool {
-	for c := cmd; c != nil; c = c.Parent() {
-		if c.Hidden {
-			return false
-		}
+	if cmd.Hidden || settingsReviewExempt(cmd) || (cmd.HasParent() && cmd.Parent().HasParent()) {
+		return false // only the top-level run and test
 	}
-	// Cleanup commands stay usable without review. They must not apply
-	// unreviewed cache defaults as an automatic side effect.
-	return !settingsReviewExempt(cmd)
+	return cmd.Name() == "run" || cmd.Name() == "test"
 }
 
 // Automatic maintenance runs only after command setup succeeded and the shared
-// lock was released. Failures leave the command's original result unchanged.
+// lock was released. It never waits: if any other command holds the lock it is
+// skipped and tried after a later run. Failures leave the command's original
+// result unchanged.
 func enforceCachePolicy(cmd *cobra.Command, s localdata.Store) {
 	if !cacheCleanupWanted(cmd) || cmd.Context().Err() != nil {
 		return
 	}
 	err := pruneCache(cmd.Context(), cmd, s)
-	if errors.Is(err, syscall.EWOULDBLOCK) {
-		return // A UI or another command still uses the cache; try on a later command.
+	if errors.Is(err, localdata.ErrBusy) {
+		return // A UI or another command still uses the cache; try after a later run.
 	}
 	if err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Cache limits deferred: %v. Retry with astrona data clean --policy.\n", err)

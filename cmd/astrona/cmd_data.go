@@ -87,7 +87,7 @@ func dataChangeCommand(store func() (localdata.Store, error), reset bool) *cobra
 			}
 			apply := yes && !dryRun
 			if apply {
-				release, err := s.Lock(true)
+				release, err := lockLocalData(cmd, s, true)
 				if err != nil {
 					return err
 				}
