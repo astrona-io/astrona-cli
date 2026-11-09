@@ -70,13 +70,15 @@ validation:
 
 A failed check says what it found: `{.spec.replicas} is "2" — want exactly "3"`, `found 2, want at least 3`, `GET … → 404, want 200`. `http` checks reach the lab through a [port forward](runtimes.md#port-forwards) or the [gateway addon](runtimes.md#addons-runtimekindaddons). `astrona validate` checks each check has the fields its type needs.
 
-`resourceExists`/`podReady` always run against the lab's own kubectl context — they require a `kind` runtime (or any runtime with a kubectl-reachable cluster). On a kind lab, `command` checks (and every script) run with `KUBECONFIG` set to the lab's own kubeconfig, so a plain `kubectl ...` grades the lab's cluster regardless of the student's current-context.
+`resourceExists`, `podReady`, `jsonpath` and `count` run `kubectl` on your machine, and only ever against the lab's own isolated kubeconfig and context (or a [linked cluster's](../guides/linked-labs.md)) — never your own `~/.kube/config`. So they need a `kind` lab: `astrona validate` rejects them in a `qemu` lab, which has no cluster for kubectl (use a validation script, which runs inside the VM), and grading stops with an error (exit 1) if a running lab has no kubeconfig of its own (a kind lab started by an older astrona — `astrona reset` fixes it). `resource` may only carry the flags `-n`/`--namespace`, `-l`/`--selector`, `--field-selector` and `-A`/`--all-namespaces`; any other flag (`--kubeconfig`, `--server`, `-o`, …) or a value starting with `-` is rejected. Before the first of these checks, the Proctor makes sure the cluster answers: an unreachable cluster is a grading error (exit 1, nothing recorded or sent), not a failed check.
+
+On a kind lab, `command` checks (and every script) run with `KUBECONFIG` set to the lab's own kubeconfig, so a plain `kubectl ...` grades the lab's cluster regardless of the student's current-context.
 
 ### Script checks (`validation.script` / `validation.scripts`)
 
 Beyond existence checks — for verifying actual content, behavior, or anything a `kubectl get` can't express. `script` (singular) runs first if set, then every entry in `scripts` (plural), in order. Exit code `0` is a pass, non-zero is a fail — a failing lab is a normal graded outcome, not a tool error.
 
-For a `qemu` runtime, scripts run over SSH inside the VM instead of on the host. For a multi-VM lab, the shared root `validation` block runs once per VM (each result suffixed `(vmName)` in the report), and each VM's own nested `validation` block (if set) runs after that, scoped to just that VM.
+For a `qemu` runtime, scripts run over SSH inside the VM instead of on the host. Exit code `255` is reserved there: it's what `ssh` exits with when it can't reach the VM, so it's treated as "grading couldn't run" (exit 1, nothing recorded or sent), not as a fail — a script must not `exit 255` to mean "fail". For a multi-VM lab, the shared root `validation` block runs once per VM (each result suffixed `(vmName)` in the report), and each VM's own nested `validation` block (if set) runs after that, scoped to just that VM.
 
 ## Reading the output
 
@@ -94,6 +96,8 @@ PROCTOR: FAIL
 ```
 
 The command's exit code reflects the verdict — `submit`/`test` exit non-zero on a FAIL, so both are safe to gate a script or CI job on.
+
+A lab with nothing to grade — no `validation.checks` and no validation scripts — never passes: `submit` and `test` stop with an error (exit 1) and record nothing. `astrona validate` warns about it; that's fine for an ungraded playground, which is only ever run.
 
 ## Hints, score and attempts
 

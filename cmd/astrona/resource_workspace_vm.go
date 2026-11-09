@@ -13,11 +13,11 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/labstate"
 	"astrona/internal/resources"
+	"astrona/internal/sshopts"
 )
 
 func vmResourceSSHArgs(h *config.QEMUHandle) []string {
-	return append(isolatedSSHOptions(), "-i", h.SSHKeyPath, "-p", strconv.Itoa(h.SSHPort),
-		"-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
+	return append(sshopts.Unattended(5), "-i", h.SSHKeyPath, "-p", strconv.Itoa(h.SSHPort),
 		"-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile="+h.KnownHosts,
 		"--", h.SSHUser+"@"+h.SSHHost)
 }

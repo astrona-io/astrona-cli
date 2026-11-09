@@ -15,6 +15,7 @@ import (
 	"astrona/internal/apphome"
 	"astrona/internal/config"
 	"astrona/internal/hypervisor"
+	"astrona/internal/sshopts"
 )
 
 // Unlike the runtime's creating path helpers, UI discovery only reads state.
@@ -138,17 +139,11 @@ func workspaceQEMUCommand(ctx context.Context, lab, target string) (*exec.Cmd, e
 	}
 	// Use the student's identity, never the administrative bootstrap key.
 	// A real remote PTY gives editors, resize and job control normal SSH behavior.
-	cmd := exec.CommandContext(ctx, "ssh", append(isolatedSSHOptions(), "-tt", "-i", h.SSHKeyPath,
+	cmd := exec.CommandContext(ctx, "ssh", append(sshopts.Unattended(5), "-tt", "-i", h.SSHKeyPath,
 		"-p", strconv.Itoa(h.SSHPort), "-l", h.SSHUser,
-		"-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
 		"-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile="+h.KnownHosts,
 		"--", h.SSHHost, vmWorkspaceShell(lab, true))...)
 	return cmd, nil
-}
-
-// Disable SSH features which execute commands on the host or expose its agent.
-func isolatedSSHOptions() []string {
-	return []string{"-F", "/dev/null", "-o", "EscapeChar=none", "-o", "PermitLocalCommand=no", "-o", "ClearAllForwardings=yes", "-o", "ForwardAgent=no", "-o", "ForwardX11=no"}
 }
 
 func vmWorkspaceShell(lab string, prompt bool) string {

@@ -24,6 +24,7 @@ import (
 
 	"astrona/internal/apphome"
 	"astrona/internal/config"
+	"astrona/internal/sshopts"
 	"astrona/internal/ui"
 )
 
@@ -1985,16 +1986,14 @@ func ProcessAlive(pid int) bool {
 // readiness polling (waitForSSHReady) — actual lab scripts run through
 // SSHExecutor.
 func sshRun(h *config.QEMUHandle, remoteCmd string) error {
-	args := []string{
+	args := append(sshopts.Unattended(5),
 		"-i", h.SSHKeyPath,
 		"-p", strconv.Itoa(h.SSHPort),
 		"-o", "StrictHostKeyChecking=accept-new",
-		"-o", "UserKnownHostsFile=" + h.KnownHosts,
-		"-o", "BatchMode=yes",
-		"-o", "ConnectTimeout=5",
-		fmt.Sprintf("%s@%s", h.SSHUser, h.SSHHost),
+		"-o", "UserKnownHostsFile="+h.KnownHosts,
+		"--", fmt.Sprintf("%s@%s", h.SSHUser, h.SSHHost),
 		remoteCmd,
-	}
+	)
 
 	return exec.Command("ssh", args...).Run()
 }

@@ -44,7 +44,8 @@ func TestLabConfigResults(t *testing.T) {
 		t.Errorf("hint = %q", byName["line 3"].hint)
 	}
 
-	clean := &config.LabConfig{Metadata: config.MetadataConfig{Name: "x"}}
+	clean := &config.LabConfig{Metadata: config.MetadataConfig{Name: "x"},
+		Validation: config.ValidationConfig{Checks: []config.ValidationCheck{{Name: "ok", Type: "command", Command: "true"}}}}
 	if res := labConfigResults(clean, dir); len(res) != 1 || res[0].status != checkOK {
 		t.Errorf("clean config = %+v", res)
 	}

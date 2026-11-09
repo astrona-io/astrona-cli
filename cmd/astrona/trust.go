@@ -60,9 +60,20 @@ func labRiskSummary(cfg *config.LabConfig) []string {
 			fetched = append(fetched, ref.item.Source)
 		}
 	}
-	for _, c := range cfg.Validation.Checks {
-		if strings.EqualFold(c.Type, "command") {
+	// Every check that executes or connects from this machine, wherever
+	// it's configured — kubectl checks only read the lab's own cluster.
+	checks := cfg.Validation.Checks
+	for _, vm := range cfg.Runtime.QEMU {
+		if vm.Validation != nil {
+			checks = append(checks[:len(checks):len(checks)], vm.Validation.Checks...)
+		}
+	}
+	for _, c := range checks {
+		switch strings.ToLower(c.Type) {
+		case "command":
 			lines = append(lines, "runs on this machine (command check): "+c.Command)
+		case "http":
+			lines = append(lines, "requests from this machine (http check): "+c.URL)
 		}
 	}
 	nManifests := 0
