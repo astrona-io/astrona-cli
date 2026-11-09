@@ -1,0 +1,143 @@
+/*
+ * Design tokens for the browser workspace.
+ *
+ * The dark theme's colours, radii and font families are copied from the
+ * astrona.io "Mission Control" design (astrona-web, app/assets/css/_tokens.scss),
+ * with the owner's approval, and are published here under the Apache License
+ * 2.0 like the rest of this repository. Only the values the workspace needs
+ * are copied. The light theme is derived for this workspace.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Grounds */
+  --bg: #0a0711;
+  --panel: #140d1d;
+  --panel-2: #1a1026;
+
+  /* Ink */
+  --ink: #ece7f5;
+  --muted: #9a8fb0;
+  --dim: #6b5c80; /* decoration and disabled borders only */
+
+  /* Lines */
+  --line: rgba(236, 231, 245, 0.12);
+  --line-strong: rgba(236, 231, 245, 0.18);
+  --line-bright: rgba(236, 231, 245, 0.22);
+  --hover: rgba(236, 231, 245, 0.04);
+
+  /* Accents, one job each */
+  --orange: #ff7a18; /* actions, primary buttons */
+  --orange-hover: #ff8c38;
+  --orange-ink: #ff9a4d; /* links and orange text */
+  --on-orange: #1a0d00;
+  --green: #39ff88; /* ready, connected, page eyebrows */
+  --cyan: #35e6ff;
+  --pink: #ff5bb0;
+  --red: #ff4757;
+  --violet: #c77cf5; /* section eyebrows, chrome */
+  --amber: #ffc24d; /* warnings, low time */
+
+  --tint-orange: rgba(255, 122, 24, 0.08);
+  --tint-green: rgba(57, 255, 136, 0.1);
+  --tint-red: rgba(255, 71, 87, 0.12);
+  --tint-amber: rgba(255, 194, 77, 0.1);
+
+  /* Shape */
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-xs: 8px;
+  --pill: 999px;
+
+  /* Type */
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-reading: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--orange);
+
+  /* Terminal */
+  --term-bg: #0d0915;
+  --term-fg: #ece7f5;
+  --term-cursor: #ff7a18;
+  --term-selection: rgba(199, 124, 245, 0.35);
+  --term-scrollbar: rgba(236, 231, 245, 0.18);
+  --term-scrollbar-hover: rgba(236, 231, 245, 0.32);
+  --ansi-0: #1a1026;
+  --ansi-1: #ff4757;
+  --ansi-2: #39ff88;
+  --ansi-3: #ffc24d;
+  --ansi-4: #6aa8ff;
+  --ansi-5: #c77cf5;
+  --ansi-6: #35e6ff;
+  --ansi-7: #d9d2e6;
+  --ansi-8: #6b5c80;
+  --ansi-9: #ff7380;
+  --ansi-10: #7dffb0;
+  --ansi-11: #ffd685;
+  --ansi-12: #96c2ff;
+  --ansi-13: #dba6f8;
+  --ansi-14: #7aeeff;
+  --ansi-15: #ffffff;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --bg: #f6f3fa;
+    --panel: #ffffff;
+    --panel-2: #efeaf6;
+
+    --ink: #1c1328;
+    --muted: #5b5070;
+    --dim: #a59bb7;
+
+    --line: rgba(28, 19, 40, 0.12);
+    --line-strong: rgba(28, 19, 40, 0.2);
+    --line-bright: rgba(28, 19, 40, 0.28);
+    --hover: rgba(28, 19, 40, 0.04);
+
+    --orange: #ff7a18;
+    --orange-hover: #ff8c38;
+    --orange-ink: #b04600;
+    --on-orange: #1a0d00;
+    --green: #0b7a3b;
+    --cyan: #086f80;
+    --pink: #b5136b;
+    --red: #c4102a;
+    --violet: #7a2ec8;
+    --amber: #8a5a00;
+
+    --tint-orange: rgba(255, 122, 24, 0.1);
+    --tint-green: rgba(11, 122, 59, 0.08);
+    --tint-red: rgba(196, 16, 42, 0.08);
+    --tint-amber: rgba(138, 90, 0, 0.08);
+
+    --focus: 0 0 0 2px var(--bg), 0 0 0 4px #b04600;
+
+    --term-bg: #fdfcff;
+    --term-fg: #1c1328;
+    --term-cursor: #b04600;
+    --term-selection: rgba(122, 46, 200, 0.22);
+    --term-scrollbar: rgba(28, 19, 40, 0.2);
+    --term-scrollbar-hover: rgba(28, 19, 40, 0.35);
+    --ansi-0: #1c1328;
+    --ansi-1: #c4102a;
+    --ansi-2: #0b7a3b;
+    --ansi-3: #8a5a00;
+    --ansi-4: #1f5bc4;
+    --ansi-5: #7a2ec8;
+    --ansi-6: #086f80;
+    --ansi-7: #5b5070;
+    --ansi-8: #6b5c80;
+    --ansi-9: #e0283f;
+    --ansi-10: #12924a;
+    --ansi-11: #a66d00;
+    --ansi-12: #3a74db;
+    --ansi-13: #9440de;
+    --ansi-14: #0a8599;
+    --ansi-15: #2a1f38;
+  }
+}

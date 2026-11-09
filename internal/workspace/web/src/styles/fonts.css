@@ -1,0 +1,46 @@
+/*
+ * Self-hosted fonts (the CSP allows no font CDN). Latin subset, WOFF2 only.
+ * Space Grotesk and JetBrains Mono are licensed under the SIL Open Font
+ * License 1.1, bundled from the @fontsource packages; their license texts are
+ * in THIRD_PARTY_NOTICES.txt next to the built page.
+ */
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('@fonts/space-grotesk/files/space-grotesk-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url('@fonts/space-grotesk/files/space-grotesk-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url('@fonts/space-grotesk/files/space-grotesk-latin-700-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: block;
+  font-weight: 400;
+  src: url('@fonts/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: block;
+  font-weight: 700;
+  src: url('@fonts/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff2') format('woff2');
+}
