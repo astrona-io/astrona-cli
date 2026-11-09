@@ -119,6 +119,8 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+          # trigger returns before the rule is applied.
+          sudo udevadm settle
           if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
             echo "::error::/dev/kvm is missing or not usable on this runner; the VM suites need hardware acceleration"
             ls -l /dev/kvm || true
