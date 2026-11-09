@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"astrona/internal/config"
+	"astrona/internal/preflight"
 
 	"github.com/spf13/cobra"
 )
@@ -20,13 +21,13 @@ func TestDoctorVersion(t *testing.T) {
 
 	for _, c := range []struct {
 		constraint string
-		status     checkStatus
+		status     preflight.Status
 		detail     string
 	}{
-		{"", checkOK, "any astrona"},
-		{">=0.2.0", checkOK, "fits"},
-		{"<=0.2.1", checkFail, "no fitting version is installed"},
-		{"~0.2", checkFail, "astronaVersion"},
+		{"", preflight.OK, "any astrona"},
+		{">=0.2.0", preflight.OK, "fits"},
+		{"<=0.2.1", preflight.Fail, "no fitting version is installed"},
+		{"~0.2", preflight.Fail, "astronaVersion"},
 	} {
 		r := doctorVersion(&config.LabConfig{AstronaVersion: c.constraint})
 		if r.Status != c.status || !strings.Contains(r.Detail, c.detail) {
@@ -72,7 +73,7 @@ func TestDoctorLoadLab(t *testing.T) {
 				t.Fatalf("cfg=%v err=%v", cfg, err)
 			}
 			if err != nil {
-				if r := doctorLabError(err); r.Status != checkFail || r.Hint == "" {
+				if r := doctorLabError(err); r.Status != preflight.Fail || r.Hint == "" {
 					t.Errorf("row = %+v", r)
 				}
 			}

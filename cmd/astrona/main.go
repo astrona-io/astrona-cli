@@ -167,7 +167,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 			// Lab signals kept while offline go out in the background.
-			startOutboxFlusher()
+			labops.StartOutboxFlusher()
 			if err := applyUserSettings(cmd, flags); err != nil {
 				return err
 			}

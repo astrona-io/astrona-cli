@@ -1,6 +1,7 @@
 package main
 
 import (
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/outbox"
 	"context"
@@ -55,7 +56,7 @@ func wantsUIPane(args []string) bool {
 // the user's terminal. This marker grants no terms, trust or restart consent.
 func uiPaneTitle(title string) {
 	if os.Getenv(uiPaneEnv) == "1" {
-		fmt.Fprintf(os.Stdout, "\x1b]2;%s\x07", sanitizeLine(title))
+		fmt.Fprintf(os.Stdout, "\x1b]2;%s\x07", labops.SanitizeLine(title))
 	}
 }
 
@@ -222,7 +223,7 @@ func newUIPaneModel(terminal *os.File, exited <-chan error, width, height int) *
 	m.emulator = vt.NewEmulator(w, h)
 	m.emulator.SetScrollbackSize(2000)
 	m.emulator.SetCallbacks(vt.Callbacks{Title: func(title string) {
-		m.title = sanitizeLine(title)
+		m.title = labops.SanitizeLine(title)
 		if !m.taskPane() {
 			m.taskFocusProtocol, m.terminalLocked = false, false
 		}
@@ -523,7 +524,7 @@ func (m *uiPaneModel) render() string {
 		if m.finished != nil {
 			state = submissionLabel(m.finished)
 		}
-		footer = "Time spent: " + formatUptime(m.timeSpent()) + " · " + state + " · " + footer
+		footer = "Time spent: " + labops.FormatUptime(m.timeSpent()) + " · " + state + " · " + footer
 		if progress := m.labTimeProgress(); progress != "" && uiHeaderHeight(m.width, m.height) < 5 {
 			footer = progress
 		}

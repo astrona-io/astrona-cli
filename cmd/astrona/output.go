@@ -1,14 +1,14 @@
 package main
 
 import (
-	"astrona/internal/labops"
-	"astrona/internal/portforward"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"astrona/internal/preflight"
 )
 
 // addOutputFlag adds -o/--output to cmd; formats lists the accepted values
@@ -48,7 +48,7 @@ type checkResultJSON struct {
 	Fix     string `json:"fix,omitempty"`
 }
 
-func checkResultsJSON(section string, res []checkResult) []checkResultJSON {
+func checkResultsJSON(section string, res []preflight.Result) []checkResultJSON {
 	out := make([]checkResultJSON, 0, len(res))
 	for _, r := range res {
 		out = append(out, checkResultJSON{Section: section, Name: r.Name, Status: r.Status.String(), Detail: r.Detail, Fix: r.Hint})
@@ -67,11 +67,6 @@ func failedCount(res []checkResultJSON) int {
 	return n
 }
 
-// forwardJSON is a port forward in -o json output (labops.ForwardJSON).
-type forwardJSON = labops.ForwardJSON
-
-func forwardsJSON(fs []portforward.Forward) []forwardJSON { return labops.ForwardsJSON(fs) }
-
 // report prints ✓/⚠/✗ sections for people, or collects them into one JSON
 // document (-o json) — so check, doctor and validate share one code path.
 type report struct {
@@ -81,12 +76,12 @@ type report struct {
 }
 
 // section prints (or collects) res under title and returns how many failed.
-func (r *report) section(title string, res []checkResult) int {
+func (r *report) section(title string, res []preflight.Result) int {
 	r.results = append(r.results, checkResultsJSON(title, res)...)
 	if r.json {
 		n := 0
 		for _, c := range res {
-			if c.Status == checkFail {
+			if c.Status == preflight.Fail {
 				n++
 			}
 		}
@@ -131,6 +126,6 @@ func (r *report) loadFailed(title string, err error) error {
 	if !r.json {
 		return err
 	}
-	r.section(title, []checkResult{doctorLabError(err)})
+	r.section(title, []preflight.Result{doctorLabError(err)})
 	return r.done(err)
 }

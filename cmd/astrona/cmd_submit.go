@@ -130,7 +130,7 @@ type submitOptions struct {
 	junitPath, output             string
 	noHints, history, watch, keep bool
 	watchInterval                 time.Duration
-	completed                     func(submissionResult, bool, bool)
+	completed                     func(labops.Submission, bool, bool)
 	// beforeCleanup runs just before a sent result deletes the lab (the UI
 	// closes its terminals); deleted runs once the lab is gone.
 	beforeCleanup, deleted func()
@@ -314,10 +314,3 @@ func printAttempts(w io.Writer, lab string, attempts []proctor.Attempt) {
 	tw.Flush()
 	fmt.Fprintf(w, "\nBest: %d/%d · %d attempt(s)\n", best.Earned, best.Max, len(attempts))
 }
-
-// checkJSON and submissionResult are labops' Submission types under their
-// old names, for the workspace and the tests. S15 removes them.
-type (
-	checkJSON        = labops.SubmissionCheck
-	submissionResult = labops.Submission
-)

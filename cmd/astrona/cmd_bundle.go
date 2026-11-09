@@ -20,20 +20,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// bundleImagesSidecar, written into a loaded bundle's lab directory, lists
-// the addon images that have to be loaded into the kind nodes.
-const bundleImagesSidecar = labops.BundleImagesSidecar
-
-// applyBundleImages adds a loaded bundle's addon images to the lab's
-// preloadImages (labops.ApplyBundleImages).
-func applyBundleImages(cfg *config.LabConfig, baseDir string) { labops.ApplyBundleImages(cfg, baseDir) }
-
-// labPreloadImages is what to load into the lab's own nodes
-// (labops.LabPreloadImages).
-func labPreloadImages(cfg *config.LabConfig, baseDir string) []string {
-	return labops.LabPreloadImages(cfg, baseDir)
-}
-
 func newBundleCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bundle",
@@ -91,9 +77,6 @@ func newBundleCreateCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
-// bundlesDir is ~/.astrona/bundles (authoring.BundlesDir).
-func bundlesDir() (string, error) { return authoring.BundlesDir() }
-
 func newBundleLoadCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:   "load <bundle.tar.gz>",
@@ -147,9 +130,9 @@ func trustBundle(flags *rootFlags, src, sum string, cfg *config.LabConfig, m *bu
 		return trust.Approve(tsrc, time.Now())
 	}
 	if flags.headless || !isatty.IsTerminal(os.Stdin.Fd()) {
-		return fmt.Errorf("bundle %s (%s) hasn't been approved — review it, then pass --trust", tsrc.Location, shortPin(tsrc.Pin))
+		return fmt.Errorf("bundle %s (%s) hasn't been approved — review it, then pass --trust", tsrc.Location, labops.ShortPin(tsrc.Pin))
 	}
-	summary := labRiskSummary(cfg)
+	summary := labops.RiskSummary(cfg)
 	summary = append(summary, fmt.Sprintf("loads %d image(s) into your container engine", len(m.Images)))
 	if !confirmTrust(os.Stdin, promptOut, tsrc, status, prev, summary) {
 		return errors.New("not trusted — nothing was loaded")

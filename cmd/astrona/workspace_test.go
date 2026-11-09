@@ -152,7 +152,7 @@ func TestWorkspaceTerminalValidation(t *testing.T) {
 		{"lab shell can open UI", true, true, false, "xterm", "astro-lab", true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv(labShellEnvVar, tt.nested)
+			t.Setenv(labops.LabShellEnvVar, tt.nested)
 			if err := checkWorkspaceTerminal(tt.input, tt.output, tt.ci, tt.term); (err == nil) != tt.ok {
 				t.Fatal(err)
 			}
@@ -547,7 +547,7 @@ func TestWorkspaceDriverSafety(t *testing.T) {
 }
 
 func TestWorkspaceSubmissionDelivery(t *testing.T) {
-	r := submissionResult{Attempt: 2, Pass: true, Earned: 2, Max: 2, Checks: []checkJSON{{Name: "check", Pass: true, Message: "done\x1b[2J"}, {Name: "other", Hint: "try again"}}}
+	r := labops.Submission{Attempt: 2, Pass: true, Earned: 2, Max: 2, Checks: []labops.SubmissionCheck{{Name: "check", Pass: true, Message: "done\x1b[2J"}, {Name: "other", Hint: "try again"}}}
 	for _, sent := range []bool{false, true} {
 		for _, recorded := range []bool{false, true} {
 			text := workspaceSubmission(r, sent, recorded)

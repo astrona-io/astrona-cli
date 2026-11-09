@@ -79,7 +79,7 @@ func TestWaitForEngineAfterStartup(t *testing.T) {
 		t.Fatal(err)
 	}
 	results, _ := preflight.CheckEngine()
-	if len(results) == 0 || results[0].Status != checkFail {
+	if len(results) == 0 || results[0].Status != preflight.Fail {
 		t.Fatalf("expected an unreachable engine before startup: %+v", results)
 	}
 

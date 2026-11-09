@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"astrona/internal/gitsource"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 )
 
@@ -57,7 +58,7 @@ func TestUIResumeUsesLocalFilesWithoutGit(t *testing.T) {
 						t.Fatal(err)
 					}
 					cleanup()
-					if base != dir || cfg.Runtime.Type != runtime || !sameSource(st.Source, rememberedSource(flags)) {
+					if base != dir || cfg.Runtime.Type != runtime || !labops.SameSource(st.Source, rememberedSource(flags)) {
 						t.Fatal("resume changed the source or runtime")
 					}
 					if task := workspaceTask(cfg, base, flags); !strings.Contains(task, "Continue here") {

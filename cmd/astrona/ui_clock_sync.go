@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/outbox"
 )
@@ -42,12 +43,12 @@ func (m *uiPaneModel) queueClock(target uiActivityTarget, paused bool, at time.T
 
 func (m *uiPaneModel) clockSignal(target uiActivityTarget, paused bool, at time.Time) tea.Cmd {
 	if finished, err := labstate.ReadSubmission(target.Lab, target.Started); err == nil && finished != nil {
-		m.clockSync = clockLocal
+		m.clockSync = labops.ClockLocal
 		return nil
 	}
 	// A local run (no lab session) has no clock on Astrona: nothing to tell.
 	if st, err := labstate.Load(target.Lab); err != nil || st == nil || st.LocalOnly || st.Session == nil || st.Session.ID == "" {
-		m.clockSync = clockLocal
+		m.clockSync = labops.ClockLocal
 		return nil
 	}
 	if paused {
@@ -59,7 +60,7 @@ func (m *uiPaneModel) clockSignal(target uiActivityTarget, paused bool, at time.
 		m.clockSync = clockSending
 	}
 	return func() tea.Msg {
-		result, status, err := signalClock(context.Background(), target.Lab, target.Started, paused, at)
+		result, status, err := labops.SignalClock(context.Background(), target.Lab, target.Started, paused, at)
 		return uiClockSynced{paused: paused, result: result, status: status, err: err}
 	}
 }
@@ -87,7 +88,7 @@ func (m *uiPaneModel) clockSynced(msg uiClockSynced) {
 	if msg.paused == m.clockPaused {
 		m.clockSync = msg.result
 		if msg.err != nil {
-			m.clockSync = clockWaiting
+			m.clockSync = labops.ClockWaiting
 			m.activityError = "Could not save the pause for Astrona: " + msg.err.Error()
 		}
 	}
@@ -96,9 +97,9 @@ func (m *uiPaneModel) clockSynced(msg uiClockSynced) {
 // clockSyncLine is what the idle dialog says about Astrona's clock.
 func (m *uiPaneModel) clockSyncLine() string {
 	switch m.clockSync {
-	case clockSent, clockSame:
+	case labops.ClockSent, labops.ClockSame:
 		return "The lab clock on Astrona is paused too."
-	case clockWaiting:
+	case labops.ClockWaiting:
 		if m.syncStatus.State == outbox.SignedOut {
 			return "Signed out: the pause is saved here and sent after astrona login."
 		}

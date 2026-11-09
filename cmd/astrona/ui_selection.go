@@ -13,6 +13,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
+
+	"astrona/internal/labops"
 )
 
 // Keep the selected pane still while output continues to drain into its terminal.
@@ -90,7 +92,7 @@ func (s *uiTextSelection) text() string {
 		}
 		lines = append(lines, strings.TrimRight(line.String(), " "))
 	}
-	return sanitizeTerminalText(strings.Join(lines, "\n"))
+	return labops.SanitizeTerminalText(strings.Join(lines, "\n"))
 }
 
 type uiClipboardResult struct {

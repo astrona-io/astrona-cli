@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
 
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/runtime"
 )
@@ -93,7 +95,7 @@ func sendSetup(t *testing.T, srv *httptest.Server, signedOut bool, sessionSite s
 }
 
 func TestSendResult(t *testing.T) {
-	result := submissionResult{Lab: "astro-x", Pass: true}
+	result := labops.Submission{Lab: "astro-x", Pass: true}
 	for _, c := range []struct {
 		name      string
 		status    int
@@ -109,8 +111,8 @@ func TestSendResult(t *testing.T) {
 		{"409", http.StatusConflict, false, true, "ATS/x", false, "The result was not sent: This lab attempt already has a result.", 1},
 		{"410", http.StatusGone, false, true, "ATS/x", false, "The result was not sent: This lab session expired after 60 minutes — run the lab again to start a new attempt\nStart a new attempt with: astrona reset ATS/x   (or: astrona destroy ATS/x, then astrona run ATS/x)", 1},
 		{"5xx", http.StatusBadGateway, false, true, "ATS/x", false, "", 1},
-		{"session, signed out", http.StatusCreated, true, true, "ATS/x", false, signInHint, 0},
-		{"catalog lab, no session, signed out", http.StatusCreated, true, false, "ATS/x", false, signInHint, 0},
+		{"session, signed out", http.StatusCreated, true, true, "ATS/x", false, labops.SignInHint, 0},
+		{"catalog lab, no session, signed out", http.StatusCreated, true, false, "ATS/x", false, labops.SignInHint, 0},
 		{"catalog lab, no session, signed in", http.StatusCreated, false, false, "ATS/x", false, "wasn't started with a lab session", 0},
 		{"-c lab, no session", http.StatusCreated, false, false, "", false, "", 0},
 	} {
@@ -152,7 +154,7 @@ func TestSendResultOnlyToTheSessionsSite(t *testing.T) {
 	srv, calls := fakeResultSite(t, http.StatusCreated)
 	sendSetup(t, srv, false, "https://elsewhere.example.com")
 	var w bytes.Buffer
-	if sendResult(context.Background(), &w, "astro-x", &labstate.Source{Catalog: "ATS/x"}, submissionResult{}) {
+	if sendResult(context.Background(), &w, "astro-x", &labstate.Source{Catalog: "ATS/x"}, labops.Submission{}) {
 		t.Error("sent to a site the session isn't on")
 	}
 	if calls.Load() != 0 || !strings.Contains(w.String(), "the result was not sent") {
@@ -167,7 +169,7 @@ func TestSendResultOnlyForTheConfigItWasStartedFrom(t *testing.T) {
 	sendSetup(t, srv, false, srv.URL)
 	for _, src := range []*labstate.Source{{Config: "/home/me/other"}, {Catalog: "ATS/y"}} {
 		var w bytes.Buffer
-		if sendResult(context.Background(), &w, "astro-x", src, submissionResult{}) {
+		if sendResult(context.Background(), &w, "astro-x", src, labops.Submission{}) {
 			t.Errorf("%+v: sent to the session of another config", src)
 		}
 		if !strings.Contains(w.String(), "the result was not sent") || !strings.Contains(w.String(), "astrona submit ATS/x") {
@@ -176,7 +178,7 @@ func TestSendResultOnlyForTheConfigItWasStartedFrom(t *testing.T) {
 	}
 	// The same catalog lab still sends.
 	var w bytes.Buffer
-	if !sendResult(context.Background(), &w, "astro-x", &labstate.Source{Catalog: "ATS/x"}, submissionResult{}) {
+	if !sendResult(context.Background(), &w, "astro-x", &labstate.Source{Catalog: "ATS/x"}, labops.Submission{}) {
 		t.Errorf("same catalog lab: not sent (%q)", w.String())
 	}
 	if calls.Load() != 1 {
@@ -202,11 +204,11 @@ func TestKeepContextHints(t *testing.T) {
 }
 
 func TestPrintTimeLimit(t *testing.T) {
-	if out := captureStdout(t, func() { printTimeLimit(&labstate.Session{MaxMinutes: 60}) }); out != "You have 60 minutes once the lab page opens.\n" {
+	if out := captureStdout(t, func() { labops.WriteTimeLimit(os.Stdout, &labstate.Session{MaxMinutes: 60}) }); out != "You have 60 minutes once the lab page opens.\n" {
 		t.Errorf("with a limit: %q", out)
 	}
 	for _, s := range []*labstate.Session{nil, {}} {
-		if out := captureStdout(t, func() { printTimeLimit(s) }); out != "" {
+		if out := captureStdout(t, func() { labops.WriteTimeLimit(os.Stdout, s) }); out != "" {
 			t.Errorf("without a limit: %q", out)
 		}
 	}

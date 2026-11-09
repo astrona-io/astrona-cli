@@ -13,6 +13,7 @@ import (
 	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/labshell"
 	"astrona/internal/lifecycle"
 	"astrona/internal/resources"
@@ -133,7 +134,7 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Print(sanitizeTerminalText(string(b)))
+			fmt.Print(labops.SanitizeTerminalText(string(b)))
 			if len(b) > 0 && b[len(b)-1] != '\n' {
 				fmt.Println()
 			}
@@ -169,7 +170,7 @@ func newResourceCmd(flags *rootFlags) *cobra.Command {
 	runCmd := withResource("run <name> [args...]", "Run a resource against the lab (in a qemu lab: inside its VM)", cobra.MinimumNArgs(1),
 		func(_ *cobra.Command, lab, dir string, r resources.Resource, rest []string) error {
 			if onHost {
-				if vmFlag != "" || !kindClusterExists(lab) {
+				if vmFlag != "" || !cluster.Exists(lab) {
 					return fmt.Errorf("--host is only available for Kind resources, without --vm")
 				}
 				return runHostResource(lab, dir, r, rest)
@@ -227,7 +228,7 @@ func pickResourceLab(cmd *cobra.Command, flags *rootFlags, labFlag string) (stri
 		}
 		return labNameFromConfig(flags)
 	}
-	if env := os.Getenv(labShellEnvVar); env != "" {
+	if env := os.Getenv(labops.LabShellEnvVar); env != "" {
 		return config.NormalizeClusterName(env), nil
 	}
 	if cmd.Flags().Changed("config") || cmd.Flags().Changed("git") || flags.fromCurrent {
@@ -293,7 +294,7 @@ func printResourceTree(root string) error {
 	}
 	sort.Strings(files)
 	for _, f := range files {
-		fmt.Println(sanitizeLine(f))
+		fmt.Println(labops.SanitizeLine(f))
 	}
 	return nil
 }
@@ -335,7 +336,7 @@ func resourceCommand(dir string, r resources.Resource, args []string) (name stri
 // runResource runs r against lab: for a kind lab with KUBECONFIG pointing at
 // the lab's own kubeconfig (and its linked clusters'), like `astrona shell`.
 func runResource(lab, dir string, r resources.Resource, args []string, vmFlag string, headless bool) error {
-	if !kindClusterExists(lab) {
+	if !cluster.Exists(lab) {
 		return runResourceInVM(lab, dir, r, args, vmFlag, headless) // qemu, or not running: it says so
 	}
 	if vmFlag != "" {
@@ -356,14 +357,14 @@ func runHostResource(lab, dir string, r resources.Resource, args []string) error
 	if err != nil {
 		return err
 	}
-	kubeconfig, err := labKubeconfig(lab)
+	kubeconfig, err := labops.LabKubeconfig(lab)
 	if err != nil {
 		return err
 	}
 	links, linkEnv := lifecycle.Links(lab)
 	env := append(os.Environ(),
-		"KUBECONFIG="+strings.Join(shellKubeconfigs(kubeconfig, lab, links, cluster.ExistingKubeconfig), string(os.PathListSeparator)),
-		labShellEnvVar+"="+lab,
+		"KUBECONFIG="+strings.Join(labops.ShellKubeconfigs(kubeconfig, lab, links, cluster.ExistingKubeconfig), string(os.PathListSeparator)),
+		labops.LabShellEnvVar+"="+lab,
 		resourceDirEnv+"="+dir,
 	)
 	env = append(env, linkEnv...)
@@ -372,7 +373,7 @@ func runHostResource(lab, dir string, r resources.Resource, args []string) error
 	c := exec.Command(name, argv...)
 	c.Dir = workDir
 	c.Env = env
-	fmt.Fprintf(os.Stderr, "→ %s  (HOST, lab %s, directory %s)\n", sanitizeLine(strings.Join(append([]string{r.Command()}, args...), " ")), strings.TrimPrefix(lab, apphome.ClusterPrefix()), workDir)
+	fmt.Fprintf(os.Stderr, "→ %s  (HOST, lab %s, directory %s)\n", labops.SanitizeLine(strings.Join(append([]string{r.Command()}, args...), " ")), strings.TrimPrefix(lab, apphome.ClusterPrefix()), workDir)
 	return runAttached(c)
 }
 
@@ -388,9 +389,9 @@ func resourceCompletions(list []resources.Resource) []cobra.Completion {
 		if desc == "" {
 			desc = "file"
 		}
-		out = append(out, cobra.CompletionWithDesc(sanitizeLine(r.File), sanitizeLine(desc)))
+		out = append(out, cobra.CompletionWithDesc(labops.SanitizeLine(r.File), labops.SanitizeLine(desc)))
 		if r.Name != r.File {
-			out = append(out, cobra.CompletionWithDesc(sanitizeLine(r.Name), sanitizeLine(desc)))
+			out = append(out, cobra.CompletionWithDesc(labops.SanitizeLine(r.Name), labops.SanitizeLine(desc)))
 		}
 	}
 	return out

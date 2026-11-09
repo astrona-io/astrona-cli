@@ -243,7 +243,7 @@ func TestLoginWhoamiLogout(t *testing.T) {
 }
 
 func TestStartSession(t *testing.T) {
-	signIn := func(t *testing.T, srv *httptest.Server) *labAccount {
+	signIn := func(t *testing.T, srv *httptest.Server) *labops.Account {
 		client, store := withAccount(t, srv.URL)
 		captureStdout(t, func() {
 			if err := login(context.Background(), client, store, srv.URL, testDevice); err != nil {
@@ -261,7 +261,7 @@ func TestStartSession(t *testing.T) {
 	acct := signIn(t, srv)
 	var page fmt.Stringer
 	captureStdout(t, func() {
-		p, _, err := startSession(context.Background(), acct, "run", "L")
+		p, _, err := labops.StartSession(context.Background(), os.Stdout, os.Stderr, acct, "run", "L")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -273,11 +273,11 @@ func TestStartSession(t *testing.T) {
 
 	// A page on another site is never opened.
 	other := fakeAstrona(t, http.StatusCreated, func(string) string { return "https://evil.example.com/labs/L" })
-	if _, _, err := startSession(context.Background(), signIn(t, other), "run", "L"); err == nil || !strings.Contains(err.Error(), "another site") {
+	if _, _, err := labops.StartSession(context.Background(), os.Stdout, os.Stderr, signIn(t, other), "run", "L"); err == nil || !strings.Contains(err.Error(), "another site") {
 		t.Errorf("foreign page: %v", err)
 	}
 	bad := fakeAstrona(t, http.StatusCreated, func(string) string { return "javascript:alert(1)" })
-	if _, _, err := startSession(context.Background(), signIn(t, bad), "run", "L"); err == nil || !strings.Contains(err.Error(), "nothing was built") {
+	if _, _, err := labops.StartSession(context.Background(), os.Stdout, os.Stderr, signIn(t, bad), "run", "L"); err == nil || !strings.Contains(err.Error(), "nothing was built") {
 		t.Errorf("bad page URL: %v", err)
 	}
 
@@ -288,7 +288,7 @@ func TestStartSession(t *testing.T) {
 		http.StatusServiceUnavailable:  "nothing was built",
 	} {
 		s := fakeAstrona(t, status, nil)
-		_, _, err := startSession(context.Background(), signIn(t, s), "run", "L")
+		_, _, err := labops.StartSession(context.Background(), os.Stdout, os.Stderr, signIn(t, s), "run", "L")
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("HTTP %d: %v, want %q", status, err, want)
 		}
@@ -355,7 +355,7 @@ func TestLoginDeclinedAndOldCredentials(t *testing.T) {
 
 func TestNotSignedInReasons(t *testing.T) {
 	expired := fmt.Errorf("your sign-in has expired or was revoked: %w", account.ErrSignedOut)
-	if got := notSignedInError(expired, "reset", "L").Error(); !strings.HasPrefix(got, "Your sign-in has expired or was revoked. Catalog labs") ||
+	if got := labops.NotSignedInError(expired, "reset", "L").Error(); !strings.HasPrefix(got, "Your sign-in has expired or was revoked. Catalog labs") ||
 		!strings.Contains(got, `"astrona reset L" again`) {
 		t.Errorf("expired: %s", got)
 	}

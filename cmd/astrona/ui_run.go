@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"astrona/internal/labops"
 	"astrona/internal/terms"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -139,7 +140,7 @@ func buildUIRunNotice(cmd *cobra.Command, flags *rootFlags, needsTerms bool) uiR
 	if flags.localOnly && flags.uiRestart == nil {
 		tracking = "This run is local only. No progress or results will be sent to the Astrona API."
 	}
-	summary := sanitizeLine(label) + "\n\n" + action + "\n"
+	summary := labops.SanitizeLine(label) + "\n\n" + action + "\n"
 	if flags.uiRestart == nil {
 		summary += "Other labs stay running.\n"
 	}
@@ -209,7 +210,7 @@ func (m uiRunModel) noticeText() string {
 
 func (m uiRunModel) maxScroll() int {
 	w := min(100, m.width-4)
-	lines := strings.Split(ansi.Wrap(sanitizeTerminalText(m.noticeText()), max(1, w-4), ""), "\n")
+	lines := strings.Split(ansi.Wrap(labops.SanitizeTerminalText(m.noticeText()), max(1, w-4), ""), "\n")
 	return max(0, len(lines)-max(1, m.height-9))
 }
 

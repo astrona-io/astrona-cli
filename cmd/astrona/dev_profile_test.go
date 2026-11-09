@@ -10,9 +10,11 @@ import (
 
 	"astrona/internal/account"
 	"astrona/internal/apphome"
+	"astrona/internal/authoring"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/hypervisor"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/localdata"
 	"astrona/internal/logs"
@@ -32,7 +34,7 @@ func TestDevelopmentStatePaths(t *testing.T) {
 		"settings.json":     func() (string, error) { return settings.Path("") },
 		"current.json":      currentLabPath,
 		"update-check.json": updateStatePath,
-		"bundles":           bundlesDir,
+		"bundles":           authoring.BundlesDir,
 		"bin":               versionsDir,
 		"labs":              labstate.Dir,
 		"kind":              cluster.KindStateDir,
@@ -72,7 +74,7 @@ func TestDevelopmentStatePaths(t *testing.T) {
 			t.Fatalf("test name = %s", got)
 		}
 	}
-	rows := groupKindContainers("release|running|astro-lab|control-plane\ndev|running|astrodev-lab|control-plane")
+	rows := labops.GroupKindContainers("release|running|astro-lab|control-plane\ndev|running|astrodev-lab|control-plane")
 	if len(rows) != 1 || len(rows["astrodev-lab"]) != 1 {
 		t.Fatalf("release cluster leaked into dev discovery: %v", rows)
 	}
@@ -88,7 +90,7 @@ func TestDevelopmentStatePaths(t *testing.T) {
 	}
 
 	apphome.Configure("v1.0.0")
-	rows = groupKindContainers("release|running|astro-lab|control-plane\ndev|running|astrodev-lab|control-plane")
+	rows = labops.GroupKindContainers("release|running|astro-lab|control-plane\ndev|running|astrodev-lab|control-plane")
 	if len(rows) != 1 || len(rows["astro-lab"]) != 1 {
 		t.Fatalf("dev cluster leaked into release discovery: %v", rows)
 	}

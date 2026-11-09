@@ -20,10 +20,6 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
-// shQuote quotes s for a POSIX shell — everything sent to the VM goes
-// through the remote user's shell, so every piece of it is quoted.
-func shQuote(s string) string { return labops.ShellQuote(s) }
-
 // vmResourceCommand runs the workspace helper against the student's editable
 // files. Values and arguments are quoted separately, never re-evaluated.
 func vmResourceCommand(r resources.Resource, args []string) (string, error) {
@@ -34,7 +30,7 @@ func vmResourceCommand(r resources.Resource, args []string) (string, error) {
 	argv = append(argv, args...)
 	quoted := make([]string, len(argv))
 	for i, arg := range argv {
-		quoted[i] = shQuote(arg)
+		quoted[i] = labops.ShellQuote(arg)
 	}
 	return `"$HOME/.astrona-resources/bin/astrona" ` + strings.Join(quoted, " "), nil
 }
@@ -51,16 +47,16 @@ func vmTarget(lab string, r resources.Resource, vmFlag string) (string, error) {
 		if err := config.ValidateName(vm); err != nil {
 			return "", fmt.Errorf("--vm: %w", err)
 		}
-		if qemuStateExists(lab + "-" + vm) {
+		if hypervisor.StateExists(lab + "-" + vm) {
 			return lab + "-" + vm, nil
 		}
 		return "", fmt.Errorf("lab %s has no running VM %q", strings.TrimPrefix(lab, apphome.ClusterPrefix()), vm)
 	}
-	if qemuStateExists(lab) {
+	if hypervisor.StateExists(lab) {
 		return lab, nil
 	}
 	var vms []string
-	if rows, _, err := collectQEMURows(); err == nil {
+	if rows, _, err := labops.CollectQEMURows(); err == nil {
 		for _, row := range rows {
 			if v, ok := strings.CutPrefix(row.Name, lab+"-"); ok {
 				vms = append(vms, v)
@@ -90,7 +86,7 @@ func runResourceInVM(lab, _ string, r resources.Resource, args []string, vmFlag 
 	if err != nil {
 		return err
 	}
-	remote = "env ASTRONA_LAB=" + shQuote(lab) + " ASTRONA_RESOURCE_TARGET=" + shQuote(target) + " " + remote
+	remote = "env ASTRONA_LAB=" + labops.ShellQuote(lab) + " ASTRONA_RESOURCE_TARGET=" + labops.ShellQuote(target) + " " + remote
 	sshPath, err := exec.LookPath("ssh")
 	if err != nil {
 		return err

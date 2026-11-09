@@ -12,6 +12,7 @@ import (
 	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
+	"astrona/internal/settings"
 	"astrona/internal/ui"
 
 	"github.com/mattn/go-isatty"
@@ -90,7 +91,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			if err := lifecycle.Validate(cfg); err != nil {
 				return fmt.Errorf("lab config is invalid, nothing was reset: %w", err)
 			}
-			if err := validateParallel(flags.parallel); err != nil {
+			if err := settings.ValidateParallel(flags.parallel); err != nil {
 				return err
 			}
 
@@ -161,11 +162,11 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 					return nil
 				}
 			}
-			start, err := startLabSession(ctx, acct, "reset", cfg, flags.catalogLab)
+			start, err := labops.StartLabSession(ctx, os.Stdout, os.Stderr, acct, "reset", cfg, flags.catalogLab)
 			if err != nil {
 				return err
 			}
-			defer start.abandon()
+			defer start.Abandon()
 
 			rep, err := ui.New("reset", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
@@ -173,7 +174,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
-			endOldSession(clusterName) // an old playground's watchdog would remove the new lab
+			labops.EndOldSession(os.Stderr, clusterName) // an old playground's watchdog would remove the new lab
 			if exists {
 				// With --keep-context reset won't switch again: the old lab's context goes back first.
 				if err := labops.RemoveForRestart(os.Stdout, cfg, baseDir, clusterName, flags.keepContext, false, rep); err != nil {
@@ -183,10 +184,10 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				rep.Info("Lab '%s' isn't running — creating it fresh.", clusterName)
 			}
 
-			if err := bringUpLab(cfg, baseDir, flags, rep, start.sess); err != nil {
+			if err := bringUpLab(cfg, baseDir, flags, rep, start.Session); err != nil {
 				return err
 			}
-			start.done(clusterName)
+			start.Done(clusterName)
 			return nil
 		},
 	}

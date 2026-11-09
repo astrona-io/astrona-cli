@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"text/tabwriter"
-	"time"
 
 	"astrona/internal/labops"
 	"astrona/internal/ui"
@@ -14,30 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// labRow is one line of `astrona list`'s output table. The inventory
-// (collecting VMs and kind clusters, their status) lives in labops.
-type labRow = labops.LabRow
-
-// kindContainer is one container of a kind cluster (labops.KindContainer).
-type kindContainer = labops.KindContainer
-
-// Thin wrappers over the labops inventory, so call sites keep their names
-// (the UI files call them too). S15 removes them.
-func collectQEMURows() ([]labRow, int, error) { return labops.CollectQEMURows() }
-func collectKindRows() []labRow               { return labops.CollectKindRows() }
-func kindAPIHealth(name string) (status, version string) {
-	return labops.KindAPIHealth(name)
-}
-func nodeHealth(data []byte) (status, version string) { return labops.NodeHealth(data) }
-func groupKindContainers(out string) map[string][]kindContainer {
-	return labops.GroupKindContainers(out)
-}
-func containerStatus(cs []kindContainer) string { return labops.ContainerStatus(cs) }
-func formatUptime(d time.Duration) string       { return labops.FormatUptime(d) }
-func linkedClusterOwners() map[string]string    { return labops.LinkedClusterOwners() }
-
 // markCurrentLab marks the lab picked with `astrona use`.
-func markCurrentLab(rows []labRow) {
+func markCurrentLab(rows []labops.LabRow) {
 	c, err := loadCurrentLab()
 	if err != nil || c == nil {
 		return
@@ -105,7 +82,7 @@ func newListCmd() *cobra.Command {
 // name is longer than the hardcoded width). Empty is reported the same way
 // kubectl reports an empty list ("No resources found") instead of two
 // separate "(none running)" sections per runtime.
-func printLabTable(w io.Writer, rows []labRow, wide bool) {
+func printLabTable(w io.Writer, rows []labops.LabRow, wide bool) {
 	if len(rows) == 0 {
 		fmt.Fprintln(w, "No astrona labs running.")
 		return
@@ -147,7 +124,7 @@ type labJSON struct {
 	Current      bool   `json:"current,omitempty"`
 }
 
-func printLabJSON(w io.Writer, rows []labRow) error {
+func printLabJSON(w io.Writer, rows []labops.LabRow) error {
 	out := make([]labJSON, 0, len(rows))
 	for _, r := range rows {
 		j := labJSON{Name: r.Name, Runtime: r.Runtime, Status: r.Status, Uptime: r.Uptime, Kubernetes: r.Version, PortForwards: r.Forwards, Details: r.Details, Current: r.Current}

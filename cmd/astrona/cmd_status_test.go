@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"astrona/internal/exam"
+	"astrona/internal/labops"
 	"astrona/internal/proctor"
 )
 
 func TestPrintLabStatus(t *testing.T) {
 	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
-	st := labStatus{
-		Row:      labRow{Name: "astro-x", Runtime: "kind", Status: "Ready (2/2)", Version: "v1.37.0", Uptime: "20m"},
+	st := labops.LabStatus{
+		Row:      labops.LabRow{Name: "astro-x", Runtime: "kind", Status: "Ready (2/2)", Version: "v1.37.0", Uptime: "20m"},
 		Exam:     &exam.State{StartedAt: now.Add(-30 * time.Minute), Limit: 2 * time.Hour},
 		Attempts: []proctor.Attempt{{Time: now.Add(-5 * time.Minute), Earned: 3, Max: 4}},
 		Now:      now,
@@ -34,7 +35,7 @@ func TestPrintLabStatus(t *testing.T) {
 	}
 
 	buf.Reset()
-	printLabStatus(&buf, labStatus{Row: labRow{Name: "astro-vm", Runtime: "qemu", Status: "Running"}, Now: now})
+	printLabStatus(&buf, labops.LabStatus{Row: labops.LabRow{Name: "astro-vm", Runtime: "qemu", Status: "Running"}, Now: now})
 	for _, want := range []string{"astrona ssh astro-vm", "Last submit  none yet"} {
 		if !strings.Contains(buf.String(), want) {
 			t.Errorf("qemu status missing %q:\n%s", want, buf.String())

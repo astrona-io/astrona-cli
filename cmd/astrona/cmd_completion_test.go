@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"astrona/internal/cluster"
+	"astrona/internal/labops"
 
 	"github.com/spf13/cobra"
 )
@@ -21,13 +22,13 @@ func names(cs []cobra.Completion) []string {
 }
 
 func TestLabNameCandidates(t *testing.T) {
-	rows := []labRow{
+	rows := []labops.LabRow{
 		{Name: "astro-web", Runtime: "kind", Status: "Ready (1/1)"},
 		{Name: "astro-db", Runtime: "kind", Status: "Stopped"},
 		{Name: "astro-vm", Runtime: "qemu", Status: "Running"},
 	}
 	cases := []struct {
-		keep       func(labRow) bool
+		keep       func(labops.LabRow) bool
 		toComplete string
 		want       string
 	}{
@@ -38,7 +39,7 @@ func TestLabNameCandidates(t *testing.T) {
 		{isKind, "", "astro-web,astro-db"},
 		{isQEMU, "", "astro-vm"},
 		{isStoppedKind, "", "astro-db"},
-		{func(r labRow) bool { return isKind(r) && isRunning(r) }, "", "astro-web"},
+		{func(r labops.LabRow) bool { return isKind(r) && isRunning(r) }, "", "astro-web"},
 		{nil, "zzz", ""},
 	}
 	for _, c := range cases {

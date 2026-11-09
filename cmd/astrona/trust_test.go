@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/trust"
 	"astrona/internal/ui"
 )
@@ -55,7 +56,7 @@ func TestTrustPromptSanitized(t *testing.T) {
 		},
 		Validation: config.ValidationConfig{Checks: []config.ValidationCheck{{Type: "command", Command: "ls" + evil}}},
 	}
-	summary := labRiskSummary(cfg)
+	summary := labops.RiskSummary(cfg)
 	for _, l := range summary {
 		if hasControl(l) {
 			t.Errorf("summary line has control characters: %q", l)
@@ -122,9 +123,9 @@ func TestRequireTrust(t *testing.T) {
 func TestTeardownTrusted(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	script := []config.ResourceItem{{Name: "cleanup", Type: "file", Source: "cleanup.sh"}}
-	remote := func(cfg config.LabConfig) teardownInfo {
+	remote := func(cfg config.LabConfig) labops.Teardown {
 		cfg.SourcePath, cfg.SourceSHA256 = "https://labs.example/config.yaml", "abc"
-		return teardownInfo{Teardown: cfg.Teardown, Runtime: cfg.Runtime, Config: &cfg}
+		return labops.Teardown{Teardown: cfg.Teardown, Runtime: cfg.Runtime, Config: &cfg}
 	}
 	withScript := remote(config.LabConfig{Teardown: config.TeardownConfig{Init: script}})
 	linkedScript := remote(config.LabConfig{Runtime: config.RuntimeConfig{Kind: &config.KindConfig{
@@ -134,14 +135,14 @@ func TestTeardownTrusted(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		flags rootFlags
-		info  teardownInfo
+		info  labops.Teardown
 		want  bool
 	}{
 		{"remote with teardown, no terminal, no --trust", rootFlags{}, withScript, false},
 		{"remote linked-cluster teardown, no --trust", rootFlags{}, linkedScript, false},
 		{"remote without teardown scripts: nothing to approve", rootFlags{}, remote(config.LabConfig{}), true},
-		{"local lab", rootFlags{}, teardownInfo{Teardown: local.Teardown, Config: &local}, true},
-		{"no config", rootFlags{}, teardownInfo{Teardown: local.Teardown}, true},
+		{"local lab", rootFlags{}, labops.Teardown{Teardown: local.Teardown, Config: &local}, true},
+		{"no config", rootFlags{}, labops.Teardown{Teardown: local.Teardown}, true},
 		{"remote with --trust", rootFlags{trust: true}, withScript, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

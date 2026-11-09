@@ -74,9 +74,9 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 				return nil, cobra.ShellCompDirectiveNoFileComp
 			}
 			names, _ := workspaceLabNames()
-			rows := make([]labRow, 0, len(names))
+			rows := make([]labops.LabRow, 0, len(names))
 			for _, name := range names {
-				rows = append(rows, labRow{Name: name, Status: "Running"})
+				rows = append(rows, labops.LabRow{Name: name, Status: "Running"})
 			}
 			return labNameCandidates(rows, nil, prefix), cobra.ShellCompDirectiveNoFileComp
 		},
@@ -119,9 +119,9 @@ func workspaceLabNames() ([]string, error) {
 	if len(known) == 0 {
 		return nil, nil
 	}
-	owners := linkedClusterOwners()
+	owners := labops.LinkedClusterOwners()
 	var names []string
-	for _, row := range collectKindRows() {
+	for _, row := range labops.CollectKindRows() {
 		if _, linked := owners[row.Name]; !linked && isRunning(row) && slices.Contains(known, row.Name) && !strings.HasPrefix(row.Name, apphome.TestClusterPrefix()) {
 			names = append(names, row.Name)
 		}
@@ -157,7 +157,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 	}
 	name := config.NormalizeClusterName(cfg.Metadata.Name)
 	if cfg.Runtime.Type != "qemu" {
-		if err := requireRunningKindLab(cfg, name); err != nil {
+		if err := labops.RequireRunningKindLab(cfg, name); err != nil {
 			return "", err
 		}
 	}
@@ -171,7 +171,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 	if expectedRunID != "" && labops.RunID(st) != expectedRunID {
 		return "", fmt.Errorf("run changed while opening %s; select it again from Home", name)
 	}
-	if !sameSource(st.Source, rememberedSource(flags)) {
+	if !labops.SameSource(st.Source, rememberedSource(flags)) {
 		return "", fmt.Errorf("lab %s was started from another config; attach using its saved source with astrona ui %s", name, name)
 	}
 	runID := labops.RunID(st)
@@ -197,7 +197,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 			return "", fmt.Errorf("no VMs are running in lab %s", name)
 		}
 	}
-	playground := st.Session.IsPlayground() || isPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground"
+	playground := st.Session.IsPlayground() || labops.IsPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground"
 	task, expected := workspaceTaskInfo(cfg, baseDir, flags)
 	stopActivity := uiActivityStart(name, st.StartedAt, uiLabProgress{Lab: !playground, Expected: expected})
 	defer stopActivity()
@@ -253,7 +253,7 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 			}
 			err := submitLoadedLab(flags, cfg, baseDir, submitOptions{
 				runID: runID, // a lab re-created since the UI opened is not graded
-				completed: func(r submissionResult, sent, recorded bool) {
+				completed: func(r labops.Submission, sent, recorded bool) {
 					result = workspaceSubmission(r, sent, recorded)
 					if local && !sent {
 						result = strings.Replace(result, "Not sent to Astrona. Check the submission output for details.\n", "Local run: nothing is sent to Astrona; this result is saved here.\n", 1)
@@ -271,9 +271,9 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 				return false, err
 			}
 			defer rep.Close()
-			info := teardownInfo{ClusterName: name, RunID: runID, Teardown: cfg.Teardown, Runtime: cfg.Runtime, Config: cfg} // only the run this UI opened
+			info := labops.Teardown{ClusterName: name, RunID: runID, Teardown: cfg.Teardown, Runtime: cfg.Runtime, Config: cfg} // only the run this UI opened
 			info.SkipScripts = !teardownTrusted(flags, info, baseDir, rep)
-			err = destroyLab(info, baseDir, rep)
+			err = labops.DestroyLab(info, baseDir, rep, destroyOptions())
 			return err == nil && !cfg.Teardown.KeepCluster, err
 		},
 	})
@@ -391,7 +391,7 @@ func driveWorkspace(ctx context.Context, m workspaceModel, d workspaceDriver) er
 	}
 }
 
-func workspaceSubmission(r submissionResult, sent, recorded bool) string {
+func workspaceSubmission(r labops.Submission, sent, recorded bool) string {
 	result := "FAIL"
 	if r.Pass {
 		result = "PASS"
@@ -423,7 +423,7 @@ func workspaceSubmission(r submissionResult, sent, recorded bool) string {
 			text += "\nHint: " + c.Hint
 		}
 	}
-	return sanitizeTerminalText(text)
+	return labops.SanitizeTerminalText(text)
 }
 
 func workspaceTask(cfg *config.LabConfig, baseDir string, flags *rootFlags) string {
@@ -444,7 +444,7 @@ func workspaceTaskInfo(cfg *config.LabConfig, baseDir string, flags *rootFlags) 
 	}
 	text, err := labops.ReadLabDoc(configPath, cfg.Metadata.Docs.Question)
 	if err != nil {
-		return "Could not read the task: " + sanitizeLine(err.Error()), 0
+		return "Could not read the task: " + labops.SanitizeLine(err.Error()), 0
 	}
 	return labTaskDocument(text)
 }
@@ -562,7 +562,7 @@ func workspaceClusterHealth(ctx context.Context, name string) string {
 	if err := cmd.Run(); err != nil {
 		return "Unavailable (API/engine)"
 	}
-	status, _ := nodeHealth(output.Bytes())
+	status, _ := labops.NodeHealth(output.Bytes())
 	return status
 }
 

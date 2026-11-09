@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/resources"
 	"astrona/internal/ui"
@@ -41,7 +42,7 @@ func TestDestroyByNameMultiVMLab(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := destroyByName("astro-zz-net", ui.Discard()); err != nil {
+	if err := labops.DestroyByName("astro-zz-net", ui.Discard(), destroyOptions()); err != nil {
 		t.Fatal(err)
 	}
 	for _, gone := range []string{

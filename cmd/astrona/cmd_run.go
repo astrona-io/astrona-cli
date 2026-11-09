@@ -2,7 +2,7 @@ package main
 
 import (
 	"astrona/internal/apphome"
-	"context"
+	"astrona/internal/authoring"
 	"fmt"
 	"os"
 
@@ -81,7 +81,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				if err := requireWorkspaceTerminal(); err != nil {
 					return err
 				}
-				if os.Getenv(labShellEnvVar) != "" {
+				if os.Getenv(labops.LabShellEnvVar) != "" {
 					flags.keepContext = true
 				}
 			}
@@ -164,18 +164,18 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err := lifecycle.Validate(cfg); err != nil {
 				return err
 			}
-			if err := validateParallel(flags.parallel); err != nil {
+			if err := settings.ValidateParallel(flags.parallel); err != nil {
 				return err
 			}
 
 			// The session is started before the build, so a refusal costs
 			// nothing; the page is only opened once the lab is ready.
-			start, err := startLabSession(ctx, acct, "run", cfg, flags.catalogLab)
+			start, err := labops.StartLabSession(ctx, os.Stdout, os.Stderr, acct, "run", cfg, flags.catalogLab)
 			if err != nil {
 				return err
 			}
-			defer start.abandon()
-			start.progress("preparing", "Preparing your lab environment")
+			defer start.Abandon()
+			start.Progress("preparing", "Preparing your lab environment")
 
 			rep, err := ui.New("run", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
@@ -185,7 +185,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 
 			for _, other := range choice.stopOthers {
 				rep.Section("Destroy %s", other)
-				if err := destroyByName(other, rep); err != nil {
+				if err := labops.DestroyByName(other, rep, destroyOptions()); err != nil {
 					rep.Warn("couldn't destroy %s: %s — continuing", other, err)
 				}
 			}
@@ -201,7 +201,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 			} else {
-				endOldSession(clusterName) // an old playground's watchdog would remove the new lab
+				labops.EndOldSession(os.Stderr, clusterName) // an old playground's watchdog would remove the new lab
 			}
 			if choice.startOver {
 				// With --keep-context run won't switch again: the old lab's context goes back first.
@@ -209,10 +209,10 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 					return fmt.Errorf("could not remove the running lab, nothing was started: %w", err)
 				}
 			}
-			if err := bringUpLab(cfg, baseDir, flags, rep, start.sess); err != nil {
+			if err := bringUpLab(cfg, baseDir, flags, rep, start.Session); err != nil {
 				return err
 			}
-			start.done(clusterName)
+			start.Done(clusterName)
 			release()
 			if workspace {
 				return runLabWorkspace(cmd.Context(), cfg, baseDir, flags)
@@ -245,11 +245,6 @@ func addParallelFlag(cmd *cobra.Command, flags *rootFlags) {
 	cmd.Flags().IntVar(&flags.parallel, "parallel", 1, fmt.Sprintf("Create up to N linked clusters (runtime.kind.clusters) at once, 1-%d (default 1: one at a time). dependsOn is still respected, and after a failure nothing new starts", lifecycle.MaxParallel))
 }
 
-// validateParallel checks --parallel.
-func validateParallel(n int) error {
-	return settings.ValidateParallel(n)
-}
-
 // printConnectHints prints how to reach the lab: for a kind lab, either
 // that kubectl now points at it (sw: run switched the user's
 // current-context, and destroy switches it back) or — with --keep-context,
@@ -263,7 +258,7 @@ func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clust
 			if sw.AlreadyCurrent {
 				fmt.Printf("\n")
 			} else {
-				fmt.Printf(" Your previous context %s comes back with: astrona destroy %s\n", previousContextLabel(sw), clusterName)
+				fmt.Printf(" Your previous context %s comes back with: astrona destroy %s\n", labops.PreviousContextLabel(sw), clusterName)
 			}
 			fmt.Printf("    kubectl get nodes\n")
 			fmt.Printf("    astrona shell %s                  # or a shell with only this lab's kubeconfig\n", clusterName)
@@ -312,7 +307,7 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 		KeepContext:  flags.keepContext,
 		Parallel:     flags.parallel,
 		Session:      sess,
-		ConfigChecks: labConfigResults,
+		ConfigChecks: authoring.CheckConfig,
 		Warn:         os.Stderr,
 	}, rep)
 	if err != nil {
@@ -336,26 +331,6 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 	fmt.Printf("Full log: %s\n", res.LogPath)
 	return nil
 }
-
-// labStart is the lab session a run or a full reset builds a lab under
-// (labops.LabStart), under the names cmd's callers and tests use. S15
-// removes it.
-type labStart struct {
-	ls   *labops.LabStart
-	sess *labstate.Session
-}
-
-// startLabSession starts acct's session for the catalog lab (nil acct:
-// none) before anything is built (labops.StartLabSession); it says so on
-// stdout.
-func startLabSession(ctx context.Context, acct *labAccount, command string, cfg *config.LabConfig, lab string) (*labStart, error) {
-	ls, err := labops.StartLabSession(ctx, os.Stdout, os.Stderr, acct, command, cfg, lab)
-	return &labStart{ls: ls, sess: ls.Session}, err
-}
-
-func (s *labStart) abandon()                       { s.ls.Abandon() }
-func (s *labStart) done(clusterName string)        { s.ls.Done(clusterName) }
-func (s *labStart) progress(phase, message string) { s.ls.Progress(phase, message) }
 
 // configFlagHint is the " -c <dir>" to append to a suggested command so it
 // finds the same lab config — empty when that's the current directory.

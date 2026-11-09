@@ -10,6 +10,7 @@ import (
 
 	"astrona/internal/account"
 	"astrona/internal/apphome"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 
 	tea "charm.land/bubbletea/v2"
@@ -114,14 +115,14 @@ func (m *uiPaneModel) headerInfo() string {
 			return workspaceFit(style.Render("● "+status.label)+"  "+brand+"\n"+uiUsageText(usage), m.width, height)
 		}
 		return workspaceFit(style.Render("● "+status.label)+"  "+brand+"\n"+
-			workspaceMuted.Render(profile+" · "+sanitizeLine(status.site)), m.width, height)
+			workspaceMuted.Render(profile+" · "+labops.SanitizeLine(status.site)), m.width, height)
 	}
 	user := status.username
 	if user == "" {
 		user = "Guest"
 	}
 	field := func(label, value string) string {
-		return workspaceAccent.Render(workspaceFit(label+":", 10, 1)) + sanitizeLine(value)
+		return workspaceAccent.Render(workspaceFit(label+":", 10, 1)) + labops.SanitizeLine(value)
 	}
 	rows := []string{
 		workspaceAccent.Render("Login:    ") + style.Render(status.label),

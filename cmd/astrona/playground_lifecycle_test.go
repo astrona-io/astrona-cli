@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -84,7 +85,7 @@ func (p *playgroundSite) stopped() []string {
 
 // signIn signs in to p in a fresh HOME and returns the account a catalog
 // lab runs under.
-func (p *playgroundSite) signIn(t *testing.T) *labAccount {
+func (p *playgroundSite) signIn(t *testing.T) *labops.Account {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	client, store := withAccount(t, p.srv.URL)
@@ -121,11 +122,11 @@ func TestLabStartPlayground(t *testing.T) {
 	acct := site.signIn(t)
 	spawned := withSpawnedWatchdogs(t)
 	cfg := &config.LabConfig{Metadata: config.MetadataConfig{Name: "play", TimeLimit: "90m"}}
-	begin := func(command, lab string) *labStart {
-		var start *labStart
+	begin := func(command, lab string) *labops.LabStart {
+		var start *labops.LabStart
 		captureStdout(t, func() {
 			var err error
-			if start, err = startLabSession(context.Background(), acct, command, cfg, lab); err != nil {
+			if start, err = labops.StartLabSession(context.Background(), os.Stdout, os.Stderr, acct, command, cfg, lab); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -137,22 +138,22 @@ func TestLabStartPlayground(t *testing.T) {
 		if created := site.lastCreated(); created["kind"] != "playground" || created["time_limit_minutes"] != float64(90) {
 			t.Errorf("%s: session request = %v, want a 90-minute playground", command, created)
 		}
-		captureStdout(t, func() { start.done("astro-play") })
-		start.abandon() // deferred: a ready playground keeps its clock
+		captureStdout(t, func() { start.Done("astro-play") })
+		start.Abandon() // deferred: a ready playground keeps its clock
 	}
 	if len(*spawned) != 2 || len(site.stopped()) != 0 {
 		t.Errorf("ready: watchdogs %v, stops %v; want one watchdog per start and no stop", *spawned, site.stopped())
 	}
 
 	// The build failed: the clock is stopped, no watchdog.
-	begin("run", "ATS/s/m/playground").abandon()
+	begin("run", "ATS/s/m/playground").Abandon()
 	if got := site.stopped(); len(got) != 1 || got[0] != "s-new destroyed" {
 		t.Errorf("failed build: stops %v, want [s-new destroyed]", got)
 	}
 
 	// A lab's clock starts on its page: a failed build has nothing to stop.
 	site.set("lab", "")
-	begin("run", "ATS/s/m/lab-01").abandon()
+	begin("run", "ATS/s/m/lab-01").Abandon()
 	if len(site.stopped()) != 1 || len(*spawned) != 2 {
 		t.Errorf("lab: stops %v, watchdogs %v", site.stopped(), *spawned)
 	}
@@ -167,7 +168,7 @@ func TestStartSessionDistrustsKindAndDeadline(t *testing.T) {
 		var sess *labstate.Session
 		captureStdout(t, func() {
 			var err error
-			if _, sess, err = startSession(context.Background(), acct, "run", "L", opts...); err != nil {
+			if _, sess, err = labops.StartSession(context.Background(), os.Stdout, os.Stderr, acct, "run", "L", opts...); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -207,7 +208,7 @@ func TestEndOldSessionStopsTheOldPlayground(t *testing.T) {
 	go func() { done <- watchPlayground(ctx, "astro-play", 10*time.Millisecond) }()
 	time.Sleep(30 * time.Millisecond)
 
-	endOldSession("astro-play")
+	labops.EndOldSession(os.Stderr, "astro-play")
 	select {
 	case err := <-done:
 		if err != nil {
