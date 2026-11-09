@@ -276,10 +276,18 @@ func DestroyEnvironment(name string, cfg config.RuntimeConfig, rep *ui.Reporter)
 	if err != nil {
 		return err
 	}
+	// The exam clock goes only once the lab is gone: a failed delete
+	// leaves the lab, so it keeps its clock (and exam.strict with it).
+	if err := destroyEnvironment(name, runtimeType, cfg, rep); err != nil {
+		return err
+	}
 	if err := exam.Clear(name); err != nil {
 		rep.Warn("%s", err)
 	}
+	return nil
+}
 
+func destroyEnvironment(name string, runtimeType RuntimeType, cfg config.RuntimeConfig, rep *ui.Reporter) error {
 	switch runtimeType {
 	case RuntimeKind:
 		// Forwards first: their supervisors would otherwise keep retrying

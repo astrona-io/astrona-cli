@@ -75,12 +75,16 @@ func RunLinkedTeardown(labs []config.KindCluster, labCluster, baseDir string, re
 
 // DestroyKindCluster removes a kind cluster by name, like `astrona destroy
 // <name>` (no config, so no teardown scripts).
+// The exam clock is cleared only once the cluster is deleted.
 func DestroyKindCluster(name string, rep *ui.Reporter) error {
+	portforward.StopForLab(name, rep)
+	if err := cluster.DeleteKindCluster(name, rep); err != nil {
+		return err
+	}
 	if err := exam.Clear(name); err != nil {
 		rep.Warn("%s", err)
 	}
-	portforward.StopForLab(name, rep)
-	return cluster.DeleteKindCluster(name, rep)
+	return nil
 }
 
 // TeardownEnvironment picks what runs the teardown scripts: the lab's real

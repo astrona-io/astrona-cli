@@ -66,6 +66,8 @@ teardown:
 - Linked clusters (`runtime.kind.clusters`) can have their own `teardown.init`; they run after the lab's, in reverse start order, each with `KUBECONFIG` pointing at its cluster (skipped if that cluster is gone).
 - The lab's linked clusters are destroyed even if destroying the lab itself fails.
 - If `astrona run` pointed your kubectl at the lab, destroy switches it back to the context you had before (only while the lab's context is still current — see [kubeconfig isolation](runtimes.md#kubeconfig-isolation)), then forgets what was remembered about the lab (`~/.astrona/labs/<lab>.json`: its config source and lab session).
+- The exam clock and the lab's memory are removed only once the lab is deleted, or confirmed not to exist. If Docker or Podman is installed but doesn't answer, astrona can't tell whether a kind lab still exists: `destroy` stops before changing anything — no teardown scripts, nothing deleted, saved state, session and exam clock kept — and asks you to start Docker or Podman and run destroy again. `run` and `reset` stop the same way, and `astrona list` shows remembered labs as `EngineUnreachable` instead of dropping them. A qemu lab destroyed by name doesn't need the container engine.
+- The lab's port forwards are stopped whenever a lab is destroyed by name, whatever runtime it turns out to have.
 - `keepCluster: true` skips deleting the environment afterwards — useful while iterating on a lab locally, since `astrona destroy` re-run without it will still clean up.
 
 ## Starting over: `astrona reset`

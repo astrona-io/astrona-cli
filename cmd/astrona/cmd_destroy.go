@@ -89,7 +89,12 @@ func destroyByDiscovery(rep *ui.Reporter) error {
 	if err != nil {
 		return fmt.Errorf("auto-discovery of running labs failed: %w", err)
 	}
-	rows := append(qemuRows, collectKindRows()...)
+	kindRows, err := lookupKindRows()
+	if err != nil {
+		// Its kind labs are hidden, so "the only running lab" can't be known.
+		return fmt.Errorf("auto-discovery of running labs failed — the container engine is unreachable: %w\nNothing was destroyed. Start Docker or Podman and run destroy again", err)
+	}
+	rows := append(qemuRows, kindRows...)
 
 	// A linked cluster goes with its lab (destroyByName), not on its own.
 	owners := linkedClusterOwners()
@@ -173,14 +178,23 @@ func destroyByNameLocked(name string, rep *ui.Reporter) error {
 
 	foundQemu := qemuStateExists(name)
 	vms := hypervisor.MultiVMs(name) // a multi-VM qemu lab's VMs: <name>-<vm>
-	foundKind := kindClusterExists(name)
-	owned := lifecycle.OwnedClusters(name, nil) // read before destroy removes the saved state
-	if err := exam.Clear(name); err != nil {
-		rep.Warn("%s", err)
+	foundKind, err := cluster.Lookup(name)
+	if err != nil {
+		if !foundQemu && len(vms) == 0 {
+			// Unknown is not absent: keep everything for the retry.
+			return engineUnreachable(name, err)
+		}
+		// Its qemu state names it a qemu lab; only kind is unknown.
+		rep.Warn("container engine unreachable — destroying the qemu lab '%s' without checking for a kind cluster of the same name: %s", name, err)
 	}
+	owned := lifecycle.OwnedClusters(name, nil) // read before destroy removes the saved state
+	// Supervisors are local processes: stop them whatever runtime is found.
+	portforward.StopForLab(name, rep)
 
 	if !foundQemu && len(vms) == 0 && !foundKind && len(owned) == 0 {
-		forgetLab(name) // whatever was remembered about it is stale
+		// Confirmed absent: whatever was remembered about it is stale.
+		clearExamClock(name, rep)
+		forgetLab(name)
 		return fmt.Errorf("no astrona lab named '%s' found (checked qemu state and kind clusters) — run `astrona list` to see what's actually running", name)
 	}
 
@@ -198,7 +212,6 @@ func destroyByNameLocked(name string, rep *ui.Reporter) error {
 		}
 	}
 	if foundKind {
-		portforward.StopForLab(name, rep)
 		if err := cluster.DeleteKindCluster(name, rep); err != nil {
 			errs = append(errs, fmt.Sprintf("kind: %s", err))
 		}
@@ -207,6 +220,7 @@ func destroyByNameLocked(name string, rep *ui.Reporter) error {
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to destroy '%s': %s", name, strings.Join(errs, "; "))
 	}
+	clearExamClock(name, rep) // only now that the lab is gone
 	forgetLab(name)
 
 	fmt.Printf("Lab '%s' cleaned up successfully.\n", name)
@@ -226,7 +240,11 @@ func destroyByPattern(pattern string, rep *ui.Reporter) error {
 	if err != nil {
 		return fmt.Errorf("auto-discovery of running labs failed: %w", err)
 	}
-	rows := append(qemuRows, collectKindRows()...)
+	kindRows, err := lookupKindRows()
+	if err != nil {
+		return fmt.Errorf("can't match '%s' — the container engine is unreachable: %w\nNothing was destroyed. Start Docker or Podman and run destroy again", pattern, err)
+	}
+	rows := append(qemuRows, kindRows...)
 
 	if len(rows) == 0 {
 		fmt.Printf("No astrona labs currently running — nothing to destroy (pattern '%s' had nothing to match against).\n", pattern)
@@ -283,6 +301,19 @@ func destroyByPattern(pattern string, rep *ui.Reporter) error {
 func qemuStateExists(name string) bool { return hypervisor.StateExists(name) }
 
 func kindClusterExists(name string) bool { return cluster.Exists(name) }
+
+// engineUnreachable is destroy's stop when the container engine can't say
+// whether name's kind cluster exists. Nothing has been changed.
+func engineUnreachable(name string, err error) error {
+	return fmt.Errorf("cannot tell whether lab '%s' still exists: %w\nNothing was destroyed; its saved state, session and exam clock are kept. Start Docker or Podman and run destroy again", name, err)
+}
+
+// clearExamClock removes name's exam clock once its lab is gone.
+func clearExamClock(name string, rep *ui.Reporter) {
+	if err := exam.Clear(name); err != nil {
+		rep.Warn("%s", err)
+	}
+}
 
 // hasTeardownScripts reports whether destroying the lab would run any of its
 // scripts — its own teardown.init or a linked cluster's.
@@ -385,6 +416,13 @@ func destroyLab(info teardownInfo, baseDir string, rep *ui.Reporter) error {
 		}
 		if workspaceRunID(current) != info.runID {
 			return fmt.Errorf("lab stopped or restarted during submission; the current run was not deleted")
+		}
+	}
+	if info.runtime.Type != string(runtime.RuntimeQEMU) {
+		// A stopped engine hides the cluster: don't run teardown scripts
+		// without it or forget a lab that may still be there.
+		if _, err := cluster.Lookup(clusterName); err != nil {
+			return engineUnreachable(clusterName, err)
 		}
 	}
 	status := info.status
