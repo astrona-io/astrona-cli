@@ -18,7 +18,18 @@ permissions:
   contents: write
 
 jobs:
+  # Nothing is built or published until the acceptance suite passes on this
+  # exact ref; its report is attached to the GitHub release.
+  acceptance:
+    uses: ./.github/workflows/acceptance-full.yml
+    permissions:
+      contents: read
+    with:
+      version: ${{ inputs.version || github.ref_name }}
+      ref: ${{ inputs.version && format('refs/tags/{0}', inputs.version) || github.ref }}
+
   build-linux-packages:
+    needs: acceptance
     uses: ./.github/workflows/linux-packages.yml
     permissions:
       contents: read
@@ -28,6 +39,7 @@ jobs:
 
   build-release:
     name: Build and Release
+    needs: acceptance
     runs-on: ubuntu-latest
     # Signed build provenance: proves each binary was built by this
     # workflow from this repo (`gh attestation verify`, and astrona's own
