@@ -31,6 +31,8 @@ linters:
     # areas), so this is the linter category that matters most here
     - gosec
     - nolintlint
+    # architecture — import rules between layers (see depguard below)
+    - depguard
 
   # Deliberately NOT enabled, with default: none above meaning they simply
   # never run (nothing to "disable"): wsl_v5/funlen/gocyclo/nestif/dupl/
@@ -94,6 +96,125 @@ linters:
     nolintlint:
       require-explanation: true
       require-specific: true
+    # Import rules between layers, bottom to top: foundation -> runtimes ->
+    # proctor, preflight -> labops -> authoring -> workspace -> cmd. Each
+    # layer is denied the layers above it, so cmd/astrona can become thin
+    # Cobra wiring over internal packages a browser workspace can also call.
+    # Rules for packages that don't exist yet (preflight, labops, workspace)
+    # are added with the change that creates them. `pkg` is a prefix match;
+    # `files` globs match absolute paths.
+    depguard:
+      rules:
+        no-cmd:
+          list-mode: lax
+          files: ["$all"]
+          deny:
+            - pkg: "astrona/cmd"
+              desc: "cmd is wiring only; move shared code into internal/"
+        foundation:
+          list-mode: lax
+          files:
+            - "**/internal/apphome/**"
+            - "**/internal/version/**"
+            - "**/internal/ui/**"
+            - "**/internal/logs/**"
+            - "**/internal/config/**"
+            - "**/internal/gitsource/**"
+            - "**/internal/bundle/**"
+            - "**/internal/labstate/**"
+            - "**/internal/account/**"
+            - "**/internal/outbox/**"
+            - "**/internal/trust/**"
+            - "**/internal/terms/**"
+            - "**/internal/exam/**"
+            - "**/internal/localdata/**"
+            - "**/internal/catalog/**"
+            - "**/internal/content/**"
+            - "**/internal/executor/**"
+            - "**/internal/pullwatch/**"
+            - "**/internal/resources/**"
+            - "**/internal/settings/**"
+          deny:
+            - pkg: "astrona/internal/lifecycle"
+              desc: "foundation must not depend on orchestration"
+            - pkg: "astrona/internal/addons"
+              desc: "foundation must not depend on orchestration"
+            - pkg: "astrona/internal/proctor"
+              desc: "foundation must not depend on grading"
+            - pkg: "astrona/internal/junit"
+              desc: "foundation must not depend on grading"
+            - pkg: "astrona/internal/preflight"
+              desc: "foundation must not depend on preflight"
+            - pkg: "astrona/internal/labops"
+              desc: "the application layer sits above foundation"
+            - pkg: "astrona/internal/authoring"
+              desc: "authoring sits above foundation"
+            - pkg: "astrona/internal/workspace"
+              desc: "workspace is the top layer"
+        runtime:
+          list-mode: lax
+          files:
+            - "**/internal/cluster/**"
+            - "**/internal/hypervisor/**"
+            - "**/internal/portforward/**"
+            - "**/internal/runtime/**"
+            - "**/internal/scripts/**"
+            - "**/internal/manifests/**"
+            - "**/internal/addons/**"
+            - "**/internal/lifecycle/**"
+            - "**/internal/diagnostics/**"
+            - "**/internal/labshell/**"
+          deny:
+            - pkg: "astrona/internal/proctor"
+              desc: "runtimes must not know about grading"
+            - pkg: "astrona/internal/junit"
+              desc: "runtimes must not know about grading"
+            - pkg: "astrona/internal/preflight"
+              desc: "preflight sits above runtimes"
+            - pkg: "astrona/internal/labops"
+              desc: "labops sits above runtimes"
+            - pkg: "astrona/internal/authoring"
+              desc: "authoring sits above runtimes"
+            - pkg: "astrona/internal/workspace"
+              desc: "workspace is the top layer"
+        proctor:
+          list-mode: lax
+          files: ["**/internal/proctor/**"]
+          deny:
+            - pkg: "astrona/internal/lifecycle"
+              desc: "the grader takes an environment, it does not build one"
+            - pkg: "astrona/internal/addons"
+              desc: "the grader takes an environment, it does not build one"
+            - pkg: "astrona/internal/junit"
+              desc: "junit imports proctor (cycle)"
+            - pkg: "astrona/internal/labops"
+              desc: "proctor is below labops"
+            - pkg: "astrona/internal/authoring"
+              desc: "proctor is below authoring"
+            - pkg: "astrona/internal/workspace"
+              desc: "proctor is below workspace"
+        authoring:
+          list-mode: lax
+          files: ["**/internal/authoring/**"]
+          deny:
+            - pkg: "astrona/internal/workspace"
+              desc: "workspace is the top layer"
+            - pkg: "github.com/spf13/cobra"
+              desc: "no flag parsing in authoring; the Cobra command stays in cmd"
+        no-tui-in-internal:
+          list-mode: lax
+          files: ["**/internal/**"]
+          deny:
+            - pkg: "charm.land/bubbletea"
+              desc: "the terminal UI is cmd-only"
+            - pkg: "charm.land/bubbles"
+              desc: "the terminal UI is cmd-only"
+            - pkg: "github.com/charmbracelet/bubbletea"
+              desc: "the terminal UI is cmd-only"
+            - pkg: "github.com/charmbracelet/bubbles"
+              desc: "the terminal UI is cmd-only"
+            - pkg: "github.com/spf13/cobra"
+              desc: "Cobra belongs to cmd"
 
 formatters:
   enable:
