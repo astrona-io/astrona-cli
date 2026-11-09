@@ -27,7 +27,7 @@ import (
 // is bound to the root command's persistent --config/--file/--git/--git-ref
 // flags.
 func newRunCmd(flags *rootFlags) *cobra.Command {
-	var yes, withoutLogin, workspace, uiStartup bool
+	var yes, withoutLogin, workspace, uiStartup, browser, noBrowser bool
 	cmd := &cobra.Command{
 		Use:   "run [lab]",
 		Short: "Start a lab: create its cluster(s) or VM(s) and set it up",
@@ -61,13 +61,21 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"Yes accepts the displayed terms and settings and starts setup. It is not code trust: a remote lab still shows its trust prompt, and another astrona release is only installed after its own prompt (or --trust / --install-version). No cancels startup. " +
 			"If the lab already exists, the UI asks before destroying it and starting over with all work discarded. " +
 			"That replacement stays local: no account session, progress or results are sent to Astrona. Use astrona ui to reopen without restarting. " +
-			"Interactive runs without --ui offer the UI before downloads; Enter chooses Yes. Use --ui=false to keep the command-line flow. --yes, CI and redirected input/output skip the offer. In v0.5.0 the terminal UI is replaced by a browser workspace.\n\n" +
+			"In v0.5.0 the terminal UI is replaced by a browser workspace.\n\n" +
+			"Once trust is settled, an interactive run of a Kind lab asks \"Open this lab in your browser?\" (yes/no/always/never). " +
+			"On yes, the lab is set up as usual, then astrona starts the local browser workspace (or reuses a running one), prints its link " +
+			"and opens it. The link has a single-use code that expires after 2 minutes; `astrona ui status` prints a fresh one and " +
+			"`astrona ui stop` stops the workspace (labs keep running). An exam's timer starts when you click Start in the browser, not when " +
+			"the lab is ready. always and never are saved as the browser setting (`astrona settings set browser ask` asks again). " +
+			"--browser and --no-browser answer in advance. Without a terminal on stdin and stdout the answer is no; with no browser on " +
+			"the machine (no display) nothing is asked. --ui and --headless never open the browser.\n\n" +
 			"--headless keeps Kind and QEMU setup headless, including in v0.5.0 and later. It skips the UI, login reminder and new account sessions, " +
 			"then returns after setup with the lab still running for external validation. Missing approvals fail instead of prompting, even in a terminal. " +
 			"Terms, settings review, remote-code trust and --yes for replacing an existing run still apply. This uses the normal lab name and setup; " +
 			"it does not grade or clean up automatically. Use astrona destroy when finished, or astrona test for the full setup, reference solution, grading and cleanup pipeline.",
 		Example: `  astrona run astrona.io/ATS014/section-010/module-01/lab-02   # catalog lab: no login needed
   astrona run ./labs/my-lab
+  astrona run ./labs/my-lab --browser                 # browser workspace (Kind labs)
   astrona run ./labs/my-lab --ui                      # terminal workspace
   astrona run ./labs/my-lab --headless --accept-terms # setup for external checks
   astrona run --git https://github.com/org/labs -c labs/net-01
@@ -75,6 +83,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := configureHeadless(cmd); err != nil {
+				return err
+			}
+			if err := checkBrowserFlags(browser, flags.headless, workspace || uiStartup); err != nil {
 				return err
 			}
 			if workspace || uiStartup {
@@ -167,6 +178,10 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err := validateParallel(flags.parallel); err != nil {
 				return err
 			}
+			flags.browserRun, err = wantBrowser(flags, cfg, browser, noBrowser, workspace || uiStartup)
+			if err != nil {
+				return err
+			}
 
 			// The session is started before the build, so a refusal costs
 			// nothing; the page is only opened once the lab is ready.
@@ -217,6 +232,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if workspace {
 				return runLabWorkspace(cmd.Context(), cfg, baseDir, flags)
 			}
+			if flags.browserRun {
+				return openBrowserWorkspace(cfg, baseDir, flags)
+			}
 			return nil
 		},
 	}
@@ -231,6 +249,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().Lookup("ui-startup").Hidden = true
 	cmd.Flags().BoolVar(&withoutLogin, "without-login", false, "Confirm running a catalog lab without signing in or tracking progress on Astrona")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "If the lab is already running, destroy it and start over without asking")
+	cmd.Flags().BoolVar(&browser, "browser", false, "Open the Kind lab in the browser workspace once it is ready, without asking")
+	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "Do not open the browser workspace or ask about it")
+	cmd.MarkFlagsMutuallyExclusive("browser", "no-browser")
 	cmd.AddCommand(newRunRenewCmd())
 	return cmd
 }
@@ -305,15 +326,16 @@ func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clust
 // none). Shared by run and reset.
 func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui.Reporter, sess *labstate.Session) error {
 	res, err := labops.Provision(labops.ProvisionRequest{
-		Config:       cfg,
-		BaseDir:      baseDir,
-		Source:       rememberedSource(flags),
-		LocalOnly:    flags.localOnly,
-		KeepContext:  flags.keepContext,
-		Parallel:     flags.parallel,
-		Session:      sess,
-		ConfigChecks: labConfigResults,
-		Warn:         os.Stderr,
+		Config:         cfg,
+		BaseDir:        baseDir,
+		Source:         rememberedSource(flags),
+		LocalOnly:      flags.localOnly,
+		KeepContext:    flags.keepContext,
+		Parallel:       flags.parallel,
+		Session:        sess,
+		ConfigChecks:   labConfigResults,
+		Warn:           os.Stderr,
+		DeferExamClock: flags.browserRun,
 	}, rep)
 	if err != nil {
 		return err
@@ -328,6 +350,8 @@ func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui
 	}
 	if res.ExamStarted {
 		fmt.Printf("\nExam started — you have %s. `astrona submit` shows the time left.\n", exam.Round(cfg.Exam.Limit()))
+	} else if cfg.Exam.Enabled() && flags.browserRun {
+		fmt.Printf("\nExam time limit: %s. The timer starts when you click Start in the browser.\n", exam.Round(cfg.Exam.Limit()))
 	}
 	printResources(os.Stdout, res.ResourcesDir, res.Resources)
 	if cfg.Metadata.Docs.Question != "" {

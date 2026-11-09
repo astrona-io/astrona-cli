@@ -439,14 +439,7 @@ func workspaceTaskInfo(cfg *config.LabConfig, baseDir string, flags *rootFlags) 
 	if cfg.Metadata.Docs.Question == "" {
 		return "No task document provided. Use the shell to explore the lab.", 0
 	}
-	configPath := filepath.Join(baseDir, flags.fileName)
-	if strings.HasPrefix(flags.configPath, "https://") || strings.HasPrefix(flags.configPath, "http://") {
-		configPath = flags.configPath
-		if !strings.HasSuffix(configPath, ".yaml") && !strings.HasSuffix(configPath, ".yml") {
-			configPath = strings.TrimRight(configPath, "/") + "/" + flags.fileName
-		}
-	}
-	text, err := labops.ReadLabDoc(configPath, cfg.Metadata.Docs.Question)
+	text, err := readLabDocument(cfg.Metadata.Docs.Question, baseDir, flags)
 	if err != nil {
 		return "Could not read the task: " + sanitizeLine(err.Error()), 0
 	}

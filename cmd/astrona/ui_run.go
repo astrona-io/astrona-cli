@@ -38,7 +38,14 @@ func installUIRunGate(root *cobra.Command, flags *rootFlags, confirm func(*cobra
 			return err
 		}
 		startup, err := cmd.Flags().GetBool("ui-startup")
-		if err != nil || (!ui && !startup) {
+		if err != nil {
+			return err
+		}
+		browser, err := cmd.Flags().GetBool("browser")
+		if err != nil {
+			return err
+		}
+		if err := checkBrowserFlags(browser, false, ui || startup); err != nil || (!ui && !startup) {
 			return err
 		}
 		return approveUIRun(cmd, flags, confirm)

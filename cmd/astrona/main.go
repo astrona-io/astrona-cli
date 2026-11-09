@@ -66,6 +66,10 @@ type rootFlags struct {
 	// keepContext is --keep-context on run and reset: leave the user's
 	// kubectl current-context alone instead of switching to the lab.
 	keepContext bool
+	// browserRun: astrona run opens the lab in the browser workspace, so
+	// an exam's clock waits for Start there instead of starting when the
+	// lab is ready.
+	browserRun bool
 	// cmdPath is the running command below the root ("run", "res list"),
 	// so a hand-over can ask the other version which flags it takes.
 	cmdPath []string
@@ -253,14 +257,6 @@ func main() {
 		os.Exit(0)
 	}
 	args := os.Args[1:]
-	if os.Getenv(uiPaneEnv) != "1" {
-		var err error
-		args, err = offerRunUI(args, os.Stdin, os.Stdout, requireWorkspaceTerminal() == nil)
-		if err != nil {
-			ui.PrintError(err)
-			os.Exit(1)
-		}
-	}
 	if os.Getenv(uiPaneEnv) != "1" && wantsUIPane(args) {
 		code, err := runUIPane(context.Background(), args)
 		if err != nil {
