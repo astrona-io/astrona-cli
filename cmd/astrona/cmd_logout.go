@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"astrona/internal/account"
@@ -24,7 +25,10 @@ func newLogoutCmd() *cobra.Command {
 		Short: "Sign out of Astrona on this computer",
 		Long: "Sign out: revoke this computer's sign-in on the Astrona website (best effort, a few " +
 			"seconds at most) and delete ~/" + apphome.Name() + "/credentials.json. Catalog labs then need " +
-			"`astrona login` again; labs that are already running keep running.",
+			"`astrona login` again; labs that are already running keep running, but their usage reporters stop: " +
+			"no more CPU and memory samples are sent for them. Samples not sent yet wait on this computer until " +
+			"you sign in again (or are dropped when `astrona settings set usage-samples no` is set). " +
+			"A playground's watchdog keeps running so the playground is still removed at its time limit.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, store, _, err := labops.AccountDeps()
@@ -58,6 +62,8 @@ func logout(client *account.Client, store account.Store) error {
 	if _, err := store.Delete(); err != nil {
 		return err
 	}
+	// The reporters post with this sign-in: none keeps sending after it.
+	stopped := labops.StopUsageReporters()
 
 	switch {
 	case creds == nil && errors.Is(loadErr, account.ErrSignedOut):
@@ -68,6 +74,9 @@ func logout(client *account.Client, store account.Store) error {
 		fmt.Printf("Signed out %s from %s (%s).\n", creds.Username, creds.Site, revoked)
 	default:
 		fmt.Printf("Signed out from %s (%s).\n", creds.Site, revoked)
+	}
+	if len(stopped) > 0 {
+		fmt.Printf("Stopped sending CPU and memory use for %s.\n", strings.Join(stopped, ", "))
 	}
 	return nil
 }

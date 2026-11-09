@@ -87,6 +87,9 @@ func (s *SiteSender) Resume(ctx context.Context, site, session string, at time.T
 }
 
 func (s *SiteSender) Stop(ctx context.Context, site, session, reason string, at time.Time, usage *account.UsageReport) error {
+	if !UsageSamplesAllowed() {
+		usage = nil // turned off after the stop was queued: send no summary
+	}
 	cr, err := s.Active(ctx, site)
 	if err != nil {
 		return err
@@ -95,6 +98,9 @@ func (s *SiteSender) Stop(ctx context.Context, site, session, reason string, at 
 }
 
 func (s *SiteSender) Usage(ctx context.Context, site, session string, samples []account.UsageSample) error {
+	if !UsageSamplesAllowed() {
+		return nil // samples kept while offline are dropped, not sent
+	}
 	cr, err := s.Active(ctx, site)
 	if err != nil {
 		return err

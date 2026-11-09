@@ -118,7 +118,14 @@ A playground that already stopped can't be renewed — run it again. `astrona re
 
 While a signed-in lab or playground runs, `astrona run` also starts a **usage reporter** — another detached `astrona` process — that measures what the lab uses on your computer and sends it to the lab session every 15 seconds: CPU in cores and memory in bytes, for the kind cluster and its linked clusters (`docker stats` / `podman stats`) or the lab's QEMU VMs (`ps`). Nothing else is sent: no command output, no file contents, no process names. Astrona uses it to show what labs really cost to run, and what practising locally saves against the cloud.
 
-The reporter ends on its own when the lab is destroyed or run again, when its session is gone or expired, or when the site stops taking samples (a lab that passed). It follows `astrona run renew`. Its output goes to `~/.astrona/labs/<lab>.usage.log`. `astrona submit` and playground deletion also send a short summary (average and peak CPU and memory), which the site uses when no sample reached it. A local-only run, or one not signed in, sends nothing.
+The reporter ends on its own when the lab is destroyed or run again, when its session is gone or expired, or when the site stops taking samples (a lab that passed). It follows `astrona run renew`. Its output goes to `~/.astrona/labs/<lab>.usage.log`. `astrona submit` and playground deletion also send a short summary (average and peak CPU and memory), which the site uses when no sample reached it. A run that is not signed in sends nothing.
+
+To send none of this, choose one of two ways:
+
+- `astrona settings set usage-samples no` (or **usage-samples** in Preferences) turns it off for every run: no reporter starts, a running reporter stops at its next sample (within 15 seconds), samples still waiting in the outbox are dropped instead of sent, and `astrona submit` and playground deletion send no usage summary. Progress, results and the lab's clock are still sent. `astrona settings set usage-samples yes` turns it back on for the next `astrona run`.
+- `astrona run --local-only <lab>` keeps one whole run on this machine: astrona does not read your sign-in, starts no lab session, and sends no progress, results, clock signals or usage. `astrona submit` grades it and records the result locally only, then deletes the lab like any finished run. Starting a running lab over with `--local-only` detaches its old session without closing it on Astrona. This is the same local-only run a restart from `astrona ui` makes.
+
+`astrona logout` stops the usage reporters of running labs, since they post with your sign-in. The labs keep running; samples measured before the sign-out that were not sent yet wait in the outbox until you sign in again (or are dropped if usage samples are off). A playground's watchdog keeps running, so the playground is still removed at its time limit. Signing in again does not restart a reporter for a lab that is already running.
 
 ## Paused time and working offline
 
