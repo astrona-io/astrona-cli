@@ -194,6 +194,14 @@ func preferenceChangeImpact(key, value string) string {
 			return "Allow release checks to show update notices. GitHub receives your IP address. CI, non-terminal sessions and development builds still skip checks."
 		}
 		return "Stop automatic release checks and update notices. You will need to check for new releases yourself."
+	case "browser":
+		switch settings.ValueText(value) {
+		case settings.BrowserAlways:
+			return "Open every Kind lab you run from a terminal in the browser workspace without asking. --no-browser still declines for one run."
+		case settings.BrowserNever:
+			return "Never offer the browser workspace after astrona run. --browser still opens it for one run."
+		}
+		return "Ask whether to open the browser workspace each time you run a Kind lab from a terminal."
 	case "cache-retention-days":
 		return "Allow cleanup of eligible disposable caches older than " + value + " days. Shorter retention can free disk space but require downloads again."
 	case "cache-max-size-gb":

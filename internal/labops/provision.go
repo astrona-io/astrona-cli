@@ -142,6 +142,9 @@ type ProvisionRequest struct {
 	// Warn gets warnings and the diagnostics summary after a failure —
 	// stderr in cmd.
 	Warn io.Writer
+	// DeferExamClock leaves an exam lab's clock stopped once it is ready:
+	// the browser workspace starts it when the learner clicks Start.
+	DeferExamClock bool
 }
 
 // ProvisionResult is what Provision built, for cmd to print how to reach
@@ -209,10 +212,17 @@ func Provision(req ProvisionRequest, rep *ui.Reporter) (*ProvisionResult, error)
 		return nil, err
 	}
 
-	// The clock starts once the lab is ready — setup time doesn't count.
-	if cfg.Exam.Enabled() {
+	// The clock starts once the lab is ready — setup time doesn't count. A
+	// browser run defers it to the workspace's Start button; a clock left
+	// over from an earlier run must not count for this one either.
+	examStarted := cfg.Exam.Enabled() && !req.DeferExamClock
+	if examStarted {
 		if err := exam.Start(clusterName, cfg.Exam.Limit(), time.Now()); err != nil {
 			rep.Warn("could not start the exam clock: %s", err)
+		}
+	} else if cfg.Exam.Enabled() {
+		if err := exam.Clear(clusterName); err != nil {
+			rep.Warn("could not clear the previous exam clock: %s", err)
 		}
 	}
 
@@ -234,7 +244,7 @@ func Provision(req ProvisionRequest, rep *ui.Reporter) (*ProvisionResult, error)
 		Switched:     sw,
 		ResourcesDir: resDir,
 		Resources:    res,
-		ExamStarted:  cfg.Exam.Enabled(),
+		ExamStarted:  examStarted,
 		LogPath:      rep.LogPath(),
 	}, nil
 }
