@@ -4479,6 +4479,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Testing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#acceptance-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance suite
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4607,6 +4624,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Testing">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#acceptance-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance suite
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4706,6 +4740,10 @@
 <td><code>fmt</code> + <code>vet</code> + <code>test</code> — run before committing</td>
 </tr>
 <tr>
+<td><code>just oat</code></td>
+<td>Build <code>./astrona</code> and run the acceptance suite's smoke tier (see <a href="#acceptance-suite">Acceptance suite</a>)</td>
+</tr>
+<tr>
 <td><code>just docs-gen-cli</code></td>
 <td>Regenerate <code>docs/reference/cli/</code> from the actual <code>astrona</code> command tree</td>
 </tr>
@@ -4802,6 +4840,35 @@ repository. Also check the deployed mike version selector after a release.</p>
 </code></pre></div>
 <p>For Podman, pass <code>podman</code> as the third argument and run with rootful Podman (for example, <code>sudo env "PATH=$PATH" bash .github/scripts/test-catalog-lab.sh ./astrona /tmp/astrona-catalog-diagnostics podman</code>). The script explicitly selects the requested engine using <code>KIND_EXPERIMENTAL_PROVIDER</code>.</p>
 <p>It needs Linux, Docker or Podman, Kind and kubectl, plus network access to GitHub and Docker Hub. It isolates credentials and kubeconfig, uses <code>--headless</code> for headless setup without a new account session, verifies node readiness, repairs the first lab's intentional image typo with <code>imagePullPolicy: Never</code> to confirm the Alpine preload, then destroys the lab and checks that its cluster, containers, context and saved state are gone. Failures retain logs and diagnostics and trigger cleanup. CI runs it on Ubuntu 24.04 with Docker's classic and containerd image stores and with rootful Podman.</p>
+<h3 id="acceptance-suite">Acceptance suite<a class="headerlink" href="#acceptance-suite" title="Permanent link">&para;</a></h3>
+<p><code>acceptance/</code> holds a <a href="https://robotframework.org/">Robot Framework</a> suite that drives the built <code>./astrona</code> the way a learner and a lab author would. CI runs its <code>smoke</code> tier on every pull request and uploads the HTML report and log as the <code>oat-smoke-report</code> artifact.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>just<span class="w"> </span>oat<span class="w">                    </span><span class="c1"># build ./astrona, run the smoke tier, write oat-report/</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>just<span class="w"> </span>oat<span class="w"> </span>--exclude<span class="w"> </span>kind<span class="w">     </span><span class="c1"># only the checks that create no cluster</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>just<span class="w"> </span>oat<span class="w"> </span>--test<span class="w"> </span><span class="s2">"Run Creates The Lab"</span>
+</code></pre></div>
+<p>It needs kind, kubectl and Docker or Podman, plus <code>uv</code> (Robot Framework is pinned in <code>acceptance/requirements.txt</code>). Each suite gets a throwaway <code>HOME</code>, so your own labs and settings under <code>~/.astrona-dev</code> are untouched; the container engine's config still comes from your real home. kind cluster names are shared by the whole engine, so a suite refuses to start while a cluster named after its example lab (<code>k8s-basics-01</code>) exists. Set <code>OAT_ISOLATE_HOME=false</code> to run against your real <code>HOME</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>acceptance/suites/</code></td>
+<td>One <code>.robot</code> file per area; tag each test <code>smoke</code> (every PR) and <code>kind</code> (creates a cluster)</td>
+</tr>
+<tr>
+<td><code>acceptance/resources/astrona.resource</code></td>
+<td>Shared keywords: <code>Run Astrona</code>, <code>Run Astrona Json</code>, <code>Run Kubectl On Lab</code></td>
+</tr>
+<tr>
+<td><code>acceptance/libraries/AstronaLib.py</code></td>
+<td>Only what Robot cannot express cleanly: isolated <code>HOME</code>, JSON parsing, kind lookups</td>
+</tr>
+</tbody>
+</table>
 <h2 id="dependency-updates">Dependency updates<a class="headerlink" href="#dependency-updates" title="Permanent link">&para;</a></h2>
 <p><a href="https://docs.renovatebot.com/">Renovate</a> — Mend's hosted GitHub App, configured by <code>.github/renovate.json5</code> — opens PRs for dependency updates; they get the full CI run like any other PR (jobs and logs: <a href="https://developer.mend.io">developer.mend.io</a>). Renovate merges its PRs after checks pass, using its own merge process rather than GitHub's native auto-merge. New releases are only proposed after they're 3 days old. The Dependency Dashboard issue lists everything pending.</p>
 <p>When a same-repository <code>renovate[bot]</code> PR from a <code>renovate/</code> branch merges into
