@@ -4706,6 +4706,10 @@ destruction returns to <a href="../../guides/ui-home/">UI Home</a>.</p>
 <td><code>Stopped</code></td>
 <td>all node containers stopped</td>
 </tr>
+<tr>
+<td><code>EngineUnreachable</code></td>
+<td>Docker or Podman is installed but doesn't answer, so this remembered lab can't be checked — start the engine; nothing is forgotten</td>
+</tr>
 </tbody>
 </table>
 <p><code>astrona list -o wide</code> adds the Kubernetes version and port-forward status (<code>1/1 Ready</code>); <code>-o json</code> prints the same for scripts.</p>

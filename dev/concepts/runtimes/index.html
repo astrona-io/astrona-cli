@@ -4948,7 +4948,9 @@ clusters. This protection covers student terminals, not author-supplied bootstra
 validation or resource scripts run by the host CLI.</p>
 <p>QEMU terminals and <code>astrona ssh</code> work inside the VM, starting in
 <code>~/.astrona/runtime/&lt;lab&gt;</code> in the remote user's home. No host directory is shared.
-SSH local-command escapes, user SSH configuration and agent forwarding are disabled.</p>
+SSH local-command escapes, user SSH configuration and agent forwarding are disabled.
+The CLI's own SSH connections that run lab scripts as the <code>astrona</code> account use the
+same isolation, plus key-only, non-interactive login with a connect timeout.</p>
 <p>Closing a tab, returning to Home or reopening the UI preserves workspace files.
 Deleting the lab or playground and a full reset discard them. A soft reset keeps
 Kind workspace files. Copy anything you want to keep out before deleting a run.</p>

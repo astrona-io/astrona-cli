@@ -5191,7 +5191,7 @@
 <tr>
 <td><code>image.source</code></td>
 <td>string</td>
-<td>Path, URL, or OCI reference, depending on <code>type</code></td>
+<td>Path, URL, or OCI reference, depending on <code>type</code>. A <code>file</code> path must be relative to the lab directory and stay inside it (no absolute paths, no <code>..</code> or symlinks leading out)</td>
 </tr>
 <tr>
 <td><code>image.checksum</code></td>
@@ -5677,7 +5677,7 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 </tr>
 </tbody>
 </table>
-<p>Validation scripts also take <code>hint</code> and <code>points</code> (see <code>ValidationCheck</code>).</p>
+<p>Validation scripts also take <code>hint</code> and <code>points</code> (see <code>ValidationCheck</code>). A lab needs at least one check or script to be graded — without any, <code>submit</code>/<code>test</code> exit 1 (<code>astrona validate</code> warns). On a qemu lab, a script's exit code <code>255</code> means SSH couldn't reach the VM and is a grading error, not a fail.</p>
 <h3 id="validationcheck"><code>ValidationCheck</code><a class="headerlink" href="#validationcheck" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -5701,7 +5701,7 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <tr>
 <td><code>resource</code></td>
 <td>string</td>
-<td><code>kubectl get</code> arguments (for <code>resourceExists</code>/<code>podReady</code>/<code>jsonpath</code>/<code>count</code>), e.g. <code>deploy/web -n shop</code> or <code>pods -l app=web -n shop</code></td>
+<td><code>kubectl get</code> arguments (for <code>resourceExists</code>/<code>podReady</code>/<code>jsonpath</code>/<code>count</code>, required), e.g. <code>deploy/web -n shop</code> or <code>pods -l app=web -n shop</code>. The only flags allowed are <code>-n</code>/<code>--namespace</code>, <code>-l</code>/<code>--selector</code>, <code>--field-selector</code> and <code>-A</code>/<code>--all-namespaces</code>; no value may start with <code>-</code>. These four check types need a kind lab — a qemu lab has no cluster for them</td>
 </tr>
 <tr>
 <td><code>command</code></td>
@@ -5885,12 +5885,12 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <tr>
 <td><code>type</code></td>
 <td>string</td>
-<td><code>"file"</code> | <code>"folder"</code> | <code>"url"</code> (manifests support all three; scripts too)</td>
+<td><code>"file"</code> | <code>"folder"</code> | <code>"url"</code> (manifests support all three; scripts too). A script <code>folder</code> runs only its regular <code>*.sh</code> files, in filename order — number them (<code>01-x.sh</code>, <code>02-y.sh</code>) to control ordering; hidden files (<code>.DS_Store</code>, <code>.setup.sh.swp</code>), other extensions (<code>README.md</code>, <code>setup.sh~</code>), subfolders and symlinks are skipped. A manifest <code>folder</code> is handed to <code>kubectl apply -f</code> as is</td>
 </tr>
 <tr>
 <td><code>source</code></td>
 <td>string</td>
-<td>Path (relative to the lab's base directory) or URL, depending on <code>type</code>. A <code>url</code> source must be <code>https://</code> (redirects to <code>http://</code> are refused); scripts and manifests alike are downloaded to a size-capped temp file (50 MiB) and run/applied from there</td>
+<td>Path or URL, depending on <code>type</code>. A <code>file</code>/<code>folder</code> path must be relative to the lab's base directory and stay inside it, also once symlinks are resolved: absolute paths, <code>..</code> that leaves the lab, and links pointing outside it are refused, by <code>astrona validate</code> as well as at run time. A <code>url</code> source must be <code>https://</code> (redirects to <code>http://</code> are refused); scripts and manifests alike are downloaded to a size-capped temp file (50 MiB) and run/applied from there</td>
 </tr>
 <tr>
 <td><code>hint</code></td>
