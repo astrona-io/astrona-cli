@@ -150,7 +150,9 @@ func newLabsCmd() *cobra.Command {
 			"GitHub owner astrona-io/ — or leave it out (ATS014/…); another owner is refused. A module's " +
 			"playground is found by its folder.\n\n" +
 			"A lab from the catalog is a remote lab: it's fetched with git and asks for your trust " +
-			"before it runs, like any --git lab. The catalog is cached for an hour (--refresh reads " +
+			"before it runs, like any --git lab. An official (" + catalog.DefaultOrg + ") lab runs without " +
+			"asking only when its commit is the one astrona.io publishes for the training and the checkout " +
+			"is unchanged; anything else asks as usual. The catalog is cached for an hour (--refresh reads " +
 			"it again).",
 		Example: `  astrona labs
   astrona labs ATS014

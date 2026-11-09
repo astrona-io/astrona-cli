@@ -147,7 +147,7 @@ Training ids are unique (in any case). When two sources declare the same id, the
 
 ## Safety
 
-A lab from the catalog is a remote lab: astrona fetches the training's repository with git and **asks for your trust** before running it, showing what it will do — like any `--git` lab (`--trust` approves it up front, e.g. in CI). Everything a manifest says is treated as data: a lab path that would leave the repository is rejected. A path that exists on your disk always wins over a catalog name.
+A lab from the catalog is a remote lab: astrona fetches the training's repository with git and **asks for your trust** before running it, showing what it will do — like any `--git` lab (`--trust` approves it up front, e.g. in CI). An official training's lab (`astrona-io`) skips the prompt only when the fetched commit is the one astrona.io publishes for that training and the checkout is unchanged; any mismatch asks as usual (see [Official labs](remote-config.md#official-labs)). Everything a manifest says is treated as data: a lab path that would leave the repository is rejected. A path that exists on your disk always wins over a catalog name.
 
 ## Publishing a training
 

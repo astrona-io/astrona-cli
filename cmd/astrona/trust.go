@@ -21,7 +21,7 @@ import (
 // as the Approver when stdin is a terminal and the run isn't --headless.
 // Evaluated when called, as the check it feeds runs.
 func trustOptions(flags *rootFlags) labops.TrustOptions {
-	opts := labops.TrustOptions{Explicit: flags.trust, Log: os.Stderr}
+	opts := labops.TrustOptions{Explicit: flags.trust, Log: os.Stderr, Official: labops.AstronaPublishedPin}
 	if !flags.headless && isatty.IsTerminal(os.Stdin.Fd()) {
 		opts.Approve = terminalApprover
 	}
