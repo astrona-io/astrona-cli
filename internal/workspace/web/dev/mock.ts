@@ -48,16 +48,25 @@ const playground = process.env.MOCK_KIND === 'playground'
 const TIME_LIMIT_SECONDS = 45 * 60
 const TARGET = 'demo'
 
+// MOCK_TRACKING=account|local-only|none picks where a result goes (account).
+const tracking = process.env.MOCK_TRACKING ?? 'account'
+
 const state = {
   startedAt: null as string | null,
   deadlineAt: null as string | null,
   tokens: new Set<string>(),
   tickets: new Set<string>(),
+  grading: false,
+  removed: false,
+  attempts: 0,
+  submission: null as Record<string, unknown> | null,
+  keys: new Map<string, Record<string, unknown>>(),
 }
 
 const started = () => playground || state.startedAt !== null
 
 function status(): string {
+  if (state.removed) return 'stopped'
   if (playground) return 'running'
   if (!state.startedAt) return 'ready'
   return state.deadlineAt && Date.parse(state.deadlineAt) <= Date.now() ? 'expired' : 'running'
@@ -82,7 +91,62 @@ function run() {
     },
     questions: [{ id: 'q1', title: 'Restrict ingress to the API', points: null }],
     targets: [{ name: TARGET, label: 'main', kind: 'kind', views: ['terminal'] }],
-    canSubmit: false,
+    canSubmit: submitBlocked() === '',
+    submit: {
+      tracking,
+      keepEnvironment: false,
+      grading: state.grading,
+      submitted: state.submission !== null,
+      blocked: submitBlocked(),
+    },
+  }
+}
+
+function submitBlocked(): string {
+  if (state.removed) return 'the lab is no longer running'
+  if (playground) return 'a playground has no checks to grade'
+  if (state.grading) return 'the lab is being submitted'
+  if (!state.startedAt) return 'start the lab first'
+  return ''
+}
+
+// A sample graded result: names, pass/fail, points and an allowed hint only.
+function grade(): Record<string, unknown> {
+  state.attempts++
+  const checks = [
+    { name: 'NetworkPolicy api exists in shop', pass: true, points: 2 },
+    { name: 'Frontend pods reach the API on 8080', pass: true, points: 4 },
+    { name: 'Other pods cannot reach the API', pass: false, points: 4 },
+  ]
+  const earned = checks.filter((c) => c.pass).reduce((n, c) => n + c.points, 0)
+  const sent = tracking === 'account'
+  const finished = sent || tracking === 'local-only'
+  const messages =
+    tracking === 'account'
+      ? [`Sent to your lab page (attempt ${state.attempts}): https://astrona.io/labs/demo`, 'Lab demo deleted.']
+      : tracking === 'local-only'
+        ? ['This run is local only; the result was not sent to your account.', 'Lab demo deleted.']
+        : []
+  if (finished) state.removed = true
+  return {
+    lab: 'demo',
+    runId: 'f'.repeat(64),
+    result: {
+      pass: false,
+      earned,
+      max: 10,
+      percent: earned * 10,
+      passPercent: 66,
+      overTime: false,
+      attempt: state.attempts,
+      time: new Date().toISOString(),
+      checks,
+    },
+    recorded: true,
+    sent,
+    finished,
+    environmentRemoved: finished,
+    messages,
   }
 }
 
@@ -164,7 +228,7 @@ function mockPlugin(): Plugin {
             profile: 'mock',
             startedAt: new Date().toISOString(),
             serverNow: new Date().toISOString(),
-            features: ['runs', 'terminals'],
+            features: ['runs', 'terminals', 'submit'],
             assets: 'built',
           })
         }
@@ -194,6 +258,40 @@ function mockPlugin(): Plugin {
           await new Promise((r) => setTimeout(r, 1500)) // the real one builds an image the first time
           shell.reset()
           return send(res, 201, terminal())
+        }
+        if (m === 'POST' && p === '/runs/demo/submit') {
+          const key = String(req.headers['idempotency-key'] ?? '')
+          if (!/^[A-Za-z0-9_-]{8,128}$/.test(key))
+            return fail(res, 400, 'invalid_idempotency_key', 'an Idempotency-Key header is required')
+          const { runId } = await readJSON(req)
+          if (runId !== run().runId) return fail(res, 409, 'run_changed', 'this is not the lab’s current run; reload')
+          const replay = state.keys.get(key)
+          if (replay) return send(res, 200, replay)
+          if (state.grading) return fail(res, 409, 'submit_in_progress', 'this lab is already being submitted')
+          const blocked = submitBlocked()
+          if (blocked) return fail(res, 409, playground ? 'no_grading' : 'not_started', blocked)
+          state.grading = true
+          await new Promise((r) => setTimeout(r, 3000)) // checks take a while
+          state.grading = false
+          const sub = grade()
+          state.submission = sub
+          state.keys.set(key, sub)
+          shell.forget()
+          return send(res, 200, sub)
+        }
+        if (m === 'GET' && p === '/runs/demo/submission') {
+          if (state.grading) return send(res, 200, { state: 'grading' })
+          if (!state.submission) return fail(res, 404, 'no_submission', 'this run has no submission')
+          return send(res, 200, { state: 'done', submission: state.submission })
+        }
+        if (m === 'POST' && p === '/runs/demo/destroy') {
+          const { runId } = await readJSON(req)
+          if (runId !== run().runId || state.removed) return fail(res, 409, 'run_changed', 'this is not the lab’s current run; reload')
+          if (state.grading) return fail(res, 409, 'submit_in_progress', 'this lab is being submitted')
+          await new Promise((r) => setTimeout(r, 1500))
+          state.removed = true
+          shell.forget()
+          return send(res, 200, { environmentRemoved: true, messages: ['Lab demo deleted.'] })
         }
         const del = /^\/runs\/demo\/terminals\/([^/]+)$/.exec(p)
         if (m === 'DELETE' && del) {

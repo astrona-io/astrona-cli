@@ -54,8 +54,70 @@ export interface Run {
   /** Summaries only, never the text. */
   questions: QuestionSummary[]
   targets: Target[]
+  /** True when POST /submit would grade now; submit.blocked says why not. */
   canSubmit: boolean
+  submit: SubmitInfo
 }
+
+/**
+ * Where a result goes: "account" (the run has an Astrona lab session; sent
+ * when astrona is signed in to its site), "local-only" (never sent) or
+ * "none" (no lab session: it stays on this machine).
+ */
+export type Tracking = 'account' | 'local-only' | 'none'
+
+export interface SubmitInfo {
+  tracking: Tracking
+  /** teardown.keepCluster: a finished submission leaves the environment. */
+  keepEnvironment: boolean
+  /** A submission of this run is being graded now. */
+  grading: boolean
+  /** This run has a saved result (GET /submission). */
+  submitted: boolean
+  /** Why Submit is not possible now; "" when it is. */
+  blocked: string
+}
+
+export interface SubmissionCheck {
+  name: string
+  pass: boolean
+  points: number
+  /** Only for a failed check, and only when the lab shows hints. */
+  hint?: string
+}
+
+export interface Submission {
+  lab: string
+  runId: string
+  result: {
+    pass: boolean
+    earned: number
+    max: number
+    percent: number
+    passPercent?: number
+    /** A strict exam submitted after the time limit: it cannot pass. */
+    overTime: boolean
+    attempt: number
+    time: string
+    checks: SubmissionCheck[]
+  }
+  /** Saved in this machine's attempt history. */
+  recorded: boolean
+  /** Recorded on the Astrona lab page. */
+  sent: boolean
+  /** The attempt is over: sent, or a local-only run's result saved. */
+  finished: boolean
+  environmentRemoved: boolean
+  /** What astrona reported while sending and cleaning up, as plain text. */
+  messages: string[]
+  /** The result stands, but removing the environment failed. */
+  cleanupError?: string
+}
+
+export type SubmissionState =
+  | { state: 'grading' }
+  | { state: 'failed'; error: { code: string; message: string } }
+  | { state: 'done'; submission: Submission }
 
 export interface RunListItem {
   lab: string
@@ -151,8 +213,14 @@ export function clearToken(): void {
 
 const API = '/api/v1'
 
-async function request<T>(method: string, path: string, body?: unknown, auth = true): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json' }
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  auth = true,
+  extraHeaders: Record<string, string> = {},
+): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json', ...extraHeaders }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (auth) {
     const token = getToken()
@@ -219,6 +287,32 @@ export function getQuestion(id: string, questionId: string): Promise<Question> {
 /** Starts the clock. Idempotent: a second call returns the same deadline. */
 export function startRun(id: string, runId: string): Promise<Run> {
   return request<Run>('POST', `${lab(id)}/start`, { runId })
+}
+
+/**
+ * Grades the run, records the attempt and sends it where the run is tracked
+ * (see Run.submit). Can take minutes. The same key grades once: a retry
+ * with it waits for, or returns, that result.
+ */
+export function submitRun(id: string, runId: string, idempotencyKey: string): Promise<Submission> {
+  return request<Submission>('POST', `${lab(id)}/submit`, { runId }, true, { 'Idempotency-Key': idempotencyKey })
+}
+
+/** The run's latest submission; 404 no_submission when there is none. */
+export function getSubmission(id: string): Promise<SubmissionState> {
+  return request<SubmissionState>('GET', `${lab(id)}/submission`)
+}
+
+/** Removes the run's environment without grading, as astrona destroy does. */
+export function destroyRun(id: string, runId: string): Promise<{ environmentRemoved: boolean; messages: string[] }> {
+  return request('POST', `${lab(id)}/destroy`, { runId })
+}
+
+/** A fresh Idempotency-Key for one submission. */
+export function newIdempotencyKey(): string {
+  const bytes = new Uint8Array(16)
+  window.crypto.getRandomValues(bytes)
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 export async function listTerminals(id: string): Promise<Terminal[]> {

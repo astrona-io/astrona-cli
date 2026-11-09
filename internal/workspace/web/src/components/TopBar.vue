@@ -3,8 +3,21 @@ import { computed, ref, toRef, watch } from 'vue'
 import type { Run } from '../api'
 import { formatDuration, useCountdown } from '../clock'
 import type { ViewStatus } from '../views/types'
+import { endSessionCopy } from '../endSession'
 
 const props = defineProps<{ run: Run; status: ViewStatus }>()
+const emit = defineEmits<{ end: [] }>()
+
+// Submit for a lab or exam, End for a playground. A playground can always be
+// ended while it runs; a lab only when the server says it can be graded now,
+// and the reason shows when it cannot.
+const endLabel = computed(() => endSessionCopy(props.run, false).button)
+const endBlocked = computed(() => {
+  if (props.run.submit.grading) return 'Grading this lab…'
+  if (props.run.playground) return ''
+  return props.run.canSubmit ? '' : props.run.submit.blocked || 'Submit is not available right now.'
+})
+const showEnd = computed(() => props.run.status !== 'stopped' && props.run.status !== 'failed')
 
 // The timer shows only while a clock runs: the server sets deadlineAt for a
 // started exam and for a playground session with a deadline, never otherwise.
@@ -58,6 +71,20 @@ watch(left, (ms) => {
         <span class="timer__value" aria-hidden="true">{{ formatDuration(left) }}</span>
         <span class="visually-hidden">{{ Math.ceil(left / 60_000) }} minutes</span>
       </p>
+      <div v-if="showEnd" class="topbar__end">
+        <p v-if="endBlocked" id="end-blocked" class="topbar__blocked small muted">{{ endBlocked }}</p>
+        <button
+          type="button"
+          class="btn btn--sm"
+          :class="run.playground ? 'btn--ghost' : 'btn--primary'"
+          :disabled="!!endBlocked"
+          :aria-describedby="endBlocked ? 'end-blocked' : undefined"
+          aria-haspopup="dialog"
+          @click="emit('end')"
+        >
+          {{ endLabel }}
+        </button>
+      </div>
     </div>
     <div class="visually-hidden" aria-live="polite">{{ politeAnnouncement }}</div>
     <div class="visually-hidden" aria-live="assertive">{{ assertiveAnnouncement }}</div>

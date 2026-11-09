@@ -423,11 +423,258 @@
   max-width: 100%;
 }
 
+/* ---------------------------------------------------------------- end session */
+
+.topbar__end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar__blocked {
+  max-width: 260px;
+}
+
+.timeup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--amber);
+  background: var(--tint-amber);
+}
+
+.timeup__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timeup__title {
+  color: var(--amber);
+  font-weight: 700;
+}
+
+.dialog {
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  padding: 0;
+  border: 1px solid var(--line-bright);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.dialog--danger {
+  border-color: var(--red);
+}
+
+.dialog::backdrop {
+  background: rgba(8, 4, 16, 0.72);
+}
+
+.dialog__card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 26px;
+}
+
+.dialog__title {
+  font-size: 22px;
+}
+
+.dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.dialog__body p {
+  margin: 0;
+}
+
+.dialog__busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--amber);
+  font-weight: 500;
+}
+
+.dialog__error {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--red);
+  border-radius: var(--radius-sm);
+  background: var(--tint-red);
+  color: var(--red);
+}
+
+.dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dialog__busy .dot {
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+}
+
+/* ---------------------------------------------------------------- results */
+
+.results-page {
+  justify-content: flex-start;
+  padding-top: clamp(24px, 6vh, 64px);
+}
+
+.results {
+  width: min(760px, 100%);
+}
+
+.results__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  font-size: clamp(24px, 3.5vw, 34px);
+}
+
+.results__title:focus {
+  box-shadow: none;
+}
+
+.verdict {
+  padding: 4px 14px;
+  border: 1px solid currentColor;
+  border-radius: var(--pill);
+  font-family: var(--font-mono);
+  font-size: 0.7em;
+  letter-spacing: 0.14em;
+}
+
+.verdict--pass {
+  background: var(--tint-green);
+  color: var(--green);
+}
+
+.verdict--fail {
+  background: var(--tint-red);
+  color: var(--red);
+}
+
+.results__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 40px;
+  margin: 0;
+}
+
+.results__warn {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--amber);
+  border-radius: var(--radius-sm);
+  background: var(--tint-amber);
+}
+
+.results__sub {
+  margin-top: 8px;
+  font-size: 17px;
+}
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.check + .check {
+  border-top: 1px solid var(--line);
+}
+
+.check__mark {
+  flex: none;
+  width: 18px;
+  font-weight: 700;
+}
+
+.check--pass .check__mark {
+  color: var(--green);
+}
+
+.check--fail .check__mark {
+  color: var(--red);
+}
+
+.check__name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.check__points {
+  flex: none;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.results__status {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.results__log summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.results__log ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  overflow-wrap: anywhere;
+}
+
+.results__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 /* ---------------------------------------------------------------- narrow screens */
 
 @media (max-width: 760px) {
   .workspace__row {
     flex-direction: column;
+  }
+
+  .topbar__blocked {
+    max-width: none;
+  }
+
+  .dialog__card {
+    padding: 20px 16px;
   }
 
   .task {

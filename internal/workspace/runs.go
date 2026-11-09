@@ -45,19 +45,22 @@ type RunRecord struct {
 	Lab    string `json:"lab"`
 	// RunID is RunDigest of the lab's labops.RunID when the record was
 	// written; it no longer matches once the lab is stopped or restarted.
-	RunID             string    `json:"runId"`
-	Title             string    `json:"title"`
-	Exam              bool      `json:"exam"`
-	Playground        bool      `json:"playground"`
-	TimeLimitSeconds  int64     `json:"timeLimitSeconds,omitempty"`
-	Strict            bool      `json:"strict"`
-	HintsHidden       bool      `json:"hintsHidden"`
-	QuestionTitle     string    `json:"questionTitle"`
-	Question          string    `json:"question"`
-	Prerequisites     string    `json:"prerequisites,omitempty"`
-	EstimatedDuration string    `json:"estimatedDuration,omitempty"`
-	Targets           []Target  `json:"targets"`
-	CreatedAt         time.Time `json:"createdAt"`
+	RunID             string   `json:"runId"`
+	Title             string   `json:"title"`
+	Exam              bool     `json:"exam"`
+	Playground        bool     `json:"playground"`
+	TimeLimitSeconds  int64    `json:"timeLimitSeconds,omitempty"`
+	Strict            bool     `json:"strict"`
+	HintsHidden       bool     `json:"hintsHidden"`
+	QuestionTitle     string   `json:"questionTitle"`
+	Question          string   `json:"question"`
+	Prerequisites     string   `json:"prerequisites,omitempty"`
+	EstimatedDuration string   `json:"estimatedDuration,omitempty"`
+	Targets           []Target `json:"targets"`
+	// KeepEnvironment is teardown.keepCluster: a finished submission
+	// leaves the environment running.
+	KeepEnvironment bool      `json:"keepEnvironment,omitempty"`
+	CreatedAt       time.Time `json:"createdAt"`
 }
 
 // startMarker records the Start click for one run.
@@ -128,8 +131,10 @@ func WriteRun(rec RunRecord) error {
 			return err
 		}
 	}
-	if err := os.Remove(filepath.Join(dir, "start.json")); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
+	for _, stale := range []string{"start.json", "submission.json"} {
+		if err := os.Remove(filepath.Join(dir, stale)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
 	}
 	return writePrivateFile(filepath.Join(dir, "run.json"), data)
 }
@@ -213,6 +218,22 @@ type runView struct {
 	Questions        []questionView `json:"questions"`
 	Targets          []Target       `json:"targets"`
 	CanSubmit        bool           `json:"canSubmit"`
+	Submit           submitView     `json:"submit"`
+}
+
+// submitView is what ending the run does, for the page to explain before
+// it asks: see docs/reference/workspace-api.md.
+type submitView struct {
+	// Tracking is where a result goes: account, local-only or none.
+	Tracking string `json:"tracking"`
+	// KeepEnvironment: a finished submission leaves the environment.
+	KeepEnvironment bool `json:"keepEnvironment"`
+	// Grading: a submission of this run is being graded now.
+	Grading bool `json:"grading"`
+	// Submitted: this run has a saved result (GET .../submission).
+	Submitted bool `json:"submitted"`
+	// Blocked says why Submit is not possible now ("" when it is).
+	Blocked string `json:"blocked"`
 }
 
 type runRules struct {
@@ -240,13 +261,17 @@ func (r RunRecord) mode() string {
 
 // buildView reads the run's state without changing anything: polling is
 // read-only.
-func buildView(rec RunRecord, now time.Time) (runView, error) {
-	v := runView{
+func buildView(rec RunRecord, now time.Time) (v runView, err error) {
+	v = runView{
 		Lab: rec.Lab, RunID: rec.RunID, Title: rec.Title, Mode: rec.mode(), Playground: rec.Playground,
 		ServerNow: now.UTC(),
 		Rules:     runRules{Strict: rec.Strict, HintsHidden: rec.HintsHidden},
 		Questions: []questionView{{ID: "q1", Title: rec.QuestionTitle}},
 		Targets:   rec.Targets,
+		Submit:    submitView{Tracking: TrackingNone, KeepEnvironment: rec.KeepEnvironment},
+	}
+	if sub, err := readSubmission(rec); err == nil && sub != nil {
+		v.Submit.Submitted = true
 	}
 	if rec.Exam && rec.TimeLimitSeconds > 0 {
 		limit := rec.TimeLimitSeconds
@@ -268,8 +293,21 @@ func buildView(rec RunRecord, now time.Time) (runView, error) {
 	}
 	if st == nil || RunDigest(labops.RunID(st)) != rec.RunID {
 		v.Status = StatusStopped
+		v.Submit.Blocked = "the lab is no longer running"
 		return v, nil
 	}
+	v.Submit.Tracking = trackingOf(st)
+	defer func() {
+		switch {
+		case err != nil:
+		case rec.Playground:
+			v.Submit.Blocked = "a playground has no checks to grade"
+		case v.Status == StatusReady:
+			v.Submit.Blocked = "start the lab first"
+		default:
+			v.CanSubmit = true
+		}
+	}()
 	if rec.Playground {
 		v.Status = StatusRunning
 		if started, err := time.Parse(time.RFC3339, st.StartedAt); err == nil {
@@ -371,6 +409,10 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	if s.subs.grading(rec.Lab, rec.RunID) {
+		v.Submit.Grading, v.CanSubmit = true, false
+		v.Submit.Blocked = "the lab is being submitted"
 	}
 	writeJSON(w, http.StatusOK, v)
 }

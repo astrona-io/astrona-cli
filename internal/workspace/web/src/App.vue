@@ -1,28 +1,37 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } from 'vue'
 import { launch, rememberLab } from './boot'
 import {
   ApiError,
   clearToken,
+  destroyRun,
   exchangeCode,
   getRun,
+  getSubmission,
   getToken,
   isRunGone,
   isUnauthorized,
   listRuns,
+  newIdempotencyKey,
   startRun,
+  submitRun,
   type Run,
+  type Submission,
 } from './api'
-import { syncServerClock } from './clock'
+import { serverNow, syncServerClock } from './clock'
+import { endSessionCopy, removeCopy, type EndCopy } from './endSession'
 import MessagePage from './components/MessagePage.vue'
 import IntroPage from './components/IntroPage.vue'
 import WorkspacePage from './components/WorkspacePage.vue'
+import ResultsPage from './components/ResultsPage.vue'
+import ConfirmDialog from './components/ConfirmDialog.vue'
 
 type Screen =
   | { kind: 'loading' }
   | { kind: 'message'; title: string; body: string; command?: string }
   | { kind: 'intro' }
   | { kind: 'workspace' }
+  | { kind: 'results'; submission: Submission }
 
 const screen = shallowRef<Screen>({ kind: 'loading' })
 const run = ref<Run | null>(null)
@@ -80,6 +89,12 @@ async function refresh(): Promise<void> {
     return
   }
   if (r.status === 'stopped') {
+    // Submitted and removed (here or in a terminal): show that result.
+    const sub = await latestSubmission(r)
+    if (sub) {
+      screen.value = { kind: 'results', submission: sub }
+      return
+    }
     screen.value = {
       kind: 'message',
       title: 'This lab is no longer running',
@@ -109,6 +124,11 @@ function schedule(): void {
   // status and the clock offset fresh until the event stream lands).
   const delay = screen.value.kind === 'intro' ? 2000 : 30000
   poll = window.setTimeout(async () => {
+    // While a submission or removal runs, the dialog owns the page.
+    if (dialogBusy.value) {
+      schedule()
+      return
+    }
     try {
       await refresh()
     } catch (err) {
@@ -163,10 +183,169 @@ function onUnauthorized(): void {
   screen.value = sessionEnded
 }
 
-// A leave-page confirmation while a session runs: browser shortcuts such as
-// Ctrl+W close the tab even when the shell wanted them.
+// ---------------------------------------------------------------- end session
+
+// The open dialog: submitting a lab, ending a playground or removing a lab's
+// environment. One Idempotency-Key per confirmed submission, so a retry after
+// a lost connection never grades twice.
+type DialogKind = 'end' | 'remove'
+const dialog = ref<DialogKind | null>(null)
+const dialogBusy = ref(false)
+const dialogError = ref<string | null>(null)
+let submitKey: string | null = null
+
+const dialogCopy = computed<EndCopy | null>(() => {
+  const r = run.value
+  if (!dialog.value || !r) return null
+  if (dialog.value === 'remove') return removeCopy(r)
+  const expired =
+    r.status === 'expired' || (r.deadlineAt !== null && Date.parse(r.deadlineAt) <= serverNow())
+  return endSessionCopy(r, expired)
+})
+
+function openDialog(kind: DialogKind): void {
+  dialogError.value = null
+  submitKey = null
+  dialog.value = kind
+}
+
+function closeDialog(): void {
+  if (dialogBusy.value) return
+  dialog.value = null
+  dialogError.value = null
+}
+
+function message(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+async function confirmDialog(): Promise<void> {
+  const r = run.value
+  if (!r || dialogBusy.value) return
+  dialogBusy.value = true
+  dialogError.value = null
+  try {
+    if (dialog.value === 'remove' || r.playground) await removeEnvironment(r)
+    else await submit(r)
+  } finally {
+    dialogBusy.value = false
+  }
+}
+
+async function submit(r: Run): Promise<void> {
+  submitKey ??= newIdempotencyKey()
+  let sub: Submission
+  try {
+    sub = await submitRun(r.lab, r.runId, submitKey)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 0) {
+      // The request was lost, not necessarily the grading: ask for it.
+      try {
+        sub = await waitForSubmission(r)
+      } catch (waitErr) {
+        failDialog(waitErr)
+        return
+      }
+    } else {
+      failDialog(err)
+      return
+    }
+  }
+  dialog.value = null
+  screen.value = { kind: 'results', submission: sub }
+  await updateRunQuietly()
+}
+
+// Polls GET /submission until the grading this page started is done.
+async function waitForSubmission(r: Run): Promise<Submission> {
+  let unreachable = 0
+  for (;;) {
+    await new Promise((resolve) => window.setTimeout(resolve, 3000))
+    try {
+      const s = await getSubmission(r.lab)
+      unreachable = 0
+      if (s.state === 'done' && s.submission.runId === r.runId) return s.submission
+      if (s.state === 'failed') throw new ApiError(409, s.error.message, s.error.code)
+      if (s.state === 'done') throw new ApiError(409, 'This lab was restarted; reload the page.', 'run_changed')
+    } catch (err) {
+      if (!(err instanceof ApiError) || err.status !== 0) throw err
+      if (++unreachable >= 5) throw err
+    }
+  }
+}
+
+async function removeEnvironment(r: Run): Promise<void> {
+  try {
+    await destroyRun(r.lab, r.runId)
+  } catch (err) {
+    failDialog(err)
+    return
+  }
+  dialog.value = null
+  window.clearTimeout(poll)
+  screen.value = r.playground
+    ? {
+        kind: 'message',
+        title: 'Playground ended',
+        body: 'The playground and everything in it were deleted. Start a new one from your terminal.',
+        command: `astrona run ${r.lab}`,
+      }
+    : {
+        kind: 'message',
+        title: 'Environment removed',
+        body: 'The lab’s environment was deleted. To practise again, start a new run from your terminal.',
+        command: `astrona run ${r.lab}`,
+      }
+}
+
+function failDialog(err: unknown): void {
+  if (isUnauthorized(err)) {
+    dialog.value = null
+    showError(err)
+    return
+  }
+  if (isRunGone(err)) {
+    dialog.value = null
+    void onRunGone()
+    return
+  }
+  // A definite answer from the server: a new attempt gets a new key.
+  if (!(err instanceof ApiError) || err.status !== 0) submitKey = null
+  dialogError.value = message(err)
+}
+
+// Refreshes the run behind the results page without changing the screen.
+async function updateRunQuietly(): Promise<void> {
+  if (!labId) return
+  try {
+    const r = await getRun(labId)
+    syncServerClock(r.serverNow)
+    run.value = r
+  } catch {
+    // The results page shows the submission's own data; the next action reports any error.
+  }
+}
+
+async function latestSubmission(r: Run): Promise<Submission | null> {
+  try {
+    const s = await getSubmission(r.lab)
+    return s.state === 'done' && s.submission.runId === r.runId ? s.submission : null
+  } catch (err) {
+    if (err instanceof ApiError && err.code === 'no_submission') return null
+    throw err
+  }
+}
+
+function backToWorkspace(): void {
+  screen.value = { kind: 'workspace' }
+  schedule()
+}
+
+// A leave-page confirmation while a session runs or a submission is being
+// graded: browser shortcuts such as Ctrl+W close the tab even when the shell
+// wanted them.
 function beforeUnload(ev: BeforeUnloadEvent): void {
-  if (screen.value.kind === 'workspace') ev.preventDefault()
+  if (screen.value.kind === 'workspace' || dialogBusy.value) ev.preventDefault()
 }
 
 onMounted(async () => {
@@ -234,5 +413,28 @@ watchEffect(() => {
     :error="startError"
     @start="start"
   />
-  <WorkspacePage v-else-if="screen.kind === 'workspace' && run" :run="run" @unauthorized="onUnauthorized" @run-gone="onRunGone" />
+  <WorkspacePage
+    v-else-if="screen.kind === 'workspace' && run"
+    :run="run"
+    @unauthorized="onUnauthorized"
+    @run-gone="onRunGone"
+    @end="openDialog('end')"
+  />
+  <ResultsPage
+    v-else-if="screen.kind === 'results'"
+    :run="run"
+    :submission="screen.submission"
+    :lab="screen.submission.lab"
+    @back="backToWorkspace"
+    @remove="openDialog('remove')"
+  />
+  <ConfirmDialog
+    v-if="dialog && dialogCopy"
+    :copy="dialogCopy"
+    :busy="dialogBusy"
+    :error="dialogError"
+    :danger="dialog === 'remove' || !!run?.playground"
+    @confirm="confirmDialog"
+    @cancel="closeDialog"
+  />
 </template>
