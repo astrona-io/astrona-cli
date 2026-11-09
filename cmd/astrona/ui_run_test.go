@@ -45,8 +45,8 @@ func newUIRunGateFixture(t *testing.T) *uiRunGateFixture {
 		t.Fatal(err)
 	}
 	f.root.PersistentPreRunE = func(*cobra.Command, []string) error {
-		if !f.flags.uiStartupApproved || f.flags.trust || !f.flags.installVersion {
-			t.Fatal("startup consent not scoped to invocation")
+		if f.flags.trust || f.flags.installVersion {
+			t.Fatal("startup consent granted code trust or a version install")
 		}
 		return nil
 	}
@@ -74,7 +74,7 @@ func checkUIRunConsent(t *testing.T, f *uiRunGateFixture, accepted bool) {
 		}
 		return
 	}
-	if f.flags.uiStartupApproved {
+	if f.ran {
 		t.Fatal("continued without consent")
 	}
 	store, err := terms.DefaultStore()
@@ -94,7 +94,7 @@ func TestUIRunGate(t *testing.T) {
 			confirmations := 0
 			installUIRunGate(f.root, f.flags, func(_ *cobra.Command, notice uiRunNotice) (bool, error) {
 				confirmations++
-				for _, text := range []string{"ATS000/section-010/module-01/lab-01", "Preferences", "Other labs stay running", "signed out", "this run only"} {
+				for _, text := range []string{"ATS000/section-010/module-01/lab-01", "Preferences", "Other labs stay running", "signed out", "asks separately"} {
 					if !strings.Contains(notice.summary, text) {
 						t.Fatalf("notice missing %q", text)
 					}
@@ -125,7 +125,12 @@ func TestUIRunCodeApprovalIsSavedForExactRevision(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
 	cfg := &config.LabConfig{SourcePath: "https://example.test/config.yaml", SourceSHA256: "abc"}
-	if err := requireTrust(&rootFlags{uiStartupApproved: true}, cfg, dir); err != nil {
+	// Startup consent in the UI is not code trust: without --trust and a
+	// terminal, the lab is refused.
+	if err := requireTrust(&rootFlags{headless: true}, cfg, dir); err == nil || !strings.Contains(err.Error(), "--trust") {
+		t.Fatal("approved without --trust:", err)
+	}
+	if err := requireTrust(&rootFlags{trust: true}, cfg, dir); err != nil {
 		t.Fatal(err)
 	}
 	src, err := labSource(&rootFlags{}, cfg, dir)

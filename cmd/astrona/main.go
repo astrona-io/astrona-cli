@@ -30,18 +30,17 @@ const helpTemplateBody = `{{with (or .Long .Short)}}{{. | trimTrailingWhitespace
 // after newXCmd is called but before RunE runs, so they're read through
 // this shared pointer rather than passed by value.
 type rootFlags struct {
-	configPath        string
-	fileName          string
-	gitURL            string
-	gitRef            string
-	verbose           bool
-	trust             bool
-	updateCheck       bool
-	acceptTerms       bool
-	uiStartupApproved bool
-	uiRestart         *uiRunRestart
-	localOnly         bool
-	headless          bool
+	configPath  string
+	fileName    string
+	gitURL      string
+	gitRef      string
+	verbose     bool
+	trust       bool
+	updateCheck bool
+	acceptTerms bool
+	uiRestart   *uiRunRestart
+	localOnly   bool
+	headless    bool
 	// settingsFile is an optional path override for isolated command tests.
 	settingsFile string
 	settingsArgs []string

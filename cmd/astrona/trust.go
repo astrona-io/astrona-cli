@@ -160,9 +160,6 @@ func requireTrust(flags *rootFlags, cfg *config.LabConfig, baseDir string) error
 	if err != nil || src == nil {
 		return err
 	}
-	if flags.uiStartupApproved {
-		return trust.Approve(*src, time.Now())
-	}
 	return approveParsedSource(flags.trust, !flags.headless && isatty.IsTerminal(os.Stdin.Fd()), *src, func() []string {
 		return append(labRiskSummary(cfg), resourceRiskLines(cfg, baseDir)...)
 	})

@@ -61,7 +61,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"--yes never touches other labs.\n\n" +
 			"--ui shows one startup notice with Yes/No choices, then opens a lab's terminal workspace once it is ready. " +
 			"Downloads, setup, errors and interactive shells stay inside the UI's terminal pane. " +
-			"Yes accepts the displayed terms and settings and permits the lab's downloads and code for this invocation. No cancels startup. " +
+			"Yes accepts the displayed terms and settings and starts setup. It is not code trust: a remote lab still shows its trust prompt, and another astrona release is only installed after its own prompt (or --trust / --install-version). No cancels startup. " +
 			"If the lab already exists, the UI asks before destroying it and starting over with all work discarded. " +
 			"That replacement stays local: no account session, progress or results are sent to Astrona. Use astrona ui to reopen without restarting. " +
 			"Interactive runs without --ui offer the UI before downloads; Enter chooses Yes. Use --ui=false to keep the command-line flow. --yes, CI and redirected input/output skip the offer. The UI will become the default in v0.5.0.\n\n" +

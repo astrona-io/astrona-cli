@@ -151,8 +151,8 @@ func TestSubmitSavedCatalogWithoutRefetchOrApproval(t *testing.T) {
 			if err := labstate.Save("astro-offline", st); err != nil {
 				t.Fatal(err)
 			}
-			// Startup's Yes must cover a later CLI invocation at this revision.
-			flags := &rootFlags{uiStartupApproved: true}
+			// --trust must cover a later CLI invocation at this revision.
+			flags := &rootFlags{trust: true}
 			cfg, base, cleanup, err := loadSavedLab("astro-offline", st, flags)
 			if err != nil {
 				t.Fatal(err)
