@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"os"
 
 	"astrona/internal/labops"
@@ -38,20 +37,6 @@ func rememberLab(clusterName string, flags *rootFlags, sess *labstate.Session) {
 		ui.Warnf("could not remember this lab (%s) — `astrona submit` needs it named, and results won't reach the lab page", err)
 	}
 }
-
-// switchToLab makes the lab's context current in the user's kubeconfig and
-// remembers the one to go back to. nil when it couldn't (a warning says
-// why) — the lab is then reached as with --keep-context.
-func switchToLab(clusterName, labContext string) *labstate.Switched {
-	sw, err := labops.SwitchToLab(clusterName, labContext)
-	if err != nil {
-		ui.Warnf("kubectl was not switched to this lab: %s", err)
-	}
-	return sw
-}
-
-// releaseLab puts back the kubectl context `astrona run` switched away from.
-func releaseLab(w io.Writer, clusterName string) { labops.ReleaseLab(w, clusterName) }
 
 // forgetLab removes active lab memory after ending its session; the
 // --keep-resources choice is passed down from here.

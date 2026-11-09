@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"astrona/internal/apphome"
 	"astrona/internal/config"
 	"astrona/internal/exam"
+	"astrona/internal/labops"
 	"astrona/internal/proctor"
 	"astrona/internal/ui"
 
@@ -98,17 +98,7 @@ func printHome(w io.Writer, lab homeLab, ok bool, now time.Time) {
 
 // otherRunningLabs are running labs other than except (no linked
 // clusters, no test copies).
-func otherRunningLabs(except string) []string {
-	owners := linkedClusterOwners()
-	var out []string
-	for _, r := range collectKindRows() {
-		if _, linked := owners[r.Name]; linked || r.Name == except || strings.HasPrefix(r.Name, apphome.TestClusterPrefix()) || r.Status == "Stopped" {
-			continue
-		}
-		out = append(out, strings.TrimPrefix(r.Name, apphome.ClusterPrefix()))
-	}
-	return out
-}
+func otherRunningLabs(except string) []string { return labops.OtherRunningLabs(except) }
 
 // homeRun is the root command's Run: plain `astrona` — the lab's status,
 // then every command, exactly as `astrona --help` lists them.

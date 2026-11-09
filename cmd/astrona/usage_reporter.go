@@ -18,9 +18,6 @@ import (
 // the measuring, which reads the same container engine and QEMU data as
 // the dashboard.
 
-// startUsageReporter starts the reporter for a lab that just became ready.
-func startUsageReporter(clusterName string) { labops.StartUsageReporter(os.Stderr, clusterName) }
-
 func newUsageReporterCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:    "usage-reporter <cluster>",

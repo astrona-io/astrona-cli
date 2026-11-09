@@ -9,9 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"astrona/internal/account"
 	"astrona/internal/labops"
-	"astrona/internal/labstate"
 	"astrona/internal/ui"
 )
 
@@ -23,12 +21,6 @@ import (
 
 // isPlaygroundName reports whether a catalog name is a module's playground.
 func isPlaygroundName(name string) bool { return labops.IsPlaygroundName(name) }
-
-// startPlaygroundWatchdog starts the detached process that ends the
-// playground at its deadline and says when that is.
-func startPlaygroundWatchdog(clusterName string, sess *labstate.Session) {
-	labops.StartPlaygroundWatchdog(os.Stdout, os.Stderr, clusterName, sess)
-}
 
 func newPlaygroundWatchdogCmd() *cobra.Command {
 	return &cobra.Command{
@@ -58,12 +50,6 @@ func destroyPlayground(clusterName string) error {
 	}
 	defer rep.Close()
 	return destroyByName(clusterName, rep)
-}
-
-// stopPlaygroundClock tells the site the playground ended, through the
-// outbox (labops.StopPlaygroundClock).
-func stopPlaygroundClock(ctx context.Context, sess *labstate.Session, reason string, usage *account.UsageReport) {
-	labops.StopPlaygroundClock(ctx, os.Stderr, sess, reason, usage)
 }
 
 // endRunSession runs when a lab is forgotten (labops.EndRunSession).

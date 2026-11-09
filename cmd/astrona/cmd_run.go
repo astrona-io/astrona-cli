@@ -1,13 +1,10 @@
 package main
 
 import (
-	"astrona/internal/account"
 	"astrona/internal/apphome"
 	"context"
 	"fmt"
-	"net/url"
 	"os"
-	"time"
 
 	"astrona/internal/addons"
 	"astrona/internal/catalog"
@@ -15,11 +12,8 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/exam"
 	"astrona/internal/labops"
-	"astrona/internal/labshell"
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
-	"astrona/internal/preflight"
-	"astrona/internal/resources"
 	"astrona/internal/runtime"
 	"astrona/internal/settings"
 	"astrona/internal/ui"
@@ -115,7 +109,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer release()
-			exists, err := labExists(cfg, clusterName)
+			exists, err := labops.LabExists(cfg, clusterName)
 			if err != nil {
 				return err
 			}
@@ -135,7 +129,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				}
 			} else {
 				choice, err = chooseRun(os.Stdin, promptOut, !flags.headless && isatty.IsTerminal(os.Stdin.Fd()), yes,
-					exists, label, otherRunningLabNames(clusterName))
+					exists, label, labops.OtherRunningLabNames(clusterName))
 			}
 			if err != nil {
 				return err
@@ -210,13 +204,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				endOldSession(clusterName) // an old playground's watchdog would remove the new lab
 			}
 			if choice.startOver {
-				if flags.keepContext { // not switching again: put back what the old lab switched away from
-					releaseLab(os.Stdout, clusterName)
-				}
-				teardown := cfg.Teardown
-				teardown.KeepCluster = false
-				info := teardownInfo{ClusterName: clusterName, Teardown: teardown, Runtime: cfg.Runtime, SkipScripts: flags.localOnly}
-				if err := tearDownLabEnvironment(clusterName, info, baseDir, true, rep); err != nil {
+				// With --keep-context run won't switch again: the old lab's context goes back first.
+				if err := labops.RemoveForRestart(os.Stdout, cfg, baseDir, clusterName, flags.keepContext, flags.localOnly, rep); err != nil {
 					return fmt.Errorf("could not remove the running lab, nothing was started: %w", err)
 				}
 			}
@@ -310,157 +299,63 @@ func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clust
 	fmt.Printf("    astrona ssh %s\n", clusterName)
 }
 
-// bringUpLab creates cfg's linked clusters (runtime.kind.clusters), then the lab
-// itself with everything `astrona run` does — preload, addons, bootstrap,
-// manifests, readiness gates, port forwards — and prints how to connect.
-// Once it is ready, a kind lab's context becomes the user's kubectl
-// current-context (unless --keep-context), and where the lab came from and
-// its lab session (sess, nil for none) are remembered for submit and
-// destroy. Shared by run and reset.
+// bringUpLab creates the lab (labops.Provision: preflight, linked
+// clusters, the lab itself, the exam clock, remembering it, the kubectl
+// switch) and prints how to connect. sess is its lab session (nil for
+// none). Shared by run and reset.
 func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui.Reporter, sess *labstate.Session) error {
-	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
-	if err := preflight.RunEnvironment(cfg, baseDir, rep, labConfigResults); err != nil {
-		return err
-	}
-	// Checked before linked clusters are (re)created — they'd otherwise be
-	// replaced under a lab that's still using them.
-	if len(cfg.KindClusters()) > 0 && kindClusterExists(clusterName) {
-		return fmt.Errorf("lab %s is already running — `astrona reset` starts it over", clusterName)
-	}
-	// Resources are collected and copied before anything is built, so a
-	// broken resources/ folder costs no cluster. Nothing in them runs.
-	res, err := resources.Collect(cfg, baseDir)
+	res, err := labops.Provision(labops.ProvisionRequest{
+		Config:       cfg,
+		BaseDir:      baseDir,
+		Source:       rememberedSource(flags),
+		LocalOnly:    flags.localOnly,
+		KeepContext:  flags.keepContext,
+		Parallel:     flags.parallel,
+		Session:      sess,
+		ConfigChecks: labConfigResults,
+		Warn:         os.Stderr,
+	}, rep)
 	if err != nil {
 		return err
 	}
-	if err := labshell.Remove(context.Background(), clusterName); err != nil {
-		return fmt.Errorf("clear the previous terminal workspace: %w", err)
-	}
-	resDir, err := resources.Snapshot(clusterName, baseDir, res)
-	if err != nil {
-		return fmt.Errorf("could not copy the lab's resources: %w", err)
-	}
-	if err := lifecycle.PrepareSharedCA(cfg, clusterName); err != nil {
-		return err
-	}
-	links, err := lifecycle.StartLinkedClusters(cfg, baseDir, clusterName, false, flags.parallel, rep)
-	if err != nil {
-		collectRunLinkedFailure(cfg, clusterName, rep)
-		return err
-	}
-	env, forwards, err := lifecycle.Up(cfg, baseDir, clusterName, links, false, rep)
-	if err != nil {
-		if env != nil {
-			collectDiagnostics(env, cfg, clusterName, "", rep)
-		}
-		return err
-	}
-
-	// The clock starts once the lab is ready — setup time doesn't count.
-	if cfg.Exam.Enabled() {
-		if err := exam.Start(clusterName, cfg.Exam.Limit(), time.Now()); err != nil {
-			rep.Warn("could not start the exam clock: %s", err)
-		}
-	}
-
-	rememberLab(clusterName, flags, sess)
-	rep.Close()
-	var sw *labstate.Switched
-	if env.Type == runtime.RuntimeKind && !flags.keepContext {
-		sw = switchToLab(clusterName, env.KubeContext)
-	}
+	clusterName := res.ClusterName
 	fmt.Printf("\nLab environment is fully loaded and ready!\n")
-	printConnectHints(env, cfg, clusterName, sw)
-	printPortForwardHints(os.Stdout, forwards)
-	printLinkHints(os.Stdout, links)
+	printConnectHints(res.Env, cfg, clusterName, res.Switched)
+	printPortForwardHints(os.Stdout, res.Forwards)
+	printLinkHints(os.Stdout, res.Links)
 	if ca, ok := cluster.ExistingLabCA(clusterName); ok && cfg.Runtime.Kind != nil && cfg.Runtime.Kind.SharedCA {
 		fmt.Printf("\nLab CA (trusted by every cluster via ConfigMap astrona-ca): %s\n    curl --cacert %s https://<name>.%s:<nodePort>/\n", ca.CertPath, ca.CertPath, cluster.LinkDomain)
 	}
-	if cfg.Exam.Enabled() {
+	if res.ExamStarted {
 		fmt.Printf("\nExam started — you have %s. `astrona submit` shows the time left.\n", exam.Round(cfg.Exam.Limit()))
 	}
-	printResources(os.Stdout, resDir, res)
+	printResources(os.Stdout, res.ResourcesDir, res.Resources)
 	if cfg.Metadata.Docs.Question != "" {
 		fmt.Printf("\nYour task: astrona docs question%s   (all docs: astrona docs)\n", configFlagHint(baseDir))
 	}
-	fmt.Printf("Full log: %s\n", rep.LogPath())
+	fmt.Printf("Full log: %s\n", res.LogPath)
 	return nil
 }
 
-// labStart is the lab session a run or a full reset builds a lab under —
-// none for a lab that isn't from the catalog. Shared by run and reset, so
-// a reset ends exactly like a fresh run.
+// labStart is the lab session a run or a full reset builds a lab under
+// (labops.LabStart), under the names cmd's callers and tests use. S15
+// removes it.
 type labStart struct {
-	page  *url.URL
-	sess  *labstate.Session
-	ready bool
+	ls   *labops.LabStart
+	sess *labstate.Session
 }
 
 // startLabSession starts acct's session for the catalog lab (nil acct:
-// none) before anything is built — a timed playground for a module's
-// playground, with the config's time limit.
+// none) before anything is built (labops.StartLabSession); it says so on
+// stdout.
 func startLabSession(ctx context.Context, acct *labAccount, command string, cfg *config.LabConfig, lab string) (*labStart, error) {
-	ls := &labStart{}
-	if acct == nil {
-		return ls, nil
-	}
-	var opts []account.SessionOptions
-	if isPlaygroundName(lab) {
-		minutes, _ := cfg.Metadata.TimeLimitMinutes() // checked by lifecycle.Validate
-		opts = append(opts, account.SessionOptions{Kind: "playground", TimeLimitMinutes: minutes})
-	}
-	var err error
-	ls.page, ls.sess, err = startSession(ctx, acct, command, lab, opts...)
-	return ls, err
+	ls, err := labops.StartLabSession(ctx, os.Stdout, os.Stderr, acct, command, cfg, lab)
+	return &labStart{ls: ls, sess: ls.Session}, err
 }
 
-// abandon stops a playground's clock when the playground never became
-// ready (deferred right after startLabSession) — it started with the
-// session and would otherwise run on to the deadline with nothing to show
-// for it. A Lab has no timer until its course page connects.
-func (ls *labStart) abandon() {
-	if ls.ready {
-		return
-	}
-	ls.progress("failed", "Lab setup stopped before it was ready")
-	if !ls.sess.IsPlayground() {
-		return
-	}
-	stopPlaygroundClock(context.Background(), ls.sess, "destroyed", nil)
-}
-
-// done follows a lab that is ready: a playground's watchdog starts (its
-// clock is already running), and a Lab reports that the course page may connect.
-func (ls *labStart) done(clusterName string) {
-	ls.ready = true
-	ls.progress("ready", "Lab environment is ready")
-	if ls.sess != nil && ls.sess.ID != "" {
-		startUsageReporter(clusterName)
-	}
-	if ls.sess.IsPlayground() {
-		startPlaygroundWatchdog(clusterName, ls.sess)
-		return
-	}
-	if ls.page != nil {
-		fmt.Printf("\nLab ready. Continue in your course page, or open: %s\n", ls.page)
-		printTimeLimit(ls.sess)
-	}
-}
-
-func (ls *labStart) progress(phase, message string) {
-	if ls == nil || ls.sess == nil || ls.sess.IsPlayground() {
-		return
-	}
-	client, store, _, err := accountDeps()
-	if err != nil {
-		return
-	}
-	creds, err := client.Active(context.Background(), store, ls.sess.Site)
-	if err != nil || creds == nil {
-		return
-	}
-	_ = client.UpdateLabSessionProgress(context.Background(), creds, ls.sess.ID, phase, message)
-}
+func (s *labStart) abandon()                       { s.ls.Abandon() }
+func (s *labStart) done(clusterName string)        { s.ls.Done(clusterName) }
+func (s *labStart) progress(phase, message string) { s.ls.Progress(phase, message) }
 
 // configFlagHint is the " -c <dir>" to append to a suggested command so it
 // finds the same lab config — empty when that's the current directory.

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/url"
 	"os"
 	"os/exec"
@@ -73,8 +72,4 @@ var browserOpener = openInBrowser
 
 // printTimeLimit says how long the attempt runs once the lab page opens,
 // when the site gave a limit.
-func printTimeLimit(sess *labstate.Session) {
-	if sess != nil && sess.MaxMinutes > 0 {
-		fmt.Printf("You have %d minutes once the lab page opens.\n", sess.MaxMinutes)
-	}
-}
+func printTimeLimit(sess *labstate.Session) { labops.WriteTimeLimit(os.Stdout, sess) }
