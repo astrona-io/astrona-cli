@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/lifecycle"
 	"astrona/internal/resources"
 	"astrona/internal/scripts"
@@ -60,17 +61,17 @@ func labConfigResults(cfg *config.LabConfig, baseDir string) []checkResult {
 	if baseDir == "" {
 		// No folder to check against, but an absolute local source is
 		// wrong wherever the config lives.
-		for _, ref := range resourceRefs(cfg) {
-			if t := strings.ToLower(ref.item.Type); (t == "file" || t == "folder") && filepath.IsAbs(ref.item.Source) {
-				fail(ref.where, fmt.Sprintf("path '%s' must be relative to the lab directory, not absolute", ref.item.Source))
+		for _, ref := range labops.ResourceRefs(cfg) {
+			if t := strings.ToLower(ref.Item.Type); (t == "file" || t == "folder") && filepath.IsAbs(ref.Item.Source) {
+				fail(ref.Where, fmt.Sprintf("path '%s' must be relative to the lab directory, not absolute", ref.Item.Source))
 			}
 		}
 		res = append(res, checkResult{Status: checkWarn, Name: "sources", Detail: "config loaded from a URL — local file references not checked"})
 		return res
 	}
-	for _, ref := range resourceRefs(cfg) {
-		if _, err := scripts.ResolveLocalSource(ref.item, baseDir); err != nil {
-			fail(ref.where, err.Error())
+	for _, ref := range labops.ResourceRefs(cfg) {
+		if _, err := scripts.ResolveLocalSource(ref.Item, baseDir); err != nil {
+			fail(ref.Where, err.Error())
 		}
 	}
 	// A qemu base image of type file is read from the lab directory too
@@ -108,51 +109,6 @@ func labConfigResults(cfg *config.LabConfig, baseDir string) []checkResult {
 		res = append(res, checkResult{Name: "lab config", Detail: "valid"})
 	}
 	return res
-}
-
-type resourceRef struct {
-	where string
-	item  config.ResourceItem
-}
-
-// resourceRefs lists every script/manifest entry in cfg with where it's
-// configured.
-func resourceRefs(cfg *config.LabConfig) []resourceRef {
-	var refs []resourceRef
-	add := func(where string, items []config.ResourceItem) {
-		for i, it := range items {
-			refs = append(refs, resourceRef{fmt.Sprintf("%s[%d] %s", where, i, it.Name), it})
-		}
-	}
-	addBlock := func(prefix string, b config.BootstrapConfig) {
-		add(prefix+".init", b.Init)
-		add(prefix+".manifests", b.Manifests)
-	}
-	addValidation := func(prefix string, v config.ValidationConfig) {
-		if v.Script != nil {
-			add(prefix+".script", []config.ResourceItem{*v.Script})
-		}
-		add(prefix+".scripts", v.Scripts)
-	}
-
-	addBlock("bootstrap", cfg.Bootstrap)
-	addBlock("testing", cfg.Testing)
-	add("teardown.init", cfg.Teardown.Init)
-	addValidation("validation", cfg.Validation)
-	for _, l := range cfg.KindClusters() {
-		addBlock("runtime.kind.clusters["+l.Name+"].bootstrap", l.Bootstrap)
-		addBlock("runtime.kind.clusters["+l.Name+"].testing", l.Testing)
-		add("runtime.kind.clusters["+l.Name+"].teardown.init", l.Teardown.Init)
-	}
-	for _, vm := range cfg.Runtime.QEMU {
-		if vm.Bootstrap != nil {
-			addBlock("runtime.qemu["+vm.Name+"].bootstrap", *vm.Bootstrap)
-		}
-		if vm.Validation != nil {
-			addValidation("runtime.qemu["+vm.Name+"].validation", *vm.Validation)
-		}
-	}
-	return refs
 }
 
 func docRefs(cfg *config.LabConfig) map[string]string {

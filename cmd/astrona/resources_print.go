@@ -3,11 +3,10 @@ package main
 import (
 	"fmt"
 	"io"
-	"strings"
 	"text/tabwriter"
 
-	"astrona/internal/apphome"
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/resources"
 	"astrona/internal/ui"
 )
@@ -43,28 +42,8 @@ func printResources(w io.Writer, dir string, list []resources.Resource) {
 	fmt.Fprintln(w, "In the lab terminal: ~/resources · astrona res run <filename> -- <args>")
 }
 
-// resourceRiskLines are the trust prompt's lines about the lab's resources:
-// they're its code too, but nothing runs until the student asks.
+// resourceRiskLines are the trust prompt's lines about the lab's resources
+// (labops.ResourceRiskLines).
 func resourceRiskLines(cfg *config.LabConfig, baseDir string) []string {
-	list, err := resources.Collect(cfg, baseDir)
-	if err != nil {
-		return []string{sanitizeLine("⚠ its resources can't be read: " + err.Error())}
-	}
-	if len(list) == 0 {
-		return nil
-	}
-	where := "inside the isolated lab terminal (--host explicitly runs on this machine)"
-	if cfg.Runtime.Type == "qemu" {
-		where = "inside the lab VM"
-	}
-	parts := make([]string, len(list))
-	for i, r := range list {
-		how := r.Command()
-		if how == "" {
-			how = "file, never run"
-		}
-		parts[i] = r.Name + " (" + how + ")"
-	}
-	return []string{sanitizeLine(fmt.Sprintf("ships %d resource(s), copied to ~/%s/resources — each runs %s only when you ask (astrona res run): %s",
-		len(list), apphome.Name(), where, strings.Join(parts, ", ")))}
+	return labops.ResourceRiskLines(cfg, baseDir)
 }

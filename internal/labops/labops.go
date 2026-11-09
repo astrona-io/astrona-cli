@@ -9,7 +9,10 @@
 // outbox-flush` and starting it detached), sending a graded result to the
 // lab page, starting a lab session, a timed playground (its detached
 // watchdog behind `astrona playground-watchdog`, its clock, `astrona run
-// renew`) and the usage reporter behind `astrona usage-reporter`.
+// renew`), the usage reporter behind `astrona usage-reporter`, loading a
+// lab for a command (LoadLab: resolve, parse, the astronaVersion gate,
+// warnings, bundle images) and the trust policy for remote labs
+// (RequireTrust, HandoverApproval, RiskSummary).
 //
 // Detached helpers are this same executable (os.Executable) started with
 // a hidden command, in their own session (Setsid), inheriting the
@@ -17,6 +20,8 @@
 //
 // labops never writes to stdout or stderr itself: operations take an
 // io.Writer or return results. Flags are read in cmd and passed in as
-// parameters. Paths are computed inside functions, never at package init,
+// parameters. What needs cmd is passed in as a callback: the version
+// hand-over (VersionGate) and asking the user to trust a lab (Approver —
+// the terminal prompt in cmd, later a browser question). Paths are computed inside functions, never at package init,
 // so they follow apphome.Configure.
 package labops
