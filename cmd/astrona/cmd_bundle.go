@@ -1,24 +1,18 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
-	goruntime "runtime"
-	"strings"
 	"time"
 
-	"astrona/internal/addons"
 	"astrona/internal/apphome"
+	"astrona/internal/authoring"
 	"astrona/internal/bundle"
-	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/labops"
-	"astrona/internal/lifecycle"
 	"astrona/internal/trust"
 	"astrona/internal/ui"
 
@@ -38,35 +32,6 @@ func applyBundleImages(cfg *config.LabConfig, baseDir string) { labops.ApplyBund
 // (labops.LabPreloadImages).
 func labPreloadImages(cfg *config.LabConfig, baseDir string) []string {
 	return labops.LabPreloadImages(cfg, baseDir)
-}
-
-// bundleRefusal explains why a lab can't be bundled, or "" if it can.
-func bundleRefusal(cfg *config.LabConfig, nodeImage string) string {
-	if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" {
-		return "only kind labs can be bundled (qemu labs cache their own base images)"
-	}
-	for _, ref := range labops.ResourceRefs(cfg) {
-		if strings.EqualFold(ref.Item.Type, "url") {
-			return fmt.Sprintf("%s is fetched from a URL at run time (%s) — make it a local file to bundle the lab", ref.Where, ref.Item.Source)
-		}
-	}
-	if k := cfg.Runtime.Kind; k != nil && k.Addons.GatewayAPI != "" {
-		return addons.ErrNotBundleable.Error()
-	}
-	for _, l := range cfg.KindClusters() {
-		if l.Addons.GatewayAPI != "" {
-			return fmt.Sprintf("linked cluster '%s': %s", l.Name, addons.ErrNotBundleable)
-		}
-		// Offline, an unpinned cluster would boot kind's default image —
-		// which may not be the one in the bundle.
-		if l.Cluster().NodeImage() == "" {
-			return fmt.Sprintf("linked cluster '%s' doesn't pin its node image — set its version (or image)", l.Name)
-		}
-	}
-	if nodeImage == "" {
-		return "the node image isn't pinned — set runtime.kind.version (or image) in the lab, or pass --node-image (kind's built-in default can't be determined reliably)"
-	}
-	return ""
 }
 
 func newBundleCmd(flags *rootFlags) *cobra.Command {
@@ -98,17 +63,9 @@ func newBundleCreateCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer cleanup()
-			if strings.HasPrefix(baseDir, "http") {
-				return fmt.Errorf("bundle a local or --git lab (a URL-only config has no lab directory to pack)")
-			}
-			if err := lifecycle.Validate(cfg); err != nil {
+			opts := authoring.BundleOptions{Output: out, NodeImage: nodeImage, CreatedBy: Version}
+			if opts.NodeImage, err = authoring.PrepareBundle(cfg, baseDir, opts); err != nil {
 				return err
-			}
-			if nodeImage == "" {
-				nodeImage = cfg.Runtime.Kind.NodeImage()
-			}
-			if reason := bundleRefusal(cfg, nodeImage); reason != "" {
-				return fmt.Errorf("can't bundle %s: %s", cfg.Metadata.Name, reason)
 			}
 
 			rep, err := ui.New("bundle", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
@@ -117,106 +74,14 @@ func newBundleCreateCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
-			work, err := os.MkdirTemp("", "astrona-bundle-*")
+			res, err := authoring.CreateBundle(rep, cfg, baseDir, opts.NodeImage, opts)
 			if err != nil {
 				return err
 			}
-			defer os.RemoveAll(work)
-
-			m := bundle.Manifest{
-				FormatVersion: bundle.FormatVersion, Lab: cfg.Metadata.Name, Arch: goruntime.GOARCH,
-				CreatedBy: Version, CreatedAt: time.Now().UTC(), NodeImage: nodeImage,
-			}
-			var entries []bundle.Entry
-
-			// The lab's own cluster and every linked cluster: node images,
-			// preload images, addon manifests — each once.
-			type want struct{ ref, purpose string }
-			wanted := []want{}
-			seen := map[string]bool{}
-			add := func(ref, purpose string) {
-				if !seen[ref] {
-					seen[ref] = true
-					wanted = append(wanted, want{ref, purpose})
-				}
-			}
-			add(nodeImage, "node")
-			for _, im := range labPreloadImages(cfg, baseDir) {
-				add(im, "preload")
-			}
-			addonSets := []config.KindAddons{}
-			if k := cfg.Runtime.Kind; k != nil && !k.Addons.IsZero() {
-				addonSets = append(addonSets, k.Addons)
-			}
-			for _, l := range cfg.KindClusters() {
-				add(l.Cluster().NodeImage(), "node")
-				for _, im := range l.PreloadImages {
-					add(im, "preload")
-				}
-				if !l.Addons.IsZero() {
-					addonSets = append(addonSets, l.Addons)
-				}
-			}
-
-			var addonManifests []addons.BundledManifest
-			if len(addonSets) > 0 {
-				t := rep.Step("Collect addon manifests")
-				have := map[string]bool{}
-				for _, set := range addonSets {
-					ms, err := addons.ForBundle(set, t.Output())
-					if err != nil {
-						return t.Fail(err)
-					}
-					for _, am := range ms {
-						if !have[am.SHA256] {
-							have[am.SHA256] = true
-							addonManifests = append(addonManifests, am)
-						}
-					}
-				}
-				t.Done()
-			}
-
-			for _, am := range addonManifests {
-				name := path.Join("addons", am.SHA256+".yaml")
-				m.AddonManifests = append(m.AddonManifests, bundle.AddonManifest{Addon: am.Addon, File: name, SHA256: am.SHA256})
-				entries = append(entries, bundle.Entry{Name: name, Path: am.Path})
-				for _, im := range am.Images {
-					add(im, "addon")
-				}
-			}
-
-			for i, w := range wanted {
-				t := rep.Step("Save image %s", w.ref)
-				local := filepath.Join(work, fmt.Sprintf("%d.tar", i))
-				if err := cluster.SaveImage(w.ref, local, t.Output()); err != nil {
-					return t.Fail(err)
-				}
-				sum, err := bundle.SHA256File(local)
-				if err != nil {
-					return t.Fail(err)
-				}
-				name := fmt.Sprintf("images/%d.tar", i)
-				m.Images = append(m.Images, bundle.Image{Ref: w.ref, File: name, SHA256: sum, Purpose: w.purpose})
-				entries = append(entries, bundle.Entry{Name: name, Path: local})
-				t.Done()
-			}
-
-			lab, err := bundle.LabEntries(baseDir)
-			if err != nil {
-				return err
-			}
-			entries = append(lab, entries...)
-
-			t := rep.Step("Write %s", out)
-			if err := bundle.Write(out, m, entries); err != nil {
-				return t.Fail(err)
-			}
-			t.Done()
 			rep.Close()
 
-			info, _ := os.Stat(out)
-			fmt.Printf("\nBundle %s — %s, %d image(s), %d addon manifest(s), %.0f MB, %s.\n", out, m.Lab, len(m.Images), len(m.AddonManifests), float64(info.Size())/(1<<20), m.Arch)
+			m := res.Manifest
+			fmt.Printf("\nBundle %s — %s, %d image(s), %d addon manifest(s), %.0f MB, %s.\n", out, m.Lab, len(m.Images), len(m.AddonManifests), float64(res.Size)/(1<<20), m.Arch)
 			fmt.Printf("On the offline machine: astrona bundle load %s\n", filepath.Base(out))
 			return nil
 		},
@@ -226,14 +91,8 @@ func newBundleCreateCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
-// bundlesDir is ~/.astrona/bundles.
-func bundlesDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, apphome.Name(), "bundles"), nil
-}
+// bundlesDir is ~/.astrona/bundles (authoring.BundlesDir).
+func bundlesDir() (string, error) { return authoring.BundlesDir() }
 
 func newBundleLoadCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
@@ -248,87 +107,29 @@ func newBundleLoadCmd(flags *rootFlags) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src := args[0]
-			sum, err := bundle.SHA256File(src)
+			ob, err := authoring.OpenBundle(src)
 			if err != nil {
 				return err
 			}
-			root, err := bundlesDir()
-			if err != nil {
-				return err
-			}
-			if err := os.MkdirAll(root, 0700); err != nil {
-				return err
-			}
-			staging, err := os.MkdirTemp(root, ".load-*")
-			if err != nil {
-				return err
-			}
-			defer os.RemoveAll(staging)
-
-			m, err := bundle.Extract(src, staging)
-			if err != nil {
-				return fmt.Errorf("invalid bundle: %w", err)
-			}
-			if m.Arch != goruntime.GOARCH {
-				return fmt.Errorf("bundle was built for %s, this machine is %s — its images won't run here", m.Arch, goruntime.GOARCH)
-			}
-			labDir := filepath.Join(staging, "lab")
-			cfg, cleanup, err := config.LoadLabConfig(filepath.Join(labDir, "config.yaml"))
-			if err != nil {
-				return fmt.Errorf("bundle's lab: %w", err)
-			}
-			cleanup()
+			defer ob.Close()
 
 			src = mustAbs(src)
-			if err := trustBundle(flags, src, sum, cfg, m); err != nil {
+			if err := trustBundle(flags, src, ob.SHA256, ob.Config, ob.Manifest); err != nil {
 				return err
 			}
 
-			rep, err := ui.New("bundle-load", m.Lab, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
+			rep, err := ui.New("bundle-load", ob.Manifest.Lab, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
 				return err
 			}
 			defer rep.Close()
 
-			for _, im := range m.Images {
-				t := rep.Step("Load image %s", im.Ref)
-				if err := cluster.LoadImageArchive(filepath.Join(staging, filepath.FromSlash(im.File)), t.Output()); err != nil {
-					return t.Fail(err)
-				}
-				t.Done()
-			}
-			for _, am := range m.AddonManifests {
-				t := rep.Step("Cache %s manifest", am.Addon)
-				data, err := os.ReadFile(filepath.Join(staging, filepath.FromSlash(am.File)))
-				if err == nil {
-					err = addons.SeedCache(data)
-				}
-				if err != nil {
-					return t.Fail(err)
-				}
-				t.Done()
-			}
-			if extra := m.AddonImages(); len(extra) > 0 {
-				data, _ := json.Marshal(extra)
-				if err := os.WriteFile(filepath.Join(labDir, bundleImagesSidecar), data, 0600); err != nil {
-					return err
-				}
-			}
-
-			// bundle.Extract already validated m.Lab; dest is RemoveAll'd,
-			// so check again that it's a direct child of root.
-			dest := filepath.Join(root, fmt.Sprintf("%s-%s", m.Lab, sum[:12]))
-			if filepath.Dir(dest) != filepath.Clean(root) {
-				return fmt.Errorf("bundle lab name '%s' escapes %s", m.Lab, root)
-			}
-			if err := os.RemoveAll(dest); err != nil {
-				return err
-			}
-			if err := os.Rename(labDir, dest); err != nil {
+			dest, err := ob.Install(rep)
+			if err != nil {
 				return err
 			}
 			rep.Close()
-			fmt.Printf("\nLoaded %s into %s — works without internet now:\n  astrona run -c %s\n", m.Lab, dest, dest)
+			fmt.Printf("\nLoaded %s into %s — works without internet now:\n  astrona run -c %s\n", ob.Manifest.Lab, dest, dest)
 			return nil
 		},
 	}
@@ -369,14 +170,9 @@ func newBundleInspectCmd() *cobra.Command {
 		Short: "Show what's in a bundle (verifies it, installs nothing)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			tmp, err := os.MkdirTemp("", "astrona-inspect-*")
+			m, err := authoring.InspectBundle(args[0])
 			if err != nil {
 				return err
-			}
-			defer os.RemoveAll(tmp)
-			m, err := bundle.Extract(args[0], tmp)
-			if err != nil {
-				return fmt.Errorf("invalid bundle: %w", err)
 			}
 			printBundleManifest(os.Stdout, m)
 			return nil

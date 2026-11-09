@@ -1,4 +1,4 @@
-package main
+package authoring
 
 import (
 	"os"
@@ -7,9 +7,10 @@ import (
 	"testing"
 
 	"astrona/internal/config"
+	"astrona/internal/preflight"
 )
 
-func TestLabConfigResults(t *testing.T) {
+func TestCheckConfig(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "ok.sh"), []byte("true\n"), 0600)
 	cfg := &config.LabConfig{
@@ -20,16 +21,16 @@ func TestLabConfigResults(t *testing.T) {
 		UnknownFields: []config.UnknownField{{Line: 3, Field: "waitfor", In: "bootstrap/testing", Suggestion: "waitFor"}},
 	}
 
-	byName := map[string]checkResult{}
-	for _, r := range labConfigResults(cfg, dir) {
+	byName := map[string]preflight.Result{}
+	for _, r := range CheckConfig(cfg, dir) {
 		byName[r.Name] = r
 	}
-	expect := map[string]checkStatus{
-		"line 3":                  checkFail,
-		"validation.checks[1]":    checkFail,
-		"bootstrap.init[1] gone":  checkFail,
-		"teardown.init[0] escape": checkFail,
-		"metadata.docs.solution":  checkWarn,
+	expect := map[string]preflight.Status{
+		"line 3":                  preflight.Fail,
+		"validation.checks[1]":    preflight.Fail,
+		"bootstrap.init[1] gone":  preflight.Fail,
+		"teardown.init[0] escape": preflight.Fail,
+		"metadata.docs.solution":  preflight.Warn,
 	}
 	for name, status := range expect {
 		r, ok := byName[name]
@@ -46,10 +47,10 @@ func TestLabConfigResults(t *testing.T) {
 
 	clean := &config.LabConfig{Metadata: config.MetadataConfig{Name: "x"},
 		Validation: config.ValidationConfig{Checks: []config.ValidationCheck{{Name: "ok", Type: "command", Command: "true"}}}}
-	if res := labConfigResults(clean, dir); len(res) != 1 || res[0].Status != checkOK {
+	if res := CheckConfig(clean, dir); len(res) != 1 || res[0].Status != preflight.OK {
 		t.Errorf("clean config = %+v", res)
 	}
-	if res := labConfigResults(clean, ""); res[0].Status != checkWarn {
+	if res := CheckConfig(clean, ""); res[0].Status != preflight.Warn {
 		t.Errorf("URL config should warn that sources weren't checked: %+v", res)
 	}
 }
