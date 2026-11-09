@@ -1932,6 +1932,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="ResourceItem">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#time-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Time limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -4952,6 +4969,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="ResourceItem">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#time-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Time limits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5758,6 +5792,11 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <td>string</td>
 <td>Grade the check in this linked cluster (a <a href="#runtimekindclustersn"><code>runtime.kind.clusters</code></a> name) instead of the lab's own. Not for <code>http</code> checks</td>
 </tr>
+<tr>
+<td><code>timeout</code></td>
+<td>duration</td>
+<td>How long the check may run, e.g. <code>30s</code> or <code>2m</code>; between <code>1s</code> and <code>30m</code>. Default <code>1m</code> (<code>http</code>: <code>10s</code>; <code>podReady</code>: waits <code>60s</code>). Past it the check is stopped, with everything it started, and fails with <code>timed out after …</code>. For <code>podReady</code> it is also how long <code>kubectl wait</code> waits for readiness</td>
+</tr>
 </tbody>
 </table>
 <h2 id="exam"><code>exam</code><a class="headerlink" href="#exam" title="Permanent link">&para;</a></h2>
@@ -5902,49 +5941,97 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <td>int</td>
 <td>Validation scripts only: weight in the score (default <code>1</code>)</td>
 </tr>
+<tr>
+<td><code>timeout</code></td>
+<td>duration</td>
+<td>Scripts only (refused on manifests): how long the entry may run, e.g. <code>90s</code>, <code>10m</code>, <code>1h</code>; between <code>1s</code> and <code>2h</code>. A <code>folder</code> source's scripts share one limit. Default <code>30m</code> for <code>bootstrap</code>/<code>testing</code>/<code>teardown</code> scripts, <code>5m</code> for validation scripts. See <a href="#time-limits">Time limits</a></td>
+</tr>
 </tbody>
 </table>
+<h3 id="time-limits">Time limits<a class="headerlink" href="#time-limits" title="Permanent link">&para;</a></h3>
+<p>Every script and check has a time limit, so a command that never returns (a <code>kubectl</code> waiting on a cluster that is gone, an <code>ssh</code> that hangs, a <code>sleep infinity</code>) can't hang <code>astrona run</code>, <code>submit</code>, <code>test</code> or <code>destroy</code>. When the limit passes, astrona kills the script or check together with every process it started (its whole process group: no <code>kubectl</code> or <code>ssh</code> is left running), and reports it as <code>timed out after &lt;limit&gt;</code>:</p>
+<ul>
+<li>a <code>bootstrap</code>/<code>testing</code> script that times out fails the step, like a script that exits non-zero;</li>
+<li>a teardown script that times out is warned about, like any failed teardown script, and the lab is still destroyed;</li>
+<li>a validation script or check that times out is a <strong>failed</strong> check in the report (it earns no points), not a grading error.</li>
+</ul>
+<p>On a <code>qemu</code> lab, a script runs over SSH: on timeout the local <code>ssh</code> is killed, which closes the session, and the shell in the VM gets <code>SIGHUP</code> with it.</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Default</th>
+<th>Allowed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bootstrap.init</code>, <code>testing.init</code>, <code>teardown.init</code> script</td>
+<td><code>30m</code></td>
+<td><code>1s</code>–<code>2h</code></td>
+</tr>
+<tr>
+<td><code>validation.script</code> / <code>validation.scripts</code></td>
+<td><code>5m</code></td>
+<td><code>1s</code>–<code>2h</code></td>
+</tr>
+<tr>
+<td><code>validation.checks</code> entry</td>
+<td><code>1m</code> (<code>http</code>: <code>10s</code>; <code>podReady</code>: waits <code>60s</code>)</td>
+<td><code>1s</code>–<code>30m</code></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">bootstrap</span><span class="p">:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">install operator</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">bootstrap/operator.sh</span><span class="p p-Indicator">,</span><span class="nt"> timeout</span><span class="p">:</span><span class="w"> </span><span class="nv">45m</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="nt">validation</span><span class="p">:</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">web is ready</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">podReady</span><span class="p p-Indicator">,</span><span class="nt"> resource</span><span class="p">:</span><span class="w"> </span><span class="nv">pods -l app=web -n shop</span><span class="p p-Indicator">,</span><span class="nt"> timeout</span><span class="p">:</span><span class="w"> </span><span class="nv">3m</span><span class="p p-Indicator">}</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span><span class="nt">script</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">content is right</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">validate.sh</span><span class="p p-Indicator">,</span><span class="nt"> timeout</span><span class="p">:</span><span class="w"> </span><span class="nv">30s</span><span class="p p-Indicator">}</span>
+</code></pre></div>
+<p><code>astrona validate</code> rejects a <code>timeout</code> that isn't a duration or is out of range.</p>
 <h2 id="full-example">Full example<a class="headerlink" href="#full-example" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">metadata</span><span class="p">:</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"k8s-basics-01"</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">docs</span><span class="p">:</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="nt">prerequisites</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/prerequisites.md"</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">question</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/exam-question.md"</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">caseStudy</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/case-study.md"</span>
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="nt">solution</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/step-by-step-guide.md"</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="nt">bootstrap</span><span class="p">:</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"echo"</span>
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
-<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"hello.sh"</span>
-<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">  </span><span class="nt">manifests</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
-<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>
-<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="nt">testing</span><span class="p">:</span>
-<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">  </span><span class="nt">manifests</span><span class="p">:</span>
-<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"solution"</span>
-<a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"folder"</span>
-<a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"solution"</span>
-<a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>
-<a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="nt">validation</span><span class="p">:</span>
-<a id="__codelineno-10-23" name="__codelineno-10-23" href="#__codelineno-10-23"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
-<a id="__codelineno-10-24" name="__codelineno-10-24" href="#__codelineno-10-24"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"lab-ns</span><span class="nv"> </span><span class="s">namespace</span><span class="nv"> </span><span class="s">exists"</span>
-<a id="__codelineno-10-25" name="__codelineno-10-25" href="#__codelineno-10-25"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"resourceExists"</span>
-<a id="__codelineno-10-26" name="__codelineno-10-26" href="#__codelineno-10-26"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="s">"namespace/lab-ns"</span>
-<a id="__codelineno-10-27" name="__codelineno-10-27" href="#__codelineno-10-27"></a><span class="w">  </span><span class="nt">script</span><span class="p">:</span>
-<a id="__codelineno-10-28" name="__codelineno-10-28" href="#__codelineno-10-28"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
-<a id="__codelineno-10-29" name="__codelineno-10-29" href="#__codelineno-10-29"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"validate.sh"</span>
-<a id="__codelineno-10-30" name="__codelineno-10-30" href="#__codelineno-10-30"></a><span class="w">  </span><span class="nt">scripts</span><span class="p">:</span>
-<a id="__codelineno-10-31" name="__codelineno-10-31" href="#__codelineno-10-31"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"check-network"</span>
-<a id="__codelineno-10-32" name="__codelineno-10-32" href="#__codelineno-10-32"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
-<a id="__codelineno-10-33" name="__codelineno-10-33" href="#__codelineno-10-33"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"validate-network.sh"</span>
-<a id="__codelineno-10-34" name="__codelineno-10-34" href="#__codelineno-10-34"></a>
-<a id="__codelineno-10-35" name="__codelineno-10-35" href="#__codelineno-10-35"></a><span class="nt">teardown</span><span class="p">:</span>
-<a id="__codelineno-10-36" name="__codelineno-10-36" href="#__codelineno-10-36"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
-<a id="__codelineno-10-37" name="__codelineno-10-37" href="#__codelineno-10-37"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"dump-logs"</span>
-<a id="__codelineno-10-38" name="__codelineno-10-38" href="#__codelineno-10-38"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
-<a id="__codelineno-10-39" name="__codelineno-10-39" href="#__codelineno-10-39"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"teardown/dump-logs.sh"</span>
-<a id="__codelineno-10-40" name="__codelineno-10-40" href="#__codelineno-10-40"></a><span class="w">  </span><span class="nt">keepCluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"k8s-basics-01"</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">docs</span><span class="p">:</span>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">    </span><span class="nt">prerequisites</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/prerequisites.md"</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">    </span><span class="nt">question</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/exam-question.md"</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="nt">caseStudy</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/case-study.md"</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="w">    </span><span class="nt">solution</span><span class="p">:</span><span class="w"> </span><span class="s">"docs/step-by-step-guide.md"</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="nt">bootstrap</span><span class="p">:</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"echo"</span>
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
+<a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"hello.sh"</span>
+<a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="w">  </span><span class="nt">manifests</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a>
+<a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="nt">testing</span><span class="p">:</span>
+<a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a><span class="w">  </span><span class="nt">manifests</span><span class="p">:</span>
+<a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"solution"</span>
+<a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"folder"</span>
+<a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"solution"</span>
+<a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>
+<a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a><span class="nt">validation</span><span class="p">:</span>
+<a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
+<a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"lab-ns</span><span class="nv"> </span><span class="s">namespace</span><span class="nv"> </span><span class="s">exists"</span>
+<a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"resourceExists"</span>
+<a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="s">"namespace/lab-ns"</span>
+<a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a><span class="w">  </span><span class="nt">script</span><span class="p">:</span>
+<a id="__codelineno-11-28" name="__codelineno-11-28" href="#__codelineno-11-28"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
+<a id="__codelineno-11-29" name="__codelineno-11-29" href="#__codelineno-11-29"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"validate.sh"</span>
+<a id="__codelineno-11-30" name="__codelineno-11-30" href="#__codelineno-11-30"></a><span class="w">  </span><span class="nt">scripts</span><span class="p">:</span>
+<a id="__codelineno-11-31" name="__codelineno-11-31" href="#__codelineno-11-31"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"check-network"</span>
+<a id="__codelineno-11-32" name="__codelineno-11-32" href="#__codelineno-11-32"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
+<a id="__codelineno-11-33" name="__codelineno-11-33" href="#__codelineno-11-33"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"validate-network.sh"</span>
+<a id="__codelineno-11-34" name="__codelineno-11-34" href="#__codelineno-11-34"></a>
+<a id="__codelineno-11-35" name="__codelineno-11-35" href="#__codelineno-11-35"></a><span class="nt">teardown</span><span class="p">:</span>
+<a id="__codelineno-11-36" name="__codelineno-11-36" href="#__codelineno-11-36"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
+<a id="__codelineno-11-37" name="__codelineno-11-37" href="#__codelineno-11-37"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"dump-logs"</span>
+<a id="__codelineno-11-38" name="__codelineno-11-38" href="#__codelineno-11-38"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
+<a id="__codelineno-11-39" name="__codelineno-11-39" href="#__codelineno-11-39"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"teardown/dump-logs.sh"</span>
+<a id="__codelineno-11-40" name="__codelineno-11-40" href="#__codelineno-11-40"></a><span class="w">  </span><span class="nt">keepCluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </code></pre></div>
 <p>For the CLI's own flags and commands, see the <a href="../cli/astrona/">CLI Reference</a>.</p>
 

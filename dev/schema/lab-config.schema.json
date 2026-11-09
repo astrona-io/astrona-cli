@@ -549,6 +549,9 @@
         "source": {
           "type": "string"
         },
+        "timeout": {
+          "type": "string"
+        },
         "type": {
           "enum": [
             "file",
@@ -649,6 +652,9 @@
           "type": "integer"
         },
         "resource": {
+          "type": "string"
+        },
+        "timeout": {
           "type": "string"
         },
         "type": {
