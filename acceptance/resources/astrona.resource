@@ -17,6 +17,14 @@ ${OAT_OUTPUT}       ${OUTPUT_DIR}
 # The example lab leaves the node image to kind; bundles need one pinned.
 # Override with --variable NODE_IMAGE:kindest/node:vX.Y.Z when kind's default moves.
 ${NODE_IMAGE}       kindest/node:v1.37.0
+# Base image for the VM labs under acceptance/labs/: Debian 13 genericcloud, a
+# dated build (Debian keeps them for years), pinned to the SHA-512 from that
+# build's SHA512SUMS. {ARCH} becomes the host's amd64 or arm64. Cached under
+# OAT_CACHE_DIR (default ~/.cache/astrona-oat); bump the date and both sums together.
+${VM_IMAGE_URL}     https://cloud.debian.org/images/cloud/trixie/20261026-2643/debian-13-genericcloud-{ARCH}-20261026-2643.qcow2
+&{VM_IMAGE_SHA512}
+...                 amd64=3ace18e33bdd036edb49d1f79342bd01d2ab980e35194edb0b410435cd543538d286a0bd13bbb0835f7862306e3d385ce2f6a70d8ecf0bd961111166adbc1b8e
+...                 arm64=71aa5d5dbcb3d9ecfe96bc3f6dd41b6805a0a41c852204a32747d230b64b95912297fb453b11a6031fd54d84a0a0a430e137d07e6986dc9ebc9d41483be003c4
 # Lab creation pulls a kind node image on a cold runner.
 ${SLOW_TIMEOUT}     15 min
 ${FAST_TIMEOUT}     2 min
@@ -46,8 +54,10 @@ Run Astrona
     [Documentation]    Run astrona with ${args} and expect exit code ${rc} (0 by default).
     ...    Output is logged either way, so a failure carries its own evidence.
     ...    --accept-terms is added unless ${accept_terms} is false: with CI set,
-    ...    astrona requires it on every command.
+    ...    astrona requires it on every command. ${stdin} is typed into the
+    ...    command, as a learner would into `astrona ssh`.
     [Arguments]    @{args}    ${rc}=0    ${timeout}=${FAST_TIMEOUT}    ${accept_terms}=${True}
+    ...    ${stdin}=None
     IF    ${accept_terms}
         # Before `--`, or `astrona shell -- cmd` would pass it on to cmd.
         ${end}=    Get Index From List    ${args}    --
@@ -59,7 +69,7 @@ Run Astrona
     END
     ${result}=    Run Process    ${ASTRONA}    @{args}
     ...    cwd=${REPO_ROOT}    env=${ENV}    timeout=${timeout}    on_timeout=terminate
-    ...    stdout=${CAPTURE}/stdout.txt    stderr=${CAPTURE}/stderr.txt
+    ...    stdout=${CAPTURE}/stdout.txt    stderr=${CAPTURE}/stderr.txt    stdin=${stdin}
     Log    stdout:\n${result.stdout}
     Log    stderr:\n${result.stderr}
     Should Be Equal As Integers    ${result.rc}    ${rc}
