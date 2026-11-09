@@ -36,7 +36,8 @@ type UsageReport struct {
 
 // SendLabUsage posts resource samples for the lab session sessionID and
 // returns how many the site kept (it drops repeats and samples outside the
-// run). A rejected access token is renewed once; 404 wraps ErrSessionGone.
+// run). A rejected access token is renewed once; 404 wraps ErrSessionGone
+// and 429 ErrUsageFull.
 func (c *Client) SendLabUsage(ctx context.Context, s Store, cr *Credentials, sessionID string, samples []UsageSample) (int, error) {
 	if sessionID == "" || strings.ContainsAny(sessionID, "/?#") {
 		return 0, fmt.Errorf("invalid lab session id %q", sessionID)
@@ -64,6 +65,8 @@ func (c *Client) SendLabUsage(ctx context.Context, s Store, cr *Credentials, ses
 		return 0, fmt.Errorf("the Astrona site %s didn't accept your sign-in: %w", cr.Site, ErrSignedOut)
 	case http.StatusNotFound:
 		return 0, withMessage(ErrSessionGone, he.Message)
+	case http.StatusTooManyRequests:
+		return 0, fmt.Errorf("%s couldn't record the lab's usage (%w): %w", cr.Site, he, ErrUsageFull)
 	default:
 		return 0, fmt.Errorf("%s couldn't record the lab's usage (%w)", cr.Site, he)
 	}
@@ -140,11 +143,16 @@ func (c *Client) PauseLabSession(ctx context.Context, s Store, cr *Credentials, 
 	}
 }
 
+// ErrUsageFull: the site keeps no more usage samples for this lab session
+// (429 on the usage endpoint). It is per session and lasting, so the samples
+// are dropped rather than retried; other signals for the session still go.
+var ErrUsageFull = errors.New("the lab session's usage history is full")
+
 // Permanent reports whether the site refused a request for good — a session it
-// no longer knows, or another 4xx answer than 401, 408 or 429 — so sending it
-// again would not help.
+// no longer knows, a session whose usage history is full, or another 4xx
+// answer than 401, 408 or 429 — so sending it again would not help.
 func Permanent(err error) bool {
-	if errors.Is(err, ErrSessionGone) {
+	if errors.Is(err, ErrSessionGone) || errors.Is(err, ErrUsageFull) {
 		return true
 	}
 	var he *httpError
@@ -156,4 +164,12 @@ func Permanent(err error) bool {
 		return false
 	}
 	return he.Status >= 400 && he.Status < 500
+}
+
+// Answered reports whether err is an error answer from the site, as
+// opposed to the site not being reached at all (network, DNS, TLS,
+// timeout).
+func Answered(err error) bool {
+	var he *httpError
+	return errors.As(err, &he)
 }

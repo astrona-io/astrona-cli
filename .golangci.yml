@@ -115,6 +115,7 @@ linters:
           list-mode: lax
           files:
             - "**/internal/apphome/**"
+            - "**/internal/filelock/**"
             - "**/internal/version/**"
             - "**/internal/ui/**"
             - "**/internal/logs/**"
