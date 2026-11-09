@@ -44,3 +44,7 @@ examples/**/base.qcow2
 
 # acceptance suite output (`just oat`)
 /oat-report/
+
+# browser workspace: built frontend assets are not committed, only the placeholder page
+/internal/workspace/web/dist/*
+!/internal/workspace/web/dist/index.html
