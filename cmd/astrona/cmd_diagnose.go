@@ -2,16 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
-	"path/filepath"
 
 	"astrona/internal/apphome"
-	"astrona/internal/cluster"
 	"astrona/internal/config"
-	"astrona/internal/diagnostics"
-	"astrona/internal/hypervisor"
-	"astrona/internal/lifecycle"
+	"astrona/internal/labops"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
 
@@ -22,9 +17,6 @@ const (
 	diagnosticsOnFailure = "on-failure"
 	diagnosticsAlways    = "always"
 	diagnosticsNever     = "never"
-	// maxPrintedProblems bounds the unhealthy-pod lines echoed to the
-	// terminal/CI log; summary.md has them all.
-	maxPrintedProblems = 10
 )
 
 func validateDiagnosticsMode(mode string) error {
@@ -42,131 +34,10 @@ func wantDiagnostics(mode string, runErr error) bool {
 
 // collectDiagnostics gathers env's bundle into dir (default
 // ~/.astrona/diagnostics/<lab>-<stamp>) and prints where it went plus the
-// unhealthy pods. Never fails the caller — diagnostics are best effort on
-// top of whatever already happened.
+// unhealthy pods on stderr (labops.CollectDiagnostics; the collectors live
+// in internal/labops, diagnose.go). S15 removes this wrapper.
 func collectDiagnostics(env *runtime.LabEnvironment, cfg *config.LabConfig, clusterName, dir string, rep *ui.Reporter) {
-	if dir == "" {
-		d, err := diagnostics.DefaultDir(clusterName)
-		if err != nil {
-			rep.Warn("could not collect diagnostics: %s", err)
-			return
-		}
-		dir = d
-	}
-
-	var sum diagnostics.Summary
-	var err error
-	switch env.Type {
-	case runtime.RuntimeKind:
-		sum, err = diagnostics.CollectKind(diagnostics.Kind{Name: clusterName, KubeContext: env.KubeContext, Kubeconfig: env.Kubeconfig}, dir, rep)
-	case runtime.RuntimeQEMU:
-		sum, err = diagnostics.CollectQEMU(clusterName, qemuConsoleLogs(cfg, clusterName), dir, rep)
-	default:
-		return
-	}
-	if err != nil {
-		rep.Warn("could not collect diagnostics: %s", err)
-		return
-	}
-	linked := collectLinkedDiagnostics(clusterName, cfg.KindClusters(), dir, rep)
-	printDiagnosticsSummary(os.Stderr, sum)
-	printLinkedDiagnostics(os.Stderr, linked)
-}
-
-// linkedDiagnostics is one linked cluster's part of a bundle.
-type linkedDiagnostics struct {
-	cluster string
-	sum     diagnostics.Summary
-}
-
-// collectLinkedDiagnostics collects every linked cluster (runtime.kind.clusters)
-// of the lab running as lab into dir/clusters/<cluster> — a failure there
-// (the idp didn't come up) is often why the lab's own checks fail.
-func collectLinkedDiagnostics(lab string, labs []config.KindCluster, dir string, rep *ui.Reporter) []linkedDiagnostics {
-	var out []linkedDiagnostics
-	for _, c := range lifecycle.OwnedClusters(lab, labs) {
-		if !cluster.Exists(c) {
-			continue
-		}
-		sum, err := diagnostics.CollectKind(diagnostics.Kind{
-			Name: c, KubeContext: "kind-" + c, Kubeconfig: cluster.ExistingKubeconfig(c),
-		}, filepath.Join(dir, "clusters", c), rep)
-		if err != nil {
-			rep.Warn("could not collect diagnostics for linked cluster %s: %s", c, err)
-			continue
-		}
-		out = append(out, linkedDiagnostics{cluster: c, sum: sum})
-	}
-	return out
-}
-
-func collectRunLinkedFailure(cfg *config.LabConfig, lab string, rep *ui.Reporter) {
-	if len(cfg.KindClusters()) == 0 {
-		return
-	}
-	dir, err := diagnostics.DefaultDir(lab)
-	if err != nil {
-		rep.Warn("could not collect linked-cluster diagnostics: %v", err)
-		return
-	}
-	printLinkedDiagnostics(os.Stderr, collectLinkedDiagnostics(lab, cfg.KindClusters(), dir, rep))
-}
-
-func printLinkedDiagnostics(w io.Writer, linked []linkedDiagnostics) {
-	for _, l := range linked {
-		fmt.Fprintf(w, "\nLinked cluster %s: %s\n", l.cluster, l.sum.Dir)
-		if len(l.sum.Problems) == 0 {
-			fmt.Fprintf(w, "  No unhealthy pods. %d warning event(s).\n", l.sum.Warnings)
-			continue
-		}
-		fmt.Fprintf(w, "  Unhealthy pods (%d):\n", len(l.sum.Problems))
-		for i, p := range l.sum.Problems {
-			if i == maxPrintedProblems {
-				fmt.Fprintf(w, "    … %d more in %s/summary.md\n", len(l.sum.Problems)-maxPrintedProblems, l.sum.Dir)
-				break
-			}
-			fmt.Fprintf(w, "    %s\n", p)
-		}
-	}
-}
-
-// qemuConsoleLogs lists every VM of the lab under the names astrona list
-// shows them as: the lab name for a single-VM lab, "<lab>-<vm>" otherwise.
-func qemuConsoleLogs(cfg *config.LabConfig, clusterName string) []diagnostics.QEMUVM {
-	names := []string{clusterName}
-	if config.IsMultiVM(cfg.Runtime.QEMU) {
-		names = names[:0]
-		for _, vm := range cfg.Runtime.QEMU {
-			names = append(names, clusterName+"-"+vm.Name)
-		}
-	}
-	var vms []diagnostics.QEMUVM
-	for _, n := range names {
-		if path, err := hypervisor.ConsoleLogPath(n); err == nil {
-			vms = append(vms, diagnostics.QEMUVM{Name: n, ConsoleLog: path})
-		}
-	}
-	return vms
-}
-
-func printDiagnosticsSummary(w io.Writer, sum diagnostics.Summary) {
-	fmt.Fprintf(w, "\nDiagnostics bundle: %s\n", sum.Dir)
-	for _, hint := range sum.Hints {
-		fmt.Fprintf(w, "  Suggested check: %s\n", hint)
-	}
-	if len(sum.Problems) == 0 {
-		fmt.Fprintf(w, "  No unhealthy pods. %d warning event(s) — see summary.md.\n", sum.Warnings)
-		return
-	}
-	fmt.Fprintf(w, "  Unhealthy pods (%d):\n", len(sum.Problems))
-	for i, p := range sum.Problems {
-		if i == maxPrintedProblems {
-			fmt.Fprintf(w, "    … %d more in summary.md\n", len(sum.Problems)-maxPrintedProblems)
-			break
-		}
-		fmt.Fprintf(w, "    %s\n", p)
-	}
-	fmt.Fprintf(w, "  %d warning event(s) — see summary.md.\n", sum.Warnings)
+	labops.CollectDiagnostics(os.Stderr, env, cfg, clusterName, dir, rep)
 }
 
 func newDiagnoseCmd(flags *rootFlags) *cobra.Command {
@@ -204,34 +75,13 @@ func newDiagnoseCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 			}
-			if outDir == "" {
-				if outDir, err = diagnostics.DefaultDir(lab); err != nil {
-					return err
-				}
+			res, err := labops.Diagnose(lab, outDir, rep)
+			if err != nil {
+				return err
 			}
-
-			var sum diagnostics.Summary
-			if qemuStateExists(lab) {
-				path, err := hypervisor.ConsoleLogPath(lab)
-				if err != nil {
-					return err
-				}
-				sum, err = diagnostics.CollectQEMU(lab, []diagnostics.QEMUVM{{Name: lab, ConsoleLog: path}}, outDir, rep)
-				if err != nil {
-					return err
-				}
-			} else {
-				sum, err = diagnostics.CollectKind(diagnostics.Kind{
-					Name: lab, KubeContext: "kind-" + lab, Kubeconfig: cluster.ExistingKubeconfig(lab),
-				}, outDir, rep)
-				if err != nil {
-					return err
-				}
-			}
-			linked := collectLinkedDiagnostics(lab, nil, outDir, rep)
 			rep.Close()
-			printDiagnosticsSummary(os.Stdout, sum)
-			printLinkedDiagnostics(os.Stdout, linked)
+			labops.WriteDiagnosticsSummary(os.Stdout, res.Summary)
+			labops.WriteLinkedDiagnostics(os.Stdout, res.Linked)
 			return nil
 		},
 	}

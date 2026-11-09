@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"astrona/internal/apphome"
-	"astrona/internal/config"
 )
 
 // runChoice is what `astrona run` does about labs that are already running.
@@ -58,46 +57,4 @@ func pick(n int, one, many string) string {
 		return one
 	}
 	return many
-}
-
-// otherRunningLabNames are the running labs — kind clusters and qemu VMs —
-// other than clusterName and its own VMs and linked clusters, as cluster
-// names. Test copies and stopped clusters are left out.
-func otherRunningLabNames(clusterName string) []string {
-	var out []string
-	for _, name := range otherRunningLabs(clusterName) { // kind; already without linked clusters
-		out = append(out, config.NormalizeClusterName(name))
-	}
-	rows, _, err := collectQEMURows()
-	if err != nil {
-		return out
-	}
-	return append(out, otherQEMULabs(clusterName, rows)...)
-}
-
-// otherQEMULabs are the labs of the running qemu VMs in rows, other than
-// clusterName — one name per lab, so a multi-VM lab ("astro-net" with VMs
-// astro-net-vm1, astro-net-vm2) is destroyed and forgotten as the lab it
-// is. Test copies are left out.
-func otherQEMULabs(clusterName string, rows []labRow) []string {
-	var out []string
-	seen := map[string]bool{}
-	for _, r := range rows {
-		lab := r.Lab
-		if lab == "" {
-			// A handle from before VMs recorded their lab: a VM named
-			// "<clusterName>-…" may be one of this lab's own, so leave it be
-			// (it can't be told from an unrelated lab with a longer name).
-			if strings.HasPrefix(r.Name, clusterName+"-") {
-				continue
-			}
-			lab = r.Name
-		}
-		if lab == clusterName || strings.HasPrefix(lab, apphome.TestClusterPrefix()) || seen[lab] {
-			continue
-		}
-		seen[lab] = true
-		out = append(out, lab)
-	}
-	return out
 }

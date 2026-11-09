@@ -15,37 +15,6 @@ import (
 	"astrona/internal/ui"
 )
 
-func TestOtherQEMULabs(t *testing.T) {
-	vm := func(name, lab string) labRow { return labRow{Name: name, Lab: lab} }
-	for _, c := range []struct {
-		name string
-		rows []labRow
-		want []string
-	}{
-		{"multi-VM lab is one lab",
-			[]labRow{vm("astro-net-vm1", "astro-net"), vm("astro-net-vm2", "astro-net"), vm("astro-db", "astro-db")},
-			[]string{"astro-net", "astro-db"}},
-		{"own VMs are skipped",
-			[]labRow{vm("astro-k8s-basics-vm1", "astro-k8s-basics"), vm("astro-k8s-basics", "astro-k8s-basics")},
-			nil},
-		{"a longer lab name isn't this lab's VM",
-			[]labRow{vm("astro-k8s-basics-01", "astro-k8s-basics-01"), vm("astro-k8s-basics-01-vm1", "astro-k8s-basics-01")},
-			[]string{"astro-k8s-basics-01"}},
-		{"test copies are skipped",
-			[]labRow{vm("astro-test-x-vm1", "astro-test-x")},
-			nil},
-		{"old handle without a lab: its own name, unless it may be this lab's",
-			[]labRow{vm("astro-db", ""), vm("astro-k8s-basics-vm1", "")},
-			[]string{"astro-db"}},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			if got := otherQEMULabs("astro-k8s-basics", c.rows); !reflect.DeepEqual(got, c.want) {
-				t.Errorf("got %v, want %v", got, c.want)
-			}
-		})
-	}
-}
-
 // Destroying a multi-VM qemu lab by its name destroys every VM and forgets
 // the lab (its state and resources copy), not just one VM.
 func TestDestroyByNameMultiVMLab(t *testing.T) {

@@ -45,10 +45,6 @@ func destroyLab(info teardownInfo, baseDir string, rep *ui.Reporter) error {
 	return labops.DestroyLab(info, baseDir, rep, destroyOptions())
 }
 
-func tearDownLabEnvironment(clusterName string, info teardownInfo, baseDir string, hardFail bool, rep *ui.Reporter) error {
-	return labops.TearDownLabEnvironment(clusterName, info, baseDir, hardFail, rep)
-}
-
 // qemuStateExists and kindClusterExists: see hypervisor.StateExists and
 // cluster.Exists.
 func qemuStateExists(name string) bool { return hypervisor.StateExists(name) }

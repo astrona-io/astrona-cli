@@ -48,4 +48,19 @@
 // A failed grade is SubmitResult.Passed false, never an error; the exit
 // code is cmd's. FindSavedRun, PickRunningLab and RunningLabNames find
 // the lab to submit; SubmitHistory lists its attempts.
+//
+// Building a lab is here as well: Provision (a ProvisionRequest cmd fills
+// from its flags; it returns a ProvisionResult cmd prints how to connect
+// from) runs the environment preflight, linked clusters, lifecycle.Up,
+// diagnostics on failure, the exam clock, remembering the lab and the
+// kubectl switch. Run and reset share LabExists, OtherRunningLabNames,
+// RemoveForRestart and the lab session they build under (StartLabSession,
+// LabStart: Progress, Abandon, Done — the usage reporter and playground
+// watchdog start in Done). Reset adds SoftReset and PlanLinkedReset /
+// ResetLinkedCluster. The caller holds the lab's mutation lock and has
+// already asked every question; the version hand-over runs before it in
+// LoadLab. The diagnostics collectors (CollectDiagnostics, Diagnose,
+// QEMUConsoleLogs, WriteDiagnosticsSummary) are here rather than in
+// internal/diagnostics, which collects one environment and stays below
+// lifecycle (linked clusters come from lifecycle.OwnedClusters).
 package labops
