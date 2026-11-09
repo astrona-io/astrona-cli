@@ -36,7 +36,7 @@ The codebase is organized in a standard, logical Go folder structure:
   - `manifests` — Applies Kubernetes manifests to clusters (`manifests.go`).
   - `proctor` — The central grading authority that runs validation checks (`proctor.go`).
   - `junit` — Formats and writes test report XML files (`junit.go`).
-  - `authoring` — Lab-author workflows without Cobra: `Scaffold`/`ScaffoldLinked` render the `astrona init lab` starters from the embedded `templates/` tree (`init.go`). The commands, flags and printing stay in `cmd/astrona`; depguard keeps Cobra and the workspace out of it.
+  - `authoring` — Lab-author workflows without Cobra: `Scaffold`/`ScaffoldLinked` render the `astrona init lab` starters from the embedded `templates/` tree (`init.go`); `astrona content` (`content.go`) resolves a local or git source (`ResolveContentSource`), validates ATS trainings (`ValidateATS`) and ATP paths (`ValidateATP`), builds an ATP bundle (`BuildATP`) and scaffolds from a blueprint repository (`InitContent`, with optional CODEOWNERS and GitHub repository setup), writing progress to the `io.Writer` it is given. The commands, flags and printing stay in `cmd/astrona`; depguard keeps Cobra and the workspace out of it.
   - `gitsource` — Clones and caches external lab config repositories (`gitsource.go`).
   - `labstate` — What astrona remembers per running lab in `~/.astrona/labs/<lab>.json` (0600): its config source (so `submit` can find the only running lab), the kubectl context `run` switched away from (restored by `destroy`), and its Astrona lab session (never a token).
 
