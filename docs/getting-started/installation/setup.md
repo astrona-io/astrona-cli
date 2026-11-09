@@ -31,7 +31,7 @@ It looks at what [`astrona check`](#verify) would report and fixes what it can:
 | macOS | `brew install` whatever is missing of kind, kubectl and Podman, then `podman machine init --cpus 4 --memory 8192` and `podman machine start` (or starts Docker Desktop if that is what you have), and waits until the engine answers |
 | macOS without Homebrew | tells you to install [Homebrew](https://brew.sh) first, then run setup again |
 | Linux with Homebrew | `brew install` kind and kubectl |
-| Linux without Homebrew | downloads kind (GitHub release) and kubectl (`dl.k8s.io`) into `~/.local/bin`, verified against their published SHA-256 before anything is moved into place |
+| Linux without Homebrew | downloads the kind (GitHub release) and kubectl (`dl.k8s.io`) versions pinned in this astrona release into `~/.local/bin`, verified against SHA-256 checksums pinned in astrona (amd64 and arm64) before anything is moved into place; a mismatch installs nothing. On other architectures it tells you to install them yourself |
 | Linux, no container engine | prints the command to install Docker for your distribution — a container engine needs `sudo` and distribution-specific setup, so setup never runs that for you |
 
 It ends by running `astrona check`. Without a terminal to ask on, setup refuses to change anything unless you pass `--yes`.
