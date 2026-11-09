@@ -4505,6 +4505,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#login-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Login suite
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4661,6 +4672,17 @@
     <span class="md-ellipsis">
       
         VM suites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#login-suite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Login suite
       
     </span>
   </a>
@@ -4878,7 +4900,7 @@ repository. Also check the deployed mike version selector after a release.</p>
 <p><code>acceptance/</code> holds a <a href="https://robotframework.org/">Robot Framework</a> suite that drives the built <code>./astrona</code> the way a learner and a lab author would. It has two tiers, chosen by tag:</p>
 <ul>
 <li><strong><code>smoke</code></strong> runs on every pull request (<code>Acceptance (smoke)</code> in CI, report in the <code>oat-smoke-report</code> artifact).</li>
-<li><strong><code>full</code></strong> adds the lab tools (shell, soft reset, doctor, diagnose, port forwards), a signed-out catalog lab and the two VM targets. The <code>Acceptance (full)</code> workflow runs it on every release tag, RCs included, before anything is built, in two jobs: <code>Acceptance full (kind)</code> runs the smoke and full tiers without the <code>vm</code> tests, <code>Acceptance full (vm)</code> runs only the <code>vm</code> tests. The release only builds when both pass, and their reports are attached to the GitHub release as <code>oat-report-&lt;version&gt;-kind.zip</code> and <code>oat-report-&lt;version&gt;-vm.zip</code>. Run it by hand from the Actions tab.</li>
+<li><strong><code>full</code></strong> adds the lab tools (shell, soft reset, doctor, diagnose, port forwards), a signed-out catalog lab, the two VM targets and a signed-in learner (the <code>login</code> suite). The <code>Acceptance (full)</code> workflow runs it on every release tag, RCs included, before anything is built, in three jobs: <code>Acceptance full (kind)</code> runs the smoke and full tiers without the <code>vm</code> and <code>login</code> tests, <code>Acceptance full (vm)</code> runs only the <code>vm</code> tests and <code>Acceptance full (login)</code> only the <code>login</code> tests. The release only builds when all three pass, and their reports are attached to the GitHub release as <code>oat-report-&lt;version&gt;-kind.zip</code>, <code>oat-report-&lt;version&gt;-vm.zip</code> and <code>oat-report-&lt;version&gt;-login.zip</code>. Run it by hand from the Actions tab.</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>just<span class="w"> </span>oat<span class="w">                    </span><span class="c1"># build ./astrona, run the smoke tier, write oat-report/</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>just<span class="w"> </span>oat<span class="w"> </span>--include<span class="w"> </span>full<span class="w">     </span><span class="c1"># smoke and full tiers</span>
@@ -4886,14 +4908,26 @@ repository. Also check the deployed mike version selector after a release.</p>
 <a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>just<span class="w"> </span>oat<span class="w"> </span>--include<span class="w"> </span>vm<span class="w">       </span><span class="c1"># smoke tier plus both VM targets</span>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>just<span class="w"> </span>oat<span class="w"> </span>--include<span class="w"> </span>vm<span class="w"> </span>--exclude<span class="w"> </span>kind<span class="w">    </span><span class="c1"># VM targets only (and the smoke checks that need neither)</span>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>just<span class="w"> </span>oat<span class="w"> </span>--include<span class="w"> </span>vm<span class="w"> </span>--exclude<span class="w"> </span>desktop<span class="w"> </span><span class="c1"># VM with terminal only, e.g. on a Linux box without X</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>just<span class="w"> </span>oat<span class="w"> </span>--test<span class="w"> </span><span class="s2">"Run Creates The Lab"</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>just<span class="w"> </span>oat<span class="w"> </span>--include<span class="w"> </span>login<span class="w">     </span><span class="c1"># smoke tier plus the signed-in learner</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>just<span class="w"> </span>oat<span class="w"> </span>--test<span class="w"> </span><span class="s2">"Run Creates The Lab"</span>
 </code></pre></div>
-<p>Other tags say what a test needs: <code>kind</code> creates a cluster, <code>network</code> reaches astrona.io, <code>vm</code> boots a QEMU VM, <code>desktop</code> opens that VM's window. The workspace UI is a terminal app that needs an interactive terminal, so it is covered by the PTY tests in <code>go test</code>, not here.</p>
+<p>Other tags say what a test needs: <code>kind</code> creates a cluster, <code>network</code> reaches the internet (astrona.io, the lab catalog), <code>vm</code> boots a QEMU VM, <code>desktop</code> opens that VM's window, <code>login</code> starts its own Keycloak. The workspace UI is a terminal app that needs an interactive terminal, so it is covered by the PTY tests in <code>go test</code>, not here.</p>
 <p>It needs kind, kubectl and Docker or Podman, plus <code>uv</code> (Robot Framework is pinned in <code>acceptance/requirements.txt</code>). Each suite gets a throwaway <code>HOME</code>, so your own labs and settings under <code>~/.astrona-dev</code> are untouched; the container engine's config still comes from your real home. kind cluster names are shared by the whole engine, so a suite refuses to start while a cluster named after its example lab (<code>k8s-basics-01</code>) exists. Set <code>OAT_ISOLATE_HOME=false</code> to run against your real <code>HOME</code>.</p>
 <h4 id="vm-suites">VM suites<a class="headerlink" href="#vm-suites" title="Permanent link">&para;</a></h4>
 <p><code>60_vm_terminal.robot</code> and <code>70_vm_desktop.robot</code> cover astrona's two VM targets with the labs in <code>acceptance/labs/</code>: run, list, status, a failed and then a passing submit (the answer is typed into <code>astrona ssh</code>), <code>stop</code> refusing a VM lab, and destroy, after which no qemu process and no VM state may be left. The desktop suite also checks that the VM opens its window (<code>display: true</code>), the desktop astrona offers today: on macOS the window server must list a window owned by the qemu process; on Linux an X display must show a window titled after it. That window has no graphics or input devices configured yet, so the suite checks that it exists, not what it shows.</p>
 <p>They need qemu with hardware acceleration: on macOS <code>brew install qemu</code> (HVF, Apple Silicon or Intel), on Linux <code>qemu-system-x86</code> (or <code>qemu-system-arm</code> with <code>qemu-efi-aarch64</code>), <code>qemu-utils</code>, <code>genisoimage</code> and a usable <code>/dev/kvm</code>. The desktop suite on Linux also needs <code>qemu-system-gui</code>, <code>x11-utils</code> and a display: run it under <code>xvfb-run</code> on a machine without one. Without KVM astrona falls back to software emulation, which is too slow for the suite; CI fails the <code>vm</code> job when <code>/dev/kvm</code> is missing rather than skipping it. A suite refuses to start while a qemu process for its lab (<code>oat-vm-terminal</code>, <code>oat-vm-desktop</code>) is running.</p>
 <p>The VM base image is a Debian 13 genericcloud qcow2 (about 330 MB, amd64 or arm64 to match the host) from a dated build at cloud.debian.org. Its URL and the SHA-512 sums from that build's <code>SHA512SUMS</code> are pinned in <code>acceptance/resources/astrona.resource</code>. It is downloaded once into <code>~/.cache/astrona-oat/images/</code> (<code>$XDG_CACHE_HOME/astrona-oat</code>, or <code>OAT_CACHE_DIR</code> when set), verified on every run and hard-linked into a copy of the lab (astrona refuses a symlinked base image). To move to a newer build, change the date in the URL and both sums together. Delete the cache folder to free the space.</p>
+<h4 id="login-suite">Login suite<a class="headerlink" href="#login-suite" title="Permanent link">&para;</a></h4>
+<p><code>80_login.robot</code> is a signed-in learner: <code>astrona login --headless</code>, then a headless Chromium opens the link it prints and signs in, then <code>whoami</code>, a catalog lab run under a lab session, a submit graded as not passed, <code>progress</code>, destroy and <code>logout</code>. It needs no account and no secret. The suite starts its own sign-in stack and removes it afterwards:</p>
+<ul>
+<li><strong>Keycloak</strong> (<code>quay.io/keycloak/keycloak:26.8</code>, the image the Astrona workspace runs) in a container on a free loopback port, with the realm in <code>acceptance/keycloak/</code>: a public <code>astrona-cli</code> client with the OAuth 2.0 device grant and a consent screen. Setup creates a test user whose random password exists only in the suite's process; it is never logged or written down.</li>
+<li><strong>A fake Astrona site</strong> (Python's <code>http.server</code> in a thread) that answers the CLI's <code>/api/cli</code> calls: it passes the device flow through to Keycloak, accepts a lab-session call only with a bearer token Keycloak's userinfo vouches for, and records what the CLI sent so the suite can check it (a session for the catalog lab created by the test user, the result posted on submit, the sign-in revoked on logout).</li>
+</ul>
+<p>So it does not exercise the real astrona.io device page (astrona-web) or astrona-svc-labs, only the CLI's side of their contract.</p>
+<p>It needs Podman or Docker (the suite uses whichever answers, Podman first; set <code>OAT_CONTAINER_RUNTIME=docker</code> to choose), kind for the catalog lab, and Playwright's Chromium, installed once:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>uv<span class="w"> </span>run<span class="w"> </span>--with-requirements<span class="w"> </span>acceptance/requirements.txt<span class="w"> </span>playwright<span class="w"> </span>install<span class="w"> </span>chromium
+</code></pre></div>
+<p>The first run pulls the Keycloak image; Keycloak then needs up to a minute to start. <code>--include full</code> runs this suite too; add <code>--exclude login</code> to leave it out.</p>
 <table>
 <thead>
 <tr>
@@ -4913,6 +4947,14 @@ repository. Also check the deployed mike version selector after a release.</p>
 <tr>
 <td><code>acceptance/resources/astrona.resource</code></td>
 <td>Shared keywords: <code>Run Astrona</code>, <code>Run Astrona Json</code>, <code>Run Kubectl On Lab</code></td>
+</tr>
+<tr>
+<td><code>acceptance/keycloak/</code></td>
+<td>The Keycloak realm the login suite imports</td>
+</tr>
+<tr>
+<td><code>acceptance/libraries/SignInStack.py</code></td>
+<td>The login suite's Keycloak container, fake site and browser sign-in</td>
 </tr>
 <tr>
 <td><code>acceptance/libraries/AstronaLib.py</code></td>
