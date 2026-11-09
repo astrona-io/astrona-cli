@@ -6,15 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
 
 	"astrona/internal/account"
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 )
 
@@ -106,10 +105,10 @@ func (p *playgroundSite) signIn(t *testing.T) *labAccount {
 func withSpawnedWatchdogs(t *testing.T) *[]string {
 	t.Helper()
 	var spawned []string
-	prev, prevReporter := spawnWatchdog, spawnUsageReporter
-	spawnWatchdog = func(cluster string) (int, error) { spawned = append(spawned, cluster); return 4242, nil }
-	spawnUsageReporter = func(string) (int, error) { return 4343, nil }
-	t.Cleanup(func() { spawnWatchdog, spawnUsageReporter = prev, prevReporter })
+	prev, prevReporter := labops.SpawnWatchdog, labops.SpawnUsageReporter
+	labops.SpawnWatchdog = func(cluster string) (int, error) { spawned = append(spawned, cluster); return 4242, nil }
+	labops.SpawnUsageReporter = func(string) (int, error) { return 4343, nil }
+	t.Cleanup(func() { labops.SpawnWatchdog, labops.SpawnUsageReporter = prev, prevReporter })
 	return &spawned
 }
 
@@ -190,27 +189,6 @@ func TestStartSessionDistrustsKindAndDeadline(t *testing.T) {
 	}
 }
 
-func TestClampDeadline(t *testing.T) {
-	now := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
-	at := func(d time.Duration) string { return now.Add(d).Format(time.RFC3339) }
-	for _, c := range []struct {
-		raw     string
-		minutes int
-		want    string
-	}{
-		{at(time.Hour), 90, at(time.Hour)},
-		{at(-time.Hour), 90, at(config.MinTimeLimit)},
-		{at(time.Minute), 90, at(config.MinTimeLimit)},
-		{at(3 * time.Hour), 90, at(90 * time.Minute)},
-		{at(48 * time.Hour), 0, at(config.MaxTimeLimit)},
-		{"soon", 90, "soon"},
-	} {
-		if got := clampDeadline(c.raw, now, c.minutes); got != c.want {
-			t.Errorf("clampDeadline(%s, %d) = %s, want %s", c.raw, c.minutes, got, c.want)
-		}
-	}
-}
-
 // Starting over (run --yes, reset) ends the old playground first: its clock
 // stops, and its watchdog — which would otherwise remove the new lab at the
 // old deadline — has nothing left to watch.
@@ -250,9 +228,9 @@ func TestEndOldSessionStopsTheOldPlayground(t *testing.T) {
 func TestRunningPlaygroundsForgetsGoneLabs(t *testing.T) {
 	site := newPlaygroundSite(t)
 	site.signIn(t)
-	prev := playgroundExists
-	playgroundExists = func(name string) bool { return name == "astro-here" }
-	t.Cleanup(func() { playgroundExists = prev })
+	prev := labops.PlaygroundExists
+	labops.PlaygroundExists = func(name string) bool { return name == "astro-here" }
+	t.Cleanup(func() { labops.PlaygroundExists = prev })
 	for _, name := range []string{"astro-here", "astro-gone"} {
 		sess := &labstate.Session{Site: site.srv.URL, ID: name, Kind: "playground", Lab: "ATS/s/m/playground"}
 		if err := labstate.Save(name, &labstate.State{Session: sess}); err != nil {
@@ -268,62 +246,5 @@ func TestRunningPlaygroundsForgetsGoneLabs(t *testing.T) {
 	}
 	if stops := site.stopped(); len(stops) != 1 || stops[0] != "astro-gone destroyed" {
 		t.Errorf("stops = %v, want the gone playground's clock stopped", stops)
-	}
-}
-
-func TestIsWatchdogFor(t *testing.T) {
-	for cmdline, want := range map[string]bool{
-		"/usr/local/bin/astrona playground-watchdog astro-play": true,
-		"astrona playground-watchdog astro-play-2":              false,
-		"astrona playground-watchdog":                           false,
-		"sleep 30":                                              false,
-		"vim astro-play":                                        false,
-	} {
-		if isWatchdogFor(cmdline, "astro-play") != want {
-			t.Errorf("isWatchdogFor(%q) = %v", cmdline, !want)
-		}
-	}
-}
-
-// A remembered watchdog pid is only signalled while that process still
-// runs this playground's watchdog — never a process that reused the pid.
-func TestStopWatchdogChecksTheCommandLine(t *testing.T) {
-	cmd := exec.Command("sleep", "30")
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	if err := cmd.Start(); err != nil {
-		t.Skipf("can't start sleep: %v", err)
-	}
-	exited := make(chan struct{})
-	go func() { _ = cmd.Wait(); close(exited) }()
-	t.Cleanup(func() { _ = cmd.Process.Kill() })
-
-	var mu sync.Mutex
-	cmdline := "sleep 30"
-	setCmdline := func(s string) { mu.Lock(); cmdline = s; mu.Unlock() }
-	prev := watchdogCommandLine
-	watchdogCommandLine = func(int) (string, error) { mu.Lock(); defer mu.Unlock(); return cmdline, nil }
-	t.Cleanup(func() { watchdogCommandLine = prev })
-	alive := func() bool {
-		select {
-		case <-exited:
-			return false
-		case <-time.After(100 * time.Millisecond):
-			return true
-		}
-	}
-
-	stopWatchdog(cmd.Process.Pid, "astro-play")
-	if !alive() {
-		t.Fatal("killed a process that isn't a watchdog")
-	}
-	setCmdline("astrona playground-watchdog astro-other")
-	stopWatchdog(cmd.Process.Pid, "astro-play")
-	if !alive() {
-		t.Fatal("killed another playground's watchdog")
-	}
-	setCmdline("astrona playground-watchdog astro-play")
-	stopWatchdog(cmd.Process.Pid, "astro-play")
-	if alive() {
-		t.Error("the playground's own watchdog was not stopped")
 	}
 }
