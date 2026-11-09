@@ -17,6 +17,7 @@ import (
 	"astrona/internal/localdata"
 	"astrona/internal/logs"
 	"astrona/internal/portforward"
+	"astrona/internal/settings"
 	"astrona/internal/terms"
 	"astrona/internal/version"
 )
@@ -28,7 +29,7 @@ func TestDevelopmentStatePaths(t *testing.T) {
 	t.Setenv("HOME", home)
 	base := filepath.Join(home, ".astrona-dev")
 	for name, path := range map[string]func() (string, error){
-		"settings.json":     func() (string, error) { return settingsPath(&rootFlags{}) },
+		"settings.json":     func() (string, error) { return settings.Path("") },
 		"current.json":      currentLabPath,
 		"update-check.json": updateStatePath,
 		"bundles":           bundlesDir,

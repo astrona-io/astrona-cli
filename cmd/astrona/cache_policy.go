@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"astrona/internal/localdata"
+	"astrona/internal/settings"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +45,7 @@ func pruneCache(ctx context.Context, cmd *cobra.Command, s localdata.Store) erro
 		return err
 	}
 	defer release()
-	policy, err := loadCachePolicy(filepath.Join(s.Data, "settings.json"))
+	policy, err := settings.LoadCachePolicy(filepath.Join(s.Data, "settings.json"))
 	if err != nil {
 		return err
 	}

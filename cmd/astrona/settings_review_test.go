@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"astrona/internal/settings"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +26,7 @@ func reviewCommand(input string) (*cobra.Command, *bytes.Buffer) {
 }
 
 func initialReviewInput() string {
-	defs := reviewDefinitions()
+	defs := settings.ReviewDefinitions()
 	keys := make([]string, 0, len(defs))
 	for key := range defs {
 		keys = append(keys, key)
@@ -44,17 +45,17 @@ func initialReviewInput() string {
 	return input.String() + "y\n"
 }
 
-func acceptReview(t *testing.T, path string, defs map[string]reviewedSetting) {
+func acceptReview(t *testing.T, path string, defs map[string]settings.ReviewedSetting) {
 	t.Helper()
 	value := "false"
-	if err := changeSetting(path, "update-check", &value); err != nil {
+	if err := settings.Change(path, "update-check", &value); err != nil {
 		t.Fatal(err)
 	}
-	saved, err := loadSettings(path)
+	saved, err := settings.Load(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	id, err := settingsReviewID(defs, saved)
+	id, err := settings.ReviewID(defs, saved)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +90,7 @@ func TestSettingsViewReadOnly(t *testing.T) {
 				}
 			} else {
 				var v settingsView
-				if err := json.Unmarshal(out.Bytes(), &v); err != nil || len(v.ID) != 64 || len(v.Pending) != len(settingsDefinitions()) {
+				if err := json.Unmarshal(out.Bytes(), &v); err != nil || len(v.ID) != 64 || len(v.Pending) != len(settings.Definitions()) {
 					t.Fatalf("view = %s; err = %v", out.String(), err)
 				}
 			}
@@ -99,7 +100,7 @@ func TestSettingsViewReadOnly(t *testing.T) {
 
 func TestReviewInteractiveAndUnchangedRelease(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	defs := reviewDefinitions()
+	defs := settings.ReviewDefinitions()
 	cmd, out := reviewCommand(initialReviewInput() + "next prompt\n")
 	if err := ensureSettingsReview(cmd, path, defs, true, ""); err != nil {
 		t.Fatal(err)
@@ -111,23 +112,23 @@ func TestReviewInteractiveAndUnchangedRelease(t *testing.T) {
 	if err != nil || string(rest) != "next prompt\n" {
 		t.Fatalf("consumed later input: %q, %v", rest, err)
 	}
-	saved, err := loadSettings(path)
+	saved, err := settings.Load(path)
 	if err != nil || string(saved["parallel"]) != "2" || string(saved["update-check"]) != "false" {
 		t.Fatalf("choices = %v, %v", saved, err)
 	}
-	receipt, err := loadSettingsReceipt(path)
+	receipt, err := settings.LoadReceipt(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	receipt.CLIVersion = "another-release"
-	if err := writeSettingsFile(settingsReceiptPath(path), receipt); err != nil {
+	if err := settings.WriteFile(settings.ReceiptPath(path), receipt); err != nil {
 		t.Fatal(err)
 	}
 	cmd, out = reviewCommand("")
 	if err := ensureSettingsReview(cmd, path, defs, false, ""); err != nil || out.Len() != 0 {
 		t.Fatalf("unchanged release prompted: %s, %v", out.String(), err)
 	}
-	for _, file := range []string{path, settingsReceiptPath(path)} {
+	for _, file := range []string{path, settings.ReceiptPath(path)} {
 		info, err := os.Stat(file)
 		if err != nil || info.Mode().Perm() != 0o600 {
 			t.Fatalf("permissions on %s: %v, %v", file, info, err)
@@ -147,15 +148,15 @@ func TestReviewBlankKeepsUpdateCheck(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
 			if tc.saved != "" {
-				if err := changeSetting(path, "update-check", &tc.saved); err != nil {
+				if err := settings.Change(path, "update-check", &tc.saved); err != nil {
 					t.Fatal(err)
 				}
 			}
 			cmd, out := reviewCommand(strings.Replace(initialReviewInput(), "false\n", tc.answer+"\n", 1) + "next prompt\n")
-			if err := ensureSettingsReview(cmd, path, reviewDefinitions(), true, ""); err != nil {
+			if err := ensureSettingsReview(cmd, path, settings.ReviewDefinitions(), true, ""); err != nil {
 				t.Fatalf("review failed: %v\n%s", err, out.String())
 			}
-			saved, err := loadSettings(path)
+			saved, err := settings.Load(path)
 			if err != nil || string(saved["update-check"]) != tc.want {
 				t.Fatalf("settings = %v, %v", saved, err)
 			}
@@ -174,10 +175,10 @@ func TestReviewAutomationAcceptsDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	cmd, _ := reviewCommand("")
-	if err := ensureSettingsReview(cmd, path, reviewDefinitions(), false, view.ID); err != nil {
+	if err := ensureSettingsReview(cmd, path, settings.ReviewDefinitions(), false, view.ID); err != nil {
 		t.Fatal(err)
 	}
-	saved, err := loadSettings(path)
+	saved, err := settings.Load(path)
 	if err != nil || string(saved["update-check"]) != "true" {
 		t.Fatalf("settings = %v, %v", saved, err)
 	}
@@ -188,7 +189,7 @@ func TestReviewDeclineAndInvalidInputDoNotSave(t *testing.T) {
 		t.Run(input, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
 			value := "3"
-			if err := changeSetting(path, "parallel", &value); err != nil {
+			if err := settings.Change(path, "parallel", &value); err != nil {
 				t.Fatal(err)
 			}
 			before, err := os.ReadFile(path)
@@ -196,14 +197,14 @@ func TestReviewDeclineAndInvalidInputDoNotSave(t *testing.T) {
 				t.Fatal(err)
 			}
 			cmd, _ := reviewCommand(input)
-			if err := ensureSettingsReview(cmd, path, reviewDefinitions(), true, ""); err == nil {
+			if err := ensureSettingsReview(cmd, path, settings.ReviewDefinitions(), true, ""); err == nil {
 				t.Fatal("accepted incomplete/invalid review")
 			}
 			after, err := os.ReadFile(path)
 			if err != nil || !bytes.Equal(before, after) {
 				t.Fatalf("changed preferences: %q, %v", after, err)
 			}
-			if _, err := os.Stat(settingsReceiptPath(path)); !errors.Is(err, os.ErrNotExist) {
+			if _, err := os.Stat(settings.ReceiptPath(path)); !errors.Is(err, os.ErrNotExist) {
 				t.Fatal("wrote receipt")
 			}
 		})
@@ -220,10 +221,10 @@ func TestReviewInvalidChoiceRetriesKeepEarlierAnswers(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
 			input := strings.Replace(initialReviewInput(), "false\n", tc.answer, 1) + "next prompt\n"
 			cmd, out := reviewCommand(input)
-			if err := ensureSettingsReview(cmd, path, reviewDefinitions(), true, ""); err != nil {
+			if err := ensureSettingsReview(cmd, path, settings.ReviewDefinitions(), true, ""); err != nil {
 				t.Fatalf("review failed: %v\n%s", err, out.String())
 			}
-			saved, err := loadSettings(path)
+			saved, err := settings.Load(path)
 			if err != nil || string(saved["parallel"]) != "2" || string(saved["update-check"]) != tc.want {
 				t.Fatalf("lost choices: %v, %v", saved, err)
 			}
@@ -239,8 +240,8 @@ func TestReviewInvalidChoiceRetriesKeepEarlierAnswers(t *testing.T) {
 			if err != nil || string(rest) != "next prompt\n" {
 				t.Fatalf("consumed later input: %q, %v", rest, err)
 			}
-			receipt, err := loadSettingsReceipt(path)
-			if err != nil || len(pendingSettings(receipt.Definitions, reviewDefinitions(), saved)) != 0 {
+			receipt, err := settings.LoadReceipt(path)
+			if err != nil || len(settings.Pending(receipt.Definitions, settings.ReviewDefinitions(), saved)) != 0 {
 				t.Fatalf("review not recorded: %v", err)
 			}
 		})
@@ -252,7 +253,7 @@ func TestReviewInvalidChoiceRetryCanStillCancel(t *testing.T) {
 		t.Run(answer, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
 			value := "3"
-			if err := changeSetting(path, "parallel", &value); err != nil {
+			if err := settings.Change(path, "parallel", &value); err != nil {
 				t.Fatal(err)
 			}
 			before, err := os.ReadFile(path)
@@ -264,7 +265,7 @@ func TestReviewInvalidChoiceRetryCanStillCancel(t *testing.T) {
 				t.Fatal("missing explicit choice in test input")
 			}
 			cmd, out := reviewCommand(prefix + answer)
-			if err := ensureSettingsReview(cmd, path, reviewDefinitions(), true, ""); err == nil {
+			if err := ensureSettingsReview(cmd, path, settings.ReviewDefinitions(), true, ""); err == nil {
 				t.Fatal("incomplete review was approved")
 			}
 			if !strings.Contains(out.String(), "Please try again") {
@@ -274,7 +275,7 @@ func TestReviewInvalidChoiceRetryCanStillCancel(t *testing.T) {
 			if err != nil || !bytes.Equal(before, after) {
 				t.Fatalf("cancel saved earlier answers: %q, %v", after, err)
 			}
-			if _, err := os.Stat(settingsReceiptPath(path)); !errors.Is(err, os.ErrNotExist) {
+			if _, err := os.Stat(settings.ReceiptPath(path)); !errors.Is(err, os.ErrNotExist) {
 				t.Fatal("cancel saved a review receipt")
 			}
 		})
@@ -285,9 +286,9 @@ func TestReviewDetectsSchemaChangesAndPreservesChoices(t *testing.T) {
 	for _, kind := range []string{"default", "description", "revision", "added", "removed", "privacy"} {
 		t.Run(kind, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			defs := reviewDefinitions()
+			defs := settings.ReviewDefinitions()
 			acceptReview(t, path, defs)
-			receipt, err := loadSettingsReceipt(path)
+			receipt, err := settings.LoadReceipt(path)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -309,13 +310,13 @@ func TestReviewDetectsSchemaChangesAndPreservesChoices(t *testing.T) {
 				delete(receipt.Definitions, key)
 			case "removed":
 				key = "retired"
-				receipt.Definitions[key] = reviewedSetting{Default: "false"}
-				saved, err := loadSettings(path)
+				receipt.Definitions[key] = settings.ReviewedSetting{Default: "false"}
+				saved, err := settings.Load(path)
 				if err != nil {
 					t.Fatal(err)
 				}
 				saved[key] = json.RawMessage("true")
-				if err := writeSettingsFile(path, saved); err != nil {
+				if err := settings.WriteFile(path, saved); err != nil {
 					t.Fatal(err)
 				}
 			case "privacy":
@@ -323,7 +324,7 @@ func TestReviewDetectsSchemaChangesAndPreservesChoices(t *testing.T) {
 				d.ExplicitChoice = true
 				defs[key] = d
 			}
-			if err := writeSettingsFile(settingsReceiptPath(path), receipt); err != nil {
+			if err := settings.WriteFile(settings.ReceiptPath(path), receipt); err != nil {
 				t.Fatal(err)
 			}
 			cmd, _ := reviewCommand("")
@@ -341,7 +342,7 @@ func TestReviewDetectsSchemaChangesAndPreservesChoices(t *testing.T) {
 			if err := ensureSettingsReview(cmd, path, defs, true, ""); err != nil {
 				t.Fatalf("review: %s, %v", out.String(), err)
 			}
-			saved, err := loadSettings(path)
+			saved, err := settings.Load(path)
 			if err != nil || string(saved["parallel"]) != "1" || string(saved["update-check"]) != "false" {
 				t.Fatalf("lost choices: %v, %v", saved, err)
 			}
@@ -354,14 +355,14 @@ func TestReviewDetectsSchemaChangesAndPreservesChoices(t *testing.T) {
 
 func TestReviewAutomationAndStaleID(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	defs := reviewDefinitions()
+	defs := settings.ReviewDefinitions()
 	view, err := buildSettingsView(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	cmd, _ := reviewCommand("")
 	value := "false"
-	if err := changeSetting(path, "update-check", &value); err != nil {
+	if err := settings.Change(path, "update-check", &value); err != nil {
 		t.Fatal(err)
 	}
 	if err := ensureSettingsReview(cmd, path, defs, false, view.ID); err == nil || !strings.Contains(err.Error(), "does not match") {
@@ -377,7 +378,7 @@ func TestReviewAutomationAndStaleID(t *testing.T) {
 	if _, err := executeSettings(t, path, "review", "--accept="); err == nil {
 		t.Fatal("accepted empty approval flag")
 	}
-	if err := changeSetting(path, "update-check", nil); err != nil {
+	if err := settings.Change(path, "update-check", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := ensureSettingsReview(cmd, path, defs, false, ""); err != nil {
@@ -387,13 +388,13 @@ func TestReviewAutomationAndStaleID(t *testing.T) {
 
 func TestSettingsReviewExplainsChangesBeforeApproval(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	defs := reviewDefinitions()
+	defs := settings.ReviewDefinitions()
 	acceptReview(t, path, defs)
 	before, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	receiptBefore, err := os.ReadFile(settingsReceiptPath(path))
+	receiptBefore, err := os.ReadFile(settings.ReceiptPath(path))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +416,7 @@ func TestSettingsReviewExplainsChangesBeforeApproval(t *testing.T) {
 	if err != nil || !bytes.Equal(before, after) {
 		t.Fatal("decline changed settings", err)
 	}
-	receiptAfter, err := os.ReadFile(settingsReceiptPath(path))
+	receiptAfter, err := os.ReadFile(settings.ReceiptPath(path))
 	if err != nil || !bytes.Equal(receiptBefore, receiptAfter) {
 		t.Fatal("decline approved changed definitions", err)
 	}
@@ -434,7 +435,7 @@ func TestReviewExemptionsAndCancellation(t *testing.T) {
 	cmd, _ := reviewCommand("y\n")
 	cmd.SetContext(ctx)
 	path := filepath.Join(t.TempDir(), "settings.json")
-	if err := ensureSettingsReview(cmd, path, reviewDefinitions(), true, ""); !errors.Is(err, context.Canceled) {
+	if err := ensureSettingsReview(cmd, path, settings.ReviewDefinitions(), true, ""); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
 	if _, err := readSettingsAnswer(ctx, strings.NewReader("y\n")); !errors.Is(err, context.Canceled) {
@@ -461,7 +462,7 @@ func TestReviewUnsafeOrCorruptReceipt(t *testing.T) {
 	for _, kind := range []string{"symlink", "directory", "corrupt", "null", "oversized", "lock"} {
 		t.Run(kind, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			receipt := settingsReceiptPath(path)
+			receipt := settings.ReceiptPath(path)
 			switch kind {
 			case "symlink":
 				if err := os.Symlink(path, receipt); err != nil {
@@ -480,9 +481,9 @@ func TestReviewUnsafeOrCorruptReceipt(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "lock":
-				if err := withSettingsLock(path, func() error {
+				if err := settings.WithLock(path, func() error {
 					cmd, _ := reviewCommand("\n\nfalse\n\ny\n")
-					if err := ensureSettingsReview(cmd, path, reviewDefinitions(), true, ""); err == nil {
+					if err := ensureSettingsReview(cmd, path, settings.ReviewDefinitions(), true, ""); err == nil {
 						t.Fatal("concurrent writer accepted")
 					}
 					return nil
@@ -492,7 +493,7 @@ func TestReviewUnsafeOrCorruptReceipt(t *testing.T) {
 				return
 			}
 			cmd, _ := reviewCommand("\n\nfalse\n\ny\n")
-			if err := ensureSettingsReview(cmd, path, reviewDefinitions(), true, ""); err == nil {
+			if err := ensureSettingsReview(cmd, path, settings.ReviewDefinitions(), true, ""); err == nil {
 				t.Fatal("invalid receipt accepted")
 			}
 		})

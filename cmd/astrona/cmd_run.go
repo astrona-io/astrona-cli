@@ -19,6 +19,7 @@ import (
 	"astrona/internal/lifecycle"
 	"astrona/internal/resources"
 	"astrona/internal/runtime"
+	"astrona/internal/settings"
 	"astrona/internal/ui"
 
 	"github.com/mattn/go-isatty"
@@ -255,10 +256,7 @@ func addParallelFlag(cmd *cobra.Command, flags *rootFlags) {
 
 // validateParallel checks --parallel.
 func validateParallel(n int) error {
-	if n < 1 || n > lifecycle.MaxParallel {
-		return fmt.Errorf("--parallel must be between 1 and %d", lifecycle.MaxParallel)
-	}
-	return nil
+	return settings.ValidateParallel(n)
 }
 
 // printConnectHints prints how to reach the lab: for a kind lab, either

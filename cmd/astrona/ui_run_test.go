@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"astrona/internal/config"
+	"astrona/internal/settings"
 	"astrona/internal/terms"
 	"astrona/internal/trust"
 	tea "charm.land/bubbletea/v2"
@@ -29,7 +30,7 @@ func newUIRunGateFixture(t *testing.T) *uiRunGateFixture {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	f := &uiRunGateFixture{path: filepath.Join(t.TempDir(), "settings.json")}
-	if err := writeSettingsFile(f.path, userSettings{"update-check": []byte("false")}); err != nil {
+	if err := settings.WriteFile(f.path, settings.Values{"update-check": []byte("false")}); err != nil {
 		t.Fatal(err)
 	}
 	f.flags = &rootFlags{settingsFile: f.path}
@@ -64,11 +65,11 @@ func newUIRunGateFixture(t *testing.T) *uiRunGateFixture {
 
 func checkUIRunConsent(t *testing.T, f *uiRunGateFixture, accepted bool) {
 	t.Helper()
-	if _, err := os.Stat(settingsReceiptPath(f.path)); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(settings.ReceiptPath(f.path)); !errors.Is(err, os.ErrNotExist) {
 		t.Fatal("startup must not acknowledge settings review")
 	}
 	if accepted {
-		saved, err := loadSettings(f.path)
+		saved, err := settings.Load(f.path)
 		if err != nil || len(saved) != 1 || string(saved["update-check"]) != "false" {
 			t.Fatal("saved preference replaced")
 		}

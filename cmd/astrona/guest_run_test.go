@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"astrona/internal/settings"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
@@ -30,7 +31,7 @@ func TestGuestReminderChoicesAndPersistence(t *testing.T) {
 				t.Fatal("reminder not enabled by default", err)
 			}
 			existing := "true"
-			if err := changeSetting(flags.settingsFile, "verbose", &existing); err != nil {
+			if err := settings.Change(flags.settingsFile, "verbose", &existing); err != nil {
 				t.Fatal(err)
 			}
 			m := guestRunModel{width: 80, height: 24}
@@ -48,12 +49,12 @@ func TestGuestReminderChoicesAndPersistence(t *testing.T) {
 			if err != nil || enabled == (tc.accepted && tc.never) {
 				t.Fatalf("saved reminder: %v %v", enabled, err)
 			}
-			saved, err := loadSettings(flags.settingsFile)
+			saved, err := settings.Load(flags.settingsFile)
 			if err != nil || string(saved["verbose"]) != "true" {
 				t.Fatal("unrelated setting overwritten")
 			}
 			value := "yes"
-			if err := changeSetting(flags.settingsFile, "login-reminder", &value); err != nil {
+			if err := settings.Change(flags.settingsFile, "login-reminder", &value); err != nil {
 				t.Fatal(err)
 			}
 			if enabled, err := guestReminderEnabled(flags); err != nil || !enabled {
@@ -91,7 +92,7 @@ func TestGuestReminderLocalOnlySkipsAccountAndSettings(t *testing.T) {
 }
 
 func TestLoginReminderDefinitionIsBoolean(t *testing.T) {
-	raw, err := parseSetting("login-reminder", "no")
+	raw, err := settings.Parse("login-reminder", "no")
 	if err != nil || string(raw) != "false" {
 		t.Fatal("invalid boolean setting", err)
 	}

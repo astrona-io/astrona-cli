@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"astrona/internal/settings"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +37,7 @@ func newSettingsViewCmd(flags *rootFlags) *cobra.Command {
 			if err := checkOutput(output, "text"); err != nil {
 				return err
 			}
-			path, err := settingsPath(flags)
+			path, err := settings.Path(flags.settingsFile)
 			if err != nil {
 				return err
 			}
@@ -73,7 +74,7 @@ func newSettingsViewCmd(flags *rootFlags) *cobra.Command {
 func humanSetting(key, value string) string {
 	switch value {
 	case "true", "false":
-		return settingValueText(value)
+		return settings.ValueText(value)
 	}
 	switch key {
 	case "cache-retention-days":
@@ -91,20 +92,20 @@ func humanSetting(key, value string) string {
 
 func buildSettingsView(path string) (settingsView, error) {
 	view := settingsView{Path: path, Pending: []string{}, Values: []settingView{}}
-	defs := reviewDefinitions()
-	receipt, err := loadSettingsReceipt(path)
+	defs := settings.ReviewDefinitions()
+	receipt, err := settings.LoadReceipt(path)
 	if err != nil {
 		return view, err
 	}
-	saved, err := loadReviewValues(path, receipt.Definitions, defs)
+	saved, err := settings.LoadReviewValues(path, receipt.Definitions, defs)
 	if err != nil {
 		return view, err
 	}
-	view.ID, err = settingsReviewID(defs, saved)
+	view.ID, err = settings.ReviewID(defs, saved)
 	if err != nil {
 		return view, err
 	}
-	view.Pending = append(view.Pending, pendingSettings(receipt.Definitions, defs, saved)...)
+	view.Pending = append(view.Pending, settings.Pending(receipt.Definitions, defs, saved)...)
 	for key, def := range defs {
 		value, source := json.RawMessage(def.Default), "default"
 		if stored, ok := saved[key]; ok {
@@ -125,14 +126,14 @@ func newSettingsReviewCmd(flags *rootFlags) *cobra.Command {
 			"inspect settings view, then pass its exact --accept review ID. --yes and --accept-terms do not approve settings. " +
 			"No tracking service is enabled by this command.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			path, err := settingsPath(flags)
+			path, err := settings.Path(flags.settingsFile)
 			if err != nil {
 				return err
 			}
 			if cmd.Flags().Changed("accept") && accept == "" {
 				return fmt.Errorf("--accept needs the review ID from astrona settings view")
 			}
-			if err := ensureSettingsReview(cmd, path, reviewDefinitions(), settingsInteractive(cmd), accept); err != nil {
+			if err := ensureSettingsReview(cmd, path, settings.ReviewDefinitions(), settingsInteractive(cmd), accept); err != nil {
 				return err
 			}
 			_, err = fmt.Fprintln(cmd.OutOrStdout(), "All current settings have been reviewed.")
