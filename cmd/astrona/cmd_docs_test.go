@@ -11,7 +11,7 @@ import (
 
 func TestSanitizeTerminalText(t *testing.T) {
 	in := "title\x1b]0;pwned\x07 ok\x1b[2J\r\nline2\tx\x9bmore\x00"
-	got := sanitizeTerminalText(in)
+	got := labops.SanitizeTerminalText(in)
 	if strings.ContainsAny(got, "\x1b\x07\x00\r\u009b") {
 		t.Fatalf("control characters survived: %q", got)
 	}
@@ -42,8 +42,8 @@ func TestStripFrontMatter(t *testing.T) {
 }
 
 func TestSanitizeLine(t *testing.T) {
-	if got := sanitizeLine("a\x1b[1A\r\n\tb\x9b"); got != "a[1A  b" {
-		t.Errorf("sanitizeLine = %q", got)
+	if got := labops.SanitizeLine("a\x1b[1A\r\n\tb\x9b"); got != "a[1A  b" {
+		t.Errorf("SanitizeLine = %q", got)
 	}
 }
 

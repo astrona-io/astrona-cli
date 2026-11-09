@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"astrona/internal/labops"
 )
 
 func TestApproveUntrackedLab(t *testing.T) {
@@ -23,9 +25,9 @@ func TestApproveUntrackedLab(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
-			var acct *labAccount
+			var acct *labops.Account
 			if tc.signedIn {
-				acct = &labAccount{}
+				acct = &labops.Account{}
 			}
 			approved, err := approveUntrackedLab(strings.NewReader(tc.answer), &out, tc.tty, tc.optIn, tc.lab, acct)
 			if approved != tc.approved || (err != nil) != tc.wantErr {

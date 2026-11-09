@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode"
 
+	"astrona/internal/labops"
 	"astrona/internal/settings"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -543,7 +544,7 @@ func (m *uiTaskModel) navigation() (string, []uiTabHit) {
 		if i == m.active {
 			selected = 0
 		}
-		nav += workspaceNav([]string{ansi.Truncate(sanitizeLine(m.tabs[i].label), 16, "…")}, []string{fmt.Sprint(i + 1)}, selected)
+		nav += workspaceNav([]string{ansi.Truncate(labops.SanitizeLine(m.tabs[i].label), 16, "…")}, []string{fmt.Sprint(i + 1)}, selected)
 		hits = append(hits, uiTabHit{start, min(m.workspace.width, ansi.StringWidth(nav)), i})
 	}
 	if m.starting {
@@ -556,7 +557,7 @@ func (m *uiTaskModel) navigation() (string, []uiTabHit) {
 
 func (m *uiTaskModel) taskPage(width, height int) string {
 	if m.markdownLines == nil || m.markdownSource != m.workspace.task || m.markdownWidth != width {
-		rendered := renderMarkdown(sanitizeTerminalText(m.workspace.task), true)
+		rendered := renderMarkdown(labops.SanitizeTerminalText(m.workspace.task), true)
 		if os.Getenv("NO_COLOR") != "" {
 			rendered = ansi.Strip(rendered)
 		}
@@ -656,15 +657,15 @@ func (m *uiTaskModel) render() string {
 	} else if !m.taskFocus {
 		hint = "Type in the terminal to lock focus (red) · " + uiReleaseFocusKey() + " releases it (blue)"
 	}
-	view := workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(sanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render(hint), m.workspace.width, m.workspace.height)
+	view := workspaceFit(nav+"\n"+body+"\n"+workspaceMuted.Render(labops.SanitizeLine(strings.TrimSpace(footer)))+"\n"+workspaceMuted.Render(hint), m.workspace.width, m.workspace.height)
 	if m.workspace.confirmSubmit {
 		return m.workspace.submitView(view)
 	}
 	if m.namingTab {
-		text := "Name: " + sanitizeLine(m.tabName) + "_\n\nEnter opens the tab; leave blank for a default name.\nSwitch tabs with a mouse click or Ctrl+N / Ctrl+P.\nWhen locked, release focus first with " + uiReleaseFocusKey() + ".\n\nEnter opens · Esc cancels · Ctrl+U clears"
+		text := "Name: " + labops.SanitizeLine(m.tabName) + "_\n\nEnter opens the tab; leave blank for a default name.\nSwitch tabs with a mouse click or Ctrl+N / Ctrl+P.\nWhen locked, release focus first with " + uiReleaseFocusKey() + ".\n\nEnter opens · Esc cancels · Ctrl+U clears"
 		if len(m.workspace.snapshot.clusters) > 0 && m.workspace.snapshot.clusters[0].runtime == "qemu" {
 			target := m.workspace.snapshot.clusters[m.workspace.selected]
-			text = "VM: " + sanitizeLine(target.name) + " (←/→ choose)\n" + text
+			text = "VM: " + labops.SanitizeLine(target.name) + " (←/→ choose)\n" + text
 		}
 		if m.workspace.width < 48 || m.workspace.height < 14 {
 			text = "Resize to 48 × 14 to name a terminal. Esc cancels."

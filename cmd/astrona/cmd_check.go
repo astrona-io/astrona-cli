@@ -21,7 +21,7 @@ var brewAvailable = func() bool {
 
 // depHint is how to install c: the brew command when Homebrew is there and
 // has it, else its InstallHint.
-func depHint(c depCheck) string {
+func depHint(c preflight.DepCheck) string {
 	if c.BrewFormula == "" || !brewAvailable() {
 		return c.InstallHint
 	}
@@ -34,7 +34,7 @@ func depHint(c depCheck) string {
 // brewInstallAll is one `brew install …` for every missing check Homebrew
 // can install, or "" when there's none (or no Homebrew). qemu backs three
 // checks but is listed once.
-func brewInstallAll(missing []depCheck) string {
+func brewInstallAll(missing []preflight.DepCheck) string {
 	if !brewAvailable() {
 		return ""
 	}
@@ -80,7 +80,7 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 
 			missingRequired := 0
 			printedOptionalHeader := false
-			var missingReq, missingOpt []depCheck
+			var missingReq, missingOpt []preflight.DepCheck
 
 			fmt.Printf("astrona version: %s\n\n", Version)
 
@@ -124,7 +124,7 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 			cfg, baseDir, cleanup, err := loadLabForCheck(flags, explicit)
 			defer cleanup()
 			if err != nil {
-				envFailed += printCheckResults("Lab", []checkResult{doctorLabError(err)})
+				envFailed += printCheckResults("Lab", []preflight.Result{doctorLabError(err)})
 			}
 			if cfg != nil {
 				envFailed += printCheckResults("Lab "+config.NormalizeClusterName(cfg.Metadata.Name), checkLab(cfg, baseDir, engine))
@@ -149,16 +149,16 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 // checkAsJSON is `astrona check -o json`: the same checks as one document.
 func checkAsJSON(cmd *cobra.Command, flags *rootFlags) error {
 	rep := &report{json: true}
-	var deps []checkResult
+	var deps []preflight.Result
 	for _, c := range preflight.AstronaDepChecks() {
 		found, detail := c.Find()
 		switch {
 		case found:
-			deps = append(deps, checkResult{Name: c.Name, Detail: detail})
+			deps = append(deps, preflight.Result{Name: c.Name, Detail: detail})
 		case c.Required:
-			deps = append(deps, checkResult{Status: checkFail, Name: c.Name, Detail: c.Note, Hint: "install: " + depHint(c)})
+			deps = append(deps, preflight.Result{Status: preflight.Fail, Name: c.Name, Detail: c.Note, Hint: "install: " + depHint(c)})
 		default:
-			deps = append(deps, checkResult{Status: checkWarn, Name: c.Name, Detail: c.Note, Hint: "install: " + depHint(c)})
+			deps = append(deps, preflight.Result{Status: preflight.Warn, Name: c.Name, Detail: c.Note, Hint: "install: " + depHint(c)})
 		}
 	}
 	rep.section("Dependencies", deps)

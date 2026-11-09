@@ -12,6 +12,7 @@ import (
 	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
+	"astrona/internal/settings"
 	"astrona/internal/ui"
 
 	"github.com/mattn/go-isatty"
@@ -67,7 +68,9 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			"(kube-system, addons, …) was set up, clears what isn't astrona's from the default " +
 			"namespace, and runs the bootstrap again — seconds instead of minutes. Cluster-wide " +
 			"objects (CRDs, ClusterRoles, …) aren't reverted; use a full reset for those. With " +
-			"--cluster, only that linked cluster.",
+			"--cluster, only that linked cluster.\n\n" +
+			"Ctrl+C (or SIGTERM) during a full reset or a --cluster rebuild stops at the current step " +
+			"and removes what the rebuild created, like `astrona run`; a second Ctrl+C quits at once.",
 		Example: `  astrona reset -c ./labs/my-lab
   astrona reset -c ./labs/my-lab --yes
   astrona reset -c ./labs/my-lab --cluster idp
@@ -90,7 +93,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			if err := lifecycle.Validate(cfg); err != nil {
 				return fmt.Errorf("lab config is invalid, nothing was reset: %w", err)
 			}
-			if err := validateParallel(flags.parallel); err != nil {
+			if err := settings.ValidateParallel(flags.parallel); err != nil {
 				return err
 			}
 
@@ -129,7 +132,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				return nil
 			}
 			if clusterFlag != "" {
-				return resetLinkedCluster(cfg, baseDir, clusterName, clusterFlag, yes, flags)
+				return resetLinkedCluster(cmd, cfg, baseDir, clusterName, clusterFlag, yes, flags)
 			}
 			// A signed-in catalog reset starts a fresh session, like run.
 			// Check the optional account before anything is destroyed.
@@ -161,11 +164,15 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 					return nil
 				}
 			}
-			start, err := startLabSession(ctx, acct, "reset", cfg, flags.catalogLab)
+			// Every question is answered: from here Ctrl+C stops the
+			// rebuild and removes what it created (a second one quits now).
+			ctx, disarm := interruptible(cmd, interruptBuildNotice)
+			defer disarm()
+			start, err := labops.StartLabSession(ctx, os.Stdout, os.Stderr, acct, "reset", cfg, flags.catalogLab)
 			if err != nil {
 				return err
 			}
-			defer start.abandon()
+			defer start.Abandon()
 
 			rep, err := ui.New("reset", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
 			if err != nil {
@@ -173,7 +180,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer rep.Close()
 
-			endOldSession(clusterName) // an old playground's watchdog would remove the new lab
+			labops.EndOldSession(os.Stderr, clusterName) // an old playground's watchdog would remove the new lab
 			if exists {
 				// With --keep-context reset won't switch again: the old lab's context goes back first.
 				if err := labops.RemoveForRestart(os.Stdout, cfg, baseDir, clusterName, flags.keepContext, false, rep); err != nil {
@@ -183,10 +190,13 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				rep.Info("Lab '%s' isn't running — creating it fresh.", clusterName)
 			}
 
-			if err := bringUpLab(cfg, baseDir, flags, rep, start.sess); err != nil {
+			if err := bringUpLab(ctx, cfg, baseDir, flags, rep, start.Session); err != nil {
+				if ctx.Err() != nil {
+					start.Interrupted()
+				}
 				return err
 			}
-			start.done(clusterName)
+			start.Done(clusterName)
 			return nil
 		},
 	}
@@ -204,7 +214,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 // resetLinkedCluster rebuilds one linked cluster of the running lab
 // clusterName (labops.PlanLinkedReset, then labops.ResetLinkedCluster)
 // once the user confirmed, and prints the restarted port forwards.
-func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string, yes bool, flags *rootFlags) error {
+func resetLinkedCluster(cmd *cobra.Command, cfg *config.LabConfig, baseDir, clusterName, name string, yes bool, flags *rootFlags) error {
 	plan, err := labops.PlanLinkedReset(cfg, clusterName, name)
 	if err != nil {
 		return err
@@ -227,7 +237,9 @@ func resetLinkedCluster(cfg *config.LabConfig, baseDir, clusterName, name string
 	}
 	defer rep.Close()
 
-	forwards, err := labops.ResetLinkedCluster(cfg, baseDir, plan, rep)
+	ctx, disarm := interruptible(cmd, interruptBuildNotice)
+	defer disarm()
+	forwards, err := labops.ResetLinkedCluster(ctx, cfg, baseDir, plan, rep)
 	if err != nil {
 		return err
 	}

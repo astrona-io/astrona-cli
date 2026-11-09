@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"io"
+
+	"astrona/internal/labops"
 )
 
 // approveUntrackedLab asks before starting a catalog lab without account tracking.
 // Automation must explicitly opt in rather than silently losing progress tracking.
-func approveUntrackedLab(in io.Reader, out io.Writer, tty, withoutLogin bool, lab string, acct *labAccount) (bool, error) {
+func approveUntrackedLab(in io.Reader, out io.Writer, tty, withoutLogin bool, lab string, acct *labops.Account) (bool, error) {
 	if lab == "" || acct != nil {
 		return true, nil
 	}

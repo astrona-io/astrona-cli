@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -127,7 +128,7 @@ func TestUIIdleDeadlineIgnoresOutputAndRefresh(t *testing.T) {
 		}
 	}
 	view := ansi.Strip(m.render())
-	for _, want := range []string{"No input in this lab window for 3 minutes", "[ Continue ]", "Overview", "Time spent paused at " + formatUptime(time.Minute), "Time spent: " + formatUptime(time.Minute) + " · Paused"} {
+	for _, want := range []string{"No input in this lab window for 3 minutes", "[ Continue ]", "Overview", "Time spent paused at " + labops.FormatUptime(time.Minute), "Time spent: " + labops.FormatUptime(time.Minute) + " · Paused"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("idle view missing %q", want)
 		}

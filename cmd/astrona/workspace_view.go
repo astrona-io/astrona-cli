@@ -8,6 +8,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"astrona/internal/labops"
 )
 
 var (
@@ -49,7 +51,7 @@ func workspacePanel(title, content string, width, height int, border lipgloss.St
 	if width < 4 || height < 3 {
 		return workspaceFit(content, width, height)
 	}
-	label := ansi.Truncate(" "+sanitizeLine(title)+" ", width-4, "…")
+	label := ansi.Truncate(" "+labops.SanitizeLine(title)+" ", width-4, "…")
 	space := max(0, width-2-ansi.StringWidth(label))
 	lines := []string{border.Render("┌" + strings.Repeat("─", space/2) + label + strings.Repeat("─", space-space/2) + "┐")}
 	for _, line := range strings.Split(workspaceFit(content, width-4, height-2), "\n") {
@@ -61,11 +63,11 @@ func workspacePanel(title, content string, width, height int, border lipgloss.St
 
 func workspaceSelected(text string, width int) string {
 	return lipgloss.NewStyle().Foreground(lipgloss.Color("16")).Background(lipgloss.Color("117")).Bold(true).
-		Render(workspaceFit("> "+sanitizeLine(text), width, 1))
+		Render(workspaceFit("> "+labops.SanitizeLine(text), width, 1))
 }
 
 func workspacePage(text string, width, height, offset int) string {
-	lines := strings.Split(ansi.Wrap(sanitizeTerminalText(text), max(1, width), ""), "\n")
+	lines := strings.Split(ansi.Wrap(labops.SanitizeTerminalText(text), max(1, width), ""), "\n")
 	start := min(max(0, offset), max(0, len(lines)-height))
 	return strings.Join(lines[start:min(len(lines), start+max(0, height))], "\n")
 }
@@ -73,7 +75,7 @@ func workspacePage(text string, width, height, offset int) string {
 func (m workspaceModel) frame(title, context, body string, footer []string) string {
 	w, h := max(1, m.width), max(1, m.height)
 	brand := workspaceAccent.Render(" ASTRONA ") + workspaceFocus.Render("/ "+title)
-	version := workspaceMuted.Render(sanitizeLine(Version) + " ")
+	version := workspaceMuted.Render(labops.SanitizeLine(Version) + " ")
 	gap := w - ansi.StringWidth(brand) - ansi.StringWidth(version)
 	if gap > 0 {
 		brand += strings.Repeat(" ", gap) + version
@@ -94,7 +96,7 @@ func (m workspaceModel) frame(title, context, body string, footer []string) stri
 	if m.navigation != "" {
 		active = m.navigation
 	}
-	header := brand + "\n" + workspaceMuted.Render(" "+sanitizeLine(context)) + "\n" + active
+	header := brand + "\n" + workspaceMuted.Render(" "+labops.SanitizeLine(context)) + "\n" + active
 	for len(footer) < 2 {
 		footer = append(footer, "")
 	}
@@ -105,7 +107,7 @@ func (m workspaceModel) frame(title, context, body string, footer []string) stri
 				footer[1] = "↑/↓ select  Enter open  Ctrl+D delete  q quit"
 			}
 		}
-		return workspaceFit(workspaceMuted.Render(" "+sanitizeLine(context))+"\n"+
+		return workspaceFit(workspaceMuted.Render(" "+labops.SanitizeLine(context))+"\n"+
 			workspaceFit(body, w, m.bodyHeight())+"\n"+footer[0]+"\n"+workspaceMuted.Render(footer[1]), w, h)
 	}
 	return workspaceFit(header, w, 3) + "\n" + workspaceFit(body, w, max(0, h-5)) + "\n" +
@@ -180,7 +182,7 @@ func workspaceDialog(background, title, content string, width, height int, dange
 
 func workspaceDialogLayout(content string, width, height int) (x, y, w, h int, lines []string) {
 	w = min(76, max(4, width-6))
-	lines = strings.Split(ansi.Wrap(sanitizeTerminalText(content), max(1, w-4), ""), "\n")
+	lines = strings.Split(ansi.Wrap(labops.SanitizeTerminalText(content), max(1, w-4), ""), "\n")
 	h = min(height, len(lines)+2)
 	return (width - w) / 2, (height - h) / 2, w, h, lines
 }
@@ -196,7 +198,7 @@ func (m workspaceModel) labView() string {
 		clock = "Elapsed: " + max(time.Duration(0), m.now.Sub(m.snapshot.started)).Round(time.Second).String()
 	}
 	if m.snapshot.activityTracked {
-		clock = "Time spent: " + formatUptime(m.snapshot.activeTime)
+		clock = "Time spent: " + labops.FormatUptime(m.snapshot.activeTime)
 	}
 	if !m.snapshot.deadline.IsZero() {
 		remaining := max(time.Duration(0), m.snapshot.deadline.Sub(m.now)).Round(time.Second)
@@ -226,11 +228,11 @@ func (m workspaceModel) labView() string {
 	start := max(0, m.selected-visible+1)
 	for i := start; i < min(len(m.snapshot.clusters), start+visible); i++ {
 		c := m.snapshot.clusters[i]
-		name := "  " + sanitizeLine(c.name)
+		name := "  " + labops.SanitizeLine(c.name)
 		if i == m.selected {
 			name = workspaceSelected(c.name, leftWidth-4)
 		}
-		rows = append(rows, name, workspaceMuted.Render("  "+sanitizeLine(c.status)))
+		rows = append(rows, name, workspaceMuted.Render("  "+labops.SanitizeLine(c.status)))
 	}
 	left := workspacePanel(fmt.Sprintf("%s [%d]", strings.ToUpper(targets), len(m.snapshot.clusters)), strings.Join(rows, "\n"), leftWidth, h, workspaceFocus)
 	content, title := m.task, "THE TASK"
@@ -260,7 +262,7 @@ func (m workspaceModel) labView() string {
 		}
 	}
 	if m.confirmDestroy {
-		body = workspaceDialog(body, "DESTROY LAB", "Destroy "+sanitizeLine(m.name)+" and its linked clusters?\n\nAll work inside them is lost.", w, m.bodyHeight(), true)
+		body = workspaceDialog(body, "DESTROY LAB", "Destroy "+labops.SanitizeLine(m.name)+" and its linked clusters?\n\nAll work inside them is lost.", w, m.bodyHeight(), true)
 		footer = []string{"y confirm / enter cancel", "n or Esc keeps the lab running"}
 	}
 	return m.frame("LAB WORKSPACE", context, body, footer)

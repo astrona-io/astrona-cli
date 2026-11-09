@@ -42,7 +42,7 @@ type setupStep struct {
 type setupEnv struct {
 	goos, goarch string
 	hasBrew      bool
-	missing      map[string]bool // depCheck names that are not found: "kind", "kubectl", "docker or podman"
+	missing      map[string]bool // preflight.DepCheck names that are not found: "kind", "kubectl", "docker or podman"
 	// Container engine state.
 	hasDocker, hasPodman bool
 	engineReachable      bool
@@ -61,7 +61,7 @@ func gatherSetupEnv() setupEnv {
 	_, podmanErr := exec.LookPath("podman")
 	env.hasDocker, env.hasPodman = dockerErr == nil, podmanErr == nil
 	res, _ := preflight.CheckEngine()
-	env.engineReachable = len(res) > 0 && res[0].Status != checkFail
+	env.engineReachable = len(res) > 0 && res[0].Status != preflight.Fail
 	if env.hasPodman && env.goos == "darwin" {
 		out, err := exec.Command("podman", "machine", "list", "--format", "{{.Running}}").Output()
 		if err == nil {
@@ -341,7 +341,7 @@ func runVisible(argv []string) error {
 func waitForEngine(timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if res, _ := preflight.CheckEngine(); len(res) > 0 && res[0].Status != checkFail {
+		if res, _ := preflight.CheckEngine(); len(res) > 0 && res[0].Status != preflight.Fail {
 			return true
 		}
 		time.Sleep(3 * time.Second)

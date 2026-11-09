@@ -11,8 +11,9 @@ astrona settings set cache-max-size-gb 50
 astrona settings set cache-max-size-gb 0  # unlimited size; age limit still applies
 ```
 
-Astrona checks the limits when operational commands finish, including commands
-that fail after setup. It deletes expired entries first, then the oldest remaining
+Astrona checks the limits when `astrona run` or `astrona test` finishes, including
+when it fails after setup. These are the commands that download images, addons
+and Git checkouts; other commands never delete cache entries. It deletes expired entries first, then the oldest remaining
 entries until their combined size fits the budget. Age uses filesystem modification
 times; for a Git checkout, the newest entry within it determines its age. Reading
 a cache file alone does not reset its age. Images and their metadata are removed
@@ -22,16 +23,16 @@ The limits cover downloaded images/addons, cached Git checkouts, catalog metadat
 and update-check metadata. They do not cover lab disks, student resources, results,
 logs, bundles, installed tools, credentials, or Docker/Podman storage.
 
-This is cleanup between commands, not a background service or a download quota.
+This is cleanup after lab runs, not a background service or a download quota.
 Nothing expires while the CLI is not running. If any saved lab state exists,
 including a stopped VM, **all cache eviction is deferred** to protect dependencies.
-Cleanup also defers if another CLI command holds the maintenance lock. Usage can
-therefore exceed the limits while downloads or labs need it. A notice on stderr
-explains deferrals and reports removed entries without changing JSON stdout or
-the original command's exit code. Help, completions, settings, data inspection,
-internal background commands, stop/destroy and logout do not trigger automatic
-deletion. These commands also skip release checks, so cleanup remains available
-without contacting GitHub.
+Cleanup never waits: if any other CLI command is running, it is skipped and
+tried again after a later run, so it never delays the command you started. Usage
+can therefore exceed the limits while downloads or labs need it. A notice on
+stderr explains deferrals and reports removed entries without changing JSON
+stdout or the original command's exit code. Help, completions, settings and data
+inspection skip release checks, so cleanup remains available without contacting
+GitHub.
 
 Preview or explicitly apply just the configured policy:
 
@@ -41,7 +42,7 @@ astrona data clean --policy --yes
 astrona data clean --policy --yes --dry-run  # preview only
 ```
 
-Settings changes take effect on the next operational command or policy cleanup;
+Settings changes take effect after the next `run` or `test`, or on policy cleanup;
 changing a setting does not itself delete anything. Policy cleanup needs valid
 settings. Ordinary `data clean` and `data reset` remain usable for repair when
 settings are malformed. `--policy` cannot be combined with `--temp-only`.
@@ -83,8 +84,20 @@ inspect your labs and `astrona destroy <lab>` to remove those you no longer need
 Do not delete state files to bypass this check. Symlinked cache locations are
 rejected, and symlinks at the top of a cache are kept for manual inspection.
 
-Ordinary commands hold a shared maintenance lock; confirmed cleanup or reset
-requires an exclusive lock and fails immediately if another command holds it.
+Ordinary commands hold a shared maintenance lock, so they can run side by side;
+confirmed cleanup or reset requires an exclusive lock. A command that finds the
+lock taken prints `Waiting for another Astrona command to finish with local
+data...` on stderr and waits up to 5 seconds before it gives up with an error.
+Cleanup or reset therefore fails while a lab command such as `astrona run` is
+still in progress; finish it first. The background helpers that only report
+usage, send saved results or keep port forwards running do not take the lock; a
+playground's time-limit watcher takes it only while it destroys the playground.
+The browser workspace server (`astrona ui serve`, started by `astrona run`)
+holds the shared lock while it runs and stops by itself only after 15 minutes
+idle, so confirmed cleanup or reset stops it first, the same way `astrona ui stop`
+does, and says so in one line on stderr. Its browser terminals close; labs keep
+running. If the server cannot be stopped, the command fails and asks you to run
+`astrona ui stop`.
 Older CLI releases do not take this lock. Finish those commands before applying
 maintenance. The `.maintenance.lock` and `settings.json.lock` files stay in place;
 their presence does not mean a process is running. Never delete them to unlock

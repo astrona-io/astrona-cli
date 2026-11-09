@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,7 +50,7 @@ case "$1 $2" in
 esac
 exit 1
 `)
-			err := CreateKindCluster("astro-startup-test", nil, ui.Discard())
+			err := CreateKindCluster(context.Background(), "astro-startup-test", nil, ui.Discard())
 			if err == nil {
 				t.Fatal("startup failure lost")
 			}

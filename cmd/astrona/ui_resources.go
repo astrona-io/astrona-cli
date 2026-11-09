@@ -12,6 +12,7 @@ import (
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 )
 
@@ -93,7 +94,7 @@ func uiQEMURunUsage(name, started string, vms []*config.QEMUHandle, samples map[
 	return usage
 }
 
-func readUIContainerUsage(ctx context.Context, provider string, containers map[string][]kindContainer) map[string]uiContainerUsage {
+func readUIContainerUsage(ctx context.Context, provider string, containers map[string][]labops.KindContainer) map[string]uiContainerUsage {
 	names := []string{}
 	for _, nodes := range containers {
 		for _, node := range nodes {
@@ -146,7 +147,7 @@ func uiMemoryBytes(value string) (float64, bool) {
 	return amount * scale, ok && err == nil && amount >= 0 && !math.IsInf(amount, 0) && !math.IsNaN(amount)
 }
 
-func uiRunUsage(name, started string, containers map[string][]kindContainer, samples map[string]uiContainerUsage) labstate.ResourceUsage {
+func uiRunUsage(name, started string, containers map[string][]labops.KindContainer, samples map[string]uiContainerUsage) labstate.ResourceUsage {
 	if started == "" {
 		return labstate.ResourceUsage{}
 	}

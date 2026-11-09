@@ -56,7 +56,7 @@ test:
 # Format check, vet, lint, and test — run before committing
 check: fmt vet lint test
 
-# Run the Robot Framework acceptance suite against ./astrona (default: smoke tier; needs kind + an engine)
+# Run the Robot Framework acceptance suite against ./astrona (smoke tier; --include full adds the full tier)
 [positional-arguments]
 oat *args: build
     uv run --with-requirements acceptance/requirements.txt robot --include smoke --outputdir oat-report --xunit xunit.xml "$@" acceptance/suites

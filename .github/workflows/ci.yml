@@ -220,8 +220,7 @@ jobs:
     runs-on: ubuntu-latest
     # Runs three kind labs one after another; a hung cluster must not hold
     # a runner for GitHub's 6-hour default. QEMU labs are not exercised here:
-    # GitHub-hosted runners have no /dev/kvm, so they would fall back to slow,
-    # flaky software emulation instead of a real signal.
+    # they boot real VMs under KVM in the `vm` job of acceptance-full.yml.
     timeout-minutes: 40
     steps:
       - name: Checkout code

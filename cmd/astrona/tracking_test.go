@@ -8,9 +8,11 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 )
 
@@ -118,14 +120,14 @@ func startRun(t *testing.T, flags *rootFlags) *labstate.State {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var start *labStart
+	var start *labops.LabStart
 	captureStdout(t, func() {
-		start, err = startLabSession(ctx, acct, "run", nil, flags.catalogLab)
+		start, err = labops.StartLabSession(ctx, os.Stdout, os.Stderr, acct, "run", nil, flags.catalogLab)
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	rememberLab("astro-x", flags, start.sess)
+	rememberLab("astro-x", flags, start.Session)
 	state, err := labstate.Load("astro-x")
 	if err != nil || state == nil {
 		t.Fatalf("lab state: %+v, %v", state, err)
@@ -140,7 +142,7 @@ func submit(t *testing.T, flags *rootFlags) (bool, string) {
 	var w bytes.Buffer
 	var sent bool
 	captureStdout(t, func() {
-		sent = sendResult(context.Background(), &w, "astro-x", rememberedSource(flags), submissionResult{Lab: "astro-x", Pass: true})
+		sent = sendResult(context.Background(), &w, "astro-x", rememberedSource(flags), labops.Submission{Lab: "astro-x", Pass: true})
 	})
 	return sent, w.String()
 }
@@ -158,7 +160,7 @@ func TestResultsAreSentOnlyWhenSignedInAndNotLocalOnly(t *testing.T) {
 		wantSaid  string // part of what submit said about sending
 	}{
 		{name: "signed in", wantSent: true, wantSaid: "Sent to your lab page (attempt 1)"},
-		{name: "signed out", signedOut: true, wantSaid: signInHint},
+		{name: "signed out", signedOut: true, wantSaid: labops.SignInHint},
 		{name: "signed in, --local-only", flags: rootFlags{localOnly: true}, wantLocal: true, wantSaid: "This run is local only. No result was sent to Astrona."},
 		{name: "signed in, --headless", flags: rootFlags{headless: true}, wantSaid: "wasn't started with a lab session"},
 	} {

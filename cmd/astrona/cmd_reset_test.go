@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"astrona/internal/config"
+
+	"github.com/spf13/cobra"
 )
 
 func TestConfirmReset(t *testing.T) {
@@ -42,10 +44,10 @@ func TestResetRejectsInvalidConfigBeforeDestroying(t *testing.T) {
 
 func TestResetLinkedClusterRefuses(t *testing.T) {
 	cfg := &config.LabConfig{Metadata: config.MetadataConfig{Name: "rl"}, Runtime: config.RuntimeConfig{Kind: &config.KindConfig{Clusters: []config.KindCluster{{Name: "idp"}}}}}
-	if err := resetLinkedCluster(cfg, ".", "astro-rl", "nope", true, &rootFlags{}); err == nil || !strings.Contains(err.Error(), "it has: idp") {
+	if err := resetLinkedCluster(&cobra.Command{}, cfg, ".", "astro-rl", "nope", true, &rootFlags{}); err == nil || !strings.Contains(err.Error(), "it has: idp") {
 		t.Errorf("unknown cluster = %v", err)
 	}
-	if err := resetLinkedCluster(cfg, ".", "astro-rl-no-such-lab", "idp", true, &rootFlags{}); err == nil || !strings.Contains(err.Error(), "isn't running") {
+	if err := resetLinkedCluster(&cobra.Command{}, cfg, ".", "astro-rl-no-such-lab", "idp", true, &rootFlags{}); err == nil || !strings.Contains(err.Error(), "isn't running") {
 		t.Errorf("lab not running = %v", err)
 	}
 }

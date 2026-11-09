@@ -14,6 +14,7 @@ import (
 
 	"astrona/internal/apphome"
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 
 	tea "charm.land/bubbletea/v2"
@@ -167,7 +168,7 @@ func TestUIQEMURestartWithoutContainerEngine(t *testing.T) {
 	restartState(t, "astro-vms", lab)
 	saveUIVM(t, "astro-vms", "astro-vms-server", 0)
 	cmd, flags := uiRestartCommand(t, lab)
-	restart, err := findUIRunRestart(cmd, flags, func(context.Context) (map[string][]kindContainer, error) {
+	restart, err := findUIRunRestart(cmd, flags, func(context.Context) (map[string][]labops.KindContainer, error) {
 		t.Fatal("QEMU restart queried a container engine")
 		return nil, nil
 	})

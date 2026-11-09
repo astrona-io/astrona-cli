@@ -8,7 +8,7 @@
 - Prompts: a confirmation takes `--yes`/`-y`; approving someone else's code (remote lab, another astrona binary) takes its own explicit flag (`--trust`, `--install-version`), never `-y`. Without a terminal, never block — fail and name the flag.
 - Exit codes: `notPassed(...)` (exit 2) for "graded, didn't pass"; any other error exits 1.
 - Naming: exported Go-style `PascalCase` for functions and types reused across packages.
-- Grading: any code path that decides whether a lab passes must go through `Proctor.Grade` (`internal/proctor/proctor.go`).
+- Grading: any code path that decides whether a lab passes goes through the proctor (`internal/proctor/proctor.go`). Library code (`internal/labops`, `internal/authoring`, `internal/preflight`) calls `Proctor.Evaluate` and renders with `Report(w, ...)` on the writer it was given; `Proctor.Grade` (Evaluate, then Report on stdout) is only the cmd convenience. forbidigo enforces this, and that those packages never write to stdout/stderr themselves.
 - Docs: any change that adds/renames a flag, command, config field, or alters user-facing behavior must update `docs/` (mkdocs site — `docs/reference/cli/` for commands, `docs/reference/lab-config.md` for config fields, `docs/concepts/` for behavior/architecture changes, `docs/guides/` for workflow changes) in the same change, not as a follow-up.
 
 ## Build & run

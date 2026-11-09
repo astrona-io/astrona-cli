@@ -6,15 +6,10 @@ import (
 
 	"astrona/internal/authoring"
 	"astrona/internal/config"
-	"astrona/internal/preflight"
+	"astrona/internal/labops"
 
 	"github.com/spf13/cobra"
 )
-
-// labConfigResults checks a loaded lab config without creating anything
-// (authoring.CheckConfig). It is the preflight.ConfigChecker that check,
-// doctor and run pass to the lab checks.
-var labConfigResults preflight.ConfigChecker = authoring.CheckConfig
 
 func newValidateCmd(flags *rootFlags) *cobra.Command {
 	var output string
@@ -44,7 +39,7 @@ func newValidateCmd(flags *rootFlags) *cobra.Command {
 			}
 			cfg, cleanup, err := config.LoadLabConfig(finalPath)
 			if err != nil {
-				if want := labVersionFromLoadError(err); want != "" {
+				if want := labops.LabVersionFromLoadError(err); want != "" {
 					if verr := ensureLabVersion(want, flags, handoverApproval(flags, nil, err, filepath.Dir(finalPath))); verr != nil {
 						return rep.loadFailed(finalPath, verr)
 					}

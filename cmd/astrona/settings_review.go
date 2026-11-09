@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/labops"
 	"astrona/internal/settings"
 	"astrona/internal/terms"
 	"github.com/mattn/go-isatty"
@@ -23,7 +24,7 @@ func settingsReviewReason(old, current settings.ReviewedSetting, known bool) str
 		reasons = append(reasons, fmt.Sprintf("The built-in default changed from %s to %s. Saved values are not replaced by the new default.", settings.ValueText(old.Default), settings.ValueText(current.Default)))
 	}
 	if old.Description != current.Description {
-		reasons = append(reasons, "The setting's explanation changed. Previous explanation: "+sanitizeLine(old.Description))
+		reasons = append(reasons, "The setting's explanation changed. Previous explanation: "+labops.SanitizeLine(old.Description))
 	}
 	if old.Revision != current.Revision {
 		reasons = append(reasons, fmt.Sprintf("The behavior revision changed from %d to %d. Review the current explanation before continuing.", old.Revision, current.Revision))

@@ -58,7 +58,7 @@ func homeLabFor(cmd *cobra.Command, flags *rootFlags) (homeLab, bool) {
 // clock, last result, and what to do next.
 func printHome(w io.Writer, lab homeLab, ok bool, now time.Time) {
 	bold := func(s string) string { return ui.Paint(w, s, ui.Bold) }
-	others := otherRunningLabs(lab.cluster)
+	others := labops.OtherRunningLabs(lab.cluster)
 	if !ok {
 		fmt.Fprintf(w, "No lab picked.\n\n  Pick one:  astrona use <lab dir | git URL>   (or cd into a lab)\n")
 		if len(others) > 0 {
@@ -67,14 +67,14 @@ func printHome(w io.Writer, lab homeLab, ok bool, now time.Time) {
 		return
 	}
 
-	row, running := findLabRow(lab.cluster)
+	row, running := labops.FindLabRow(lab.cluster)
 	state := "not running"
 	if running {
 		state = row.Status + " (" + row.Runtime + ")"
 	}
 	fmt.Fprintf(w, "%s %s  %s\n", bold("Lab"), bold(lab.name), ui.Paint(w, "(from "+lab.source+")", ui.Dim))
 	fmt.Fprintf(w, "  State     %s\n", state)
-	st := labStatus{Row: row, Cfg: lab.cfg, Now: now}
+	st := labops.LabStatus{Row: row, Cfg: lab.cfg, Now: now}
 	if running {
 		st.Exam, _ = exam.Load(lab.cluster)
 		if st.Exam != nil {
@@ -88,17 +88,13 @@ func printHome(w io.Writer, lab homeLab, ok bool, now time.Time) {
 	}
 	next := "astrona run"
 	if running {
-		next = nextStep(st)
+		next = labops.NextStep(st)
 	}
 	fmt.Fprintf(w, "\n  Next: %s\n", next)
 	if len(others) > 0 {
 		fmt.Fprintf(w, "\nAlso running: %s (astrona list)\n", strings.Join(others, ", "))
 	}
 }
-
-// otherRunningLabs are running labs other than except (no linked
-// clusters, no test copies).
-func otherRunningLabs(except string) []string { return labops.OtherRunningLabs(except) }
 
 // homeRun is the root command's Run: plain `astrona` — the lab's status,
 // then every command, exactly as `astrona --help` lists them.

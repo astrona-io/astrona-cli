@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -101,7 +102,8 @@ func withPreservedContext(preserve func() func(), create func() error) error {
 
 // CreateEnvironment brings up a fresh lab environment: a kind cluster, or —
 // for qemu — one VM or several named ones (runtime.qemu, see IsMultiVM).
-func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.Reporter) (*LabEnvironment, error) {
+// ctx stops a kind cluster's creation (and removes what it started).
+func CreateEnvironment(ctx context.Context, name, baseDir string, cfg config.RuntimeConfig, rep *ui.Reporter) (*LabEnvironment, error) {
 	runtimeType, err := resolveRuntimeType(cfg)
 	if err != nil {
 		return nil, err
@@ -116,7 +118,7 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.R
 		// new cluster; put it back once it's done, success or not.
 		err := withPreservedContext(
 			func() func() { return cluster.PreserveCurrentContext(rep) },
-			func() error { return cluster.CreateKindCluster(name, cfg.Kind, rep) },
+			func() error { return cluster.CreateKindCluster(ctx, name, cfg.Kind, rep) },
 		)
 		if err != nil {
 			return nil, err
@@ -176,7 +178,8 @@ func CreateEnvironment(name, baseDir string, cfg config.RuntimeConfig, rep *ui.R
 // see/reach each VM individually: they already work off whatever names show
 // up under ~/.astrona/qemu, and each VM gets its own directory there.
 //
-// If any VM fails to start, every VM already started in this same call is
+// If any VM fails to start, CreateQEMUVM has already removed that VM's own
+// process and state, and every VM already started in this same call is
 // torn down before returning the error — a half-started multi-VM lab never
 // lingers as a set of ghost VMs the caller doesn't know exist yet (nothing
 // has been returned to it to run `astrona destroy` against).

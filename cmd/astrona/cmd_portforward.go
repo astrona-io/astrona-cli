@@ -11,7 +11,9 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
 	"astrona/internal/ui"
@@ -82,7 +84,7 @@ func newPortForwardListCmd() *cobra.Command {
 					return err
 				}
 				if output == "json" {
-					return printJSON(forwardsJSON(fs))
+					return printJSON(labops.ForwardsJSON(fs))
 				}
 				printPortForwardTable(os.Stdout, fs, wide)
 				return nil
@@ -136,7 +138,7 @@ func printPortForwardTable(w io.Writer, fs []portforward.Forward, wide bool) {
 		pf := f.Spec.Forward.Normalized()
 		age := "-"
 		if !f.Spec.StartedAt.IsZero() {
-			age = formatUptime(time.Since(f.Spec.StartedAt))
+			age = labops.FormatUptime(time.Since(f.Spec.StartedAt))
 		}
 		row := fmt.Sprintf("%s\t%s\t%s\t%s\t%d\t%s\t%s:%d",
 			pf.Name, f.Spec.Lab, f.Effective(), age, f.Status.Restarts,
@@ -218,7 +220,7 @@ func newPortForwardStartCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
-			if !kindClusterExists(clusterName) {
+			if !cluster.Exists(clusterName) {
 				return fmt.Errorf("no kind cluster '%s' is running — start the lab with `astrona run` first", clusterName)
 			}
 

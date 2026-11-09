@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"astrona/internal/labops"
+	"astrona/internal/localdata"
 	"astrona/internal/ui"
 )
 
@@ -17,10 +18,7 @@ import (
 // playground.go): its clock starts with `astrona run` and stops at
 // `astrona destroy`, or at its time limit, when the detached watchdog
 // removes the cluster. What stays here is the watchdog's hidden command,
-// destroying the playground, and the wrappers cmd's callers use.
-
-// isPlaygroundName reports whether a catalog name is a module's playground.
-func isPlaygroundName(name string) bool { return labops.IsPlaygroundName(name) }
+// destroying the playground, and the callbacks cmd hands to labops.
 
 func newPlaygroundWatchdogCmd() *cobra.Command {
 	return &cobra.Command{
@@ -42,23 +40,31 @@ func watchPlayground(ctx context.Context, clusterName string, tick time.Duration
 	return labops.WatchPlayground(ctx, os.Stdout, os.Stderr, clusterName, tick, destroyPlayground)
 }
 
-// destroyPlayground destroys a playground whose time limit was reached.
+// watchdogLockWait bounds how long the watchdog waits for a data cleanup or
+// reset to finish before destroying. It runs detached, so nobody waits on it.
+const watchdogLockWait = time.Minute
+
+// destroyPlayground destroys a playground whose time limit was reached. The
+// watchdog holds no data lock while it waits, but destroy may load the lab's
+// config from a cached checkout, so it takes the shared lock like any other
+// command for the destroy itself.
 func destroyPlayground(clusterName string) error {
+	s, err := localdata.DefaultStore()
+	if err != nil {
+		return err
+	}
+	release, err := s.LockWait(context.Background(), false, watchdogLockWait, nil)
+	if err != nil {
+		return err
+	}
+	defer release()
 	rep, err := ui.NewReporter("destroy", clusterName, false)
 	if err != nil {
 		return err
 	}
 	defer rep.Close()
-	return destroyByName(clusterName, rep)
+	return labops.DestroyByName(clusterName, rep, destroyOptions())
 }
 
 // endRunSession runs when a lab is forgotten (labops.EndRunSession).
 func endRunSession(clusterName string) { labops.EndRunSession(os.Stderr, clusterName) }
-
-// endOldSession runs before a lab is built again under the same name
-// (labops.EndOldSession).
-func endOldSession(clusterName string) { labops.EndOldSession(os.Stderr, clusterName) }
-
-// stopWatchdog ends clusterName's playground watchdog — unless that is us
-// (labops.StopWatchdog).
-func stopWatchdog(pid int, clusterName string) { labops.StopWatchdog(pid, clusterName) }

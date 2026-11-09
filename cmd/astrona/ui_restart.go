@@ -16,12 +16,12 @@ type uiRunRestart struct {
 }
 
 func (r uiRunRestart) message() string {
-	return fmt.Sprintf("Lab %s already exists.\n\nDestroy it and start a new lab?\nAll work in this lab, its VMs and its linked clusters will be lost. Nothing will be saved or submitted before deletion.\n\nThe replacement run is local only. Astrona will not send its progress or results to the Astrona API, even if you are signed in. Other labs stay running.\n\nYes destroys this lab and starts over. No cancels and keeps the existing lab.", sanitizeLine(r.name))
+	return fmt.Sprintf("Lab %s already exists.\n\nDestroy it and start a new lab?\nAll work in this lab, its VMs and its linked clusters will be lost. Nothing will be saved or submitted before deletion.\n\nThe replacement run is local only. Astrona will not send its progress or results to the Astrona API, even if you are signed in. Other labs stay running.\n\nYes destroys this lab and starts over. No cancels and keeps the existing lab.", labops.SanitizeLine(r.name))
 }
 
 // Match the requested source against saved runs without fetching a catalog or
 // config. An inherited shell name must never select the lab to destroy.
-func findUIRunRestart(cmd *cobra.Command, flags *rootFlags, containers func(context.Context) (map[string][]kindContainer, error)) (*uiRunRestart, error) {
+func findUIRunRestart(cmd *cobra.Command, flags *rootFlags, containers func(context.Context) (map[string][]labops.KindContainer, error)) (*uiRunRestart, error) {
 	selected := *flags
 	selected.gitExplicit = cmd.Flags().Changed("git")
 	applyCurrentLab(cmd, &selected)
@@ -46,7 +46,7 @@ func findUIRunRestart(cmd *cobra.Command, flags *rootFlags, containers func(cont
 		if err != nil {
 			return nil, err
 		}
-		if st != nil && sameSource(st.Source, source) {
+		if st != nil && labops.SameSource(st.Source, source) {
 			candidates = append(candidates, uiRunRestart{name, labops.RunID(st)})
 		}
 	}
@@ -54,7 +54,7 @@ func findUIRunRestart(cmd *cobra.Command, flags *rootFlags, containers func(cont
 		return nil, nil
 	}
 	qemu, _ := readUIQEMUVMs()
-	var live map[string][]kindContainer
+	var live map[string][]labops.KindContainer
 	for _, candidate := range candidates {
 		if len(qemu[candidate.name]) == 0 {
 			live, _ = containers(cmd.Context())
@@ -121,7 +121,7 @@ func discardUIRun(name string, approved *uiRunRestart) error {
 		return err
 	}
 	if oldSession.IsPlayground() {
-		stopWatchdog(oldSession.WatchdogPID, name)
+		labops.StopWatchdog(oldSession.WatchdogPID, name)
 	}
 	return nil
 }

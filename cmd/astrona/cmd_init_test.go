@@ -6,6 +6,7 @@ import (
 
 	"astrona/internal/authoring"
 	"astrona/internal/config"
+	"astrona/internal/preflight"
 )
 
 // The starters themselves are tested in internal/authoring; validate
@@ -21,8 +22,8 @@ func TestScaffoldLabIsValidAsGenerated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, r := range labConfigResults(cfg, dir) {
-		if r.Status != checkOK {
+	for _, r := range authoring.CheckConfig(cfg, dir) {
+		if r.Status != preflight.OK {
 			t.Errorf("generated lab doesn't validate: %s %s %s", r.Name, r.Detail, r.Hint)
 		}
 	}
@@ -37,8 +38,8 @@ func TestScaffoldLinkedLabIsValidAsGenerated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, r := range labConfigResults(cfg, dir) {
-		if r.Status != checkOK {
+	for _, r := range authoring.CheckConfig(cfg, dir) {
+		if r.Status != preflight.OK {
 			t.Errorf("generated lab doesn't validate: %s %s %s", r.Name, r.Detail, r.Hint)
 		}
 	}
