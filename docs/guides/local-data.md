@@ -19,8 +19,9 @@ times; for a Git checkout, the newest entry within it determines its age. Readin
 a cache file alone does not reset its age. Images and their metadata are removed
 together. GB means 1,000,000,000 bytes, measured as logical file sizes.
 
-The limits cover downloaded images/addons, cached Git checkouts, catalog metadata
-and update-check metadata. They do not cover lab disks, student resources, results,
+The limits cover downloaded images/addons, cached Git checkouts, catalog metadata,
+update-check metadata and [VM state left by older versions](#vm-state-from-older-versions).
+They do not cover lab disks, student resources, results,
 logs, bundles, installed tools, credentials, or Docker/Podman storage.
 
 This is cleanup after lab runs, not a background service or a download quota.
@@ -83,6 +84,28 @@ Stopped VMs can still depend on cached backing images. Use `astrona list` to
 inspect your labs and `astrona destroy <lab>` to remove those you no longer need.
 Do not delete state files to bypass this check. Symlinked cache locations are
 rejected, and symlinks at the top of a cache are kept for manual inspection.
+
+### VM state from older versions
+
+Older Astrona versions could leave a VM's state directory under
+`~/.astrona/qemu/<vm>/` without a `handle.json`. No command can reach such a VM,
+but its disks (large qcow2 files) would stay forever and keep caches from being
+cleaned. `astrona data clean` lists such a directory, with its size, as
+`VM state from an older Astrona` and removes it with `--yes` when all of these hold:
+
+- it is a real directory directly under `~/.astrona/qemu` (symlinks are kept and
+  never followed);
+- it has no `handle.json`;
+- nothing in it changed for 24 hours, so a lab that is still starting is left alone;
+- no `qemu-system` process started with `-name astrona-<vm>` is running. If one
+  is, or processes cannot be listed, the directory is kept and the preview says so.
+
+Once removed, it no longer counts as saved lab state, so caches can be cleaned in
+the same run. Automatic cleanup after `run` and `test` treats these directories
+like other disposable entries: they are removed once older than
+`cache-retention-days` or when the size limit is exceeded. `astrona destroy <lab>`
+removes the lab's own directory straight away, under the same process check.
+`--temp-only` never touches VM state.
 
 Ordinary commands hold a shared maintenance lock, so they can run side by side;
 confirmed cleanup or reset requires an exclusive lock. A command that finds the

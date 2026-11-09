@@ -13,7 +13,6 @@ import (
 
 	"astrona/internal/apphome"
 	"astrona/internal/labops"
-	"astrona/internal/localdata"
 	"astrona/internal/ui"
 	"astrona/internal/version"
 )
@@ -276,7 +275,7 @@ func main() {
 	installTermsGate(rootCmd, flags, checkTerms)
 	installUIRunGate(rootCmd, flags, confirmUIRun)
 
-	if err := executeWithDataLock(rootCmd, localdata.DefaultStore); err != nil {
+	if err := executeWithDataLock(rootCmd, defaultDataStore); err != nil {
 		if errors.Is(err, errUIRunDeclined) {
 			fmt.Fprintln(os.Stdout, "Lab startup cancelled. No lab was started or changed.")
 			os.Exit(uiRunDeclinedExitCode)

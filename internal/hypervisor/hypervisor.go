@@ -2517,8 +2517,10 @@ func LoadQEMUHandle(clusterName string) (*config.QEMUHandle, error) {
 // per-lab state dir (disks, cloud-init seed, ephemeral SSH keys, pidfile,
 // console log — none of it should outlive the VM). A no-op, not an error,
 // if no VM state is found — matches cmd_down.go's existing best-effort
-// teardown posture for kind. A state dir without handle.json may belong to
-// a run still provisioning, so only an empty one is removed.
+// teardown posture for kind. A non-empty state dir without handle.json was
+// left by an older astrona (or a run killed before it saved its handle):
+// removeLegacyState removes it unless its qemu process is still running.
+// Callers hold the lab's mutation lock, so no current run is provisioning it.
 func DestroyQEMUVM(clusterName string, rep *ui.Reporter) error {
 	stateDir, err := qemuStateDir(clusterName)
 	if err != nil {
@@ -2529,9 +2531,11 @@ func DestroyQEMUVM(clusterName string, rep *ui.Reporter) error {
 	data, err := os.ReadFile(statePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			_ = os.Remove(stateDir) // fails, harmlessly, unless empty
-			rep.Info("No qemu VM state found for '%s', nothing to tear down.", clusterName)
-			return nil
+			if os.Remove(stateDir) == nil { // succeeds only when empty
+				rep.Info("No qemu VM state found for '%s', nothing to tear down.", clusterName)
+				return nil
+			}
+			return removeLegacyState(clusterName, rep)
 		}
 		return fmt.Errorf("failed to read qemu VM state: %w", err)
 	}
@@ -2672,6 +2676,106 @@ func isQEMUProcessFor(cmdline, processName string) bool {
 		}
 	}
 	return false
+}
+
+// listProcessCommandLines returns every process's full command line via
+// `ps` (same flags on macOS and Linux). A variable so tests can stub it.
+var listProcessCommandLines = func() ([]string, error) {
+	out, err := exec.Command("ps", "-A", "-ww", "-o", "command=").Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list processes: %w", err)
+	}
+	return strings.Split(strings.TrimSpace(string(out)), "\n"), nil
+}
+
+// VMProcessAlive reports whether a qemu process started for clusterName
+// (qemu-system with -name astrona-<clusterName>, the same check
+// stopVMProcess uses) is running. It needs no saved PID, so it also covers
+// state dirs from older astrona versions that wrote no handle.json. An
+// error means the answer is unknown and the VM must be treated as alive.
+func VMProcessAlive(clusterName string) (bool, error) {
+	if err := config.ValidateName(clusterName); err != nil {
+		return false, fmt.Errorf("qemu lab name: %w", err)
+	}
+	cmdlines, err := listProcessCommandLines()
+	if err != nil {
+		return false, err
+	}
+	name := qemuProcessName(clusterName)
+	for _, cmdline := range cmdlines {
+		if isQEMUProcessFor(cmdline, name) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// LegacyStateExists reports whether clusterName has a VM state dir without
+// handle.json — what older astrona versions left behind, disks included.
+// Such a dir is a real directory under the qemu state root, never a
+// symlink. Nothing is created.
+func LegacyStateExists(clusterName string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	dir, err := labDirWithin(filepath.Join(home, apphome.Name(), "qemu"), clusterName)
+	if err != nil {
+		return false
+	}
+	info, err := os.Lstat(dir)
+	if err != nil || !info.IsDir() {
+		return false
+	}
+	_, err = os.Lstat(filepath.Join(dir, "handle.json"))
+	return os.IsNotExist(err)
+}
+
+// removeLegacyState removes clusterName's VM state dir that has no
+// handle.json (see LegacyStateExists). The caller holds the lab's mutation
+// lock, so no current run is provisioning it. A dir whose qemu process is
+// still running — or can't be checked — is left in place with an error,
+// and a symlink is refused rather than followed.
+func removeLegacyState(clusterName string, rep *ui.Reporter) error {
+	base, err := QEMUBaseDir()
+	if err != nil {
+		return err
+	}
+	dir, err := labDirWithin(base, clusterName)
+	if err != nil {
+		return err
+	}
+	info, err := os.Lstat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("refusing to remove qemu state '%s': not a directory (symlinks are never followed)", dir)
+	}
+	if _, err := os.Lstat(filepath.Join(dir, "handle.json")); !os.IsNotExist(err) {
+		return fmt.Errorf("qemu state '%s' has a handle.json — use DestroyQEMUVM", dir)
+	}
+	alive, err := VMProcessAlive(clusterName)
+	if err != nil {
+		return fmt.Errorf("kept qemu state '%s': could not check for its qemu process: %w", dir, err)
+	}
+	if alive {
+		return fmt.Errorf("kept qemu state '%s': a qemu process named %s is still running; stop it, then destroy again", dir, qemuProcessName(clusterName))
+	}
+	t := rep.Step("Remove qemu VM state %q left by an older Astrona", clusterName)
+	root, err := os.OpenRoot(base)
+	if err != nil {
+		return t.Fail(err)
+	}
+	defer root.Close()
+	if err := root.RemoveAll(clusterName); err != nil {
+		return t.Fail(fmt.Errorf("failed to remove qemu state dir '%s': %w", dir, err))
+	}
+	t.Done()
+	return nil
 }
 
 // StateExists reports whether qemu lab name has a state dir with a
