@@ -196,7 +196,7 @@ astrona submit -o json | jq -r '.checks[] | select(.pass | not) | .name'   # wha
 astrona doctor -o json | jq '.results[] | select(.status == "fail")'
 ```
 
-`--watch` modes redraw a live view and don't combine with `-o json`. Interactive questions (trust, reset, installing another astrona version) are asked on stderr too — in CI pass `--trust` / `--yes` / `--install-version` instead.
+`--watch` modes redraw a live view and don't combine with `-o json`. Interactive questions (trust, reset, installing another astrona version) are asked on stderr too — in CI pass `--trust` / `--yes` / `--install-version` instead. A lab that needs a release older than the running astrona is refused in CI; run that `astrona-<version>` directly.
 
 ## Other CI systems
 

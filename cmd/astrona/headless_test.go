@@ -148,7 +148,7 @@ func TestHeadlessVersionInstallRequiresApproval(t *testing.T) {
 	current, _ := version.Parse("0.4.0")
 	wanted, _ := version.Parse("0.5.0")
 	flags := &rootFlags{headless: true, configPath: "./lab"}
-	if _, err := offerInstall(constraint, current, wanted, flags); err == nil || !strings.Contains(err.Error(), "--install-version") {
+	if _, err := offerInstall(constraint, current, wanted, flags, false); err == nil || !strings.Contains(err.Error(), "--install-version") {
 		t.Fatalf("install approval bypassed: %v", err)
 	}
 	args := handoverArgs([]string{"run", "--headless"}, flags)

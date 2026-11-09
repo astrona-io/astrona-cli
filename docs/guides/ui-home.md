@@ -131,7 +131,8 @@ Yes starts setup. It is not code trust: a lab from a remote source (a URL or
 (source, pinned revision and what it runs on your machine) before any of its
 code runs, and a lab that needs another astrona release asks before that
 release is installed. `--trust` and `--install-version` approve these without
-asking. The first run also asks you to accept the CLI terms;
+asking, except that switching to a release older than the running one is always
+asked at a terminal. The first run also asks you to accept the CLI terms;
 that agreement is saved and only needs renewal if the terms change. Later runs
 show that the agreement is saved. The box does not list settings: saved choices
 are kept, and you can change them in **Preferences** (`p` in the overview).

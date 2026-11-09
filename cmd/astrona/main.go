@@ -216,7 +216,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&flags.gitURL, "git", "", "Git repository URL to clone/pull (https://, git@host:, or ssh://) — --config then selects a subdirectory within it")
 	rootCmd.PersistentFlags().StringVar(&flags.gitRef, "git-ref", "", "Git branch, tag, or commit to check out (used with --git; default: the repo's default branch)")
 	// No -v shorthand: Cobra reserves it for the auto-generated --version flag.
-	rootCmd.PersistentFlags().BoolVar(&flags.installVersion, "install-version", false, "If the lab needs another astrona release (astronaVersion) that isn't installed, install it without asking — for CI")
+	rootCmd.PersistentFlags().BoolVar(&flags.installVersion, "install-version", false, "If the lab needs another astrona release (astronaVersion) that isn't installed, install it without asking — for CI. Never switches to an older release than this one: that is always asked at a terminal")
 	rootCmd.PersistentFlags().BoolVar(&flags.headless, "headless", false, "Disable the terminal UI and CLI prompts; run/reset skip login reminders and new account sessions")
 	rootCmd.PersistentFlags().BoolVar(&flags.trust, "trust", false, "Approve running a remote (--git / URL) lab without asking — for CI; review the lab first")
 	rootCmd.PersistentFlags().BoolVar(&flags.acceptTerms, "accept-terms", false, "Accept this CLI's usage terms and data-loss risk notice; required on each operational CI command (read: astrona terms)")
