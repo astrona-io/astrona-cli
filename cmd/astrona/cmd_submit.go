@@ -311,7 +311,7 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 				return err
 			}
 			defer drep.Close()
-			info := teardownInfo{clusterName: cfg.Metadata.Name, runID: labops.RunID(before), status: status, teardown: cfg.Teardown, runtime: cfg.Runtime, cfg: cfg}
+			info := teardownInfo{ClusterName: cfg.Metadata.Name, RunID: labops.RunID(before), Status: status, Teardown: cfg.Teardown, Runtime: cfg.Runtime, Config: cfg}
 			if err := destroyLab(info, baseDir, drep); err != nil {
 				return err
 			}

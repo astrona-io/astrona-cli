@@ -31,4 +31,11 @@
 // hand-over (VersionGate) and asking the user to trust a lab (Approver —
 // the terminal prompt in cmd, later a browser question). Paths are computed inside functions, never at package init,
 // so they follow apphome.Configure.
+//
+// Destroy, stop and start live here too: DestroyByName (under the lab's
+// mutation lock; DestroyByNameLocked for a caller holding it),
+// DestroyByPattern, DestroyByDiscovery, DestroyLab (a loaded Teardown,
+// under the lock) and TearDownLabEnvironment, with outcomes written to
+// DestroyOptions.Out; ResolveKindLab, PlanStop/Stop and Start (returning a
+// StartResult) for `astrona stop`/`start`, which take no lab lock.
 package labops
