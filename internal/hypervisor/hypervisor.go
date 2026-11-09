@@ -1982,10 +1982,92 @@ func ProcessAlive(pid int) bool {
 	return process.Signal(syscall.Signal(0)) == nil
 }
 
+// ProcessStartTime returns an opaque identifier of when pid started, to be
+// recorded next to a PID and compared later with SameProcess: the OS
+// recycles PIDs, but a PID together with its start time names one process.
+// Linux reads /proc (boot ID plus start tick, so it never matches across a
+// reboot); elsewhere `ps -o lstart=` in a fixed locale and time zone. A
+// variable so tests can stub it.
+var ProcessStartTime = func(pid int) (string, error) {
+	if pid <= 0 {
+		return "", fmt.Errorf("invalid pid %d", pid)
+	}
+	if runtime.GOOS == "linux" {
+		return linuxProcessStartTime(pid)
+	}
+	cmd := exec.Command("ps", "-o", "lstart=", "-p", strconv.Itoa(pid))
+	cmd.Env = append(os.Environ(), "LC_ALL=C", "TZ=UTC")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to read start time of pid %d: %w", pid, err)
+	}
+	start := strings.Join(strings.Fields(string(out)), " ")
+	if start == "" {
+		return "", fmt.Errorf("no start time for pid %d", pid)
+	}
+	return start, nil
+}
+
+func linuxProcessStartTime(pid int) (string, error) {
+	data, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+	if err != nil {
+		return "", fmt.Errorf("failed to read start time of pid %d: %w", pid, err)
+	}
+	// The command name (field 2) is in parentheses and may contain spaces;
+	// starttime is field 22, the 20th after the closing parenthesis.
+	stat := string(data)
+	i := strings.LastIndexByte(stat, ')')
+	if i < 0 {
+		return "", fmt.Errorf("unexpected /proc stat format for pid %d", pid)
+	}
+	fields := strings.Fields(stat[i+1:])
+	if len(fields) < 20 {
+		return "", fmt.Errorf("unexpected /proc stat format for pid %d", pid)
+	}
+	bootID, _ := os.ReadFile("/proc/sys/kernel/random/boot_id")
+	return strings.TrimSpace(string(bootID)) + ":" + fields[19], nil
+}
+
+// recordStart is ProcessStartTime for a process just started, "" when it
+// can't be read — SameProcess then falls back to a plain liveness check.
+func recordStart(pid int) string {
+	start, err := ProcessStartTime(pid)
+	if err != nil {
+		return ""
+	}
+	return start
+}
+
+// SameProcess reports whether pid is alive and is still the process whose
+// start time was recorded as start. With no recorded start (state written
+// by an older version) it is only a liveness check. When the start time
+// can't be read now, the process is not trusted.
+func SameProcess(pid int, start string) bool {
+	if !ProcessAlive(pid) {
+		return false
+	}
+	if start == "" {
+		return true
+	}
+	now, err := ProcessStartTime(pid)
+	return err == nil && now == start
+}
+
+// VMRunning reports whether h's qemu process is still running — the same
+// process CreateQEMUVM started, not one that inherited its PID.
+func VMRunning(h *config.QEMUHandle) bool {
+	return h != nil && SameProcess(h.PID, h.PIDStart)
+}
+
+// sshProbeTimeout bounds one readiness probe that should answer at once
+// (`true`); ConnectTimeout alone does not cover a connection that is
+// accepted but never completes the SSH handshake.
+const sshProbeTimeout = 20 * time.Second
+
 // sshRun runs remoteCmd on the VM over SSH, used only for internal
 // readiness polling (waitForSSHReady) — actual lab scripts run through
-// SSHExecutor.
-func sshRun(h *config.QEMUHandle, remoteCmd string) error {
+// SSHExecutor. ssh is killed when ctx ends.
+func sshRun(ctx context.Context, h *config.QEMUHandle, remoteCmd string) error {
 	args := append(sshopts.Unattended(5),
 		"-i", h.SSHKeyPath,
 		"-p", strconv.Itoa(h.SSHPort),
@@ -1995,36 +2077,55 @@ func sshRun(h *config.QEMUHandle, remoteCmd string) error {
 		remoteCmd,
 	)
 
-	return exec.Command("ssh", args...).Run()
+	cmd := exec.CommandContext(ctx, "ssh", args...)
+	cmd.WaitDelay = 2 * time.Second
+	return cmd.Run()
 }
 
 // pollUntil retries check until it succeeds or timeout elapses, returning
-// the last error on timeout.
-func pollUntil(timeout time.Duration, check func() error) error {
-	deadline := time.Now().Add(timeout)
+// the last error on timeout. Every attempt gets a context that ends at the
+// deadline (or after perAttempt, when that is sooner and non-zero), so a
+// hanging attempt can't hold the poll past its deadline.
+func pollUntil(timeout, perAttempt time.Duration, check func(ctx context.Context) error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 	var lastErr error
 
-	for time.Now().Before(deadline) {
-		if err := check(); err == nil {
-			return nil
-		} else {
-			lastErr = err
+	for {
+		attemptCtx, attemptCancel := ctx, context.CancelFunc(func() {})
+		if perAttempt > 0 {
+			attemptCtx, attemptCancel = context.WithTimeout(ctx, perAttempt)
 		}
-		time.Sleep(2 * time.Second)
-	}
+		err := check(attemptCtx)
+		if err != nil && attemptCtx.Err() != nil {
+			err = fmt.Errorf("%w (%w)", attemptCtx.Err(), err)
+		}
+		attemptCancel()
+		if err == nil {
+			return nil
+		}
+		lastErr = err
 
-	return lastErr
+		select {
+		case <-ctx.Done():
+			return lastErr
+		case <-time.After(2 * time.Second):
+		}
+	}
 }
 
 // waitForSSHReady blocks until the VM accepts SSH connections and cloud-init
 // has finished provisioning it — the second gate requires the base image to
 // actually have cloud-init installed, standard on official cloud images.
+// Each gate has its own timeout, and it holds even when a connection hangs.
 func waitForSSHReady(h *config.QEMUHandle, timeout time.Duration) error {
-	if err := pollUntil(timeout, func() error { return sshRun(h, "true") }); err != nil {
+	if err := pollUntil(timeout, sshProbeTimeout, func(ctx context.Context) error { return sshRun(ctx, h, "true") }); err != nil {
 		return fmt.Errorf("timed out waiting for SSH to become available on %s:%d: %w", h.SSHHost, h.SSHPort, err)
 	}
 
-	if err := pollUntil(timeout, func() error { return sshRun(h, "cloud-init status --wait") }); err != nil {
+	// `cloud-init status --wait` blocks until cloud-init is done, so an
+	// attempt is bounded only by the gate's own deadline.
+	if err := pollUntil(timeout, 0, func(ctx context.Context) error { return sshRun(ctx, h, "cloud-init status --wait") }); err != nil {
 		return fmt.Errorf("timed out waiting for cloud-init to finish on %s:%d: %w", h.SSHHost, h.SSHPort, err)
 	}
 
@@ -2319,6 +2420,7 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 		ClusterName:  clusterName,
 		LabName:      labName,
 		PID:          pid,
+		PIDStart:     recordStart(pid),
 		SSHHost:      "127.0.0.1",
 		SSHPort:      sshPort,
 		SSHUser:      qemuSSHUser,
@@ -2368,8 +2470,8 @@ func LoadQEMUHandle(clusterName string) (*config.QEMUHandle, error) {
 		return nil, fmt.Errorf("failed to parse qemu VM state: %w", err)
 	}
 
-	if !ProcessAlive(h.PID) {
-		return nil, fmt.Errorf("qemu VM for lab '%s' is not running (stale state, pid %d not found) — run 'astrona run' again", clusterName, h.PID)
+	if !VMRunning(&h) {
+		return nil, fmt.Errorf("qemu VM for lab '%s' is not running (stale state, pid %d is gone or no longer this VM) — run 'astrona run' again", clusterName, h.PID)
 	}
 
 	return &h, nil
@@ -2403,10 +2505,11 @@ func DestroyQEMUVM(clusterName string, rep *ui.Reporter) error {
 
 	// handle.json's PID can outlive the VM (crash, host reboot) and be reused
 	// by an unrelated process — only signal it if it's still this VM's qemu.
+	// The recorded start time also catches a reused PID that looks like qemu.
 	signalPID := h.PID > 0 && ProcessAlive(h.PID)
 	if signalPID {
 		cmdline, err := processCommandLine(h.PID)
-		if err != nil || !isQEMUProcessFor(cmdline, qemuProcessName(clusterName)) {
+		if err != nil || !isQEMUProcessFor(cmdline, qemuProcessName(clusterName)) || !VMRunning(&h) {
 			rep.Warn("pid %d from the saved state of qemu VM %q is no longer that VM's qemu process — not signalling it, just removing the state", h.PID, clusterName)
 			signalPID = false
 		}
@@ -2419,13 +2522,13 @@ func DestroyQEMUVM(clusterName string, rep *ui.Reporter) error {
 			_ = process.Signal(syscall.SIGTERM)
 
 			for i := 0; i < 50; i++ {
-				if !ProcessAlive(h.PID) {
+				if !VMRunning(&h) {
 					break
 				}
 				time.Sleep(100 * time.Millisecond)
 			}
 
-			if ProcessAlive(h.PID) {
+			if VMRunning(&h) {
 				_ = process.Kill()
 			}
 		}

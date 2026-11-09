@@ -62,8 +62,12 @@ type QEMUHandle struct {
 	// LabName is the lab the VM belongs to: ClusterName for a single-VM
 	// lab, the un-suffixed lab name for each VM of a multi-VM one ("" in
 	// handles written before it was recorded).
-	LabName    string `json:"labName,omitempty"`
-	PID        int    `json:"pid"`
+	LabName string `json:"labName,omitempty"`
+	PID     int    `json:"pid"`
+	// PIDStart identifies when PID started (see hypervisor.ProcessStartTime),
+	// so a PID the OS has since given to another process is not mistaken
+	// for this VM ("" in handles written before it was recorded).
+	PIDStart   string `json:"pidStart,omitempty"`
 	SSHHost    string `json:"sshHost"`
 	SSHPort    int    `json:"sshPort"`
 	SSHUser    string `json:"sshUser"`

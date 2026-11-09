@@ -22,11 +22,15 @@ func Isolated() []string {
 
 // Unattended is Isolated plus what a connection nobody types into needs:
 // only the given -i key is offered, ssh never prompts, and connecting gives
-// up after connectTimeout seconds.
+// up after connectTimeout seconds. Keepalives end an established session
+// whose VM stops answering (about 30 s of silence from the server) instead
+// of leaving ssh waiting forever; a slow but live command is not affected.
 func Unattended(connectTimeout int) []string {
 	return append(Isolated(),
 		"-o", "IdentitiesOnly=yes",
 		"-o", "BatchMode=yes",
 		"-o", "ConnectTimeout="+strconv.Itoa(connectTimeout),
+		"-o", "ServerAliveInterval=10",
+		"-o", "ServerAliveCountMax=3",
 	)
 }
