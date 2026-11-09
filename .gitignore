@@ -48,3 +48,5 @@ examples/**/base.qcow2
 # browser workspace: built frontend assets are not committed, only the placeholder page
 /internal/workspace/web/dist/*
 !/internal/workspace/web/dist/index.html
+
+__pycache__/
