@@ -120,8 +120,8 @@ astrona run ./labs/my-lab --ui
 
 If you omit `--ui`, an interactive run first offers the UI, before terms
 acceptance or downloads. Press Enter or type `yes` to open it; `no`
-continues with the command-line prompts. The offer explains that the UI will
-become the default in v0.5.0. Use `--ui=false` to skip it. Runs with `--yes`,
+continues with the command-line prompts. The offer explains that in v0.5.0 the
+terminal UI is replaced by a browser workspace. Use `--ui=false` to skip it. Runs with `--yes`,
 CI jobs and redirected input/output keep the command-line flow without this
 question. The UI supports Kind and QEMU labs.
 
