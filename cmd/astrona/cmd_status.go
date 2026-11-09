@@ -4,87 +4,34 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"text/tabwriter"
 	"time"
 
-	"astrona/internal/apphome"
-	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
+	"astrona/internal/labops"
 	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
-	"astrona/internal/proctor"
 
 	"github.com/spf13/cobra"
 )
 
-// labStatus is everything `astrona status` shows about one lab, gathered
-// from state astrona already keeps (no new state of its own).
-type labStatus struct {
-	row      labRow
-	cfg      *config.LabConfig // nil when no lab config was found
-	forwards []portforward.Forward
-	links    []cluster.LinkState
-	linkRows map[string]labRow // linked cluster → its row (status), when running
-	exam     *exam.State
-	attempts []proctor.Attempt
-	now      time.Time
-}
+// labStatus is everything `astrona status` shows about one lab
+// (labops.LabStatus).
+type labStatus = labops.LabStatus
 
-// findLabRow returns the `astrona list` row for name (with live kind
-// health), or false if no such lab is running.
-func findLabRow(name string) (labRow, bool) {
-	qemu, _, _ := collectQEMURows()
-	for _, r := range qemu {
-		if r.Name == name {
-			return r, true
-		}
-	}
-	for _, r := range collectKindRows() {
-		if r.Name == name {
-			return enrichKindHealth([]labRow{r})[0], true
-		}
-	}
-	return labRow{}, false
-}
+// Thin wrappers over labops, so call sites keep their names. S15 removes them.
+func findLabRow(name string) (labRow, bool) { return labops.FindLabRow(name) }
+func nextStep(st labStatus) string          { return labops.NextStep(st) }
 
 // resolveStatusLab picks the lab: an explicit name, else the lab config
 // from -c/--file/--git, else the only astrona lab on the machine.
 func resolveStatusLab(labArg string, flags *rootFlags) (string, *config.LabConfig, func(), error) {
-	noop := func() {}
 	cfg, _, cleanup, err := LoadLabForCommand(flags)
 	if err != nil {
-		cfg, cleanup = nil, noop
+		cfg, cleanup = nil, nil
 	}
-
-	switch {
-	case labArg != "":
-		name := config.NormalizeClusterName(labArg)
-		if cfg != nil && config.NormalizeClusterName(cfg.Metadata.Name) != name {
-			cleanup()
-			cfg, cleanup = nil, noop // config is for another lab
-		}
-		return name, cfg, cleanup, nil
-	case cfg != nil:
-		return config.NormalizeClusterName(cfg.Metadata.Name), cfg, cleanup, nil
-	}
-
-	qemu, _, _ := collectQEMURows()
-	var names []string
-	for _, r := range append(qemu, collectKindRows()...) {
-		if !strings.HasPrefix(r.Name, apphome.TestClusterPrefix()) {
-			names = append(names, r.Name)
-		}
-	}
-	switch len(names) {
-	case 0:
-		return "", nil, noop, fmt.Errorf("no astrona lab is running — start one with `astrona run`")
-	case 1:
-		return names[0], nil, noop, nil
-	default:
-		return "", nil, noop, fmt.Errorf("several labs are running — pick one: %s", strings.Join(names, ", "))
-	}
+	return labops.ResolveStatusLab(labArg, cfg, cleanup)
 }
 
 func newStatusCmd(flags *rootFlags) *cobra.Command {
@@ -111,28 +58,14 @@ func newStatusCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer cleanup()
 
-			row, ok := findLabRow(name)
-			if !ok {
-				return fmt.Errorf("lab '%s' isn't running — `astrona run` starts it, `astrona list` shows what is running", name)
-			}
-
-			st := labStatus{row: row, cfg: cfg, now: time.Now()}
-			if row.Runtime == "kind" {
-				st.forwards, _ = portforward.List(name)
-			}
-			st.exam, _ = exam.Load(name)
-			st.attempts, _ = proctor.LoadAttempts(name)
-			st.links, _ = lifecycle.Links(name)
-			st.linkRows = map[string]labRow{}
-			for _, l := range st.links {
-				if r, ok := findLabRow(l.Cluster); ok {
-					st.linkRows[l.Cluster] = r
-				}
+			res, err := labops.Status(name, cfg, time.Now())
+			if err != nil {
+				return err
 			}
 			if output == "json" {
-				return printJSON(statusJSON(st))
+				return printJSON(res)
 			}
-			printLabStatus(os.Stdout, st)
+			printLabStatus(os.Stdout, res.Lab)
 			return nil
 		},
 	}
@@ -140,63 +73,8 @@ func newStatusCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
-type statusResult struct {
-	Name           string              `json:"name"`
-	Runtime        string              `json:"runtime"`
-	Status         string              `json:"status"`
-	Kubernetes     string              `json:"kubernetes,omitempty"`
-	Uptime         string              `json:"uptime,omitempty"`
-	Context        string              `json:"context,omitempty"`
-	PortForwards   []forwardJSON       `json:"portForwards"`
-	LinkedClusters []linkedClusterJSON `json:"linkedClusters"`
-	Exam           *examJSON           `json:"exam,omitempty"`
-	Attempts       int                 `json:"attempts"`
-	LastAttempt    *proctor.Attempt    `json:"lastAttempt,omitempty"`
-	Next           string              `json:"next"`
-}
-
-type linkedClusterJSON struct {
-	Name     string `json:"name"`
-	Cluster  string `json:"cluster"`
-	Status   string `json:"status"`
-	Hostname string `json:"hostname"`
-}
-
-type examJSON struct {
-	StartedAt        time.Time `json:"startedAt"`
-	LimitSeconds     int64     `json:"limitSeconds"`
-	RemainingSeconds int64     `json:"remainingSeconds"`
-	Over             bool      `json:"over"`
-}
-
-func statusJSON(st labStatus) statusResult {
-	out := statusResult{Name: st.row.Name, Runtime: st.row.Runtime, Status: st.row.Status, Uptime: st.row.Uptime,
-		PortForwards: forwardsJSON(st.forwards), LinkedClusters: []linkedClusterJSON{}, Attempts: len(st.attempts), Next: nextStep(st)}
-	if st.row.Version != "-" {
-		out.Kubernetes = st.row.Version
-	}
-	if st.row.Runtime == "kind" {
-		out.Context = "kind-" + st.row.Name
-	}
-	for _, l := range st.links {
-		status := "not running"
-		if r, ok := st.linkRows[l.Cluster]; ok {
-			status = r.Status
-		}
-		out.LinkedClusters = append(out.LinkedClusters, linkedClusterJSON{Name: l.Name, Cluster: l.Cluster, Status: status, Hostname: l.Hostname()})
-	}
-	if st.exam != nil {
-		out.Exam = &examJSON{StartedAt: st.exam.StartedAt, LimitSeconds: int64(st.exam.Limit.Seconds()),
-			RemainingSeconds: int64(st.exam.Remaining(st.now).Seconds()), Over: st.exam.Over(st.now)}
-	}
-	if n := len(st.attempts); n > 0 {
-		out.LastAttempt = &st.attempts[n-1]
-	}
-	return out
-}
-
 func printLabStatus(w io.Writer, st labStatus) {
-	r := st.row
+	r := st.Row
 	fmt.Fprintf(w, "Lab %s (%s)\n\n", r.Name, r.Runtime)
 	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
 	field := func(label, value string) { fmt.Fprintf(tw, "  %s\t%s\n", label, value) }
@@ -216,7 +94,7 @@ func printLabStatus(w io.Writer, st labStatus) {
 		field("Connect", "astrona ssh "+r.Name)
 	}
 
-	for i, f := range st.forwards {
+	for i, f := range st.Forwards {
 		label := ""
 		if i == 0 {
 			label = "Forwards"
@@ -225,13 +103,13 @@ func printLabStatus(w io.Writer, st labStatus) {
 		field(label, fmt.Sprintf("%s %s %s", pf.Name, f.Effective(), portforward.LocalURL(pf)))
 	}
 
-	for i, l := range st.links {
+	for i, l := range st.Links {
 		label := ""
 		if i == 0 {
 			label = "Linked"
 		}
 		state := "not running"
-		if r, ok := st.linkRows[l.Cluster]; ok {
+		if r, ok := st.LinkRows[l.Cluster]; ok {
 			state = r.Status
 		}
 		line := fmt.Sprintf("%s → %s (%s) · %s", l.Name, l.Cluster, state, l.Hostname())
@@ -241,12 +119,12 @@ func printLabStatus(w io.Writer, st labStatus) {
 		field(label, line)
 	}
 
-	if st.exam != nil {
-		field("Exam", st.exam.Summary(st.now))
+	if st.Exam != nil {
+		field("Exam", st.Exam.Summary(st.Now))
 	}
 
-	if n := len(st.attempts); n > 0 {
-		a := st.attempts[n-1]
+	if n := len(st.Attempts); n > 0 {
+		a := st.Attempts[n-1]
 		result := "FAIL"
 		if a.Pass {
 			result = "PASS"
@@ -256,31 +134,11 @@ func printLabStatus(w io.Writer, st labStatus) {
 			pct = 100 * float64(a.Earned) / float64(a.Max)
 		}
 		field("Last submit", fmt.Sprintf("%d/%d points (%.0f%%) %s · %s ago · attempt #%d",
-			a.Earned, a.Max, pct, result, exam.Round(st.now.Sub(a.Time)), n))
+			a.Earned, a.Max, pct, result, exam.Round(st.Now.Sub(a.Time)), n))
 	} else {
 		field("Last submit", "none yet")
 	}
 	tw.Flush()
 
 	fmt.Fprintf(w, "\nNext: %s\n", nextStep(st))
-}
-
-// nextStep suggests the one most useful command for where the student is.
-func nextStep(st labStatus) string {
-	if st.cfg != nil && st.cfg.Metadata.Docs.Question != "" && len(st.attempts) == 0 {
-		return "read the task — astrona docs question"
-	}
-	if st.exam != nil && st.exam.Over(st.now) {
-		return "time is up — astrona submit to record your result, astrona reset to try again"
-	}
-	if n := len(st.attempts); n > 0 && st.attempts[n-1].Pass {
-		return "passed — astrona reset to practice again, astrona destroy when done"
-	}
-	if strings.HasPrefix(st.row.Status, "Stopped") {
-		return "astrona start " + st.row.Name
-	}
-	if n := len(st.attempts); n > 0 {
-		return "astrona submit --watch for live feedback while you fix it — or astrona reset --soft to start over"
-	}
-	return "astrona submit to grade your work"
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"astrona/internal/apphome"
+	"astrona/internal/labops"
 	"astrona/internal/localdata"
 	"astrona/internal/ui"
 	"astrona/internal/version"
@@ -247,7 +248,7 @@ func main() {
 		ui.PrintError(err)
 		os.Exit(1)
 	}
-	if askpassPass := os.Getenv("ASTRONA_INTERNAL_ASKPASS"); askpassPass != "" {
+	if askpassPass := os.Getenv(labops.AskpassEnvVar); askpassPass != "" {
 		fmt.Println(askpassPass)
 		os.Exit(0)
 	}

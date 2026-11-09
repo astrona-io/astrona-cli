@@ -74,16 +74,16 @@ func printHome(w io.Writer, lab homeLab, ok bool, now time.Time) {
 	}
 	fmt.Fprintf(w, "%s %s  %s\n", bold("Lab"), bold(lab.name), ui.Paint(w, "(from "+lab.source+")", ui.Dim))
 	fmt.Fprintf(w, "  State     %s\n", state)
-	st := labStatus{row: row, cfg: lab.cfg, now: now}
+	st := labStatus{Row: row, Cfg: lab.cfg, Now: now}
 	if running {
-		st.exam, _ = exam.Load(lab.cluster)
-		if st.exam != nil {
-			fmt.Fprintf(w, "  Exam      %s\n", st.exam.Summary(now))
+		st.Exam, _ = exam.Load(lab.cluster)
+		if st.Exam != nil {
+			fmt.Fprintf(w, "  Exam      %s\n", st.Exam.Summary(now))
 		}
 	}
-	st.attempts, _ = proctor.LoadAttempts(lab.cluster)
-	if n := len(st.attempts); n > 0 {
-		last := st.attempts[n-1]
+	st.Attempts, _ = proctor.LoadAttempts(lab.cluster)
+	if n := len(st.Attempts); n > 0 {
+		last := st.Attempts[n-1]
 		fmt.Fprintf(w, "  Last try  %s %d/%d · %s · attempt #%d\n", ui.PassFail(w, last.Pass, 0), last.Earned, last.Max, humanAgo(now.Sub(last.Time)), n)
 	}
 	next := "astrona run"

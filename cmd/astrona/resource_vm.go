@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"astrona/internal/apphome"
+	"astrona/internal/labops"
 	"context"
 	"fmt"
 	"io"
@@ -21,9 +22,7 @@ import (
 
 // shQuote quotes s for a POSIX shell — everything sent to the VM goes
 // through the remote user's shell, so every piece of it is quoted.
-func shQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
+func shQuote(s string) string { return labops.ShellQuote(s) }
 
 // vmResourceCommand runs the workspace helper against the student's editable
 // files. Values and arguments are quoted separately, never re-evaluated.

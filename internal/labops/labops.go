@@ -14,6 +14,13 @@
 // warnings, bundle images) and the trust policy for remote labs
 // (RequireTrust, HandoverApproval, RiskSummary).
 //
+// It also gathers `astrona status` (Status returns a StatusResult; cmd
+// renders it as text or JSON) and builds the lab terminals cmd runs
+// attached: the isolated kind shell (ShellCommand, through labshell) and
+// the ssh login into a qemu VM (PrepareSSH, SSHSession.Command — isolated
+// from the user's ssh config and agent, with the deprecated askpass
+// password only on that ssh process's environment).
+//
 // Detached helpers are this same executable (os.Executable) started with
 // a hidden command, in their own session (Setsid), inheriting the
 // environment and logging next to the lab's state or the outbox.

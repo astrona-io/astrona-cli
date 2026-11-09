@@ -7,16 +7,13 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"strings"
 
 	"astrona/internal/apphome"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/labops"
-	"astrona/internal/labshell"
 	"astrona/internal/lifecycle"
-	"astrona/internal/runtime"
-	"astrona/internal/ui"
+
 	"github.com/mattn/go-isatty"
 
 	"github.com/spf13/cobra"
@@ -26,76 +23,20 @@ import (
 // and lets a user show the lab in their prompt.
 const labShellEnvVar = labops.LabShellEnvVar
 
-// resolveKindCluster picks the kind lab a kubeconfig/shell command acts on, in
-// order: an explicit lab-name argument; the lab config resolved from
-// -c/--file/--git (if it loads and is a kind lab); otherwise the only
-// running astrona kind lab. Refuses to guess between several.
+// resolveKindCluster picks the kind lab a kubeconfig/shell command acts on
+// (labops.ResolveKindCluster), loading the lab config from -c/--file/--git
+// only when no lab-name was given.
 func resolveKindCluster(labArg string, flags *rootFlags) (string, error) {
-	if labArg != "" {
-		name := config.NormalizeClusterName(labArg)
-		if !kindClusterExists(name) {
-			return "", fmt.Errorf("no running kind lab named '%s' — run `astrona list` to see what's running", name)
-		}
-		return name, nil
-	}
-
-	if cfg, _, cleanup, err := LoadLabForCommand(flags); err == nil {
-		defer cleanup()
-		if cfg.Runtime.Type == "" || cfg.Runtime.Type == string(runtime.RuntimeKind) {
-			name := config.NormalizeClusterName(cfg.Metadata.Name)
-			if kindClusterExists(name) {
-				return name, nil
-			}
-			return "", fmt.Errorf("lab '%s' from the config isn't running — start it with `astrona run`", name)
-		}
-		return "", fmt.Errorf("lab '%s' uses the %s runtime — use `astrona ssh` instead", cfg.Metadata.Name, cfg.Runtime.Type)
-	}
-
-	// A linked cluster is part of its lab, not a lab to pick.
-	owners := linkedClusterOwners()
-	var kindClusters []string
-	for _, r := range collectKindRows() {
-		if _, linked := owners[r.Name]; !linked && !strings.HasPrefix(r.Name, apphome.TestClusterPrefix()) {
-			kindClusters = append(kindClusters, r.Name)
-		}
-	}
-	switch len(kindClusters) {
-	case 0:
-		return "", fmt.Errorf("no astrona kind lab is running — start one with `astrona run`")
-	case 1:
-		return kindClusters[0], nil
-	default:
-		return "", fmt.Errorf("several kind labs are running — pick one: %s", strings.Join(kindClusters, ", "))
-	}
+	return labops.ResolveKindCluster(labArg, func() (*config.LabConfig, func(), error) {
+		cfg, _, cleanup, err := LoadLabForCommand(flags)
+		return cfg, cleanup, err
+	})
 }
 
-// labKubeconfig returns lab's isolated kubeconfig, (re)writing it first if
-// it's missing — e.g. the lab was created by an astrona version from
-// before kubeconfig isolation.
-func labKubeconfig(lab string) (string, error) {
-	if path := cluster.ExistingKubeconfig(lab); path != "" {
-		return path, nil
-	}
-	return cluster.WriteLabKubeconfig(lab, ui.Discard())
-}
-
-// shellKubeconfigs is the KUBECONFIG list for a lab shell: the lab's own
-// kubeconfig and every linked cluster's, with target's first (kubectl
-// merges the list; the first file's current-context wins). target "" is
-// the lab's own cluster. kubeconfigOf returns "" for a cluster without one.
+// Thin wrappers over labops, so call sites keep their names. S15 removes them.
+func labKubeconfig(lab string) (string, error) { return labops.LabKubeconfig(lab) }
 func shellKubeconfigs(own, target string, links []cluster.LinkState, kubeconfigOf func(string) string) []string {
-	paths := []string{own}
-	for _, l := range links {
-		kc := kubeconfigOf(l.Cluster)
-		switch {
-		case kc == "":
-		case l.Cluster == target:
-			paths = append([]string{kc}, paths...)
-		default:
-			paths = append(paths, kc)
-		}
-	}
-	return paths
+	return labops.ShellKubeconfigs(own, target, links, kubeconfigOf)
 }
 
 func newKubeconfigCmd(flags *rootFlags) *cobra.Command {
@@ -221,36 +162,15 @@ func runLabShell(lab, clusterFlag string, command []string) error {
 	return err
 }
 
-// labShellCommand shares the isolated lab environment with embedded terminals.
-var isolatedLabCommand = labshell.Command
-
+// labShellCommand is the isolated lab terminal, shared with embedded
+// terminals (labops.ShellCommand). The container gets a terminal for a
+// shell, and for a command when stdin is one.
 func labShellCommand(lab, clusterFlag string, command []string) (*exec.Cmd, string, error) {
 	return labShellCommandContext(context.Background(), lab, clusterFlag, command)
 }
 
 func labShellCommandContext(ctx context.Context, lab, clusterFlag string, command []string) (*exec.Cmd, string, error) {
-	_, err := labKubeconfig(lab)
-	if err != nil {
-		return nil, "", err
-	}
-
-	// Linked clusters' kubeconfigs join the lab's own, so `kubectl
-	// --context kind-<linked cluster>` works in the shell too; --cluster
-	// puts one first, making it the default context.
-	links, _ := lifecycle.Links(lab)
-	target := lab
-	if clusterFlag != "" {
-		if target, err = lifecycle.FindLinkedCluster(lab, clusterFlag, links); err != nil {
-			return nil, "", err
-		}
-		// Never silently fall back to the main cluster when the selected
-		// linked cluster's kubeconfig is missing.
-		if _, err := labKubeconfig(target); err != nil {
-			return nil, "", err
-		}
-	}
-	c, err := isolatedLabCommand(ctx, lab, target, command, len(command) == 0 || isatty.IsTerminal(os.Stdin.Fd()))
-	return c, target, err
+	return labops.ShellCommand(ctx, lab, clusterFlag, command, len(command) == 0 || isatty.IsTerminal(os.Stdin.Fd()))
 }
 
 // Catch Ctrl-C in Astrona while the child handles it. Ignoring SIGINT would
