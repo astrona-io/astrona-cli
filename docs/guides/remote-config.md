@@ -66,8 +66,25 @@ Only continue if you trust its author. Run it? [y/N]
 - The approval is pinned: to the **git commit** for `--git`, to the **SHA-256 of the config** for a URL. Running the same version again doesn't ask; a new commit or a changed config asks again ("This lab changed since you approved it").
 - Scripts and manifests with `type: url` are downloaded when they run, so their content isn't covered by the pin — they're flagged in the prompt.
 - Local configs (`-c ./my-lab`) are your own files and never prompt.
+- **Official catalog labs** are pre-trusted, but only for the exact commit Astrona published — see [Official labs](#official-labs).
 - Everything the lab supplies to the prompt (names, URLs, commands, resource descriptions) is shown on one line with control characters stripped, so a lab can't hide or fake lines of the prompt with terminal escape sequences or newlines. Resource listings (`astrona run`, `astrona docs`, `astrona res`) are cleaned the same way.
 - `astrona destroy` asks too, before running a remote lab's teardown scripts (only if it has any). Declining — or no terminal and no `--trust` — doesn't stop the destroy: the teardown scripts are skipped with a warning and the lab is removed anyway.
 - **CI / no terminal:** without a terminal, an unapproved remote lab is refused. Pass `--trust` to approve it — e.g. `astrona test --git https://github.com/org/labs --config labs/lab-01 --trust`. CI that tests its own checkout (`-c .`) needs nothing.
 - Approvals are stored in `~/.astrona/trust.json`; delete an entry (or the file) to be asked again.
 - A lab whose `astronaVersion` sends it to another installed astrona is approved here first, before the hand-over — never by the version it asks for (see [Astrona Versions](astrona-versions.md#what-happens-when-a-lab-needs-another-version)).
+
+### Official labs
+
+A lab you run by its catalog name from an official training (a repository in the `astrona-io` GitHub organization, see [Lab Catalog](lab-catalog.md)) runs without the prompt when its content is exactly what Astrona published. Trust is bound to the content, never to the name or URL alone. All of these must hold:
+
+- you named it from the catalog (`astrona run astrona.io/ATS014/…`), and it is fetched from `https://github.com/astrona-io/<repository>`;
+- the checked-out **git commit** equals the commit astrona.io publishes for that training — the commit Astrona synced the training's catalog entry from, read from `https://astrona.io/api/labs` over HTTPS when the lab is checked;
+- the checkout has no local changes.
+
+astrona then prints one line on stderr and goes ahead:
+
+```text
+Trusted as an official Astrona lab at 3f9c2e7a0d41b6c8e5f2a9d7b1c4e6f8a0b2d4c6 (published by https://astrona.io).
+```
+
+Anything else falls back to the normal prompt, with a line saying why: a different commit (a push astrona.io hasn't synced yet, another ref), a training with no published commit, astrona.io not reachable, local changes, a fork or another host, or a lab from a source you added. Only `https://astrona.io` vouches for official labs — a site set with `ASTRONA_URL` or a sign-in elsewhere never does (except in an unversioned development build, for testing a local stack). Nothing is written to `~/.astrona/trust.json`: the next run checks again. `--trust` works as before; without a terminal (`--headless`, CI) an official lab at its published commit runs, and any other remote lab still needs `--trust`.

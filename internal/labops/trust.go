@@ -1,6 +1,7 @@
 package labops
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -8,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/account"
 	"astrona/internal/apphome"
+	"astrona/internal/catalog"
 	"astrona/internal/config"
 	"astrona/internal/resources"
 	"astrona/internal/trust"
@@ -198,18 +201,102 @@ type TrustOptions struct {
 	// Approve asks the user. nil: nobody to ask (no terminal, --headless)
 	// — an unapproved lab is refused.
 	Approve Approver
-	// Log receives the "Trusting … (--trust)." line.
+	// Log receives the "Trusting … (--trust)." line and the official-lab
+	// line (OfficialTrust).
 	Log io.Writer
+	// Official looks up the commit Astrona publishes for an official
+	// training repository. nil: no lab is pre-trusted as official.
+	Official PublishedPin
+
+	// official is set by RequireTrust for the source being checked.
+	official func(trust.Source) bool
+}
+
+// PublishedPin returns the commit Astrona publishes for the official
+// training repository repo (its name under catalog.DefaultOrg) and the
+// site it was read from; an error when there is none.
+type PublishedPin func(repo string) (pin, site string, err error)
+
+// AstronaPublishedPin is the CLI's PublishedPin: the "sourceSha" of the
+// training in the lab catalog of astrona.io, read over HTTPS when asked.
+// Another site (ASTRONA_URL, a saved sign-in elsewhere) never vouches for
+// official labs — except in an unversioned development build, so a local
+// stack can be tested.
+func AstronaPublishedPin(repo string) (string, string, error) {
+	client, _, site, err := AccountDeps()
+	if err != nil {
+		return "", "", err
+	}
+	if !account.IsDefaultSite(site) && !apphome.Development() {
+		return "", "", fmt.Errorf("official pins are only read from %s, not %s", account.DefaultSite, site)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	pins, err := client.OfficialLabPins(ctx, site)
+	if err != nil {
+		return "", "", err
+	}
+	pin, ok := pins[strings.ToLower(repo)]
+	if !ok {
+		return "", "", fmt.Errorf("%s publishes no pin for %s", site, repo)
+	}
+	return pin, site, nil
+}
+
+// OfficialTrust reports whether tsrc is an official catalog lab whose
+// content is exactly what Astrona published, so it runs without the
+// trust prompt. All of it must hold, else the normal prompt follows:
+//   - it was picked from the catalog as an official training's lab
+//     (src.Catalog) and is a git source;
+//   - its repository is github.com/<catalog.DefaultOrg>/<repo>;
+//   - the checkout's commit (tsrc.Pin) equals the commit Astrona publishes
+//     for that repository (opts.Official) — a different ref, a newer push
+//     not yet synced, or no published pin all mismatch;
+//   - the checkout has no local changes.
+//
+// Nothing is recorded in the trust store: the next run checks again.
+func OfficialTrust(src LabSource, tsrc trust.Source, baseDir string, opts TrustOptions) bool {
+	if opts.Official == nil || src.Catalog == "" || tsrc.Kind != "git" {
+		return false
+	}
+	repo, ok := catalog.OfficialRepo(src.Git)
+	if !ok {
+		return false
+	}
+	say := func(format string, a ...any) {
+		if opts.Log != nil {
+			fmt.Fprintln(opts.Log, SanitizeLine(fmt.Sprintf(format, a...)))
+		}
+	}
+	pin, site, err := opts.Official(repo)
+	if err != nil {
+		say("Not pre-trusted as an official lab: %s.", err)
+		return false
+	}
+	if !strings.EqualFold(pin, tsrc.Pin) {
+		say("Not pre-trusted as an official lab: %s is at %s, %s published %s.", repo, ShortPin(tsrc.Pin), site, ShortPin(pin))
+		return false
+	}
+	out, err := exec.Command("git", "-C", baseDir, "status", "--porcelain", "--untracked-files=all").Output()
+	if err != nil || len(strings.TrimSpace(string(out))) > 0 {
+		say("Not pre-trusted as an official lab: its checkout has local changes.")
+		return false
+	}
+	say("Trusted as an official Astrona lab at %s (published by %s).", tsrc.Pin, site)
+	return true
 }
 
 // RequireTrust stops a remote lab from running anything until the user
 // has approved this exact version of it — once per version. Explicit
-// approves without asking; without an Approver it refuses.
+// approves without asking; an official lab at the commit Astrona
+// publishes runs without asking (OfficialTrust); otherwise, without an
+// Approver it refuses.
 func RequireTrust(src LabSource, cfg *config.LabConfig, baseDir string, opts TrustOptions) error {
 	tsrc, err := TrustSource(src, cfg, baseDir)
 	if err != nil || tsrc == nil {
 		return err
 	}
+	opts.official = func(ts trust.Source) bool { return OfficialTrust(src, ts, baseDir, opts) }
 	return ApproveSource(*tsrc, opts, func() []string {
 		return append(RiskSummary(cfg), ResourceRiskLines(cfg, baseDir)...)
 	})
@@ -228,6 +315,9 @@ func ApproveSource(src trust.Source, opts TrustOptions, summary func() []string)
 	if opts.Explicit {
 		fmt.Fprintf(opts.Log, "Trusting %s at %s (--trust).\n", src.Location, ShortPin(src.Pin))
 		return trust.Approve(src, time.Now())
+	}
+	if opts.official != nil && opts.official(src) {
+		return nil
 	}
 	if opts.Approve == nil {
 		return fmt.Errorf("lab %s (%s) hasn't been approved to run on this machine — review it, then pass --trust", src.Location, ShortPin(src.Pin))
@@ -257,6 +347,9 @@ func RequireTrustUnparsed(src LabSource, pe *config.ParseError, baseDir string, 
 	if opts.Explicit {
 		fmt.Fprintf(opts.Log, "Trusting %s at %s (--trust).\n", tsrc.Location, ShortPin(tsrc.Pin))
 		return trust.Approve(*tsrc, time.Now())
+	}
+	if OfficialTrust(src, *tsrc, baseDir, opts) {
+		return nil
 	}
 	return fmt.Errorf("lab %s (%s) hasn't been approved to run on this machine, and this astrona can't read its config to show what it does — review it, then pass --trust", tsrc.Location, ShortPin(tsrc.Pin))
 }
