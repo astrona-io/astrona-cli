@@ -4741,7 +4741,7 @@
 </tr>
 <tr>
 <td><code>just oat</code></td>
-<td>Build <code>./astrona</code> and run the acceptance suite's smoke tier (see <a href="#acceptance-suite">Acceptance suite</a>)</td>
+<td>Build <code>./astrona</code> and run the acceptance suite's smoke tier; <code>--include full</code> adds the full tier (see <a href="#acceptance-suite">Acceptance suite</a>)</td>
 </tr>
 <tr>
 <td><code>just docs-gen-cli</code></td>
@@ -4841,11 +4841,17 @@ repository. Also check the deployed mike version selector after a release.</p>
 <p>For Podman, pass <code>podman</code> as the third argument and run with rootful Podman (for example, <code>sudo env "PATH=$PATH" bash .github/scripts/test-catalog-lab.sh ./astrona /tmp/astrona-catalog-diagnostics podman</code>). The script explicitly selects the requested engine using <code>KIND_EXPERIMENTAL_PROVIDER</code>.</p>
 <p>It needs Linux, Docker or Podman, Kind and kubectl, plus network access to GitHub and Docker Hub. It isolates credentials and kubeconfig, uses <code>--headless</code> for headless setup without a new account session, verifies node readiness, repairs the first lab's intentional image typo with <code>imagePullPolicy: Never</code> to confirm the Alpine preload, then destroys the lab and checks that its cluster, containers, context and saved state are gone. Failures retain logs and diagnostics and trigger cleanup. CI runs it on Ubuntu 24.04 with Docker's classic and containerd image stores and with rootful Podman.</p>
 <h3 id="acceptance-suite">Acceptance suite<a class="headerlink" href="#acceptance-suite" title="Permanent link">&para;</a></h3>
-<p><code>acceptance/</code> holds a <a href="https://robotframework.org/">Robot Framework</a> suite that drives the built <code>./astrona</code> the way a learner and a lab author would. CI runs its <code>smoke</code> tier on every pull request and uploads the HTML report and log as the <code>oat-smoke-report</code> artifact.</p>
+<p><code>acceptance/</code> holds a <a href="https://robotframework.org/">Robot Framework</a> suite that drives the built <code>./astrona</code> the way a learner and a lab author would. It has two tiers, chosen by tag:</p>
+<ul>
+<li><strong><code>smoke</code></strong> runs on every pull request (<code>Acceptance (smoke)</code> in CI, report in the <code>oat-smoke-report</code> artifact).</li>
+<li><strong><code>full</code></strong> adds the lab tools (shell, soft reset, doctor, diagnose, port forwards) and a signed-out catalog lab. The <code>Acceptance (full)</code> workflow runs both tiers on every release tag, RCs included, before anything is built; the release only builds when it passes, and its report is attached to the GitHub release as <code>oat-report-&lt;version&gt;-kind.zip</code>. Run it by hand from the Actions tab.</li>
+</ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>just<span class="w"> </span>oat<span class="w">                    </span><span class="c1"># build ./astrona, run the smoke tier, write oat-report/</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>just<span class="w"> </span>oat<span class="w"> </span>--exclude<span class="w"> </span>kind<span class="w">     </span><span class="c1"># only the checks that create no cluster</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>just<span class="w"> </span>oat<span class="w"> </span>--test<span class="w"> </span><span class="s2">"Run Creates The Lab"</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>just<span class="w"> </span>oat<span class="w"> </span>--include<span class="w"> </span>full<span class="w">     </span><span class="c1"># smoke and full tiers</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>just<span class="w"> </span>oat<span class="w"> </span>--exclude<span class="w"> </span>kind<span class="w">     </span><span class="c1"># only the checks that create no cluster</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>just<span class="w"> </span>oat<span class="w"> </span>--test<span class="w"> </span><span class="s2">"Run Creates The Lab"</span>
 </code></pre></div>
+<p>Other tags say what a test needs: <code>kind</code> creates a cluster, <code>network</code> reaches astrona.io. The workspace UI is a terminal app that needs an interactive terminal, so it is covered by the PTY tests in <code>go test</code>, not here.</p>
 <p>It needs kind, kubectl and Docker or Podman, plus <code>uv</code> (Robot Framework is pinned in <code>acceptance/requirements.txt</code>). Each suite gets a throwaway <code>HOME</code>, so your own labs and settings under <code>~/.astrona-dev</code> are untouched; the container engine's config still comes from your real home. kind cluster names are shared by the whole engine, so a suite refuses to start while a cluster named after its example lab (<code>k8s-basics-01</code>) exists. Set <code>OAT_ISOLATE_HOME=false</code> to run against your real <code>HOME</code>.</p>
 <table>
 <thead>
@@ -4857,7 +4863,7 @@ repository. Also check the deployed mike version selector after a release.</p>
 <tbody>
 <tr>
 <td><code>acceptance/suites/</code></td>
-<td>One <code>.robot</code> file per area; tag each test <code>smoke</code> (every PR) and <code>kind</code> (creates a cluster)</td>
+<td>One <code>.robot</code> file per area; tag each test with its tier (<code>smoke</code> or <code>full</code>) and what it needs (<code>kind</code>, <code>network</code>)</td>
 </tr>
 <tr>
 <td><code>acceptance/resources/astrona.resource</code></td>
