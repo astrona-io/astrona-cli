@@ -36,7 +36,6 @@ func Definitions() []Definition {
 		{"verbose", "false", "Stream full command output"},
 		{"keep-context", "false", "Leave your kubectl current-context unchanged"},
 		{"parallel", "1", "Maximum linked clusters to start at once"},
-		{"ui-task-width", "30", "Task pane width as a percentage of the lab view (20–60)"},
 		{"login-reminder", "true", "Ask guests to log in before starting a lab; disabling this allows guest runs without reminders"},
 		{"update-check", "true", "Check for new CLI releases and show update notices"},
 		{"cache-retention-days", strconv.Itoa(localdata.DefaultRetentionDays), "Maximum disposable-cache age in days (1–36500)"},
@@ -44,6 +43,12 @@ func Definitions() []Definition {
 		{"browser", `"ask"`, "Open a Kind lab in the browser workspace after `astrona run`: ask, always or never"},
 	}
 }
+
+// withdrawn are settings an earlier release had that changed only how the
+// CLI looked. A saved value is ignored and dropped on the next write, and a
+// settings review does not ask about them: nothing about a run depends on
+// them. ui-task-width sized the terminal UI's task pane, which is gone.
+var withdrawn = map[string]bool{"ui-task-width": true}
 
 // Browser preferences: the saved answer to "Open this lab in your browser?".
 const (
@@ -102,12 +107,6 @@ func Parse(key, value string) (json.RawMessage, error) {
 		default:
 			return nil, fmt.Errorf("%s must be yes or no", key)
 		}
-	case "ui-task-width":
-		n, err := strconv.Atoi(value)
-		if err != nil || n < 20 || n > 60 {
-			return nil, fmt.Errorf("ui-task-width must be a whole percentage between 20 and 60")
-		}
-		value = strconv.Itoa(n)
 	case "parallel":
 		n, err := strconv.Atoi(value)
 		if err != nil {
@@ -217,6 +216,10 @@ func loadWithRetired(path string, retired map[string]bool) (Values, error) {
 		return nil, fmt.Errorf("settings %s must contain a JSON object", path)
 	}
 	for key, value := range saved {
+		if withdrawn[key] {
+			delete(saved, key)
+			continue
+		}
 		if retired[key] {
 			continue
 		}

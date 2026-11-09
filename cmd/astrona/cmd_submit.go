@@ -133,18 +133,12 @@ type submitOptions struct {
 	junitPath, output             string
 	noHints, history, watch, keep bool
 	watchInterval                 time.Duration
-	completed                     func(labops.Submission, bool, bool)
-	// beforeCleanup runs just before a sent result deletes the lab (the UI
-	// closes its terminals); deleted runs once the lab is gone.
-	beforeCleanup, deleted func()
-	// interruptOf, when set (the submit command; never the workspace, which
-	// reads Ctrl+C itself), makes Ctrl+C stop the grading (interruptible).
+	// interruptOf, when set (the submit command), makes Ctrl+C stop the
+	// grading (interruptible).
 	interruptOf *cobra.Command
 }
 
-// submitLoadedLab is shared by submit and the workspace. Keeping the loaded
-// config avoids fetching a different revision in the middle of a UI session.
-// The submission itself is labops.Submit; this reads the flags, prints the
+// submitLoadedLab submits an already loaded lab config. The submission itself is labops.Submit; this reads the flags, prints the
 // result (text or JSON), writes the JUnit report and decides the exit code.
 func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, options submitOptions, status io.Writer) error {
 	output := options.output
@@ -190,18 +184,12 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 			fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, res.Passed, 0))
 			return nil
 		},
-		BeforeCleanup: options.beforeCleanup,
-		Deleted:       options.deleted,
 	}
 	if output == "json" {
 		req.UI.Raw = os.Stderr    // stdout is the JSON result
 		req.Out = nil             // no human report: the JSON is the output
 		req.ScriptOut = os.Stderr // and nothing else on stdout
 	}
-	if options.completed != nil {
-		req.Completed = func(res *labops.SubmitResult) { options.completed(res.Result, res.Sent, res.Recorded) }
-	}
-
 	if options.watch {
 		s, err := labops.PrepareSubmit(req)
 		if err != nil {
