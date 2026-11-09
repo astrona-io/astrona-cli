@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://cli.astrona.io/schema/lab-config.schema.json
+# The acceptance suite's "VM with terminal" lab. base.qcow2 is not in git:
+# `Prepare VM Lab` (acceptance/libraries/AstronaLib.py) copies this folder
+# and links the pinned, checksum-verified Debian cloud image in as base.qcow2.
+apiVersion: astrona.io/v1
+metadata:
+  name: "oat-vm-terminal"
+
+runtime:
+  type: "qemu"
+  qemu:
+  - image:
+      type: "file"
+      source: "base.qcow2"
+    cpus: 2
+    memoryMB: 1024
+    display: false
+
+bootstrap:
+  init:
+    - name: "task-folder"
+      description: "Create the folder the learner writes the answer into"
+      type: "file"
+      source: "setup.sh"
+
+validation:
+  script:
+    name: "answer-file"
+    description: "The learner wrote 'solved' to /tmp/astrona-lab/answer.txt"
+    type: "file"
+    source: "validate.sh"
+    hint: "echo solved > /tmp/astrona-lab/answer.txt"
+
+teardown:
+  keepCluster: false
