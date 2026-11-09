@@ -17,6 +17,7 @@ import (
 	"astrona/internal/labshell"
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
+	"astrona/internal/preflight"
 	"astrona/internal/resources"
 	"astrona/internal/runtime"
 	"astrona/internal/settings"
@@ -317,7 +318,7 @@ func printConnectHints(env *runtime.LabEnvironment, cfg *config.LabConfig, clust
 // destroy. Shared by run and reset.
 func bringUpLab(cfg *config.LabConfig, baseDir string, flags *rootFlags, rep *ui.Reporter, sess *labstate.Session) error {
 	clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
-	if err := checkRunEnvironment(cfg, baseDir, rep); err != nil {
+	if err := preflight.RunEnvironment(cfg, baseDir, rep, labConfigResults); err != nil {
 		return err
 	}
 	// Checked before linked clusters are (re)created — they'd otherwise be

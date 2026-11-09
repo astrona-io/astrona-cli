@@ -22,7 +22,7 @@ func TestLabConfigResults(t *testing.T) {
 
 	byName := map[string]checkResult{}
 	for _, r := range labConfigResults(cfg, dir) {
-		byName[r.name] = r
+		byName[r.Name] = r
 	}
 	expect := map[string]checkStatus{
 		"line 3":                  checkFail,
@@ -33,23 +33,23 @@ func TestLabConfigResults(t *testing.T) {
 	}
 	for name, status := range expect {
 		r, ok := byName[name]
-		if !ok || r.status != status {
+		if !ok || r.Status != status {
 			t.Errorf("%s: got %+v, want status %d", name, r, status)
 		}
 	}
 	if _, ok := byName["bootstrap.init[0] ok"]; ok {
 		t.Error("existing file reported")
 	}
-	if !strings.Contains(byName["line 3"].hint, `"waitFor"`) {
-		t.Errorf("hint = %q", byName["line 3"].hint)
+	if !strings.Contains(byName["line 3"].Hint, `"waitFor"`) {
+		t.Errorf("hint = %q", byName["line 3"].Hint)
 	}
 
 	clean := &config.LabConfig{Metadata: config.MetadataConfig{Name: "x"},
 		Validation: config.ValidationConfig{Checks: []config.ValidationCheck{{Name: "ok", Type: "command", Command: "true"}}}}
-	if res := labConfigResults(clean, dir); len(res) != 1 || res[0].status != checkOK {
+	if res := labConfigResults(clean, dir); len(res) != 1 || res[0].Status != checkOK {
 		t.Errorf("clean config = %+v", res)
 	}
-	if res := labConfigResults(clean, ""); res[0].status != checkWarn {
+	if res := labConfigResults(clean, ""); res[0].Status != checkWarn {
 		t.Errorf("URL config should warn that sources weren't checked: %+v", res)
 	}
 }

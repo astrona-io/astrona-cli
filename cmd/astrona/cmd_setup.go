@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/preflight"
+
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
@@ -51,14 +53,14 @@ type setupEnv struct {
 
 func gatherSetupEnv() setupEnv {
 	env := setupEnv{goos: goruntime.GOOS, goarch: goruntime.GOARCH, hasBrew: brewAvailable(), missing: map[string]bool{}}
-	for _, c := range missingDeps(true) {
-		env.missing[c.name] = true
+	for _, c := range preflight.MissingDeps(true) {
+		env.missing[c.Name] = true
 	}
 	_, dockerErr := exec.LookPath("docker")
 	_, podmanErr := exec.LookPath("podman")
 	env.hasDocker, env.hasPodman = dockerErr == nil, podmanErr == nil
-	res, _ := checkEngine()
-	env.engineReachable = len(res) > 0 && res[0].status != checkFail
+	res, _ := preflight.CheckEngine()
+	env.engineReachable = len(res) > 0 && res[0].Status != checkFail
 	if env.hasPodman && env.goos == "darwin" {
 		out, err := exec.Command("podman", "machine", "list", "--format", "{{.Running}}").Output()
 		if err == nil {
@@ -327,7 +329,7 @@ func runVisible(argv []string) error {
 func waitForEngine(timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		if res, _ := checkEngine(); len(res) > 0 && res[0].status != checkFail {
+		if res, _ := preflight.CheckEngine(); len(res) > 0 && res[0].Status != checkFail {
 			return true
 		}
 		time.Sleep(3 * time.Second)

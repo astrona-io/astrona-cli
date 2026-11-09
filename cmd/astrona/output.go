@@ -50,8 +50,7 @@ type checkResultJSON struct {
 func checkResultsJSON(section string, res []checkResult) []checkResultJSON {
 	out := make([]checkResultJSON, 0, len(res))
 	for _, r := range res {
-		st := map[checkStatus]string{checkOK: "ok", checkWarn: "warn", checkFail: "fail"}[r.status]
-		out = append(out, checkResultJSON{Section: section, Name: r.name, Status: st, Detail: r.detail, Fix: r.hint})
+		out = append(out, checkResultJSON{Section: section, Name: r.Name, Status: r.Status.String(), Detail: r.Detail, Fix: r.Hint})
 	}
 	return out
 }
@@ -104,7 +103,7 @@ func (r *report) section(title string, res []checkResult) int {
 	if r.json {
 		n := 0
 		for _, c := range res {
-			if c.status == checkFail {
+			if c.Status == checkFail {
 				n++
 			}
 		}

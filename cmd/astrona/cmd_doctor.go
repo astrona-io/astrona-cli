@@ -15,6 +15,7 @@ import (
 	"astrona/internal/exam"
 	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
+	"astrona/internal/preflight"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
 	"astrona/internal/version"
@@ -58,7 +59,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 
 			machine, engine := doctorMachine()
 			failed += rep.section("This machine", machine)
-			if all := brewInstallAll(missingDeps(true)); all != "" {
+			if all := brewInstallAll(preflight.MissingDeps(true)); all != "" {
 				rep.note("\nInstall what's required: %s\n", all)
 			}
 
@@ -95,7 +96,7 @@ func newDoctorCmd(flags *rootFlags) *cobra.Command {
 						opts.Raw = os.Stderr // stdout is the JSON report
 					}
 					if bundleRep, err := ui.New("doctor", cfg.Metadata.Name, opts); err != nil {
-						failed += rep.section("Diagnostics bundle", []checkResult{{status: checkFail, name: "bundle", detail: err.Error()}})
+						failed += rep.section("Diagnostics bundle", []checkResult{{Status: checkFail, Name: "bundle", Detail: err.Error()}})
 					} else {
 						collectDiagnostics(env, cfg, clusterName, "", bundleRep)
 						bundleRep.Close()
@@ -124,26 +125,26 @@ func doctorVerdict(rep *report, failed int) error {
 }
 
 // doctorMachine: required tools, the container engine, inotify.
-func doctorMachine() ([]checkResult, *engineInfo) {
+func doctorMachine() ([]checkResult, *preflight.EngineInfo) {
 	var res []checkResult
-	for _, c := range astronaDepChecks() {
-		if !c.required {
+	for _, c := range preflight.AstronaDepChecks() {
+		if !c.Required {
 			continue
 		}
-		if found, detail := c.find(); found {
-			res = append(res, checkResult{name: c.name, detail: detail})
+		if found, detail := c.Find(); found {
+			res = append(res, checkResult{Name: c.Name, Detail: detail})
 		} else {
-			res = append(res, checkResult{status: checkFail, name: c.name, detail: "not found — " + c.note, hint: "install: " + c.hint()})
+			res = append(res, checkResult{Status: checkFail, Name: c.Name, Detail: "not found — " + c.Note, Hint: "install: " + depHint(c)})
 		}
 	}
 	if _, err := cluster.DetectContainerEngine(); err != nil {
-		res = append(res, checkResult{status: checkFail, name: "container engine", detail: err.Error()})
+		res = append(res, checkResult{Status: checkFail, Name: "container engine", Detail: err.Error()})
 		return res, nil
 	}
-	engineRes, engine := checkEngine()
+	engineRes, engine := preflight.CheckEngine()
 	res = append(res, engineRes...)
 	if goruntime.GOOS == "linux" {
-		res = append(res, checkInotify("/proc")...)
+		res = append(res, preflight.CheckInotify("/proc")...)
 	}
 	return res, engine
 }
@@ -192,44 +193,44 @@ func noLabOr(err error, named bool) error {
 
 // doctorLabError is the ✗ row for a lab that was named but can't be loaded.
 func doctorLabError(err error) checkResult {
-	r := checkResult{status: checkFail, name: "lab config", detail: err.Error()}
+	r := checkResult{Status: checkFail, Name: "lab config", Detail: err.Error()}
 	switch {
 	case labVersionFromLoadError(err) != "":
-		r.hint = "this lab needs astrona " + labVersionFromLoadError(err) + " — `astrona run` offers to install it"
+		r.Hint = "this lab needs astrona " + labVersionFromLoadError(err) + " — `astrona run` offers to install it"
 	case errors.Is(err, os.ErrNotExist):
-		r.hint = "check the path (argument, -c, --file) or pick another lab with `astrona use`"
+		r.Hint = "check the path (argument, -c, --file) or pick another lab with `astrona use`"
 	default:
-		r.hint = "fix the config, then `astrona validate` for the details"
+		r.Hint = "fix the config, then `astrona validate` for the details"
 	}
 	return r
 }
 
 // doctorVersion: may this astrona run the lab (astronaVersion)?
 func doctorVersion(cfg *config.LabConfig) checkResult {
-	r := checkResult{name: "astrona version"}
+	r := checkResult{Name: "astrona version"}
 	if cfg.AstronaVersion == "" {
-		r.detail = "any astrona may run it"
+		r.Detail = "any astrona may run it"
 		return r
 	}
 	c, err := version.ParseConstraint(cfg.AstronaVersion)
 	if err != nil {
-		r.status, r.detail = checkFail, "astronaVersion: "+err.Error()
+		r.Status, r.Detail = checkFail, "astronaVersion: "+err.Error()
 		return r
 	}
 	cur, err := version.Parse(Version)
 	switch {
 	case err != nil:
-		r.detail = fmt.Sprintf("needs %s; this is a %s build (not checked)", c, Version)
+		r.Detail = fmt.Sprintf("needs %s; this is a %s build (not checked)", c, Version)
 	case c.Allows(cur):
-		r.detail = fmt.Sprintf("needs %s — this astrona (%s) fits", c, cur)
+		r.Detail = fmt.Sprintf("needs %s — this astrona (%s) fits", c, cur)
 	default:
 		if iv, ok := newestAllowed(c, handoverCandidates()); ok {
-			r.status = checkWarn
-			r.detail = fmt.Sprintf("needs %s — commands run it with astrona %s (installed)", c, iv.v)
+			r.Status = checkWarn
+			r.Detail = fmt.Sprintf("needs %s — commands run it with astrona %s (installed)", c, iv.v)
 		} else {
-			r.status = checkFail
-			r.detail = fmt.Sprintf("needs %s, this is %s, and no fitting version is installed", c, cur)
-			r.hint = "astrona versions available, then astrona versions install <version>"
+			r.Status = checkFail
+			r.Detail = fmt.Sprintf("needs %s, this is %s, and no fitting version is installed", c, cur)
+			r.Hint = "astrona versions available, then astrona versions install <version>"
 		}
 	}
 	return r
@@ -240,81 +241,81 @@ func doctorVersion(cfg *config.LabConfig) checkResult {
 func doctorRunning(clusterName string) []checkResult {
 	var res []checkResult
 	if qemuStateExists(clusterName) {
-		return append(res, checkResult{name: "qemu VM(s)", detail: "running — `astrona ssh` to look inside"})
+		return append(res, checkResult{Name: "qemu VM(s)", Detail: "running — `astrona ssh` to look inside"})
 	}
 
-	nodes := checkResult{name: "nodes"}
+	nodes := checkResult{Name: "nodes"}
 	health, _ := kindAPIHealth(clusterName)
-	nodes.detail = health
+	nodes.Detail = health
 	switch {
 	case strings.HasPrefix(health, "Ready"):
 	case strings.HasPrefix(health, "Stopped"):
-		nodes.status, nodes.hint = checkFail, "astrona start"
+		nodes.Status, nodes.Hint = checkFail, "astrona start"
 	default:
-		nodes.status, nodes.hint = checkFail, "give it a minute after a start; if it stays like this: astrona reset (or reset --soft)"
+		nodes.Status, nodes.Hint = checkFail, "give it a minute after a start; if it stays like this: astrona reset (or reset --soft)"
 	}
 	res = append(res, nodes)
 
 	clusters := []diagnostics.Kind{{Name: clusterName, KubeContext: "kind-" + clusterName, Kubeconfig: cluster.ExistingKubeconfig(clusterName)}}
 	links, _ := lifecycle.Links(clusterName)
 	for _, l := range links {
-		r := checkResult{name: "linked cluster " + l.Name}
+		r := checkResult{Name: "linked cluster " + l.Name}
 		row, ok := findLabRow(l.Cluster)
 		switch {
 		case !ok:
-			r.status, r.detail, r.hint = checkFail, "not running", "astrona reset --cluster "+l.Name
+			r.Status, r.Detail, r.Hint = checkFail, "not running", "astrona reset --cluster "+l.Name
 		case strings.HasPrefix(row.status, "Ready"):
-			r.detail = row.status + " · " + l.Hostname()
+			r.Detail = row.status + " · " + l.Hostname()
 			clusters = append(clusters, diagnostics.Kind{Name: l.Cluster, KubeContext: l.Context(), Kubeconfig: cluster.ExistingKubeconfig(l.Cluster)})
 		default:
-			r.status, r.detail, r.hint = checkFail, row.status, "astrona start (starts the lab's linked clusters too)"
+			r.Status, r.Detail, r.Hint = checkFail, row.status, "astrona start (starts the lab's linked clusters too)"
 		}
 		res = append(res, r)
 	}
 
 	fs, _ := portforward.List(clusterName)
 	for _, f := range fs {
-		r := checkResult{name: "port forward " + f.Spec.Forward.Name, detail: string(f.Effective()) + " · " + portforward.LocalURL(f.Spec.Forward)}
+		r := checkResult{Name: "port forward " + f.Spec.Forward.Name, Detail: string(f.Effective()) + " · " + portforward.LocalURL(f.Spec.Forward)}
 		switch f.Effective() {
 		case portforward.StateReady:
 		case portforward.StateNotReady:
-			r.status, r.hint = checkWarn, "still retrying — `astrona port-forward list` shows why"
+			r.Status, r.Hint = checkWarn, "still retrying — `astrona port-forward list` shows why"
 		default:
-			r.status = checkFail
+			r.Status = checkFail
 			if f.Status.LastError != "" {
-				r.detail += " · " + f.Status.LastError
+				r.Detail += " · " + f.Status.LastError
 			}
-			r.hint = "astrona port-forward start"
+			r.Hint = "astrona port-forward start"
 		}
 		res = append(res, r)
 	}
 
 	for _, k := range clusters {
 		pods, err := diagnostics.UnhealthyPods(k)
-		r := checkResult{name: "pods in " + k.Name}
+		r := checkResult{Name: "pods in " + k.Name}
 		switch {
 		case err != nil:
-			r.status, r.detail = checkWarn, err.Error()
+			r.Status, r.Detail = checkWarn, err.Error()
 		case len(pods) == 0:
-			r.detail = "all healthy"
+			r.Detail = "all healthy"
 		default:
 			// Unhealthy pods may well be the exercise — worth a look, not
 			// a failure of the lab.
-			r.status = checkWarn
+			r.Status = checkWarn
 			shown := pods
 			if len(shown) > maxDoctorPods {
 				shown = shown[:maxDoctorPods]
 			}
-			r.detail = fmt.Sprintf("%d unhealthy: %s", len(pods), strings.Join(shown, "; "))
-			r.hint = "astrona diagnose collects their logs and events"
+			r.Detail = fmt.Sprintf("%d unhealthy: %s", len(pods), strings.Join(shown, "; "))
+			r.Hint = "astrona diagnose collects their logs and events"
 		}
 		res = append(res, r)
 	}
 
 	if st, err := exam.Load(clusterName); err == nil && st != nil {
-		r := checkResult{name: "exam clock", detail: st.Summary(time.Now())}
+		r := checkResult{Name: "exam clock", Detail: st.Summary(time.Now())}
 		if st.Over(time.Now()) {
-			r.status, r.hint = checkWarn, "astrona submit to record your result"
+			r.Status, r.Hint = checkWarn, "astrona submit to record your result"
 		}
 		res = append(res, r)
 	}

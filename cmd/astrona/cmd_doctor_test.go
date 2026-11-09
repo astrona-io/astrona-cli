@@ -29,8 +29,8 @@ func TestDoctorVersion(t *testing.T) {
 		{"~0.2", checkFail, "astronaVersion"},
 	} {
 		r := doctorVersion(&config.LabConfig{AstronaVersion: c.constraint})
-		if r.status != c.status || !strings.Contains(r.detail, c.detail) {
-			t.Errorf("%q = %v %q", c.constraint, r.status, r.detail)
+		if r.Status != c.status || !strings.Contains(r.Detail, c.detail) {
+			t.Errorf("%q = %v %q", c.constraint, r.Status, r.Detail)
 		}
 	}
 	if err := doctorVerdict(&report{}, 0); err != nil {
@@ -72,7 +72,7 @@ func TestDoctorLoadLab(t *testing.T) {
 				t.Fatalf("cfg=%v err=%v", cfg, err)
 			}
 			if err != nil {
-				if r := doctorLabError(err); r.status != checkFail || r.hint == "" {
+				if r := doctorLabError(err); r.Status != checkFail || r.Hint == "" {
 					t.Errorf("row = %+v", r)
 				}
 			}
