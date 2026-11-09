@@ -46,6 +46,11 @@ test:
 # Format check, vet, lint, and test — run before committing
 check: fmt vet lint test
 
+# Run the Robot Framework acceptance suite against ./astrona (default: smoke tier; needs kind + an engine)
+[positional-arguments]
+oat *args: build
+    uv run --with-requirements acceptance/requirements.txt robot --include smoke --outputdir oat-report --xunit xunit.xml "$@" acceptance/suites
+
 # Generate reference docs with release paths; docgen does not write user state
 docs-gen-cli:
     go run -ldflags "-X main.Version=0.0.0" ./cmd/astrona docgen --output docs/reference/cli

@@ -214,6 +214,53 @@ jobs:
           name: e2e-linked-diagnostics
           path: e2e-diagnostics/
 
+  oat-smoke:
+    name: Acceptance (smoke)
+    needs: test
+    runs-on: ubuntu-latest
+    # Runs three kind labs one after another; a hung cluster must not hold
+    # a runner for GitHub's 6-hour default.
+    timeout-minutes: 40
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Build astrona
+        run: go build -ldflags "-X main.Version=developer" -o astrona ./cmd/astrona
+
+      - name: Install kubectl
+        run: |
+          version="$(curl -L -s https://dl.k8s.io/release/stable.txt)"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+      - name: Install kind
+        run: go install sigs.k8s.io/kind@v0.32.0
+
+      - name: Robot Framework smoke suite
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          uv run --with-requirements acceptance/requirements.txt \
+            robot --include smoke --outputdir oat-report --xunit xunit.xml acceptance/suites
+
+      - name: Upload acceptance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: oat-smoke-report
+          path: oat-report/
+
   e2e-catalog:
     name: Anonymous ATS000 (${{ matrix.engine }} ${{ matrix.image-store }})
     needs: test
