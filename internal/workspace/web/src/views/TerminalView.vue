@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { WebglAddon } from '@xterm/addon-webgl'
 import '@xterm/xterm/css/xterm.css'
 import { isRunGone, isTerminalStarting, isUnauthorized, listTerminals, openTerminal } from '../api'
+import { serverBack, terminalReconnecting, terminalSettled } from '../connectivity'
 import { mirrorInlineStyles } from '../terminal/cspStyles'
 import { TerminalConnection, type LinkState } from '../terminal/connection'
 import { fontFamily, fontsReady, readTheme } from '../terminal/theme'
@@ -29,6 +31,10 @@ let resizeObserver: ResizeObserver | undefined
 let schemeQuery: MediaQueryList | undefined
 let frame = 0
 let unmounted = false
+// Keyboard focus moves into the terminal when it first connects (after
+// Start, or on opening the page) and after the user asks to reattach. A
+// reconnect after a dropped connection leaves focus where the user put it.
+let focusOnConnect = true
 
 const notice = computed<{ text: string; action?: string } | null>(() => {
   if (problem.value) return { text: problem.value, action: 'Try again' }
@@ -60,8 +66,16 @@ const notice = computed<{ text: string; action?: string } | null>(() => {
 
 function report(state: LinkState): void {
   link.value = state
+  // The workspace covers itself with its "connection lost" dialog while the
+  // terminal reconnects, whichever tab it is in.
+  if (state.kind === 'reconnecting') terminalReconnecting(props.tab.name, state.attempt)
+  else terminalSettled(props.tab.name)
   const t = term.value
   if (t) t.options.disableStdin = state.kind !== 'connected'
+  if (t && state.kind === 'connected' && focusOnConnect) {
+    focusOnConnect = false
+    t.focus()
+  }
   const status: ViewStatus = (() => {
     switch (state.kind) {
       case 'connected':
@@ -148,13 +162,31 @@ async function attach(): Promise<void> {
   conn.connect()
 }
 
+// The status poll reached the server again: reconnect now rather than at the
+// end of the current backoff.
+watch(serverBack, () => conn?.retryNow())
+
 function act(): void {
-  if (!problem.value && link.value.kind === 'takenOver') {
-    // Reattaching takes the shell back from the other tab.
-    conn?.connect()
-    return
-  }
+  focusOnConnect = true
+  // Reattaching takes the tab's running shell back from another tab. That
+  // tab may have ended this shell and opened a new one meanwhile, so look it
+  // up again rather than reconnecting to the old one.
   void attach()
+}
+
+// The WebGL renderer draws cells on a canvas, so 24-bit ("truecolor") cells
+// need no style attribute, which the Content Security Policy refuses (see
+// cspStyles.ts). Without WebGL, or when the GPU drops the context, xterm.js
+// falls back to its DOM renderer.
+function useWebgl(t: Terminal): void {
+  let addon: WebglAddon | undefined
+  try {
+    addon = new WebglAddon()
+    addon.onContextLoss(() => addon?.dispose())
+    t.loadAddon(addon)
+  } catch {
+    addon?.dispose()
+  }
 }
 
 function applyTheme(): void {
@@ -188,6 +220,7 @@ onMounted(async () => {
   })
   stopMirror = mirrorInlineStyles(host.value)
   t.open(host.value)
+  useWebgl(t)
   t.onData((data) => conn?.sendInput(data))
   t.onBinary((data) => conn?.sendBinary(Uint8Array.from(data, (c) => c.charCodeAt(0) & 0xff)))
   t.onResize(({ cols, rows }) => conn?.resize(cols, rows))
@@ -202,6 +235,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   unmounted = true
   conn?.close()
+  terminalSettled(props.tab.name)
   resizeObserver?.disconnect()
   schemeQuery?.removeEventListener('change', applyTheme)
   if (frame) window.cancelAnimationFrame(frame)

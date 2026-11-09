@@ -185,7 +185,14 @@ export function clearToken(): void {
 
 const API = '/api/v1'
 
-async function request<T>(method: string, path: string, body?: unknown, auth = true): Promise<T> {
+/**
+ * How long a quick call waits before it counts as unreachable. A server that
+ * is paused (or a laptop that slept) accepts the connection and never
+ * answers; without a limit the page would wait forever.
+ */
+const QUICK_TIMEOUT_MS = 10_000
+
+async function request<T>(method: string, path: string, body?: unknown, auth = true, timeoutMs?: number): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (auth) {
@@ -194,6 +201,7 @@ async function request<T>(method: string, path: string, body?: unknown, auth = t
     headers.Authorization = `Bearer ${token}`
   }
   let res: Response
+  let text: string
   try {
     res = await fetch(API + path, {
       method,
@@ -202,11 +210,12 @@ async function request<T>(method: string, path: string, body?: unknown, auth = t
       credentials: 'omit',
       cache: 'no-store',
       redirect: 'error',
+      signal: timeoutMs === undefined ? undefined : AbortSignal.timeout(timeoutMs),
     })
+    text = await res.text()
   } catch {
     throw new ApiError(0, 'The workspace server cannot be reached.')
   }
-  const text = await res.text()
   let data: unknown = null
   if (text) {
     try {
@@ -232,7 +241,7 @@ export async function exchangeCode(code: string): Promise<void> {
 
 /** A single-use WebSocket ticket, valid for 30 seconds. */
 export async function getTicket(): Promise<string> {
-  const res = await request<{ ticket: string; expiresAt: string }>('POST', '/auth/ticket')
+  const res = await request<{ ticket: string; expiresAt: string }>('POST', '/auth/ticket', undefined, true, QUICK_TIMEOUT_MS)
   return res.ticket
 }
 
@@ -242,7 +251,7 @@ export async function listRuns(): Promise<RunListItem[]> {
 }
 
 export function getRun(id: string): Promise<Run> {
-  return request<Run>('GET', lab(id))
+  return request<Run>('GET', lab(id), undefined, true, QUICK_TIMEOUT_MS)
 }
 
 /** 409 not_started before Start (never for a playground). */

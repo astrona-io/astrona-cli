@@ -28,7 +28,7 @@ import (
 // is bound to the root command's persistent --config/--file/--git/--git-ref
 // flags.
 func newRunCmd(flags *rootFlags) *cobra.Command {
-	var yes, withoutLogin, workspace, uiStartup, browser, noBrowser bool
+	var yes, withoutLogin, browser, noBrowser bool
 	cmd := &cobra.Command{
 		Use:   "run [lab]",
 		Short: "Start a lab: create its cluster(s) or VM(s) and set it up",
@@ -52,7 +52,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"and their URLs and status are printed when the lab is ready — see `astrona port-forward`.\n\n" +
 			"A lab from the catalog (`astrona run astrona.io/ATS014/section-010/module-01/lab-02`, see `astrona labs`) " +
 			"offers login when you are not signed in: progress and results will not be tracked on Astrona as a guest. " +
-			"Choose Log in or Continue as guest; Never ask again saves login-reminder=no. " +
+			"Answer yes to log in, no to continue as a guest, or never to continue as a guest and save login-reminder=no. " +
 			"Use --without-login to confirm in automation. If you sign in with `astrona login`, before anything is built " +
 			"astrona starts a lab session on Astrona; once the lab is ready it prints the lab page URL. " +
 			"Your matching course page connects to it without a redirect, and setup time never counts. Labs from " +
@@ -61,27 +61,22 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"it is); --yes starts over without asking and is required when not in a terminal. If other " +
 			"labs are running, it also offers to destroy them first — only when asked in a terminal; " +
 			"--yes never touches other labs.\n\n" +
-			"--ui shows one startup notice with Yes/No choices, then opens a lab's terminal workspace once it is ready. " +
-			"Downloads, setup, errors and interactive shells stay inside the UI's terminal pane. " +
-			"Yes accepts the displayed terms and settings and starts setup. It is not code trust: a remote lab still shows its trust prompt, and another astrona release is only installed after its own prompt (or --trust / --install-version). No cancels startup. " +
-			"If the lab already exists, the UI asks before destroying it and starting over with all work discarded. " +
-			"That replacement stays local: no account session, progress or results are sent to Astrona. Use astrona ui to reopen without restarting. " +
-			"In v0.5.0 the terminal UI is replaced by a browser workspace.\n\n" +
 			"Once trust is settled, an interactive run of a Kind lab asks \"Open this lab in your browser?\" (yes/no/always/never). " +
 			"On yes, the lab is set up as usual, then astrona starts the local browser workspace (or reuses a running one), prints its link " +
-			"and opens it. The link has a single-use code that expires after 2 minutes; `astrona ui status` prints a fresh one and " +
+			"and opens it. The link has a single-use code that expires after 2 minutes; `astrona ui <lab>` opens a fresh one and " +
 			"`astrona ui stop` stops the workspace (labs keep running). An exam's timer starts when you click Start in the browser, not when " +
 			"the lab is ready. always and never are saved as the browser setting (`astrona settings set browser ask` asks again). " +
 			"--browser and --no-browser answer in advance. Without a terminal on stdin and stdout the answer is no; with no browser on " +
-			"the machine (no display) nothing is asked. --ui and --headless never open the browser.\n\n" +
-			"--headless keeps Kind and QEMU setup headless, including in v0.5.0 and later. It skips the UI, login reminder and new account sessions, " +
+			"the machine (no display) nothing is asked. --headless never opens the browser.\n\n" +
+			"QEMU (VM) labs do not open in the browser yet: once ready, run prints the astrona ssh command for each VM; " +
+			"astrona status <lab> shows them.\n\n" +
+			"--headless keeps Kind and QEMU setup headless. It skips the browser workspace, login reminder and new account sessions, " +
 			"then returns after setup with the lab still running for external validation. Missing approvals fail instead of prompting, even in a terminal. " +
 			"Terms, settings review, remote-code trust and --yes for replacing an existing run still apply. This uses the normal lab name and setup; " +
 			"it does not grade or clean up automatically. Use astrona destroy when finished, or astrona test for the full setup, reference solution, grading and cleanup pipeline.",
 		Example: `  astrona run astrona.io/ATS014/section-010/module-01/lab-02   # catalog lab: no login needed
   astrona run ./labs/my-lab
   astrona run ./labs/my-lab --browser                 # browser workspace (Kind labs)
-  astrona run ./labs/my-lab --ui                      # terminal workspace
   astrona run ./labs/my-lab --headless --accept-terms # setup for external checks
   astrona run --git https://github.com/org/labs -c labs/net-01
   astrona run renew                                  # a running playground: its full time limit again`,
@@ -90,16 +85,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err := configureHeadless(cmd); err != nil {
 				return err
 			}
-			if err := checkBrowserFlags(browser, flags.headless, workspace || uiStartup); err != nil {
+			if err := checkBrowserFlags(browser, flags.headless); err != nil {
 				return err
-			}
-			if workspace || uiStartup {
-				if err := requireWorkspaceTerminal(); err != nil {
-					return err
-				}
-				if os.Getenv(labops.LabShellEnvVar) != "" {
-					flags.keepContext = true
-				}
 			}
 			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
 				return err
@@ -112,11 +99,6 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer configCleanup()
-			if workspace || uiStartup {
-				if err := workspaceRuntime(cfg); err != nil {
-					return err
-				}
-			}
 
 			// Resolve restart consent before account access or runtime changes.
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
@@ -133,20 +115,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if len(args) > 0 && catalog.LooksLikeLabID(args[0]) {
 				label = args[0] + " (" + clusterName + ")"
 			}
-			var choice runChoice
-			if workspace || uiStartup {
-				if exists {
-					if err := approveUIRestart(cmd, flags, clusterName, confirmUIRun); err != nil {
-						return err
-					}
-					choice.startOver = true
-				} else if flags.uiRestart != nil {
-					return fmt.Errorf("the lab changed after the restart notice; nothing was started. Run the command again")
-				}
-			} else {
-				choice, err = chooseRun(os.Stdin, promptOut, !flags.headless && isatty.IsTerminal(os.Stdin.Fd()), yes,
-					exists, label, labops.OtherRunningLabNames(clusterName))
-			}
+			choice, err := chooseRun(os.Stdin, promptOut, !flags.headless && isatty.IsTerminal(os.Stdin.Fd()), yes,
+				exists, label, labops.OtherRunningLabNames(clusterName))
 			if err != nil {
 				return err
 			}
@@ -183,7 +153,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err := settings.ValidateParallel(flags.parallel); err != nil {
 				return err
 			}
-			flags.browserRun, err = wantBrowser(flags, cfg, browser, noBrowser, workspace || uiStartup)
+			flags.browserRun, err = wantBrowser(flags, cfg, browser, noBrowser)
 			if err != nil {
 				return err
 			}
@@ -214,20 +184,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 					rep.Warn("couldn't destroy %s: %s — continuing", other, err)
 				}
 			}
-			if flags.localOnly {
-				if !choice.startOver {
-					st, err := labstate.Load(clusterName)
-					if err != nil {
-						return err
-					}
-					flags.uiRestart = &uiRunRestart{clusterName, labops.RunID(st)}
-				}
-				if err := discardUIRun(clusterName, flags.uiRestart); err != nil {
-					return err
-				}
-			} else {
-				labops.EndOldSession(os.Stderr, clusterName) // an old playground's watchdog would remove the new lab
-			}
+			labops.EndOldSession(os.Stderr, clusterName) // an old playground's watchdog would remove the new lab
 			if choice.startOver {
 				// With --keep-context run won't switch again: the old lab's context goes back first.
 				if err := labops.RemoveForRestart(os.Stdout, cfg, baseDir, clusterName, flags.keepContext, flags.localOnly, rep); err != nil {
@@ -242,10 +199,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			start.Done(clusterName)
 			release()
-			disarm() // the workspace reads Ctrl+C itself
-			if workspace {
-				return runLabWorkspace(cmd.Context(), cfg, baseDir, flags)
-			}
+			disarm()
 			if flags.browserRun {
 				return openBrowserWorkspace(cfg, baseDir, flags)
 			}
@@ -255,12 +209,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 
 	addParallelFlag(cmd, flags)
 	addKeepContextFlag(cmd, flags)
-	cmd.Flags().BoolVar(&workspace, "ui", false, "Open the terminal workspace (Kind or QEMU labs); confirm a local-only restart if the lab already exists")
 	cmd.Flags().BoolVar(&flags.headless, "test-mode", false, "Deprecated alias for --headless")
 	legacy := cmd.Flags().Lookup("test-mode")
 	legacy.Hidden, legacy.Deprecated = true, "use --headless instead"
-	cmd.Flags().BoolVar(&uiStartup, "ui-startup", false, "Confirm startup in the UI and return to Home")
-	cmd.Flags().Lookup("ui-startup").Hidden = true
 	cmd.Flags().BoolVar(&withoutLogin, "without-login", false, "Confirm running a catalog lab without signing in or tracking progress on Astrona")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "If the lab is already running, destroy it and start over without asking")
 	cmd.Flags().BoolVar(&browser, "browser", false, "Open the Kind lab in the browser workspace once it is ready, without asking")

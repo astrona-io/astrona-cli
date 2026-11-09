@@ -371,7 +371,7 @@ A resource's short name is its file name without the extension (`setup-db.sh` â†
 
 ## `tabs`
 
-kind only. The tabs of the [browser workspace](../guides/ui-home.md#browser-workspace)'s right panel. The first tab is always the
+kind only. The tabs of the [browser workspace](../guides/browser-workspace.md#tabs)'s right panel. The first tab is always the
 **focus tab**: a terminal on the lab's own cluster, named `main`. The entries here come after it, in order. The learner
 switches between tabs but cannot add or close one, and nothing outside this list is ever opened.
 

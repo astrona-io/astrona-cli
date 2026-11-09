@@ -56,8 +56,13 @@ The page served by the browser workspace lives in `internal/workspace/web`
   to check a change in the browser console before release.
 - CSP is `default-src 'self'`: no inline `<script>`, no `style` attributes or
   inline `<style>` in our templates (use classes), no `data:` URIs, no CDN and
-  no remote fonts. Fonts are self-hosted from `@fontsource`. xterm's own inline
-  styles are mirrored into constructed stylesheets (`src/terminal/cspStyles.ts`).
+  no remote fonts. Fonts are self-hosted from `@fontsource`. While a terminal is
+  mounted, `document.createElement('style')` returns an inert element whose text
+  is mirrored into constructed stylesheets (`src/terminal/cspStyles.ts`), so
+  xterm's runtime `<style>` rules apply without a CSP violation. The terminal
+  draws with `@xterm/addon-webgl` (truecolor without `style` attributes); the
+  DOM renderer is only the fallback. Check for violations with a
+  `ReportingObserver` (`buffered: true`): the console does not always show them.
 - The HTTP and WebSocket contract is `docs/reference/workspace-api.md`. All
   calls go through `src/api.ts`; components never call `fetch` directly.
   Question HTML from the server is rendered as HTML, never evaluated.

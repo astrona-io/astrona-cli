@@ -87,7 +87,7 @@ nav:
       - Grading: concepts/grading.md
       - Run Logs: concepts/logs.md
   - Guides:
-      - UI Home and Workspace: guides/ui-home.md
+      - Browser Workspace: guides/browser-workspace.md
       - CLI Settings: guides/settings.md
       - Local Data and Caches: guides/local-data.md
       - CLI Usage Terms: guides/cli-terms.md

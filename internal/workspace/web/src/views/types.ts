@@ -17,7 +17,9 @@ export interface ViewStatus {
  * ViewStatus whenever its state changes, emits "leave" when the user asks
  * to move focus out of it, "unauthorized" when the session token is
  * refused, "runGone" when the server says the run changed or stopped, and
- * exposes focus(). A view stays mounted while another tab is shown.
+ * exposes focus(). A view stays mounted while another tab is shown. A view
+ * that loses its connection reports it to connectivity.ts, which covers the
+ * whole workspace with the "connection lost" dialog, whichever tab is shown.
  */
 export interface ViewProps {
   lab: string

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -73,10 +75,10 @@ func uploadVMResourceBundle(ctx context.Context, args []string, bundle, id strin
 		return err
 	}
 	upload.Stdin = archive
-	var output workspaceOutput
+	var output cappedOutput
 	upload.Stdout, upload.Stderr = &output, &output
 	if err := upload.Run(); err != nil {
-		return fmt.Errorf("prepare VM resources: %w: %s", err, strings.TrimSpace(string(output.Bytes())))
+		return fmt.Errorf("prepare VM resources: %w: %s", err, strings.TrimSpace(output.buffer.String()))
 	}
 	return nil
 }
@@ -98,4 +100,15 @@ mv "$stage/workspace/resources" "$HOME/resources"
 mv "$stage/workspace/bin" "$base/bin"
 printf '%s\n' ` + labops.ShellQuote(id) + ` > "$base/id"
 `
+}
+
+// cappedOutput keeps a misbehaving VM from filling host memory through the
+// upload's output: writes past 1 MiB fail.
+type cappedOutput struct{ buffer bytes.Buffer }
+
+func (b *cappedOutput) Write(p []byte) (int, error) {
+	if b.buffer.Len()+len(p) > 1024*1024 {
+		return 0, io.ErrShortBuffer
+	}
+	return b.buffer.Write(p)
 }

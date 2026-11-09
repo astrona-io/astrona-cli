@@ -119,7 +119,7 @@ func newShellCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
-// runLabShell is also used after the workspace has released the terminal.
+// runLabShell opens the isolated lab terminal attached to this one.
 func runLabShell(lab, clusterFlag string, command []string) error {
 	c, target, err := labShellCommand(lab, clusterFlag, command)
 	if err != nil {
@@ -134,16 +134,9 @@ func runLabShell(lab, clusterFlag string, command []string) error {
 		return runAttached(c)
 	}
 
-	if os.Getenv(uiPaneEnv) == "1" {
-		uiPaneTitle("SHELL / " + target)
-		fmt.Fprint(os.Stdout, "\x1b[2J\x1b[H")
-	} else {
-		fmt.Fprintf(os.Stderr, "Opening isolated terminal for %s (context kind-%s). Work in /workspace; type `exit` to leave.\n", lab, target)
-	}
+	fmt.Fprintf(os.Stderr, "Opening isolated terminal for %s (context kind-%s). Work in /workspace; type `exit` to leave.\n", lab, target)
 	err = runAttached(c)
-	if os.Getenv(uiPaneEnv) != "1" {
-		fmt.Fprintf(os.Stderr, "Left lab shell for %s.\n", lab)
-	}
+	fmt.Fprintf(os.Stderr, "Left lab shell for %s.\n", lab)
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
 		return nil // the shell's own exit status is the user's last command, not ours
