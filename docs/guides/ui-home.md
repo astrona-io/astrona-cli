@@ -110,6 +110,62 @@ the counter. It does not extend exam limits or playground expiry deadlines,
 and it does not send activity data to the API. Closing the UI abruptly may lose
 up to five seconds since the last checkpoint.
 
+## Browser workspace
+
+In v0.5.0 a browser workspace replaces the terminal UI for Kind labs. Once the
+trust prompt (if any) is settled, an interactive `astrona run` asks:
+
+```text
+Open this lab in your browser? (yes/no/always/never):
+```
+
+- `yes` sets the lab up as usual, then starts the local workspace server (or
+  reuses a running one), prints a link and opens it in your default browser.
+- `no` keeps the command-line flow.
+- `always` and `never` answer the same way and save the answer as the
+  [`browser` setting](settings.md), so later runs do not ask.
+
+Answer in advance with a flag:
+
+```sh
+astrona run ./labs/my-lab --browser      # open it without asking
+astrona run ./labs/my-lab --no-browser   # never open it, never ask
+```
+
+The question is only asked when stdin and stdout are a terminal; otherwise the
+answer is no (unless you pass `--browser`). On a machine without a browser
+(no display) nothing is asked; with `--browser` the link is printed and nothing
+is opened. `--ui` and `--headless` never open the browser, and QEMU labs keep
+the terminal UI: `--browser` on a QEMU lab is an error.
+
+The link is printed on every yes, so you can open it yourself:
+
+```text
+Browser workspace: http://127.0.0.1:47300/#code=…&lab=my-lab
+```
+
+The `#code=` part is a single-use launch code that expires after two minutes.
+It stays in the fragment, so it never reaches the server log or a referrer.
+For an exam, the timer does not start when the lab is ready: the page shows
+the time limit and rules, and the timer starts when you click **Start**.
+
+The workspace server listens on `127.0.0.1` only. Its terminals are the same
+isolated containers as `astrona shell`: they may only write the lab's own
+workspace, and never see your home directory, container engine socket or
+SSH agent. It stops by itself after 15 minutes without a page, terminal or
+running lab.
+
+```sh
+astrona ui status            # running?, a fresh link, pages and terminals
+astrona ui status -o json
+astrona ui stop              # stop the server and its terminals; labs keep running
+```
+
+`astrona ui status` prints a new link with a fresh code each time, for a page
+you closed or a link that expired. `astrona ui stop` ends every browser terminal
+but leaves the labs running; `astrona run` starts the server again. The page's
+HTTP API is described in the [workspace API reference](../reference/workspace-api.md).
+
 ## Work on a lab
 
 Start a new lab and enter its workspace:
@@ -118,12 +174,9 @@ Start a new lab and enter its workspace:
 astrona run ./labs/my-lab --ui
 ```
 
-If you omit `--ui`, an interactive run first offers the UI, before terms
-acceptance or downloads. Press Enter or type `yes` to open it; `no`
-continues with the command-line prompts. The offer explains that in v0.5.0 the
-terminal UI is replaced by a browser workspace. Use `--ui=false` to skip it. Runs with `--yes`,
-CI jobs and redirected input/output keep the command-line flow without this
-question. The UI supports Kind and QEMU labs.
+A plain `astrona run` no longer offers the terminal UI: for a Kind lab it asks
+whether to open the [browser workspace](#browser-workspace) instead, which
+replaces the terminal UI in v0.5.0. The terminal UI supports Kind and QEMU labs.
 
 Inside the UI, startup shows one Yes/No box before downloads or lab changes.
 Yes starts setup. It is not code trust: a lab from a remote source (a URL or

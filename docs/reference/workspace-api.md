@@ -11,7 +11,8 @@ has been idle for a while. See [UI Home and Workspace](../guides/ui-home.md).
 
 ## Conventions
 
-- **Base URL.** `http://127.0.0.1:<port>`. The port is recorded in
+- **Base URL.** `http://127.0.0.1:<port>`. The server prefers port 47300 and
+  takes a free port when that one is in use; the port is recorded in
   `~/.astrona/workspace/server.json`. `localhost:<port>` is accepted as well;
   any other `Host` header is refused with `421`.
 - **JSON.** Request bodies must be `Content-Type: application/json`, at most
@@ -42,6 +43,7 @@ has been idle for a while. See [UI Home and Workspace](../guides/ui-home.md).
   | 500 | `internal` | Anything else. The message says what failed. |
   | 501 | `unsupported` | Terminals on a platform without a PTY (native Windows). |
   | 502 | `terminal_failed` | The terminal container could not be started. Nothing else was started instead. |
+  | 503 | `unavailable` | The server is stopping; no new terminal is started. |
 
 ## Authentication
 
@@ -182,7 +184,8 @@ commands, expected values, admin credentials or kubeconfigs.
 `html` is rendered on the server from the task's Markdown (GitHub-flavoured
 tables, strikethrough, autolinks and task lists). Raw HTML in the Markdown is
 dropped, and links with `javascript:`, `vbscript:`, `file:` or `data:` URLs are
-removed. Insert it as HTML; the page's CSP blocks inline script anyway.
+removed (except `data:image/…`, which the CSP's `img-src 'self'` does not load).
+Insert it as HTML; the page's CSP blocks inline script anyway.
 `target` is the target the question is about. `hints` is always empty for now.
 
 Before Start an exam or learning lab answers `409 not_started` (a playground
@@ -274,7 +277,8 @@ Client to server:
 | `{"type":"ping"}` | Keep-alive; answered with `pong`. |
 
 Other close codes: `1001` when the server shuts down or the terminal is
-deleted, `1008` for a frame that is too large or not understood.
+deleted, `1008` for a control frame that is not valid JSON, `1009` for a frame
+larger than 64 KiB.
 
 Opening the same terminal again takes it over: only the newest view can type.
 Closing the WebSocket (tab closed, page reloaded) does not end the shell;
