@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"astrona/internal/localdata"
 	"github.com/spf13/cobra"
@@ -108,6 +109,8 @@ func TestCommandLockCoversSetupAndReleasesOnError(t *testing.T) {
 }
 
 func TestConfirmedCleanRefusesConcurrentCommand(t *testing.T) {
+	defer func(wait time.Duration) { dataLockWait = wait }(dataLockWait)
+	dataLockWait = 100 * time.Millisecond
 	s, provider := dataTestStore(t)
 	release, err := s.Lock(false)
 	if err != nil {
