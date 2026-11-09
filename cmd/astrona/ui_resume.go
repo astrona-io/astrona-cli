@@ -25,7 +25,7 @@ func loadSavedLab(name string, st *labstate.State, flags *rootFlags) (*config.La
 		if err != nil {
 			return nil, "", noop, err
 		}
-		path, err = config.JoinStrictlyWithinBaseDir(repo, path)
+		path, err = config.JoinWithinBaseDir(repo, path)
 		if err != nil {
 			return nil, "", noop, err
 		}

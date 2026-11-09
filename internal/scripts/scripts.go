@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"astrona/internal/config"
@@ -21,10 +22,10 @@ const MaxScriptDownloadBytes = 50 * 1024 * 1024
 
 // RunInitScripts runs a list of bootstrap/testing/teardown scripts in order
 // through a single executor (bash on the host for kind, SSH into one VM for
-// qemu). Each script is a local file (resolved relative to baseDir), a local
-// folder (every file inside run in filename order — os.ReadDir already
-// returns entries sorted by name, so numbering them e.g. "01-x.sh", "02-y.sh"
-// controls run order), or a URL (downloaded to a temp file first). This is
+// qemu). Each script is a local file (resolved relative to baseDir; must
+// stay inside it, symlinks included — see config.JoinWithinBaseDir), a
+// local folder (its regular, non-hidden "*.sh" files run in filename order —
+// see pickFolderScripts), or a URL (downloaded to a temp file first). This is
 // the low-level primitive — see runBootstrap/runOnEveryVM, below, for
 // running against a whole (possibly multi-VM) LabEnvironment instead of one
 // fixed executor.
@@ -100,20 +101,43 @@ func runInitScript(s config.ResourceItem, baseDir string, exec executor.ScriptEx
 			return fmt.Errorf("failed to read script folder '%s': %w", resolved, err)
 		}
 
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-
-			scriptFile := filepath.Join(resolved, entry.Name())
+		folderScripts, skipped := pickFolderScripts(entries)
+		if len(folderScripts) == 0 && len(skipped) > 0 {
+			return fmt.Errorf("script folder '%s' has no '.sh' files to run (skipped: %s) — only regular '*.sh' files that don't start with '.' run", resolved, strings.Join(skipped, ", "))
+		}
+		for _, name := range folderScripts {
+			scriptFile := filepath.Join(resolved, name)
 			if err := exec.RunScript(scriptFile, out); err != nil {
-				return fmt.Errorf("failed to run script '%s' in folder '%s': %w", entry.Name(), s.Name, err)
+				return fmt.Errorf("failed to run script '%s' in folder '%s': %w", name, s.Name, err)
 			}
 		}
 	default:
 		return fmt.Errorf("unsupported type '%s' for init scripts '%s' (must be 'file', 'folder', or 'url')", s.Type, s.Name)
 	}
 	return nil
+}
+
+// pickFolderScripts picks the entries of a script folder that run: regular
+// files (not folders, not symlinks) whose name ends in ".sh" and doesn't
+// start with "." — so .DS_Store, editor backups (setup.sh~, .setup.sh.swp)
+// and READMEs never run. They come back sorted by name (os.ReadDir's
+// order), so "01-x.sh", "02-y.sh" controls run order. skipped lists the
+// other non-hidden regular files, for an actionable error when nothing
+// matches.
+func pickFolderScripts(entries []os.DirEntry) (run, skipped []string) {
+	for _, entry := range entries {
+		name := entry.Name()
+		if !entry.Type().IsRegular() || strings.HasPrefix(name, ".") {
+			continue
+		}
+		if !strings.HasSuffix(name, ".sh") {
+			skipped = append(skipped, name)
+			continue
+		}
+		run = append(run, name)
+	}
+	sort.Strings(run)
+	return run, skipped
 }
 
 // HasBootstrapInit reports whether RunBootstrap would actually run anything

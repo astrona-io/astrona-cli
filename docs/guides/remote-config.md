@@ -42,7 +42,7 @@ With `--git` set, `--config` changes meaning: instead of a local path or URL, it
 
 ## Path safety
 
-Every local path resolution — the lab's own base directory, script/manifest `source: file`/`folder` references — is joined against the lab's base directory and rejected if it would escape it (`JoinWithinBaseDir`). A lab config can't reference files outside its own directory by accident or by a crafted `source` value.
+Every local path resolution — the lab's own base directory, script/manifest `source: file`/`folder` references — must be relative, is joined against the lab's base directory, and is rejected if it would escape it — lexically (`../..`) or through a symlink committed to the lab (`JoinWithinBaseDir`). Absolute paths are refused. A lab config can't reference files outside its own directory by accident or by a crafted `source` value.
 
 ## Approving remote labs
 

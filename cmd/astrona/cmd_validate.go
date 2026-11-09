@@ -53,12 +53,28 @@ func labConfigResults(cfg *config.LabConfig, baseDir string) []checkResult {
 	}
 
 	if baseDir == "" {
+		// No folder to check against, but an absolute local source is
+		// wrong wherever the config lives.
+		for _, ref := range resourceRefs(cfg) {
+			if t := strings.ToLower(ref.item.Type); (t == "file" || t == "folder") && filepath.IsAbs(ref.item.Source) {
+				fail(ref.where, fmt.Sprintf("path '%s' must be relative to the lab directory, not absolute", ref.item.Source))
+			}
+		}
 		res = append(res, checkResult{status: checkWarn, name: "sources", detail: "config loaded from a URL — local file references not checked"})
 		return res
 	}
 	for _, ref := range resourceRefs(cfg) {
 		if _, err := scripts.ResolveLocalSource(ref.item, baseDir); err != nil {
 			fail(ref.where, err.Error())
+		}
+	}
+	// A qemu base image of type file is read from the lab directory too
+	// (existence isn't checked: the source may contain {ARCH}).
+	for i, vm := range cfg.Runtime.QEMU {
+		if strings.EqualFold(vm.Image.Type, "file") && vm.Image.Source != "" {
+			if _, err := config.JoinWithinBaseDir(baseDir, vm.Image.Source); err != nil {
+				fail(fmt.Sprintf("runtime.qemu[%d].image.source", i), err.Error())
+			}
 		}
 	}
 	if list, err := resources.Collect(cfg, baseDir); err != nil {
@@ -73,7 +89,7 @@ func labConfigResults(cfg *config.LabConfig, baseDir string) []checkResult {
 	docs := docRefs(cfg)
 	for _, where := range sortedKeysOf(docs) {
 		path := docs[where]
-		full, err := config.JoinStrictlyWithinBaseDir(baseDir, path)
+		full, err := config.JoinWithinBaseDir(baseDir, path)
 		if err != nil {
 			res = append(res, checkResult{status: checkWarn, name: where, detail: err.Error()})
 			continue

@@ -354,11 +354,13 @@ type LabConfig struct {
 // actual config file path. With gitURL set, configDirOrURL changes meaning:
 // gitURL is cloned (or pulled, if already cached) via resolveGitConfigSource,
 // and configDirOrURL becomes the subdirectory within that checkout to use
-// (joined via joinWithinBaseDir, so it can't escape the clone — e.g. "." for
-// the repo root, or "labs/lab-010" for a monorepo-style lab layout).
-// Otherwise a direct URL is used as-is (or has the file name appended), a
-// local directory gets the file name joined on, and a local file path is
-// used as-is.
+// (joined via JoinWithinBaseDir — e.g. "." for the repo root, or
+// "labs/lab-010" for a monorepo-style lab layout). It must be relative and
+// can't escape the clone, not even through a symlink committed to the repo.
+// Otherwise (no gitURL) configDirOrURL is the user's own command-line
+// choice, so an absolute local path is fine: a direct URL is used as-is (or
+// has the file name appended), a local directory gets the file name joined
+// on, and a local file path is used as-is.
 func ResolveConfigPath(configDirOrURL, fileName, gitURL, gitRef string, verbose bool) (string, error) {
 	if gitURL != "" {
 		repoDir, err := gitsource.ResolveGitConfigSource(gitURL, gitRef, verbose)
