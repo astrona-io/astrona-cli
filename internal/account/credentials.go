@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"astrona/internal/apphome"
+	"astrona/internal/filelock"
 )
 
 // expirySkew renews an access token this long before it expires, so it
@@ -231,15 +232,57 @@ func (c *Client) Active(ctx context.Context, s Store, site string) (*Credentials
 	return c.Renew(ctx, s, cr)
 }
 
+// renewLockWait bounds how long Renew waits for another astrona's renewal
+// (two requests of at most requestTimeout each) before giving up.
+const renewLockWait = 3 * requestTimeout
+
+// lockPath is the lock file that serializes renewals across processes.
+func (s Store) lockPath() string { return s.Path + ".lock" }
+
 // Renew refreshes cr's access token now and saves the result before
 // returning it: the refresh token rotates, so the new one must be on disk
-// before anything else happens. A rejected refresh token removes the
-// credentials and wraps ErrSignedOut — unless another astrona renewed them
-// in the meantime, in which case its saved sign-in is used.
+// before anything else happens. Renewals are serialized across processes
+// by a lock next to the credentials file, and the saved sign-in is read
+// again once the lock is held: when another astrona renewed it meanwhile,
+// that sign-in is used (or renewed in turn) instead of spending cr's
+// refresh token, which the site no longer accepts. A rejected refresh
+// token removes the credentials and wraps ErrSignedOut.
 func (c *Client) Renew(ctx context.Context, s Store, cr *Credentials) (*Credentials, error) {
+	if err := os.MkdirAll(filepath.Dir(s.Path), 0o700); err != nil {
+		return nil, fmt.Errorf("could not renew your sign-in: %w", err)
+	}
+	lockCtx, cancel := context.WithTimeout(ctx, renewLockWait)
+	release, err := filelock.Wait(lockCtx, s.lockPath())
+	cancel()
+	if err != nil {
+		return nil, fmt.Errorf("could not renew your sign-in (another astrona may be renewing it — try again): %w", err)
+	}
+	defer release()
+
+	saved, err := s.Load()
+	switch {
+	case errors.Is(err, errOldFormat):
+		_, _ = s.Delete()
+		return nil, err
+	case err != nil:
+		return nil, err
+	case saved == nil:
+		return nil, ErrSignedOut // signed out (or rejected) by another astrona meanwhile
+	case saved.Site != cr.Site:
+		return nil, fmt.Errorf("you're signed in to %s, not %s: %w", saved.Site, cr.Site, ErrSignedOut)
+	case saved.RefreshToken != cr.RefreshToken:
+		// Another astrona renewed it while this one waited.
+		if saved.fresh(c.Now()) {
+			return saved, nil
+		}
+		cr = saved
+	}
+
 	t, err := c.refresh(ctx, cr)
 	if err != nil {
 		if errors.Is(err, ErrSignedOut) {
+			// An astrona that renews without the lock (an older version) may
+			// still have rotated it: keep its sign-in rather than delete it.
 			if now, lerr := s.Load(); lerr == nil && now != nil && now.Site == cr.Site && now.RefreshToken != cr.RefreshToken {
 				if now.fresh(c.Now()) {
 					return now, nil
