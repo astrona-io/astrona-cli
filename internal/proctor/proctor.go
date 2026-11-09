@@ -1,3 +1,7 @@
+// Package proctor grades a lab: Evaluate runs its checks and validation
+// scripts and returns the results without printing; Report renders them
+// as the human report, and Grade is Evaluate followed by Report on
+// stdout. Attempts are recorded per lab (RecordAttempt, LoadAttempts).
 package proctor
 
 import (
@@ -119,7 +123,8 @@ func NewProctor(baseDir string, env *runtime.LabEnvironment) *Proctor {
 // Grade runs the lab's declarative checks and validation script(s),
 // printing pytest/robot-style per-case PASS/FAIL lines followed by a
 // summary line, and returns every case's result (for a JUnit report, see
-// junit.go) alongside the Proctor's overall verdict.
+// junit.go) alongside the Proctor's overall verdict. It is Evaluate
+// followed by Report on stdout.
 func (p *Proctor) Grade(cfg *config.LabConfig) ([]CheckResult, bool, error) {
 	start := time.Now()
 
@@ -127,43 +132,50 @@ func (p *Proctor) Grade(cfg *config.LabConfig) ([]CheckResult, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
+	p.Report(os.Stdout, cfg, results, time.Since(start))
+	return results, pass, nil
+}
 
+// Report writes Grade's human report of results to w: a PASS/FAIL line per
+// case with its message and (unless hints are hidden) its hint, the
+// summary line with elapsed, and the score. Colour follows w.
+func (p *Proctor) Report(w io.Writer, cfg *config.LabConfig, results []CheckResult, elapsed time.Duration) {
 	passed := 0
 	for _, r := range results {
 		if r.Pass {
 			passed++
 		}
-		fmt.Printf("  %s  %s %s\n", ui.PassFail(os.Stdout, r.Pass, 4), r.Name, ui.Paint(os.Stdout, "("+formatDuration(r.Duration)+")", ui.Dim))
+		fmt.Fprintf(w, "  %s  %s %s\n", ui.PassFail(w, r.Pass, 4), r.Name, ui.Paint(w, "("+formatDuration(r.Duration)+")", ui.Dim))
 		if r.Message != "" {
-			fmt.Printf("        %s\n", r.Message)
+			fmt.Fprintf(w, "        %s\n", r.Message)
 		}
 		if !r.Pass && r.Hint != "" && !p.hideHints {
-			fmt.Printf("        %s %s\n", ui.Paint(os.Stdout, "hint:", ui.Yellow, ui.Bold), r.Hint)
+			fmt.Fprintf(w, "        %s %s\n", ui.Paint(w, "hint:", ui.Yellow, ui.Bold), r.Hint)
 		}
 	}
 
 	failed := len(results) - passed
 	summary := fmt.Sprintf("%d passed, %d failed", passed, failed)
 	if failed > 0 {
-		summary = ui.Paint(os.Stdout, summary, ui.Red)
+		summary = ui.Paint(w, summary, ui.Red)
 	} else {
-		summary = ui.Paint(os.Stdout, summary, ui.Green)
+		summary = ui.Paint(w, summary, ui.Green)
 	}
-	fmt.Printf("\n%s in %s\n", summary, formatDuration(time.Since(start)))
+	fmt.Fprintf(w, "\n%s in %s\n", summary, formatDuration(elapsed))
 
 	score := ScoreOf(results)
 	line := fmt.Sprintf("Score: %d/%d points (%.0f%%)", score.Earned, score.Max, score.Percent())
 	if pp := cfg.Validation.PassPercent; pp > 0 {
 		line += fmt.Sprintf(" — pass mark %d%%", pp)
 	}
-	fmt.Println(line)
-
-	return results, pass, nil
+	fmt.Fprintln(w, line)
 }
 
 // Evaluate runs every check and validation script and returns the results
 // and verdict without printing a report — Grade's engine, also used by
-// `submit --watch` to redraw its own live view.
+// `submit` (labops.Submit, which renders with Report or as JSON) and
+// `submit --watch` to redraw its own live view. Validation scripts' own
+// output still goes to the script writer (ScriptOutputTo, Quiet).
 //
 // An error means grading could not run (nothing to grade, the lab's
 // cluster or VM unreachable, a script missing): callers must not record or
