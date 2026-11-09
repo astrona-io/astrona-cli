@@ -299,7 +299,7 @@ While a gate's target doesn't exist yet (`NotFound`, no matching resources, kind
 | `scripts` | list of [ResourceItem](#resourceitem) | Additional scripts, run after `script`, in order |
 | `passPercent` | int | `1`–`100`: pass once the score reaches this percentage (e.g. `66`). Unset: every check and script must pass |
 
-Validation scripts also take `hint` and `points` (see `ValidationCheck`).
+Validation scripts also take `hint` and `points` (see `ValidationCheck`). A lab needs at least one check or script to be graded — without any, `submit`/`test` exit 1 (`astrona validate` warns). On a qemu lab, a script's exit code `255` means SSH couldn't reach the VM and is a grading error, not a fail.
 
 ### `ValidationCheck`
 
@@ -307,7 +307,7 @@ Validation scripts also take `hint` and `points` (see `ValidationCheck`).
 |---|---|---|
 | `name` | string | Label shown in the Proctor's report |
 | `type` | string | `"resourceExists"` \| `"podReady"` \| `"command"` \| `"jsonpath"` \| `"count"` \| `"http"` — see [Grading](../concepts/grading.md) |
-| `resource` | string | `kubectl get` arguments (for `resourceExists`/`podReady`/`jsonpath`/`count`), e.g. `deploy/web -n shop` or `pods -l app=web -n shop` |
+| `resource` | string | `kubectl get` arguments (for `resourceExists`/`podReady`/`jsonpath`/`count`, required), e.g. `deploy/web -n shop` or `pods -l app=web -n shop`. The only flags allowed are `-n`/`--namespace`, `-l`/`--selector`, `--field-selector` and `-A`/`--all-namespaces`; no value may start with `-`. These four check types need a kind lab — a qemu lab has no cluster for them |
 | `command` | string | Shell words to run directly, no shell interpolation (for `command`) |
 | `expect` | string | Exact expected value (trimmed stdout / JSONPath value / body) |
 | `contains` | string | Value must contain this |

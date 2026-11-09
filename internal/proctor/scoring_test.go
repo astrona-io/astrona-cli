@@ -29,8 +29,8 @@ func TestScoreAndPassRule(t *testing.T) {
 	if !Passed(results, 80) || Passed(results, 81) {
 		t.Error("passPercent boundary wrong")
 	}
-	if (Score{}).Percent() != 100 || !Passed(nil, 0) {
-		t.Error("empty lab should pass")
+	if (Score{}).Percent() != 0 || Passed(nil, 0) || Passed(nil, 50) {
+		t.Error("nothing graded must not pass")
 	}
 }
 
@@ -141,7 +141,7 @@ func TestQuietShortensPodReadyAndSilencesScripts(t *testing.T) {
 	os.WriteFile(filepath.Join(bin, "kubectl"), []byte("#!/bin/sh\necho \"$*\" >> "+log+"\n"), 0700)
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	env := &runtime.LabEnvironment{KubeContext: "kind-x", Executor: executor.LocalExecutor{}}
+	env := &runtime.LabEnvironment{KubeContext: "kind-x", Kubeconfig: filepath.Join(bin, "kubeconfig"), Executor: executor.LocalExecutor{}}
 	checks := []config.ValidationCheck{{Name: "pods", Type: "podReady", Resource: "pod/x"}}
 
 	p := NewProctor(t.TempDir(), env)

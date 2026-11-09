@@ -34,10 +34,10 @@ type Score struct {
 	Earned, Max int
 }
 
-// Percent is Earned/Max as 0–100 (100 for an empty lab).
+// Percent is Earned/Max as 0–100 (0 when nothing was graded).
 func (s Score) Percent() float64 {
 	if s.Max == 0 {
-		return 100
+		return 0
 	}
 	return 100 * float64(s.Earned) / float64(s.Max)
 }
@@ -56,8 +56,11 @@ func ScoreOf(results []CheckResult) Score {
 }
 
 // Passed applies a lab's pass rule: with passPercent set, the score must
-// reach it; otherwise every result must pass.
+// reach it; otherwise every result must pass. No results never passes.
 func Passed(results []CheckResult, passPercent int) bool {
+	if len(results) == 0 {
+		return false
+	}
 	if passPercent > 0 {
 		return ScoreOf(results).Percent() >= float64(passPercent)
 	}
@@ -161,7 +164,14 @@ func (p *Proctor) Grade(cfg *config.LabConfig) ([]CheckResult, bool, error) {
 // Evaluate runs every check and validation script and returns the results
 // and verdict without printing a report — Grade's engine, also used by
 // `submit --watch` to redraw its own live view.
+//
+// An error means grading could not run (nothing to grade, the lab's
+// cluster or VM unreachable, a script missing): callers must not record or
+// send it as a result.
 func (p *Proctor) Evaluate(cfg *config.LabConfig) ([]CheckResult, bool, error) {
+	if !cfg.HasGrading() {
+		return nil, false, config.ErrNothingToGrade
+	}
 	results, err := p.runChecks(cfg.Validation.Checks)
 	if err != nil {
 		return nil, false, fmt.Errorf("Proctor checks failed to run: %w", err)
@@ -171,6 +181,9 @@ func (p *Proctor) Evaluate(cfg *config.LabConfig) ([]CheckResult, bool, error) {
 		return nil, false, fmt.Errorf("Proctor script failed to run: %w", err)
 	}
 	results = append(results, scriptResults...)
+	if len(results) == 0 {
+		return nil, false, fmt.Errorf("Proctor graded nothing: none of this lab's checks or scripts apply to its environment")
+	}
 	return results, Passed(results, cfg.Validation.PassPercent), nil
 }
 
@@ -191,10 +204,8 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 		return nil, nil
 	}
 
-	kubectlPath, err := executor.LookKubectl()
-	if err != nil {
-		return nil, err
-	}
+	var kubectlPath string
+	reachable := map[checkTarget]bool{}
 
 	results := make([]CheckResult, 0, len(checks))
 
@@ -210,16 +221,41 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 			continue
 		}
 
+		// Kubernetes checks only ever run against a lab's own isolated
+		// kubeconfig and context — never the user's ambient kubeconfig —
+		// and only once that cluster answers, so an unreachable cluster
+		// is a grading error rather than a learner's failed check.
+		var resourceArgs []string
+		if config.IsKubernetesCheck(c.Type) {
+			if t.context == "" || t.kubeconfig == "" {
+				return nil, fmt.Errorf("check '%s' needs a Kubernetes cluster from the lab, and this lab has none with its own kubeconfig (a qemu lab has no cluster; a kind lab started by an older astrona needs `astrona reset`)", c.Name)
+			}
+			if resourceArgs, err = config.ResourceArgs(c.Resource); err != nil {
+				return nil, fmt.Errorf("check '%s': %w", c.Name, err)
+			}
+			if kubectlPath == "" {
+				if kubectlPath, err = executor.LookKubectl(); err != nil {
+					return nil, err
+				}
+			}
+			if !reachable[t] {
+				if out, err := kubectl(kubectlPath, t.kubeconfig, "--context", t.context, "--request-timeout=10s", "get", "--raw=/readyz"); err != nil {
+					return nil, fmt.Errorf("the lab's cluster (%s) isn't reachable, so check '%s' can't be graded: %s", t.context, c.Name, out)
+				}
+				reachable[t] = true
+			}
+		}
+
 		switch strings.ToLower(c.Type) {
 		case "resourceexists":
-			args := append([]string{"--context", t.context, "get"}, strings.Fields(c.Resource)...)
+			args := append([]string{"--context", t.context, "get"}, resourceArgs...)
 			cmd := exec.Command(kubectlPath, args...)
 			cmd.Env = executor.KubeconfigEnv(t.kubeconfig)
 			out, err := cmd.CombinedOutput()
 			result.Pass = err == nil
 			result.Message = strings.TrimSpace(string(out))
 		case "podready":
-			args := append([]string{"--context", t.context, "wait", "--for=condition=Ready", fmt.Sprintf("--timeout=%ds", int(p.podReadyTimeout.Seconds()))}, strings.Fields(c.Resource)...)
+			args := append([]string{"--context", t.context, "wait", "--for=condition=Ready", fmt.Sprintf("--timeout=%ds", int(p.podReadyTimeout.Seconds()))}, resourceArgs...)
 			cmd := exec.Command(kubectlPath, args...)
 			cmd.Env = executor.KubeconfigEnv(t.kubeconfig)
 			out, err := cmd.CombinedOutput()
@@ -245,7 +281,7 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 			result.Pass = err == nil && ok
 			result.Message = joinMessage(trimmed, why)
 		case "jsonpath":
-			args := append([]string{"--context", t.context, "get"}, strings.Fields(c.Resource)...)
+			args := append([]string{"--context", t.context, "get"}, resourceArgs...)
 			args = append(args, "-o", "jsonpath="+c.JSONPath)
 			out, err := kubectl(kubectlPath, t.kubeconfig, args...)
 			if err != nil {
@@ -258,7 +294,7 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 				result.Message = fmt.Sprintf("%s is %q — %s", c.JSONPath, out, why)
 			}
 		case "count":
-			args := append([]string{"--context", t.context, "get"}, strings.Fields(c.Resource)...)
+			args := append([]string{"--context", t.context, "get"}, resourceArgs...)
 			out, err := kubectl(kubectlPath, t.kubeconfig, append(args, "-o", "name")...)
 			if err != nil {
 				result.Message = out
@@ -369,6 +405,10 @@ func (p *Proctor) runValidationBlock(val config.ValidationConfig, executor execu
 	}
 
 	for _, scriptItem := range scriptsList {
+		if scriptItem.Source == "" {
+			// No script configured: nothing ran, so no result either way.
+			continue
+		}
 		scriptStart := time.Now()
 		scriptPass, err := p.runScript(&scriptItem, executor)
 		if err != nil {
@@ -398,10 +438,10 @@ func (p *Proctor) runValidationBlock(val config.ValidationConfig, executor execu
 // runScript runs a single validation script through executor. Exit code 0
 // is a pass, non-zero is a fail — a failing lab is a normal outcome, not a
 // Go error, so only a real execution problem (script missing, bash not
-// found) is returned as an error.
+// found, SSH unable to reach the VM) is returned as an error.
 func (p *Proctor) runScript(script *config.ResourceItem, executor executor.ScriptExecutor) (bool, error) {
 	if script == nil || script.Source == "" {
-		return true, nil
+		return false, fmt.Errorf("validation script has no source")
 	}
 
 	scriptPath := script.Source

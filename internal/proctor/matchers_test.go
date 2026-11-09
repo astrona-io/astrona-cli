@@ -101,7 +101,7 @@ esac
 	os.WriteFile(filepath.Join(bin, "kubectl"), []byte(script), 0700)
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
-	p := NewProctor(t.TempDir(), &runtime.LabEnvironment{KubeContext: "kind-x", Executor: executor.LocalExecutor{}})
+	p := NewProctor(t.TempDir(), &runtime.LabEnvironment{KubeContext: "kind-x", Kubeconfig: filepath.Join(bin, "kubeconfig"), Executor: executor.LocalExecutor{}})
 	results, err := p.runChecks([]config.ValidationCheck{
 		{Name: "replicas", Type: "jsonpath", Resource: "deploy/web -n shop", JSONPath: "{.spec.replicas}", Expect: "2"},
 		{Name: "replicas wrong", Type: "jsonpath", Resource: "deploy/web -n shop", JSONPath: "{.spec.replicas}", Expect: "3"},

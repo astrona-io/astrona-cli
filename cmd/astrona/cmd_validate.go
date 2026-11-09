@@ -42,6 +42,11 @@ func labConfigResults(cfg *config.LabConfig, baseDir string) []checkResult {
 	if err := lifecycle.Validate(cfg); err != nil {
 		fail("runtime / gates", err.Error())
 	}
+	// A warning, not a failure: an ungraded playground is a valid lab to
+	// run — only `submit` and `test` refuse it.
+	if !cfg.HasGrading() {
+		res = append(res, checkResult{status: checkWarn, name: "validation", detail: "nothing to grade — no checks and no scripts, so `astrona submit` and `astrona test` exit 1 (fine for a playground)"})
+	}
 	for i, c := range cfg.Validation.Checks {
 		known := false
 		for _, t := range config.CheckTypes {

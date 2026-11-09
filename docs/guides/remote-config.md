@@ -46,7 +46,7 @@ Every local path resolution — the lab's own base directory, script/manifest `s
 
 ## Approving remote labs
 
-A lab from `--git` or a URL runs its scripts with bash on your machine (for kind labs), plus any `command` validation checks. So before `run`, `reset`, `test` or `submit` executes anything from a remote lab for the first time, astrona shows what it will do and asks:
+A lab from `--git` or a URL runs its scripts with bash on your machine (for kind labs), plus any `command` validation checks, and makes its `http` checks' requests from your machine. So before `run`, `reset`, `test` or `submit` executes anything from a remote lab for the first time, astrona shows what it will do and asks:
 
 ```text
 First time running this lab:
@@ -55,6 +55,7 @@ First time running this lab:
 It will:
   • runs on this machine (bash): setup (setup.sh)
   • runs on this machine (command check): kubectl get ns shop -o name
+  • requests from this machine (http check): http://web.localtest.me:8080/
   • applies 2 manifest source(s) to the lab cluster
   • opens 127.0.0.1:8080 → svc/web
   • ⚠ fetched when it runs, NOT covered by this approval: https://example.com/extra.sh

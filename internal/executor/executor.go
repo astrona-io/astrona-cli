@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+
+	"astrona/internal/sshopts"
 )
 
 // ScriptExecutor runs a script that has already been resolved to a local
@@ -84,22 +86,45 @@ func (s SSHExecutor) RunScript(scriptPath string, out io.Writer) error {
 	}
 	defer f.Close()
 
-	args := []string{
+	// Same isolation as the student terminal: no user ssh config, agent,
+	// X11 or port forwarding, local commands or escape character.
+	args := append(sshopts.Unattended(10),
 		"-i", s.KeyPath,
 		"-p", fmt.Sprintf("%d", s.Port),
 		"-o", "StrictHostKeyChecking=accept-new",
-		"-o", "UserKnownHostsFile=" + s.KnownHosts,
-		"-o", "BatchMode=yes",
-		"-o", "ConnectTimeout=10",
-		fmt.Sprintf("%s@%s", s.User, s.Host),
+		"-o", "UserKnownHostsFile="+s.KnownHosts,
+		"--", fmt.Sprintf("%s@%s", s.User, s.Host),
 		"bash", "-s",
-	}
+	)
 
 	cmd := exec.Command("ssh", args...)
 	cmd.Stdin = f
 	cmd.Stdout = out
 	cmd.Stderr = out
-	return cmd.Run()
+	err = cmd.Run()
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == sshFailureExit {
+		return &SSHConnectError{Host: s.Host, Port: s.Port}
+	}
+	return err
+}
+
+// sshFailureExit is the status ssh exits with when it couldn't connect or
+// the connection broke. It can't be told apart from a remote script that
+// itself exits 255, so scripts run over SSH must not use 255.
+const sshFailureExit = 255
+
+// SSHConnectError means ssh itself failed (exit 255: unreachable VM,
+// refused key, dropped connection), so the script's outcome is unknown.
+// It is deliberately not an *exec.ExitError: callers that treat a non-zero
+// exit as "the script said no" must not count this as one.
+type SSHConnectError struct {
+	Host string
+	Port int
+}
+
+func (e *SSHConnectError) Error() string {
+	return fmt.Sprintf("ssh to %s:%d exited 255 — the VM is unreachable or the connection failed, so the script's result is unknown", e.Host, e.Port)
 }
 
 // ErrNoKubectl is what every command says when kubectl is missing.
