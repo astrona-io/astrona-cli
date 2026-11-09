@@ -8,6 +8,7 @@ import (
 
 	"astrona/internal/config"
 	"astrona/internal/hypervisor"
+	"astrona/internal/sshopts"
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
@@ -78,7 +79,7 @@ func newSSHCmd() *cobra.Command {
 				user = userFlag
 			}
 
-			sshArgs := append(isolatedSSHOptions(),
+			sshArgs := append(sshopts.Isolated(),
 				"-tt",
 				"-p", strconv.Itoa(handle.SSHPort),
 				"-o", "StrictHostKeyChecking=accept-new",

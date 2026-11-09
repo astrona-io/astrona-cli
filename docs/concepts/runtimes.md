@@ -191,6 +191,8 @@ validation or resource scripts run by the host CLI.
 QEMU terminals and `astrona ssh` work inside the VM, starting in
 `~/.astrona/runtime/<lab>` in the remote user's home. No host directory is shared.
 SSH local-command escapes, user SSH configuration and agent forwarding are disabled.
+The CLI's own SSH connections that run lab scripts as the `astrona` account use the
+same isolation, plus key-only, non-interactive login with a connect timeout.
 
 Closing a tab, returning to Home or reopening the UI preserves workspace files.
 Deleting the lab or playground and a full reset discard them. A soft reset keeps
