@@ -161,6 +161,16 @@ astrona ui status -o json
 astrona ui stop              # stop the server and its terminals; labs keep running
 ```
 
+The right panel shows the lab's tabs. The first, **Terminal**, is the shell on
+the lab's own cluster. A lab can add more with [`tabs`](../reference/lab-config.md#tabs):
+a terminal on a linked cluster, a page the lab serves through one of its port
+forwards, or documentation. You switch between them with the mouse or with the
+arrow keys and Enter; you cannot add or close a tab. Tabs keep running while
+another one is shown, so a terminal keeps its shell and its scrollback. When a
+shell ends, **Open a new shell** starts another in the same tab. Documentation
+sites that refuse to be shown inside another page open in their own window
+instead.
+
 `astrona ui status` prints a new link with a fresh code each time, for a page
 you closed or a link that expired. `astrona ui stop` ends every browser terminal
 but leaves the labs running; `astrona run` starts the server again. The page's

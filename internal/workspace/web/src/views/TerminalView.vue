@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
-import { closeTerminal, isRunGone, isUnauthorized, listTerminals, openTerminal } from '../api'
+import { isRunGone, isTerminalStarting, isUnauthorized, listTerminals, openTerminal } from '../api'
 import { mirrorInlineStyles } from '../terminal/cspStyles'
 import { TerminalConnection, type LinkState } from '../terminal/connection'
 import { fontFamily, fontsReady, readTheme } from '../terminal/theme'
@@ -96,17 +96,22 @@ function scheduleFit(): void {
   })
 }
 
-// Reattaches to the target's running shell (so a reload keeps it), or opens
-// one. Ended shells of this target are deleted first: they count towards the
-// server's limit of open terminals.
+// Reattaches to this tab's running shell (so a reload keeps it), or opens
+// one; the server replaces an ended one. While another page is starting the
+// tab's shell, waits for it.
 async function findOrOpenTerminal(): Promise<string> {
-  const mine = (await listTerminals(props.lab)).filter((t) => t.target === props.target)
-  const running = mine.find((t) => t.status === 'running')
+  const running = (await listTerminals(props.lab)).find((t) => t.tab === props.tab.name && t.status === 'running')
   if (running) return running.id
-  await Promise.allSettled(mine.map((t) => closeTerminal(props.lab, t.id)))
   opening.value = true
   try {
-    return (await openTerminal(props.lab, props.runId, props.target)).id
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return (await openTerminal(props.lab, props.runId, props.tab.name)).id
+      } catch (err) {
+        if (!isTerminalStarting(err) || attempt >= 90 || unmounted) throw err
+        await new Promise((resolve) => window.setTimeout(resolve, 2000))
+      }
+    }
   } finally {
     opening.value = false
   }

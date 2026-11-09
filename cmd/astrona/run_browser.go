@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/labops"
 	"astrona/internal/labstate"
@@ -185,6 +186,11 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 	for _, link := range links {
 		rec.Targets = append(rec.Targets, workspace.Target{Name: link.Cluster, Label: link.Name, Kind: "kind", Views: []string{"terminal"}})
 	}
+	tabs, err := browserTabs(cfg, rec.Targets, links, baseDir, flags)
+	if err != nil {
+		return workspace.RunRecord{}, err
+	}
+	rec.Tabs = tabs
 	rec.QuestionTitle = "Task"
 	rec.Question = "No task document provided. Use the terminal to explore the lab."
 	if cfg.Metadata.Docs.Question != "" {
@@ -225,4 +231,61 @@ func readLabDocument(doc, baseDir string, flags *rootFlags) (string, error) {
 		}
 	}
 	return labops.ReadLabDoc(configPath, doc)
+}
+
+// browserTabs are the right panel's tabs: the focus tab (the lab's own
+// cluster), then the lab's tabs: or, when it declares none, one terminal
+// per linked cluster. Only what the lab declares becomes a tab.
+func browserTabs(cfg *config.LabConfig, targets []workspace.Target, links []cluster.LinkState, baseDir string, flags *rootFlags) ([]workspace.Tab, error) {
+	if len(cfg.Tabs) == 0 {
+		return workspace.DefaultTabs(targets), nil
+	}
+	if err := config.ValidateTabs(cfg); err != nil {
+		return nil, err
+	}
+	forwards := map[string]config.PortForward{}
+	for _, pf := range cfg.Runtime.PortForwards {
+		forwards[pf.Name] = pf.Normalized()
+	}
+	tabs := []workspace.Tab{workspace.FocusTab(targets[0].Name)}
+	for _, t := range cfg.Tabs {
+		tab := workspace.Tab{Name: t.Name, Title: labops.SanitizeLine(strings.TrimSpace(t.Title)), Kind: t.Type}
+		switch t.Type {
+		case config.TabTerminal:
+			tab.Target = targets[0].Name
+			if t.Cluster != "" {
+				tab.Target = ""
+				for _, link := range links {
+					if link.Name == t.Cluster {
+						tab.Target = link.Cluster
+					}
+				}
+				if tab.Target == "" {
+					return nil, fmt.Errorf("tab %s: linked cluster %s is not running", t.Name, t.Cluster)
+				}
+			}
+		case config.TabBrowser:
+			pf := forwards[t.PortForward]
+			path, err := config.TabPath(t.Path)
+			if err != nil {
+				return nil, fmt.Errorf("tab %s: %w", t.Name, err)
+			}
+			tab.URL = workspace.BrowserTabURL(pf.Scheme, pf.HostPort, path)
+		case config.TabDocs:
+			if t.URL != "" {
+				tab.URL, tab.Embed = t.URL, t.Embed
+				break
+			}
+			text, err := readLabDocument(t.File, baseDir, flags)
+			if err != nil {
+				return nil, fmt.Errorf("read the document of tab %s: %w", t.Name, err)
+			}
+			if len(text) > config.MaxTabDocBytes {
+				return nil, fmt.Errorf("the document of tab %s is larger than %d KiB", t.Name, config.MaxTabDocBytes>>10)
+			}
+			_, tab.Doc = docFrontMatter(labops.SanitizeTerminalText(text))
+		}
+		tabs = append(tabs, tab)
+	}
+	return tabs, nil
 }

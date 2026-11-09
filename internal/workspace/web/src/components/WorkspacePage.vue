@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 import { getQuestion, isRunGone, isUnauthorized, type Question, type Run } from '../api'
-import { pickView, type ViewHandle, type ViewStatus } from '../views/types'
+import type { ViewHandle, ViewStatus } from '../views/types'
+import LabTabs from './LabTabs.vue'
 import TopBar from './TopBar.vue'
 import SplitDivider from './SplitDivider.vue'
 
@@ -34,15 +35,11 @@ watch(() => props.run.runId, loadQuestion)
 
 // ---------------------------------------------------------------- view
 
-// The question's own target first, then the first target with a view this
-// build can show.
+// The question's own target, else the lab's own cluster.
 const target = computed(() => {
   const want = question.value?.target
-  const usable = props.run.targets.filter((t) => pickView(t.views))
-  return usable.find((t) => t.name === want) ?? usable[0] ?? null
+  return props.run.targets.find((t) => t.name === want) ?? props.run.targets[0] ?? null
 })
-const view = computed(() => (target.value ? pickView(target.value.views) : null))
-const viewComponent = computed(() => (view.value ? defineAsyncComponent(view.value.component) : null))
 const viewRef = ref<ViewHandle | null>(null)
 const status = ref<ViewStatus>({ tone: 'busy', label: 'Connecting' })
 
@@ -117,21 +114,19 @@ function focusTask(): void {
 
       <SplitDivider v-model="width" controls="task-panel" @commit="saveWidth" />
 
-      <section class="view" aria-label="Terminal">
-        <component
-          :is="viewComponent"
-          v-if="viewComponent && target && (question || questionError)"
-          :key="`${run.runId}/${target.name}`"
+      <section class="view" aria-label="Lab">
+        <LabTabs
+          v-if="question || questionError"
+          :key="run.runId"
           ref="viewRef"
           :lab="run.lab"
           :run-id="run.runId"
-          :target="target.name"
+          :tabs="run.tabs"
           @status="status = $event"
           @leave="focusTask"
           @unauthorized="emit('unauthorized')"
           @run-gone="emit('runGone')"
         />
-        <p v-else-if="!target" class="view__empty muted" role="status">This lab has no terminal to show.</p>
       </section>
     </div>
   </div>

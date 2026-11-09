@@ -61,8 +61,10 @@ The page served by the browser workspace lives in `internal/workspace/web`
 - The HTTP and WebSocket contract is `docs/reference/workspace-api.md`. All
   calls go through `src/api.ts`; components never call `fetch` directly.
   Question HTML from the server is rendered as HTML, never evaluated.
-- The right-hand panel is a view (`src/views/types.ts`). A new kind (for
-  example a desktop) is a new view component, not a change to the workspace page.
+- The right-hand panel shows the lab's tabs (`src/components/LabTabs.vue`);
+  each tab kind has a view (`src/views/types.ts`). A new kind (for example a
+  desktop) is a new view component and tab kind, not a change to the workspace
+  page. Tabs come only from the run; the page never creates one.
 - Runtime dependencies must use a licence on the allowlist in
   `build/notices.ts` (MIT, ISC, BSD, Apache-2.0, OFL-1.1); the build fails
   otherwise and writes `dist/THIRD_PARTY_NOTICES.txt`, which release archives

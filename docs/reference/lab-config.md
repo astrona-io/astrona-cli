@@ -41,6 +41,7 @@ testing: {}      # BootstrapConfig (same shape, CI-only)
 validation: {}   # ValidationConfig
 teardown: {}     # TeardownConfig
 resources: []    # LabResource — optional; everything in resources/ counts without it
+tabs: []         # Tab — optional; the browser workspace's tabs (kind only)
 ```
 
 ## `metadata`
@@ -367,6 +368,71 @@ resources:
 A resource's short name is its file name without the extension (`setup-db.sh` → `setup-db`); the full relative filename also works in resource commands. Short names must be unique and use letters, digits, `.`, `_`, `-`. Hidden files (`.DS_Store`, `.gitkeep`) are skipped; symlinks are refused anywhere — the file itself, a linked folder in the middle of its path (`home/.ssh/id_ed25519` with `home` a link) or anything inside a folder resource — and every read stays inside `resources/`. Also refused: more than 1000 files, a file over 50 MB or more than 200 MB in all.
 
 `astrona run` / `reset` copy the resources to `~/.astrona/resources/<lab>/` (owner-only) **before** the lab is built — nothing in them runs — and list them once the lab is ready. A new run replaces the copy; `astrona destroy` removes it (`--keep-resources` keeps it). A config fetched from a URL has no folder, so it can't have resources — use a local lab or `--git`. `astrona validate` checks them. Students use them with [`astrona resource`](../guides/lab-resources.md).
+
+## `tabs`
+
+kind only. The tabs of the [browser workspace](../guides/ui-home.md#browser-workspace)'s right panel. The first tab is always the
+**focus tab**: a terminal on the lab's own cluster, named `main`. The entries here come after it, in order. The learner
+switches between tabs but cannot add or close one, and nothing outside this list is ever opened.
+
+Without `tabs`, the workspace shows the focus tab plus one terminal tab per [linked cluster](#runtimekindclustersn)
+(named `cluster-<name>`). With `tabs`, it shows exactly the focus tab and these: list a linked cluster here to get a
+terminal on it.
+
+```yaml
+runtime:
+  type: kind
+  kind:
+    clusters:
+      - name: edge
+        config: ../edge
+  portForwards:
+    - name: web
+      resource: svc/frontend
+      hostPort: 8080
+      targetPort: 80
+      scheme: http
+tabs:
+  - name: edge                # a second terminal, on the linked cluster "edge"
+    title: Edge cluster
+    type: terminal
+    cluster: edge
+  - name: shop                # the lab's own app, through the port forward "web"
+    title: Shop
+    type: browser
+    portForward: web
+    path: /cart
+  - name: netpol-docs         # documentation that opens in its own window
+    title: NetworkPolicy docs
+    type: docs
+    url: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+    embed: true               # this site allows framing: show it in the tab
+  - name: cheatsheet          # Markdown shipped with the lab
+    title: Cheat sheet
+    type: docs
+    file: docs/cheatsheet.md
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | **Required.** Unique, lowercase DNS label. `main` is reserved for the focus tab |
+| `title` | string | **Required.** What the tab shows; one line, at most 40 characters |
+| `type` | `terminal` \| `browser` \| `docs` | **Required.** |
+| `cluster` | string | terminal: a `runtime.kind.clusters` name; empty for the lab's own cluster (another shell next to the focus tab) |
+| `portForward` | string | browser: a `runtime.portForwards` name with `scheme: http` or `https` |
+| `path` | string | browser: the path to open, starting with `/` (default `/`) |
+| `url` | string | docs: an `https://` documentation page. Either `url` or `file` |
+| `file` | string | docs: a Markdown file relative to `config.yaml`, at most 64 KiB, rendered like the task. Never the solution |
+| `embed` | bool | docs with `url`: show the page inside the tab instead of offering a separate window |
+
+What each type does:
+
+- **terminal**: an isolated shell like the focus tab's, on the lab's own cluster or a linked one. Each tab has one shell; when it ends, the tab offers to open a new one. Switching tabs keeps it running.
+- **browser**: the page a port forward serves, shown in a sandboxed frame with Reload and **Open in new window**. Only the lab's own forwards on `127.0.0.1` can be shown; the workspace never proxies other hosts.
+- **docs** with `url`: many documentation sites forbid being shown inside another page, so by default the tab offers a button that opens the page in its own window. Set `embed: true` only for a site you checked allows framing (no `X-Frame-Options` and no CSP `frame-ancestors` that refuses it); the tab keeps an **Open in new window** button in case the site changes that later. Of the sites checked when this was written, kubernetes.io, helm.sh, docs.cilium.io, gateway-api.sigs.k8s.io, prometheus.io and etcd.io allowed framing; istio.io (`SAMEORIGIN`) and docs.docker.com (`DENY`) did not.
+- **docs** with `file`: Markdown shipped with the lab, rendered and sanitised like the task.
+
+`astrona validate` fails on an unknown type, a field that does not apply to the type, an unknown cluster or port forward, a `tcp` port forward, a URL that is not `https://`, a missing, oversized or solution `file`, a duplicate name and more than 8 tabs.
 
 ## `ResourceItem`
 
