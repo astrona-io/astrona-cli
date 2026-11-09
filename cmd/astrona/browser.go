@@ -7,19 +7,13 @@ import (
 	"os/exec"
 	"runtime"
 
-	"astrona/internal/account"
+	"astrona/internal/labops"
 	"astrona/internal/labstate"
 )
 
-// validateOpenURL checks a URL before it is handed to the browser: only an
-// absolute http(s) URL with a host and no embedded credentials is opened.
-func validateOpenURL(raw string) (*url.URL, error) {
-	u, err := account.CheckHTTPURL(raw)
-	if err != nil {
-		return nil, fmt.Errorf("lab page URL: %w", err)
-	}
-	return u, nil
-}
+// validateOpenURL checks a URL before it is handed to the browser
+// (labops.ValidateOpenURL).
+func validateOpenURL(raw string) (*url.URL, error) { return labops.ValidateOpenURL(raw) }
 
 // browserCommand is the command that opens rawURL in the default browser on
 // this machine, or nil when there is no browser to open (a headless Linux box).

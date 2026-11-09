@@ -4,16 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"astrona/internal/account"
-	"astrona/internal/cluster"
-	"astrona/internal/config"
 	"astrona/internal/labops"
-	"astrona/internal/labstate"
 	"astrona/internal/ui"
 )
 
@@ -64,114 +61,20 @@ func newRunRenewCmd() *cobra.Command {
 	}
 }
 
-// playgroundExists reports whether any part of a playground's lab still
-// exists: its kind cluster, its qemu VM, or a VM of it ("<lab>-<vm>").
-// A container engine that can't be asked counts as existing: the playground
-// may still be there, and a false "gone" would forget it. Replaced in tests.
-var playgroundExists = func(name string) bool {
-	if qemuStateExists(name) {
-		return true
-	}
-	if ok, err := cluster.Lookup(name); ok || err != nil {
-		return true
-	}
-	rows, _, _ := collectQEMURows() // an unreadable qemu dir just means no qemu labs here
-	for _, r := range rows {
-		if strings.HasPrefix(r.Name, name+"-") {
-			return true
-		}
-	}
-	return false
-}
-
 // runningPlaygrounds lists the labs whose remembered session is a
-// playground: all of them, or the one name matches — its cluster name (with
-// or without "astro-"), or its catalog name (with or without the owner).
-// One whose lab is gone (removed outside astrona) is forgotten — its
-// watchdog and clock stopped — rather than renewed.
+// playground, forgetting those whose lab is gone (labops.RunningPlaygrounds).
 func runningPlaygrounds(name string) ([]string, error) {
-	names, err := labstate.Names()
-	if err != nil {
-		return nil, err
-	}
-	want := strings.Trim(name, "/")
-	var out []string
-	for _, cluster := range names {
-		st, err := labstate.Load(cluster)
-		if err != nil || st == nil || !st.Session.IsPlayground() {
-			continue
-		}
-		if want != "" && cluster != config.NormalizeClusterName(want) && !sameCatalogName(st.Session.Lab, want) {
-			continue
-		}
-		if !playgroundExists(cluster) {
-			forgetLab(cluster)
-			continue
-		}
-		out = append(out, cluster)
-	}
-	return out, nil
+	return labops.RunningPlaygrounds(name, forgetLab)
 }
 
-// sameCatalogName compares catalog names, ignoring a leading owner
-// ("astrona-io/ATS014/…" is "ATS014/…").
-func sameCatalogName(a, b string) bool { return labops.SameCatalogName(a, b) }
-
-// renewPlayground has the site bank the playground's time so far and start
-// a new session with a full time limit, remembers that session and its
-// deadline, and replaces the watchdog with one for it.
+// renewPlayground renews one playground (labops.RenewPlayground) and says
+// what it got.
 func renewPlayground(ctx context.Context, cluster string) error {
-	st, err := labstate.Load(cluster)
-	if err != nil || st == nil || !st.Session.IsPlayground() {
-		return errors.New("no playground session is remembered for it")
-	}
-	client, store, _, err := accountDeps()
+	r, err := labops.RenewPlayground(ctx, os.Stderr, cluster)
 	if err != nil {
 		return err
 	}
-	creds, err := client.Active(ctx, store, st.Session.Site)
-	if err != nil {
-		return err
-	}
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-	noticeOtherSite(creds.Site, "the playground time so far")
-	renewed, err := client.RenewLabSession(ctx, store, creds, st.Session.ID)
-	if errors.Is(err, account.ErrPlaygroundStopped) {
-		return fmt.Errorf("%w — `astrona destroy %s`, then run it again", err, cluster)
-	}
-	if err != nil {
-		return err
-	}
-	renewed.DeadlineAt = clampDeadline(renewed.DeadlineAt, time.Now(), 0)
-	deadline, err := time.Parse(time.RFC3339, renewed.DeadlineAt)
-	if err != nil {
-		return fmt.Errorf("the site sent no new deadline: %w", err)
-	}
-	if err := labstate.Update(cluster, func(s *labstate.State) {
-		if s.Session != nil && s.Session.ID == st.Session.ID {
-			s.Session.ID = renewed.ID
-			s.Session.ExpiresAt = renewed.ExpiresAt
-			s.Session.DeadlineAt = renewed.DeadlineAt
-			s.Session.MaxMinutes = renewed.MaxMinutes
-		}
-	}); err != nil {
-		return fmt.Errorf("renewed on the site, but couldn't save the new deadline: %w", err)
-	}
-	// A fresh watchdog for the new deadline: the running one may be gone
-	// (a reboot) or come from an astrona that doesn't follow renewals.
-	stopWatchdog(st.Session.WatchdogPID, cluster)
-	if pid, err := spawnWatchdog(cluster); err != nil {
-		ui.Warnf("couldn't restart the playground's timer (%s) — run `astrona destroy %s` when you are done", err, cluster)
-	} else {
-		_ = labstate.Update(cluster, func(s *labstate.State) {
-			if s.Session != nil {
-				s.Session.WatchdogPID = pid
-			}
-		})
-	}
-	banked := (time.Duration(renewed.BankedSeconds) * time.Second).Round(time.Minute)
 	fmt.Printf("Renewed %s: %s of playground time sent to your account, and a new timer started —\nit now stops and is removed at %s (in %s).\n",
-		cluster, banked, deadline.Local().Format("15:04"), time.Until(deadline).Round(time.Minute))
+		r.Cluster, r.Banked, r.Deadline.Local().Format("15:04"), time.Until(r.Deadline).Round(time.Minute))
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -229,4 +230,33 @@ func RunOutboxFlusher(ctx context.Context, budget time.Duration) error {
 		wait = min(2*wait, 2*time.Minute)
 	}
 	return nil
+}
+
+// StartOutboxFlusher starts a detached `<this executable> outbox-flush`
+// when signals are waiting, so they go out even when nothing else runs. It
+// never blocks the caller, inherits this process's environment and logs to
+// flush.log in the outbox directory.
+func StartOutboxFlusher() {
+	if n, err := outbox.Pending(); err != nil || n == 0 {
+		return
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		return
+	}
+	dir, err := outbox.Dir()
+	if err != nil {
+		return
+	}
+	logF, err := os.OpenFile(filepath.Join(dir, "flush.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return
+	}
+	defer logF.Close()
+	cmd := exec.Command(exe, "outbox-flush")
+	cmd.Stdout, cmd.Stderr = logF, logF
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	if cmd.Start() == nil {
+		_ = cmd.Process.Release()
+	}
 }
