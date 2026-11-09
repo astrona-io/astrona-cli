@@ -157,3 +157,11 @@ func Permanent(err error) bool {
 	}
 	return he.Status >= 400 && he.Status < 500
 }
+
+// Answered reports whether err is an error answer from the site, as
+// opposed to the site not being reached at all (network, DNS, TLS,
+// timeout).
+func Answered(err error) bool {
+	var he *httpError
+	return errors.As(err, &he)
+}

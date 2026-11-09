@@ -15,11 +15,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
 	"time"
 
 	"astrona/internal/account"
 	"astrona/internal/apphome"
+	"astrona/internal/filelock"
 )
 
 // Kinds of signal.
@@ -33,6 +33,20 @@ const (
 // MaxUsageSamples bounds what one session keeps while offline: a day of
 // samples every 15 seconds, with room to spare. Older samples go first.
 const MaxUsageSamples = 6000
+
+// MaxAge is how long a signal waits before it is given up: by then the lab
+// session it belongs to has long ended on the site. Damaged session files
+// set aside are removed after the same time.
+const MaxAge = 7 * 24 * time.Hour
+
+const (
+	// tempPrefix names a session file being written; one left by a crash is
+	// removed after staleTemp.
+	tempPrefix = ".outbox-"
+	staleTemp  = time.Hour
+	// quarantineMark is added to the name of a damaged session file set aside.
+	quarantineMark = ".corrupt-"
+)
 
 // Event is one signal for a lab session.
 type Event struct {
@@ -107,25 +121,14 @@ func lock(wait bool) (release func(), ok bool, err error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, false, err
 	}
-	f, err := os.OpenFile(filepath.Join(dir, "outbox.lock"), os.O_CREATE|os.O_RDWR, 0o600)
-	if err != nil {
-		return nil, false, err
-	}
-	how := syscall.LOCK_EX
-	if !wait {
-		how |= syscall.LOCK_NB
-	}
-	if err := syscall.Flock(int(f.Fd()), how); err != nil {
-		f.Close()
-		if errors.Is(err, syscall.EWOULDBLOCK) {
-			return nil, false, nil
-		}
-		return nil, false, err
-	}
-	return func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN); f.Close() }, true, nil
+	return filelock.Lock(filepath.Join(dir, "outbox.lock"), wait)
 }
 
 func queuePath(dir, session string) string { return filepath.Join(dir, session+".json") }
+
+// errCorrupt marks a session file that can't be used: not JSON, or not the
+// session its name says.
+var errCorrupt = errors.New("outbox file is damaged")
 
 func readQueue(path string) (*queue, error) {
 	data, err := os.ReadFile(path)
@@ -137,9 +140,27 @@ func readQueue(path string) (*queue, error) {
 	}
 	var q queue
 	if err := json.Unmarshal(data, &q); err != nil {
-		return nil, fmt.Errorf("outbox file %s: %w", filepath.Base(path), err)
+		return nil, fmt.Errorf("outbox file %s: %w: %w", filepath.Base(path), errCorrupt, err)
+	}
+	if q.Site == "" || q.Session+".json" != filepath.Base(path) {
+		return nil, fmt.Errorf("outbox file %s: %w: it is for another session", filepath.Base(path), errCorrupt)
 	}
 	return &q, nil
+}
+
+// loadQueue is readQueue for a caller holding the lock: a damaged file is
+// moved aside (quarantined) so it no longer blocks the session, and reads as
+// no queue. Quarantined files are removed with the age limit (prune).
+func loadQueue(path string) (*queue, error) {
+	q, err := readQueue(path)
+	if !errors.Is(err, errCorrupt) {
+		return q, err
+	}
+	aside := fmt.Sprintf("%s%s%d", path, quarantineMark, time.Now().UnixNano())
+	if rerr := os.Rename(path, aside); rerr != nil {
+		return nil, err
+	}
+	return nil, nil
 }
 
 func writeQueue(path string, q *queue) error {
@@ -154,12 +175,17 @@ func writeQueue(path string, q *queue) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".outbox-")
+	tmp, err := os.CreateTemp(filepath.Dir(path), tempPrefix)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(tmp.Name())
 	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	// On disk before the rename, so a crash never leaves an empty queue.
+	if err := tmp.Sync(); err != nil {
 		tmp.Close()
 		return err
 	}
@@ -181,13 +207,14 @@ func Add(site, session string, ev Event) error {
 	defer release()
 	dir, _ := Dir()
 	path := queuePath(dir, session)
-	q, err := readQueue(path)
+	q, err := loadQueue(path)
 	if err != nil {
 		return err
 	}
 	if q == nil {
 		q = &queue{Site: site, Session: session}
 	}
+	dropExpired(q, time.Now())
 	q.Events = append(q.Events, ev)
 	if ev.Kind == Usage {
 		trimUsage(q)
@@ -216,6 +243,44 @@ func trimUsage(q *queue) {
 		kept = append(kept, ev)
 	}
 	q.Events = kept
+}
+
+// dropExpired removes signals older than MaxAge at now.
+func dropExpired(q *queue, now time.Time) {
+	cutoff := now.Add(-MaxAge)
+	kept := q.Events[:0]
+	for _, ev := range q.Events {
+		if ev.At.After(cutoff) {
+			kept = append(kept, ev)
+		}
+	}
+	q.Events = kept
+}
+
+// prune removes what crashed writers left behind (temp files) and damaged
+// session files set aside longer than MaxAge ago. The caller holds the lock.
+func prune(dir string, now time.Time) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		name := e.Name()
+		var limit time.Duration
+		switch {
+		case strings.HasPrefix(name, tempPrefix), strings.HasPrefix(name, ".status-"):
+			limit = staleTemp
+		case strings.Contains(name, ".json"+quarantineMark):
+			limit = MaxAge
+		default:
+			continue
+		}
+		info, err := e.Info()
+		if err != nil || !info.Mode().IsRegular() || now.Sub(info.ModTime()) < limit {
+			continue
+		}
+		_ = os.Remove(filepath.Join(dir, name))
+	}
 }
 
 func sessionFiles(dir string) ([]string, error) {
@@ -250,6 +315,9 @@ func Pending() (int, error) {
 	n := 0
 	for _, path := range paths {
 		q, err := readQueue(path)
+		if errors.Is(err, errCorrupt) {
+			continue // set aside by the next flush
+		}
 		if err != nil {
 			return 0, err
 		}
@@ -270,6 +338,9 @@ func PendingFor(session string) (int, error) {
 		return 0, err
 	}
 	q, err := readQueue(queuePath(dir, session))
+	if errors.Is(err, errCorrupt) {
+		return 0, nil // set aside by the next flush
+	}
 	if err != nil || q == nil {
 		return 0, err
 	}
@@ -277,10 +348,13 @@ func PendingFor(session string) (int, error) {
 }
 
 // Flush sends what is waiting, oldest first per session, and records how it
-// went (ReadStatus). It stops at the first signal the site could not be reached
-// for, keeping it and everything after it. When another process is flushing,
-// it returns that process's last status without waiting. Consecutive samples go
-// in one post.
+// went (ReadStatus). Within a session, signals go in order: one that fails is
+// kept with everything after it. Other sessions still go, unless the site
+// could not be reached at all or needs a new sign-in — then the rest of that
+// site's sessions wait too. Signals older than MaxAge are given up, and a
+// damaged session file is set aside rather than blocking its session. When
+// another process is flushing, it returns that process's last status without
+// waiting. Consecutive samples go in one post.
 func Flush(ctx context.Context, s Sender) (Status, error) {
 	release, ok, err := lock(false)
 	if err != nil {
@@ -291,48 +365,49 @@ func Flush(ctx context.Context, s Sender) (Status, error) {
 	}
 	defer release()
 	dir, _ := Dir()
+	now := time.Now()
+	prune(dir, now)
 	paths, err := sessionFiles(dir)
 	if err != nil {
 		return Status{}, err
 	}
-	status := Status{State: Online, Checked: time.Now().UTC()}
+	status := Status{State: Online, Checked: now.UTC()}
 	sent := false
+	blocked := map[string]bool{} // sites not worth trying again in this flush
 	for _, path := range paths {
-		q, err := readQueue(path)
+		q, err := loadQueue(path)
 		if err != nil || q == nil {
 			continue
 		}
-		stop := false
-		for len(q.Events) > 0 && !stop {
+		before := len(q.Events)
+		dropExpired(q, now)
+		for len(q.Events) > 0 && !blocked[q.Site] {
 			n, err := sendNext(ctx, s, q)
 			var permanent *PermanentError
-			switch {
-			case err == nil:
-				sent = true
+			if err == nil || errors.As(err, &permanent) {
+				sent = sent || err == nil
 				q.Events = q.Events[n:]
-			case errors.As(err, &permanent):
-				q.Events = q.Events[n:]
-			case errors.Is(err, ErrSignedOut):
-				status.State, status.Error, stop = SignedOut, err.Error(), true
-			default:
-				status.State, status.Error, stop = Offline, err.Error(), true
+				continue
 			}
-		}
-		if err := writeQueue(path, q); err != nil {
-			return status, err
-		}
-		status.Pending += len(q.Events)
-		if status.State != Online {
-			// Nothing else gets through either; count the rest and stop.
-			for _, rest := range paths {
-				if rest > path {
-					if r, _ := readQueue(rest); r != nil {
-						status.Pending += len(r.Events)
-					}
-				}
+			signedOut := errors.Is(err, ErrSignedOut)
+			if signedOut {
+				status.State, status.Error = SignedOut, err.Error()
+			} else if status.State != SignedOut {
+				status.State, status.Error = Offline, err.Error()
+			}
+			// The site answered for this session only: the others may still
+			// go. Not reached, or signed out: nothing else for it gets through.
+			if signedOut || ctx.Err() != nil || !account.Answered(err) {
+				blocked[q.Site] = true
 			}
 			break
 		}
+		if len(q.Events) != before || before == 0 {
+			if err := writeQueue(path, q); err != nil {
+				return status, err
+			}
+		}
+		status.Pending += len(q.Events)
 	}
 	// With nothing sent and nothing waiting, the connection was not tested:
 	// keep the last known state rather than claiming to be online.
