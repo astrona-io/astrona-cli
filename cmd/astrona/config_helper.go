@@ -1,15 +1,12 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
-	"astrona/internal/labstate"
-	"astrona/internal/ui"
+	"astrona/internal/labops"
 
 	"github.com/mattn/go-isatty"
 )
@@ -17,70 +14,45 @@ import (
 // withNoLabHint adds what to do when no lab was named and the current
 // directory has none — the usual first stumble.
 func withNoLabHint(err error, flags *rootFlags) error {
-	if errors.Is(err, os.ErrNotExist) && flags.configPath == "." && flags.gitURL == "" {
-		return fmt.Errorf("%w\nNo lab here — name one (`astrona run ./path/to/lab`, -c, --git) or pick one for every command: astrona use <lab>", err)
+	return labops.WithNoLabHint(err, labOpsSource(flags))
+}
+
+// labVersionFromLoadError is the astronaVersion of a config this version
+// couldn't parse, if it declares one.
+func labVersionFromLoadError(err error) string { return labops.LabVersionFromLoadError(err) }
+
+// versionGate is the CLI's labops.VersionGate: ensureLabVersion with the
+// command's flags, gated as a local-only run when localOnly says so.
+func versionGate(flags *rootFlags) labops.VersionGate {
+	return func(constraint string, localOnly bool, approve func() error) error {
+		versionFlags := *flags
+		versionFlags.localOnly = localOnly
+		return ensureLabVersion(constraint, &versionFlags, approve)
 	}
-	return err
 }
 
 // LoadLabForCommand resolves --config/--file (and --git/--git-ref, if set),
 // loads the YAML, and returns the lab's base directory for resolving
-// relative script/manifest paths. Shared by every command that requires a
-// valid config to do anything (run, submit, test) — cmd_destroy.go does NOT
-// use this, since destroy must still best-effort tear down even when the
-// config can't be loaded.
+// relative script/manifest paths (labops.LoadLab). Shared by every command
+// that requires a valid config to do anything (run, submit, test) —
+// cmd_destroy.go does NOT use this, since destroy must still best-effort
+// tear down even when the config can't be loaded.
 func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string, cleanup func(), err error) {
-	finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
+	lab, err := labops.LoadLab(labOpsSource(flags), labops.LoadOptions{
+		Version:     Version,
+		Verbose:     flags.verbose,
+		LocalOnly:   flags.localOnly,
+		VersionGate: versionGate(flags),
+		Trust:       trustOptions(flags),
+		// Say which lab when it came from `astrona use` — it isn't on the
+		// command line. Terminal only, so $(…) captures stay clean.
+		AnnounceLab: flags.fromCurrent && isatty.IsTerminal(os.Stderr.Fd()),
+		Log:         os.Stderr,
+	})
 	if err != nil {
-		return nil, "", func() {}, withNoLabHint(err, flags)
-	}
-
-	if flags.verbose {
-		fmt.Fprintf(os.Stderr, "Loading configuration from: %s\n", finalPath)
-	}
-
-	cfg, cleanup, err = config.LoadLabConfig(finalPath)
-	if err != nil {
-		// A config for another astrona may not parse here: hand over first.
-		if want := labVersionFromLoadError(err); want != "" {
-			if verr := ensureLabVersion(want, flags, handoverApproval(flags, nil, err, filepath.Dir(finalPath))); verr != nil {
-				return nil, "", func() {}, verr
-			}
-		}
-		return nil, "", func() {}, withNoLabHint(err, flags)
-	}
-	versionFlags := *flags
-	if cfg.AstronaVersion != "" {
-		st, stateErr := labstate.Load(config.NormalizeClusterName(cfg.Metadata.Name))
-		if stateErr != nil {
-			cleanup()
-			return nil, "", func() {}, stateErr
-		}
-		if st != nil && st.LocalOnly {
-			versionFlags.localOnly = true
-		}
-	}
-	if err := ensureLabVersion(cfg.AstronaVersion, &versionFlags, handoverApproval(flags, cfg, nil, filepath.Dir(finalPath))); err != nil {
-		cleanup()
 		return nil, "", func() {}, err
 	}
-	// Say which lab when it came from `astrona use` — it isn't on the
-	// command line. Terminal only, so $(…) captures stay clean.
-	if flags.fromCurrent && isatty.IsTerminal(os.Stderr.Fd()) {
-		fmt.Fprintln(os.Stderr, ui.Paint(os.Stderr, "→ lab "+cfg.Metadata.Name+" (from `astrona use`)", ui.Dim))
-	}
-
-	// Typos are only warned about here, so a lab that has always worked
-	// keeps working; `astrona validate` / `astrona check` fail on them.
-	for _, u := range cfg.UnknownFields {
-		ui.Warnf("%s %s (ignored — run `astrona validate`)", finalPath, u)
-	}
-	for _, d := range cfg.Deprecations {
-		ui.Warnf("%s: %s", finalPath, d)
-	}
-
-	applyBundleImages(cfg, filepath.Dir(finalPath))
-	return cfg, filepath.Dir(finalPath), cleanup, nil
+	return lab.Config, lab.BaseDir, lab.Cleanup, nil
 }
 
 // requireRunningKindLab fails clearly when a kind lab isn't running — or

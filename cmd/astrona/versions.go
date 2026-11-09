@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"astrona/internal/apphome"
-	"astrona/internal/config"
 	"astrona/internal/ui"
 	"astrona/internal/version"
 
@@ -399,16 +398,6 @@ func checkHandoverFlags(target installedVersion, c version.Constraint, args []st
 			c, target.v, bad, strings.Join(flags.cmdPath, " "), bad)
 	}
 	return nil
-}
-
-// labVersionFromLoadError is the astronaVersion of a config this version
-// couldn't parse, if it declares one.
-func labVersionFromLoadError(err error) string {
-	var pe *config.ParseError
-	if errors.As(err, &pe) {
-		return pe.AstronaVersion
-	}
-	return ""
 }
 
 func newVersionsCmd() *cobra.Command {
