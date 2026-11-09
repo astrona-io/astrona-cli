@@ -9,6 +9,9 @@
 // prompt for a loaded bundle and all printing stay in cmd. Results and
 // errors are returned, never printed: progress goes to the *ui.Reporter or
 // io.Writer the caller passes.
+//
+// RunTest (devtest.go) is one `astrona test` lifecycle; it writes the
+// grading report only to the writer it is given.
 package authoring
 
 import (

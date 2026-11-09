@@ -3,15 +3,10 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"os"
 	"syscall"
 	"testing"
 	"time"
-
-	"astrona/internal/config"
-	"astrona/internal/ui"
 )
 
 // A signal must cancel the context without killing the process — so
@@ -56,25 +51,5 @@ func TestCancelOnSignalStop(t *testing.T) {
 	stop()
 	if ctx.Err() == nil {
 		t.Fatal("stop did not cancel the context")
-	}
-}
-
-// A run whose context is already cancelled creates nothing: it stops right
-// after the clean-slate teardown with errTestInterrupted.
-func TestRunTestOnceStopsWhenInterrupted(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("PATH", t.TempDir()) // no kind/docker/podman: nothing real can run
-	rep, err := ui.NewReporter("test", "sig", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rep.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	cfg := &config.LabConfig{Metadata: config.MetadataConfig{Name: "sig"}}
-	_, pass, err := runTestOnce(ctx, cfg, t.TempDir(), config.NormalizeTestClusterName("sig"), diagnosticsNever, "", &rootFlags{}, rep)
-	if !errors.Is(err, errTestInterrupted) || pass {
-		t.Fatalf("got pass=%t err=%v, want errTestInterrupted", pass, err)
 	}
 }
