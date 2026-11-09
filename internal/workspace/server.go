@@ -44,9 +44,6 @@ type Config struct {
 	IdleTimeout time.Duration
 	// Busy reports work that keeps the server alive, such as running labs.
 	Busy func() bool
-	// Secret is the launch-code secret; nil creates a fresh one. It is set
-	// only when a restarted server must accept codes minted for server.json.
-	Secret []byte
 	// Assets is the frontend; nil uses the embedded web.FS().
 	Assets fs.FS
 }
@@ -72,14 +69,12 @@ func New(cfg Config) (*Server, error) {
 	if cfg.Port < 0 || cfg.Port > 65535 {
 		return nil, fmt.Errorf("invalid workspace port %d", cfg.Port)
 	}
-	secret := cfg.Secret
-	if secret == nil {
-		var err error
-		if secret, err = NewSecret(); err != nil {
-			return nil, err
-		}
-	} else if len(secret) != secretLen {
-		return nil, errors.New("workspace secret has the wrong length")
+	// Every start gets a fresh secret. The record of exchanged codes lives
+	// only in memory, so reusing a secret across a restart would let an
+	// already-exchanged code be exchanged again.
+	secret, err := NewSecret()
+	if err != nil {
+		return nil, err
 	}
 	ln, err := listenLoopback(cfg.Port)
 	if err != nil {

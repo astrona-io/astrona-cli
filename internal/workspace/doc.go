@@ -14,14 +14,17 @@
 //     configured port or a free one when that is taken. There is no way to
 //     configure another address, so 0.0.0.0 cannot be reached by mistake.
 //     Requests whose peer is not a loopback address are refused as well.
-//   - Launch codes. Each server start creates a random 256-bit secret, kept
-//     only in memory and in server.json (mode 0600). A launch code is a
+//   - Launch codes. Each server start creates a fresh random 256-bit
+//     secret, kept only in memory and in server.json (mode 0600, in a 0700
+//     directory owned by the user). A secret is never reused across starts,
+//     so every code minted for an earlier start fails. A launch code is a
 //     random nonce plus an expiry, authenticated with HMAC-SHA-256 under that
 //     secret, so the CLI process can mint one without talking to the server.
 //     A code is valid for at most MaxCodeTTL, and only once: the server
 //     records each nonce it accepts until the code would have expired. The
 //     code travels in the URL fragment (#code=…), which browsers never send
-//     to a server or put in a Referer.
+//     to a server or put in a Referer. The CLI mints a code only when the
+//     process recorded in server.json is alive (ServerInfo.Alive).
 //   - Session tokens. POST /api/v1/auth/exchange turns a valid code into a
 //     random 256-bit token. Every other /api/v1 route requires it as
 //     "Authorization: Bearer <token>"; tokens are compared in constant time

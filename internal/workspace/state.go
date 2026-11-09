@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -46,9 +47,23 @@ func ServerInfoPath() (string, error) {
 	return filepath.Join(dir, "server.json"), nil
 }
 
+// ErrServerNotRunning means server.json names a process that has exited:
+// the file is stale and no URL may be minted from it.
+var ErrServerNotRunning = errors.New("workspace server is not running")
+
+// Alive reports whether the process recorded in server.json is still
+// running. A false result means the file is stale. PID reuse is not
+// detected here; the HMAC code still only works on the server holding the
+// secret.
+func (i ServerInfo) Alive() bool { return processAlive(i.PID) }
+
 // LaunchURL returns the page URL with a fresh single-use code in its
 // fragment, which the browser never sends to the server or in a Referer.
+// It returns ErrServerNotRunning when the recorded process has exited.
 func (i ServerInfo) LaunchURL(ttl time.Duration) (string, error) {
+	if !i.Alive() {
+		return "", ErrServerNotRunning
+	}
 	secret, err := b64.DecodeString(i.Secret)
 	if err != nil {
 		return "", errors.New("server.json has an invalid secret")
@@ -63,12 +78,16 @@ func (i ServerInfo) LaunchURL(ttl time.Duration) (string, error) {
 	return fmt.Sprintf("http://%s:%d/#code=%s", loopbackAddr, i.Port, url.QueryEscape(code)), nil
 }
 
-// WriteServerInfo atomically writes info to path with mode 0600, creating
-// the directory with mode 0700.
+// WriteServerInfo atomically writes info to path with mode 0600. It creates
+// the directory with mode 0700, tightens an existing one to 0700, and
+// refuses a directory that is a symlink or (on Unix) owned by another user.
 func WriteServerInfo(path string, info ServerInfo) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("failed to create %s: %w", dir, err)
+	}
+	if err := privateDir(dir); err != nil {
+		return err
 	}
 	data, err := json.MarshalIndent(info, "", "  ") //nolint:gosec // G117: server.json exists to hand the secret to the CLI; it is written 0600
 	if err != nil {
@@ -96,21 +115,61 @@ func WriteServerInfo(path string, info ServerInfo) error {
 	return nil
 }
 
-// ReadServerInfo reads server.json. On Unix it refuses a file that other
-// users can read or write, since it holds the launch-code secret.
+// privateDir makes sure dir is a real directory of the current user with
+// mode 0700, tightening the mode when needed.
+func privateDir(dir string) error {
+	fi, err := os.Lstat(dir)
+	if err != nil {
+		return err
+	}
+	if !fi.IsDir() {
+		return fmt.Errorf("%s is not a directory (a symlink is refused)", dir)
+	}
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	if fi.Mode().Perm() != 0o700 {
+		if err := os.Chmod(dir, 0o700); err != nil {
+			return fmt.Errorf("failed to restrict %s: %w", dir, err)
+		}
+		if fi, err = os.Lstat(dir); err != nil {
+			return err
+		}
+	}
+	return checkPrivate(dir, fi)
+}
+
+// ReadServerInfo reads server.json. It opens the file without following a
+// symlink (where the OS supports that), then checks the opened file itself:
+// it must be a regular file and, on Unix, owned by the user and not
+// accessible by group or others, since it holds the launch-code secret. The
+// directory must pass the same checks. A file whose process has exited is
+// returned as is; check Alive before using it.
 func ReadServerInfo(path string) (ServerInfo, error) {
 	var info ServerInfo
-	fi, err := os.Lstat(path)
+	if dfi, err := os.Lstat(filepath.Dir(path)); err != nil {
+		return info, err
+	} else if !dfi.IsDir() {
+		return info, fmt.Errorf("%s is not a directory (a symlink is refused)", filepath.Dir(path))
+	} else if err := checkPrivate(filepath.Dir(path), dfi); err != nil {
+		return info, err
+	}
+	f, err := os.OpenFile(path, os.O_RDONLY|openNoFollow, 0)
+	if err != nil {
+		return info, err
+	}
+	defer f.Close()
+	fi, err := f.Stat()
 	if err != nil {
 		return info, err
 	}
 	if !fi.Mode().IsRegular() {
 		return info, fmt.Errorf("%s is not a regular file", path)
 	}
-	if runtime.GOOS != "windows" && fi.Mode().Perm()&0o077 != 0 {
-		return info, fmt.Errorf("%s is accessible by other users (mode %v); remove it and restart the workspace", path, fi.Mode().Perm())
+	if err := checkPrivate(path, fi); err != nil {
+		return info, err
 	}
-	data, err := os.ReadFile(path)
+	data, err := io.ReadAll(io.LimitReader(f, 64<<10))
 	if err != nil {
 		return info, err
 	}
