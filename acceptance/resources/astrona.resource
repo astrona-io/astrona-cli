@@ -3,6 +3,7 @@ Documentation       Keywords shared by every acceptance suite: run the binary un
 ...                 check its exit code and read its JSON output.
 Library             Process
 Library             OperatingSystem
+Library             Collections
 Library             ../libraries/AstronaLib.py
 
 
@@ -38,7 +39,10 @@ Clean Up Astrona Environment
 Run Astrona
     [Documentation]    Run astrona with ${args} and expect exit code ${rc} (0 by default).
     ...    Output is logged either way, so a failure carries its own evidence.
-    [Arguments]    @{args}    ${rc}=0    ${timeout}=${FAST_TIMEOUT}
+    ...    --accept-terms is added unless ${accept_terms} is false: with CI set,
+    ...    astrona requires it on every command.
+    [Arguments]    @{args}    ${rc}=0    ${timeout}=${FAST_TIMEOUT}    ${accept_terms}=${True}
+    IF    ${accept_terms}    Append To List    ${args}    --accept-terms
     ${result}=    Run Process    ${ASTRONA}    @{args}
     ...    cwd=${REPO_ROOT}    env=${ENV}    timeout=${timeout}    on_timeout=terminate
     Log    stdout:\n${result.stdout}

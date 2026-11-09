@@ -9,7 +9,7 @@ Test Tags           smoke    kind
 
 *** Test Cases ***
 Astrona Test Runs The Full Lifecycle
-    Run Astrona    test    -c    ${EXAMPLE_LAB}    --headless    --accept-terms
+    Run Astrona    test    -c    ${EXAMPLE_LAB}    --headless
     ...    --junit-xml    ${OAT_OUTPUT}/junit-test-${LAB_NAME}.xml
     ...    --diagnostics-dir    ${OAT_OUTPUT}/diagnostics
     ...    timeout=${SLOW_TIMEOUT}

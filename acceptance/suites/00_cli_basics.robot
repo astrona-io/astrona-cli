@@ -11,7 +11,7 @@ Test Tags           smoke
 Operational Commands Refuse To Run Headless Without Accepted Terms
     [Documentation]    CI must accept the data-loss notice explicitly, never by default.
     ...    Runs first: acceptance is remembered in astrona's state for later commands.
-    ${result}=    Run Astrona    check    --headless    rc=1
+    ${result}=    Run Astrona    check    --headless    rc=1    accept_terms=${False}
     Should Contain    ${result.stderr}    --accept-terms
 
 Version Is Reported
@@ -30,9 +30,9 @@ Terms Are Readable Without Accepting Them
     Should Not Be Empty    ${result.stdout}
 
 Example Lab Config Validates
-    ${report}=    Run Astrona Json    validate    -c    ${EXAMPLE_LAB}    --accept-terms
+    ${report}=    Run Astrona Json    validate    -c    ${EXAMPLE_LAB}
     Log    ${report}
 
 Machine Can Run Kind Labs
     [Tags]    smoke    kind
-    Run Astrona    check    --headless    --accept-terms    timeout=${SLOW_TIMEOUT}
+    Run Astrona    check    --headless    timeout=${SLOW_TIMEOUT}

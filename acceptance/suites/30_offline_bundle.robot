@@ -13,7 +13,7 @@ ${BUNDLE}           ${OAT_OUTPUT}/bundle-${LAB_NAME}.tar.gz
 *** Test Cases ***
 Bundle Create Packs The Lab
     Run Astrona    bundle    create    -c    ${EXAMPLE_LAB}    -o    ${BUNDLE}    --node-image    ${NODE_IMAGE}
-    ...    --headless    --accept-terms    timeout=${SLOW_TIMEOUT}
+    ...    --headless    timeout=${SLOW_TIMEOUT}
     File Should Exist    ${BUNDLE}
 
 Bundle Inspect Verifies The Bundle
