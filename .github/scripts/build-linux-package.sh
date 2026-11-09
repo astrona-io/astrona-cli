@@ -28,14 +28,17 @@ verify() {
   actual="$(sha256sum "$file" | awk '{print $1}')"
   [[ "$actual" == "$checksum" ]] || { echo "Checksum mismatch for $file" >&2; exit 1; }
 }
+# kind and kubectl are verified against the checksums pinned in tools.env
+# (the same pins `astrona setup` uses).
+arch_uc="$(printf '%s' "$arch" | tr '[:lower:]' '[:upper:]')"
+kind_sum_var="KIND_SHA256_LINUX_$arch_uc"
+kubectl_sum_var="KUBECTL_SHA256_LINUX_$arch_uc"
 kind_url="https://github.com/kubernetes-sigs/kind/releases/download/$KIND_VERSION"
 fetch "$kind_url/kind-linux-$arch" "$stage/tools/kind"
-fetch "$kind_url/kind-linux-$arch.sha256sum" "$work/kind.sha256"
-verify "$(awk '{print $1}' "$work/kind.sha256")" "$stage/tools/kind"
+verify "${!kind_sum_var:-}" "$stage/tools/kind"
 kubectl_url="https://dl.k8s.io/release/$KUBECTL_VERSION/bin/linux/$arch/kubectl"
 fetch "$kubectl_url" "$stage/tools/kubectl"
-fetch "$kubectl_url.sha256" "$work/kubectl.sha256"
-verify "$(cat "$work/kubectl.sha256")" "$stage/tools/kubectl"
+verify "${!kubectl_sum_var:-}" "$stage/tools/kubectl"
 oras_url="https://github.com/oras-project/oras/releases/download/v$ORAS_VERSION"
 oras_asset="oras_${ORAS_VERSION}_linux_${arch}.tar.gz"
 fetch "$oras_url/$oras_asset" "$work/$oras_asset"

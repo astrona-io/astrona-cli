@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"astrona/internal/preflight"
+	"astrona/packaging"
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
@@ -120,9 +121,19 @@ func planSetup(env setupEnv) []setupStep {
 			if !env.missing[tool] {
 				continue
 			}
+			why := map[string]string{"kind": "kind creates the lab's Kubernetes cluster.", "kubectl": "kubectl is how you (and the grader) talk to the cluster."}[tool]
+			version, _, ok := pinnedTool(tool, env.goos, env.goarch)
+			if !ok {
+				steps = append(steps, setupStep{
+					title:  "Install " + tool,
+					why:    why,
+					manual: fmt.Sprintf("astrona has no verified %s download for %s/%s; install it from your distribution or the project's own instructions.", tool, env.goos, env.goarch),
+				})
+				continue
+			}
 			steps = append(steps, setupStep{
-				title:    fmt.Sprintf("Download %s into %s", tool, env.localBin),
-				why:      map[string]string{"kind": "kind creates the lab's Kubernetes cluster.", "kubectl": "kubectl is how you (and the grader) talk to the cluster."}[tool],
+				title:    fmt.Sprintf("Download %s %s into %s", tool, version, env.localBin),
+				why:      why,
 				download: &toolDownload{tool: tool, goos: env.goos, goarch: env.goarch, dir: env.localBin},
 			})
 		}
@@ -214,7 +225,7 @@ func (r setupRunner) execute(steps []setupStep) (manualLeft int, err error) {
 			fmt.Fprintf(r.out, "   $ %s\n", strings.Join(argv, " "))
 		}
 		if step.download != nil {
-			fmt.Fprintf(r.out, "   downloads %s and checks its SHA-256 against the published checksum\n", step.download.tool)
+			fmt.Fprintf(r.out, "   downloads %s and checks its SHA-256 against the checksum pinned in this astrona release\n", step.download.tool)
 		}
 		if r.dryRun {
 			continue
@@ -257,8 +268,9 @@ func newSetupCmd() *cobra.Command {
 			"would report, shows each step it would take, and asks before doing it:\n\n" +
 			"  • macOS: installs kind, kubectl and Podman with Homebrew, then creates and starts the Podman\n" +
 			"    machine (or starts Docker Desktop if that is what you have).\n" +
-			"  • Linux: installs kind and kubectl with Homebrew, or downloads them into ~/.local/bin and\n" +
-			"    verifies their published SHA-256 checksums. A container engine belongs to your\n" +
+			"  • Linux: installs kind and kubectl with Homebrew, or downloads the versions this astrona\n" +
+			"    release pins into ~/.local/bin and verifies them against SHA-256 checksums pinned in\n" +
+			"    astrona before anything is moved into place. A container engine belongs to your\n" +
 			"    distribution, so setup tells you the command instead of running it with sudo.\n" +
 			"  • Windows: use astrona.exe, whose setup prepares WSL 2 and installs astrona inside it.\n\n" +
 			"It finishes with `astrona check`. Nothing is installed without a yes, unless you pass --yes.",
@@ -339,8 +351,9 @@ func waitForEngine(timeout time.Duration) bool {
 
 // ---------------------------------------------------------------- downloads
 
-// toolDownload is kind or kubectl for one platform, fetched from its
-// project's official release location over HTTPS.
+// toolDownload is kind or kubectl for one platform, at the version pinned
+// in packaging/tools.env, fetched from its project's official release
+// location over HTTPS.
 type toolDownload struct {
 	tool, goos, goarch, dir string
 }
@@ -350,43 +363,34 @@ const maxToolBytes = 200 << 20
 
 var setupHTTP = &http.Client{Timeout: 5 * time.Minute}
 
-// toolURLs returns the binary URL and the URL of its published SHA-256.
-// A variable so tests can point it at a local server.
-var toolURLs = func(ctx context.Context, d toolDownload) (binURL, sumURL string, err error) {
-	switch d.tool {
-	case "kind":
-		base := fmt.Sprintf("https://github.com/kubernetes-sigs/kind/releases/latest/download/kind-%s-%s", d.goos, d.goarch)
-		return base, base + ".sha256sum", nil
-	case "kubectl":
-		version, err := fetchSmall(ctx, "https://dl.k8s.io/release/stable.txt")
-		if err != nil {
-			return "", "", fmt.Errorf("looking up the current kubectl version: %w", err)
-		}
-		version = strings.TrimSpace(version)
-		if !strings.HasPrefix(version, "v") || strings.ContainsAny(version, "/ \n") {
-			return "", "", fmt.Errorf("unexpected kubectl version %q", version)
-		}
-		base := fmt.Sprintf("https://dl.k8s.io/release/%s/bin/%s/%s/kubectl", version, d.goos, d.goarch)
-		return base, base + ".sha256", nil
+// pinnedTool is the version and SHA-256 of tool for goos/goarch pinned in
+// packaging/tools.env; ok is false when nothing is pinned for that platform.
+func pinnedTool(tool, goos, goarch string) (version, sum string, ok bool) {
+	prefix := map[string]string{"kind": "KIND", "kubectl": "KUBECTL"}[tool]
+	if prefix == "" {
+		return "", "", false
 	}
-	return "", "", fmt.Errorf("unknown tool %q", d.tool)
+	version = packaging.Pin(prefix + "_VERSION")
+	sum = packaging.Pin(fmt.Sprintf("%s_SHA256_%s_%s", prefix, strings.ToUpper(goos), strings.ToUpper(goarch)))
+	return version, sum, version != "" && sum != ""
 }
 
-func fetchSmall(ctx context.Context, url string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", err
+// toolURLs returns the URL of the pinned release of the tool and the
+// SHA-256 it must have, both from packaging/tools.env — never "latest" or
+// "stable", and never a checksum fetched next to the binary. A variable so
+// tests can point it at a local server.
+var toolURLs = func(d toolDownload) (binURL, sha256 string, err error) {
+	version, sum, ok := pinnedTool(d.tool, d.goos, d.goarch)
+	if !ok {
+		return "", "", fmt.Errorf("this astrona has no pinned %s for %s/%s — install it yourself", d.tool, d.goos, d.goarch)
 	}
-	resp, err := setupHTTP.Do(req)
-	if err != nil {
-		return "", err
+	switch d.tool {
+	case "kind":
+		return fmt.Sprintf("https://github.com/kubernetes-sigs/kind/releases/download/%s/kind-%s-%s", version, d.goos, d.goarch), sum, nil
+	case "kubectl":
+		return fmt.Sprintf("https://dl.k8s.io/release/%s/bin/%s/%s/kubectl", version, d.goos, d.goarch), sum, nil
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("GET %s: %s", url, resp.Status)
-	}
-	b, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
-	return string(b), err
+	return "", "", fmt.Errorf("unknown tool %q", d.tool)
 }
 
 // parseChecksum takes the first field of a sha256 file ("<hex>" or
@@ -403,21 +407,17 @@ func parseChecksum(s string) (string, error) {
 	return sum, nil
 }
 
-// installToolDownload downloads the tool, verifies it against the published
-// checksum, and only then moves it into place (0755). A mismatch leaves
+// installToolDownload downloads the pinned tool, verifies it against the
+// pinned checksum, and only then moves it into place (0755). A mismatch leaves
 // nothing behind.
 func installToolDownload(ctx context.Context, d *toolDownload) (string, error) {
-	binURL, sumURL, err := toolURLs(ctx, *d)
+	binURL, pinned, err := toolURLs(*d)
 	if err != nil {
 		return "", err
 	}
-	sumText, err := fetchSmall(ctx, sumURL)
+	want, err := parseChecksum(pinned)
 	if err != nil {
-		return "", fmt.Errorf("downloading %s checksum: %w", d.tool, err)
-	}
-	want, err := parseChecksum(sumText)
-	if err != nil {
-		return "", fmt.Errorf("%s checksum: %w", d.tool, err)
+		return "", fmt.Errorf("%s pinned checksum: %w", d.tool, err)
 	}
 	if err := os.MkdirAll(d.dir, 0o755); err != nil {
 		return "", err
@@ -455,7 +455,7 @@ func installToolDownload(ctx context.Context, d *toolDownload) (string, error) {
 		return "", fmt.Errorf("%s download is larger than %d MB — refusing it", d.tool, maxToolBytes>>20)
 	}
 	if got := hex.EncodeToString(h.Sum(nil)); got != want {
-		return "", fmt.Errorf("%s checksum mismatch: got %s, published %s — nothing was installed", d.tool, got, want)
+		return "", fmt.Errorf("%s checksum mismatch: got %s, pinned %s — nothing was installed", d.tool, got, want)
 	}
 	if err := os.Chmod(tmp.Name(), 0o755); err != nil {
 		return "", err

@@ -140,7 +140,7 @@ path of the full log — `astrona logs view` opens it.
 |---|---|
 | Throw a lab away? (`reset`, `logs clean`, `run` on a running lab) | `--yes` / `-y` |
 | Run a lab from a URL, git repo or bundle? (shows what it will do) | `--trust` |
-| Download and install the astrona version a lab needs? | `--install-version` |
+| Download and install the astrona version a lab needs? | `--install-version` (a newer release only — switching to an older one is always asked at a terminal) |
 
 The last two approve running someone else's code, so they have their own
 flags rather than a general `-y`. Without a terminal astrona never waits for

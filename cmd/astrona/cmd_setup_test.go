@@ -196,16 +196,12 @@ func TestInstallToolDownloadVerifiesChecksum(t *testing.T) {
 	}{{"match", good, false}, {"mismatch", strings.Repeat("00", 32), true}} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if strings.HasSuffix(r.URL.Path, ".sha256sum") {
-					w.Write([]byte(tc.sum + "  kind\n"))
-					return
-				}
 				w.Write(body)
 			}))
 			defer srv.Close()
 			old := toolURLs
-			toolURLs = func(context.Context, toolDownload) (string, string, error) {
-				return srv.URL + "/kind", srv.URL + "/kind.sha256sum", nil
+			toolURLs = func(toolDownload) (string, string, error) {
+				return srv.URL + "/kind", tc.sum, nil
 			}
 			defer func() { toolURLs = old }()
 			dir := t.TempDir()

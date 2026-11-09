@@ -41,11 +41,11 @@ To check a download yourself: `gh attestation verify astrona-darwin-arm64 --repo
 
 ## What happens when a lab needs another version
 
-Commands that run, test, grade or validate a lab (`run`, `test`, `submit`, `reset`, `validate`, `status`, …) check its `astronaVersion`. If this astrona isn't allowed, it hands the whole command over to the **newest installed `astrona-<version>` that is** — you just keep typing `astrona`:
+Commands that run, test, grade or validate a lab (`run`, `test`, `submit`, `reset`, `validate`, `status`, …) check its `astronaVersion`. If this astrona isn't allowed, it hands the whole command over to the **newest installed `astrona-<version>` that is** — you just keep typing `astrona` (when that version is older than the one you run, it asks first; see below):
 
 ```
-$ astrona test ./labs/old-lab
-[INFO] this lab needs astrona <=0.2.1 — running it with astrona 0.2.1 (~/.astrona/bin/astrona-0.2.1)
+$ astrona test ./labs/new-lab
+[INFO] this lab needs astrona >=0.6.0 — running it with astrona 0.6.0 (~/.astrona/bin/astrona-0.6.0)
 …
 PROCTOR: PASS
 ```
@@ -55,13 +55,18 @@ PROCTOR: PASS
 - **None installed?** astrona never downloads anything just because a lab config says so — a config may come from someone else's repository. Instead:
     - **At a terminal it asks first:**
       ```
-      This lab needs astrona <=0.2.1 (this is 0.2.2). Download and install astrona 0.2.1,
+      This lab needs astrona >=0.6.0 (this is 0.5.2). Download and install astrona 0.6.0,
       verified against GitHub's SHA-256 digest? [y/N]
       ```
       Yes installs the newest release that fits and continues the same command with it; no (the default) stops, and tells you the `astrona versions install …` command for later.
     - **Without a terminal** (CI, scripts) it stops with that command — or pass **`--install-version`** to install it without asking.
+- **An older release is always asked about.** When the version a lab needs is older than the astrona you're running — installed or not — astrona asks at the terminal every time, whatever flags you pass (`--install-version` included):
+  ```
+  This lab needs astrona <=0.5.1, which is older than this one (0.5.2). Run it with astrona 0.5.1? [y/N]
+  ```
+  Without a terminal (CI, `--headless`) it refuses and prints how to run that version yourself: `astrona versions install 0.5.1`, then `astrona-0.5.1 <command> …`.
 - **A remote lab is approved first.** For a lab from `--git` or a URL, the [trust prompt](remote-config.md#approving-remote-labs) happens in *this* astrona, before anything is installed or handed over — for every command that hands over, not only `run`/`submit`/`test`/`reset`. The approval is stored in `~/.astrona/trust.json`, so the version it's handed to doesn't ask again. If this astrona can't even parse the lab's config (it was written for another version), it can't show what the lab does, so there's no prompt: the lab must already be approved at this exact version, or you pass `--trust` after reviewing it.
-- **Never older than 0.2.0.** astrona never hands a lab over to — or installs for one — a release older than 0.2.0, the first with trust prompts: a lab asking for one could otherwise get its scripts run without your approval. A lab that only fits an older release stops with an explanation; if you trust it, install that version yourself and run it as `astrona-<version>`.
+- **Never older than 0.4.15.** astrona never hands a lab over to — or installs for one — a release older than 0.4.15, the newest release with security fixes: a lab asking for an older one would otherwise run without them. The floor moves up with every release that fixes a security issue. A lab that only fits an older release stops with an explanation; if you trust it, install that version yourself and run it as `astrona-<version>`.
 - Only `astrona-*` binaries in `~/.astrona/bin` (where `astrona versions install` puts them) are used — ones elsewhere on your `PATH` are ignored, so a stray binary never runs a lab.
 - `astrona docs` and `astrona destroy` don't check: reading a lab's docs doesn't depend on the version, and cleaning up must always work.
 - A developer build (no release number) runs every lab and doesn't hand over.

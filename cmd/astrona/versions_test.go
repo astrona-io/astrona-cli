@@ -168,35 +168,41 @@ func allow() error { return nil }
 func TestEnsureLabVersion(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("PATH", t.TempDir())
-	releaseTags = func() ([]string, error) { return []string{"v0.3.0", "v0.2.1", "v0.2.0"}, nil }
+	releaseTags = func() ([]string, error) { return []string{"v0.6.0", "v0.5.1", "v0.5.0"}, nil }
 	defer func() { releaseTags = githubReleaseTags }()
 	old := Version
 	defer func() { Version = old }()
 
-	Version = "v0.2.2"
+	Version = "v0.5.2"
 	if err := ensureLabVersion("", &rootFlags{}, allow); err != nil {
 		t.Errorf("no constraint: %v", err)
 	}
-	if err := ensureLabVersion(">=0.2.0", &rootFlags{}, allow); err != nil {
+	if err := ensureLabVersion(">=0.5.0", &rootFlags{}, allow); err != nil {
 		t.Errorf("allowed: %v", err)
 	}
 	stdinIsTerminal = func() bool { return false }
 	defer func() { stdinIsTerminal = func() bool { return isatty.IsTerminal(os.Stdin.Fd()) } }()
-	err := ensureLabVersion("<=0.2.1", &rootFlags{}, allow)
-	if err == nil || !strings.Contains(err.Error(), "astrona versions install 0.2.1") || !strings.Contains(err.Error(), "--install-version") {
-		t.Errorf("not allowed, none installed, no terminal = %v — must say what to install", err)
+	// An older release without a terminal: refused, saying how to run it by hand.
+	err := ensureLabVersion("<=0.5.1", &rootFlags{}, allow)
+	if err == nil || !strings.Contains(err.Error(), "astrona versions install 0.5.1") || !strings.Contains(err.Error(), "confirm it at a terminal") {
+		t.Errorf("older, none installed, no terminal = %v — must say what to install", err)
+	}
+	// A newer release without a terminal: names --install-version.
+	err = ensureLabVersion(">=0.6.0", &rootFlags{}, allow)
+	if err == nil || !strings.Contains(err.Error(), "astrona versions install 0.6.0") || !strings.Contains(err.Error(), "--install-version") {
+		t.Errorf("newer, none installed, no terminal = %v — must say what to install", err)
 	}
 	if err := ensureLabVersion("~0.2", &rootFlags{}, allow); err == nil {
 		t.Error("bad constraint accepted")
 	}
 
-	t.Setenv(dispatchedEnv, "0.3.0")
-	if err := ensureLabVersion("<=0.2.1", &rootFlags{}, allow); err == nil || !strings.Contains(err.Error(), "handed it to") {
+	t.Setenv(dispatchedEnv, "0.6.0")
+	if err := ensureLabVersion("<=0.5.1", &rootFlags{}, allow); err == nil || !strings.Contains(err.Error(), "handed it to") {
 		t.Errorf("second hand-over must stop: %v", err)
 	}
 
 	Version = "developer"
-	if err := ensureLabVersion("<=0.2.1", &rootFlags{}, allow); err != nil {
+	if err := ensureLabVersion("<=0.5.1", &rootFlags{}, allow); err != nil {
 		t.Errorf("developer build should not be blocked: %v", err)
 	}
 }
@@ -219,16 +225,17 @@ func TestNewerRelease(t *testing.T) {
 	}
 }
 
-// When no allowed version is installed: --install-version installs it, a
-// yes at the terminal installs it, a no doesn't — and then the command is
-// handed over to it, without our own --install-version.
+// When no allowed version is installed: --install-version installs a newer
+// one but never an older one, a yes at the terminal installs it, a no
+// doesn't — and then the command is handed over to it, without our own
+// --install-version.
 func TestOfferInstall(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv(dispatchedEnv, "")
 	old, origInstall, origExec, origTerm := Version, installVersion, execHandover, stdinIsTerminal
-	Version = "v0.2.2"
-	releaseTags = func() ([]string, error) { return []string{"v0.3.0", "v0.2.1", "v0.2.0"}, nil }
+	Version = "v0.5.2"
+	releaseTags = func() ([]string, error) { return []string{"v0.6.0", "v0.5.1", "v0.5.0"}, nil }
 	var installed []string
 	installVersion = func(v version.V) (string, error) {
 		installed = append(installed, v.String())
@@ -246,18 +253,25 @@ func TestOfferInstall(t *testing.T) {
 		promptIn, os.Args = os.Stdin, origArgs
 	}()
 
-	// --install-version: no question asked, even without a terminal.
+	// --install-version: no question asked for a newer release, even
+	// without a terminal.
 	stdinIsTerminal = func() bool { return false }
 	os.Args = []string{"astrona", "run", "--install-version"}
-	f := &rootFlags{configPath: "/labs/old", fileName: "config.yaml", installVersion: true}
-	if err := ensureLabVersion("<=0.2.1", f, allow); !errors.Is(err, errHandedOver) {
+	f := &rootFlags{configPath: "/labs/new", fileName: "config.yaml", installVersion: true}
+	if err := ensureLabVersion(">=0.6.0", f, allow); !errors.Is(err, errHandedOver) {
 		t.Fatalf("--install-version = %v", err)
 	}
-	if strings.Join(installed, ",") != "0.2.1" {
+	if strings.Join(installed, ",") != "0.6.0" {
 		t.Errorf("installed = %v — want the newest allowed release", installed)
 	}
-	if strings.Contains(strings.Join(handedArgs, " "), "--install-version") || handedArgs[0] != "/fake/astrona-0.2.1" {
-		t.Errorf("handed over as %v — the older version doesn't know --install-version", handedArgs)
+	if strings.Contains(strings.Join(handedArgs, " "), "--install-version") || handedArgs[0] != "/fake/astrona-0.6.0" {
+		t.Errorf("handed over as %v — the other version doesn't know --install-version", handedArgs)
+	}
+	// ... but an older release is not installed without a terminal.
+	installed, handedArgs = nil, nil
+	f = &rootFlags{configPath: "/labs/old", fileName: "config.yaml", installVersion: true}
+	if err := ensureLabVersion("<=0.5.1", f, allow); err == nil || errors.Is(err, errHandedOver) || len(installed) != 0 {
+		t.Errorf("--install-version, older = %v, installed %v", err, installed)
 	}
 
 	// At a terminal: "y" installs, "n" doesn't.
@@ -265,13 +279,13 @@ func TestOfferInstall(t *testing.T) {
 	installed = nil
 	os.Args = []string{"astrona", "run"}
 	promptIn = strings.NewReader("y\n")
-	if err := ensureLabVersion("<=0.2.1", &rootFlags{configPath: "/labs/old", fileName: "config.yaml"}, allow); !errors.Is(err, errHandedOver) || len(installed) != 1 {
+	if err := ensureLabVersion("<=0.5.1", &rootFlags{configPath: "/labs/old", fileName: "config.yaml"}, allow); !errors.Is(err, errHandedOver) || len(installed) != 1 {
 		t.Errorf("yes = %v, installed %v", err, installed)
 	}
 	installed = nil
 	promptIn = strings.NewReader("n\n")
-	err := ensureLabVersion("<=0.2.1", &rootFlags{configPath: "/labs/old", fileName: "config.yaml"}, allow)
-	if err == nil || errors.Is(err, errHandedOver) || len(installed) != 0 || !strings.Contains(err.Error(), "not installed") {
+	err := ensureLabVersion("<=0.5.1", &rootFlags{configPath: "/labs/old", fileName: "config.yaml"}, allow)
+	if err == nil || errors.Is(err, errHandedOver) || len(installed) != 0 || !strings.Contains(err.Error(), "not switched") {
 		t.Errorf("no = %v, installed %v", err, installed)
 	}
 
@@ -284,7 +298,7 @@ func TestOfferInstall(t *testing.T) {
 }
 
 // handoverFakes stubs releases, installs and the hand-over itself for one
-// test: this is 0.2.2, the published releases are tags, HOME is empty and
+// test: this is 0.5.2, the published releases are tags, HOME is empty and
 // there's no terminal. It returns what got installed, the argv handed
 // over to, and the error the fake hand-over returns.
 func handoverFakes(t *testing.T, tags ...string) (installed, handed *[]string, errHandedOver error) {
@@ -292,11 +306,11 @@ func handoverFakes(t *testing.T, tags ...string) (installed, handed *[]string, e
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv(dispatchedEnv, "")
-	old, origInstall, origExec, origTerm, origArgs := Version, installVersion, execHandover, stdinIsTerminal, os.Args
+	old, origInstall, origExec, origTerm, origArgs, origIn := Version, installVersion, execHandover, stdinIsTerminal, os.Args, promptIn
 	t.Cleanup(func() {
-		Version, releaseTags, installVersion, execHandover, stdinIsTerminal, os.Args = old, githubReleaseTags, origInstall, origExec, origTerm, origArgs
+		Version, releaseTags, installVersion, execHandover, stdinIsTerminal, os.Args, promptIn = old, githubReleaseTags, origInstall, origExec, origTerm, origArgs, origIn
 	})
-	Version = "v0.2.2"
+	Version = "v0.5.2"
 	os.Args = []string{"astrona", "run"}
 	stdinIsTerminal = func() bool { return false }
 	releaseTags = func() ([]string, error) { return tags, nil }
@@ -322,14 +336,16 @@ func installFake(t *testing.T, name string) {
 	fakeBinary(t, bin, name, true)
 }
 
-// A lab may not pick an astrona from before trust prompts: not an
-// installed one, not one installed for it — even with --install-version.
+// A lab may not pick an astrona older than the floor: not an installed
+// one, not one installed for it — even with --install-version.
 func TestHandoverFloor(t *testing.T) {
-	installed, handed, errHandedOver := handoverFakes(t, "v0.2.1", "v0.2.0", "v0.1.9")
-	installFake(t, "astrona-0.1.9")
+	installed, handed, errHandedOver := handoverFakes(t, "v0.5.1", "v0.5.0", "v0.4.9")
+	installFake(t, "astrona-0.4.9")
+	stdinIsTerminal = func() bool { return true }
+	promptIn = strings.NewReader("y\n")
 
 	f := &rootFlags{configPath: "/labs/old", fileName: "config.yaml", installVersion: true}
-	err := ensureLabVersion("<0.2.0", f, allow)
+	err := ensureLabVersion("<0.5.0", f, allow)
 	if err == nil || errors.Is(err, errHandedOver) || !strings.Contains(err.Error(), "older than "+minHandoverVersion) {
 		t.Errorf("below the floor = %v", err)
 	}
@@ -339,18 +355,19 @@ func TestHandoverFloor(t *testing.T) {
 
 	// A constraint that also fits a version above the floor gets that one
 	// installed, not the older one that's already there.
-	if err := ensureLabVersion("<=0.2.1", f, allow); !errors.Is(err, errHandedOver) {
-		t.Fatalf("<=0.2.1 = %v", err)
+	if err := ensureLabVersion("<=0.5.1", f, allow); !errors.Is(err, errHandedOver) {
+		t.Fatalf("<=0.5.1 = %v", err)
 	}
-	if strings.Join(*installed, ",") != "0.2.1" || (*handed)[0] != "/fake/astrona-0.2.1" {
-		t.Errorf("installed %v, handed to %v — want 0.2.1", *installed, *handed)
+	if strings.Join(*installed, ",") != "0.5.1" || (*handed)[0] != "/fake/astrona-0.5.1" {
+		t.Errorf("installed %v, handed to %v — want 0.5.1", *installed, *handed)
 	}
 }
 
 // The trust check runs before anything is installed or handed over, and a
 // refusal stops both.
 func TestHandoverTrustFirst(t *testing.T) {
-	installed, handed, errHandedOver := handoverFakes(t, "v0.2.1")
+	installed, handed, errHandedOver := handoverFakes(t, "v0.5.1")
+	stdinIsTerminal = func() bool { return true } // switching to an older release is confirmed
 	var order []string
 	fakeInstall := installVersion
 	installVersion = func(v version.V) (string, error) {
@@ -361,7 +378,7 @@ func TestHandoverTrustFirst(t *testing.T) {
 
 	errRefused := errors.New("not trusted")
 	refuse := func() error { order = append(order, "trust"); return errRefused }
-	if err := ensureLabVersion("<=0.2.1", f, refuse); !errors.Is(err, errRefused) {
+	if err := ensureLabVersion("<=0.5.1", f, refuse); !errors.Is(err, errRefused) {
 		t.Errorf("refused = %v", err)
 	}
 	if len(*installed) != 0 || len(*handed) != 0 {
@@ -370,7 +387,8 @@ func TestHandoverTrustFirst(t *testing.T) {
 
 	order = nil
 	approve := func() error { order = append(order, "trust"); return nil }
-	if err := ensureLabVersion("<=0.2.1", f, approve); !errors.Is(err, errHandedOver) {
+	promptIn = strings.NewReader("y\n")
+	if err := ensureLabVersion("<=0.5.1", f, approve); !errors.Is(err, errHandedOver) {
 		t.Fatalf("approved = %v", err)
 	}
 	if strings.Join(order, ",") != "trust,install" {
@@ -378,9 +396,9 @@ func TestHandoverTrustFirst(t *testing.T) {
 	}
 
 	// Already installed: still checked before the hand-over.
-	installFake(t, "astrona-0.2.1")
+	installFake(t, "astrona-0.5.1")
 	*handed = nil
-	if err := ensureLabVersion("<=0.2.1", f, refuse); !errors.Is(err, errRefused) || len(*handed) != 0 {
+	if err := ensureLabVersion("<=0.5.1", f, refuse); !errors.Is(err, errRefused) || len(*handed) != 0 {
 		t.Errorf("installed, refused = %v, handed to %v", err, *handed)
 	}
 }
@@ -391,12 +409,12 @@ func TestHandoverTrustFirst(t *testing.T) {
 // version it's handed to doesn't ask again.
 func TestLoadLabForCommandTrustsBeforeHandover(t *testing.T) {
 	for _, tc := range []struct{ name, body string }{
-		{"parses", "astronaVersion: \"<=0.2.1\"\nmetadata:\n  name: old\n"},
-		{"doesn't parse", "astronaVersion: \"<=0.2.1\"\nmetadata: not-a-map\n"},
+		{"parses", "astronaVersion: \">=0.6.0\"\nmetadata:\n  name: new\n"},
+		{"doesn't parse", "astronaVersion: \">=0.6.0\"\nmetadata: not-a-map\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, handed, errHandedOver := handoverFakes(t)
-			installFake(t, "astrona-0.2.1")
+			installFake(t, "astrona-0.6.0")
 			srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, _ = io.WriteString(w, tc.body)
 			}))
