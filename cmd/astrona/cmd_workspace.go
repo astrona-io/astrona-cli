@@ -271,8 +271,8 @@ func openLabWorkspace(ctx context.Context, cfg *config.LabConfig, baseDir string
 				return false, err
 			}
 			defer rep.Close()
-			info := teardownInfo{clusterName: name, runID: runID, teardown: cfg.Teardown, runtime: cfg.Runtime, cfg: cfg} // only the run this UI opened
-			info.skipScripts = !teardownTrusted(flags, info, baseDir, rep)
+			info := teardownInfo{ClusterName: name, RunID: runID, Teardown: cfg.Teardown, Runtime: cfg.Runtime, Config: cfg} // only the run this UI opened
+			info.SkipScripts = !teardownTrusted(flags, info, baseDir, rep)
 			err = destroyLab(info, baseDir, rep)
 			return err == nil && !cfg.Teardown.KeepCluster, err
 		},

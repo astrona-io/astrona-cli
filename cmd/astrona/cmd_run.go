@@ -215,7 +215,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				}
 				teardown := cfg.Teardown
 				teardown.KeepCluster = false
-				info := teardownInfo{clusterName: clusterName, teardown: teardown, runtime: cfg.Runtime, skipScripts: flags.localOnly}
+				info := teardownInfo{ClusterName: clusterName, Teardown: teardown, Runtime: cfg.Runtime, SkipScripts: flags.localOnly}
 				if err := tearDownLabEnvironment(clusterName, info, baseDir, true, rep); err != nil {
 					return fmt.Errorf("could not remove the running lab, nothing was started: %w", err)
 				}

@@ -25,7 +25,6 @@ type kindContainer = labops.KindContainer
 // (the UI files call them too). S15 removes them.
 func collectQEMURows() ([]labRow, int, error) { return labops.CollectQEMURows() }
 func collectKindRows() []labRow               { return labops.CollectKindRows() }
-func lookupKindRows() ([]labRow, error)       { return labops.LookupKindRows() }
 func kindAPIHealth(name string) (status, version string) {
 	return labops.KindAPIHealth(name)
 }

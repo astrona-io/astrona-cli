@@ -209,7 +209,7 @@ func newResetCmd(flags *rootFlags) *cobra.Command {
 				}
 				teardown := cfg.Teardown
 				teardown.KeepCluster = false
-				info := teardownInfo{clusterName: clusterName, teardown: teardown, runtime: cfg.Runtime}
+				info := teardownInfo{ClusterName: clusterName, Teardown: teardown, Runtime: cfg.Runtime}
 				if err := tearDownLabEnvironment(clusterName, info, baseDir, true, rep); err != nil {
 					return fmt.Errorf("could not remove the old lab, nothing was recreated: %w", err)
 				}
