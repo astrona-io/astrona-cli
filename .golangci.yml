@@ -100,9 +100,9 @@ linters:
     # proctor, preflight -> labops -> authoring -> workspace -> cmd. Each
     # layer is denied the layers above it, so cmd/astrona can become thin
     # Cobra wiring over internal packages a browser workspace can also call.
-    # The rule for the package that doesn't exist yet (workspace) is
-    # added with the change that creates it. `pkg` is a prefix match;
-    # `files` globs match absolute paths.
+    # workspace is the top internal layer: it may import everything below
+    # it, and only the global no-cmd and no-tui-in-internal rules apply to
+    # it. `pkg` is a prefix match; `files` globs match absolute paths.
     depguard:
       rules:
         no-cmd:
@@ -228,6 +228,12 @@ linters:
               desc: "workspace is the top layer"
             - pkg: "github.com/spf13/cobra"
               desc: "no flag parsing in authoring; the Cobra command stays in cmd"
+        workspace:
+          list-mode: lax
+          files: ["**/internal/workspace/**"]
+          deny:
+            - pkg: "astrona/cmd"
+              desc: "workspace is the top internal layer; cmd wires it, not the reverse"
         no-tui-in-internal:
           list-mode: lax
           files: ["**/internal/**"]
