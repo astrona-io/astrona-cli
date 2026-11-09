@@ -88,6 +88,70 @@ jobs:
           name: oat-report-kind
           path: oat-report-*-kind.zip
 
+  login:
+    name: Acceptance full (login)
+    runs-on: ubuntu-latest
+    # Keycloak and a fake site of its own: no secrets, so it also runs on
+    # pull requests from forks and Renovate.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.3
+
+      - name: Build astrona
+        env:
+          VERSION: ${{ inputs.version || 'developer' }}
+        run: go build -ldflags "-X main.Version=$VERSION" -o astrona ./cmd/astrona
+
+      - name: Install kubectl
+        run: |
+          version="$(curl -L -s https://dl.k8s.io/release/stable.txt)"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+      - name: Install kind
+        run: go install sigs.k8s.io/kind@v0.32.0
+
+      # The suite signs in on Keycloak's pages in headless Chromium.
+      - name: Install Chromium for Playwright
+        run: uv run --with-requirements acceptance/requirements.txt playwright install --with-deps chromium
+
+      - name: Robot Framework login suite
+        env:
+          # Keycloak runs on the same engine as kind.
+          OAT_CONTAINER_RUNTIME: docker
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          uv run --with-requirements acceptance/requirements.txt \
+            robot --include login \
+            --outputdir oat-report --xunit xunit.xml acceptance/suites
+
+      - name: Pack report
+        if: always()
+        env:
+          VERSION: ${{ inputs.version || 'developer' }}
+        run: (cd oat-report && zip -qr "../oat-report-$VERSION-login.zip" .)
+
+      - name: Upload acceptance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: oat-report-login
+          path: oat-report-*-login.zip
+
   vm:
     name: Acceptance full (vm)
     runs-on: ubuntu-latest
