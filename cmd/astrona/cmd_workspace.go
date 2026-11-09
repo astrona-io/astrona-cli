@@ -48,7 +48,7 @@ func workspaceRuntime(cfg *config.LabConfig) error {
 }
 
 func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "ui [lab-name]",
 		Short: "Open the UI home with active runs and history",
 		Long: "Open Home to browse saved runs, submission history and completed labs/playgrounds, even when no lab or engine is running. " +
@@ -107,6 +107,10 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			return runLabWorkspace(cmd.Context(), cfg, baseDir, flags)
 		},
 	}
+	// The browser workspace server. A lab named serve, status or stop is
+	// still reachable from Home (astrona ui).
+	cmd.AddCommand(newUIServeCmd(), newUIStatusCmd(), newUIStopCmd())
+	return cmd
 }
 
 // Only remembered primary labs belong in the picker, never unrelated clusters
