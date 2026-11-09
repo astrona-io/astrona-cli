@@ -15,7 +15,8 @@ export interface ViewStatus {
  * Props every view component accepts. A view emits "status" with a
  * ViewStatus whenever its connection changes, emits "leave" when the user
  * asks to move focus out of it, "unauthorized" when the session token is
- * refused, "runGone" when the server says the run changed or stopped, and
+ * refused, "runGone" when the server says the run changed or stopped (or the
+ * server stopped answering), and
  * exposes focus().
  */
 export interface ViewProps {

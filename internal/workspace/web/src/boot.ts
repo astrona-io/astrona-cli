@@ -31,6 +31,13 @@ function readLaunch(): Launch {
 
 export const launch: Launch = readLaunch()
 
+// A fresh link opened in a tab that already shows the workspace (for example
+// one showing "Workspace unavailable") only changes the fragment, which loads
+// nothing. Load the page again so the new code is read above.
+window.addEventListener('hashchange', () => {
+  if (new URLSearchParams(window.location.hash.replace(/^#/, '')).has('code')) window.location.reload()
+})
+
 /** Records the open lab in the address bar so a reload returns to it. */
 export function rememberLab(lab: string): void {
   const target = `#/runs/${encodeURIComponent(lab)}`

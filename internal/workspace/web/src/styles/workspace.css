@@ -213,7 +213,7 @@
 }
 
 .workspace__row {
-  --task-width: 38%;
+  --task-width: 25%;
   display: flex;
   flex: 1;
   min-height: 0;
@@ -224,7 +224,9 @@
   flex-direction: column;
   gap: 16px;
   flex: 0 0 var(--task-width);
-  min-width: 0;
+  /* Readable on narrow windows: the panel never gets narrower than this,
+     whatever the saved percentage. */
+  min-width: 280px;
   padding: 24px;
   overflow-y: auto;
   background: var(--bg);
@@ -305,6 +307,9 @@
   min-height: 0;
   padding: 10px 0 0 12px;
   overflow: hidden;
+  /* xterm's layers (the WebGL canvases are z-indexed up to 11) stay below
+     the notice and its buttons. */
+  isolation: isolate;
 }
 
 .term__host .xterm {
@@ -313,6 +318,7 @@
 
 .term__notice {
   position: absolute;
+  z-index: 1;
   right: 16px;
   bottom: 44px;
   left: 16px;

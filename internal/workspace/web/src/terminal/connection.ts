@@ -21,6 +21,7 @@ export type LinkState =
   | { kind: 'takenOver' }
   | { kind: 'ended'; exitCode?: number }
   | { kind: 'gone' }
+  | { kind: 'unreachable' }
   | { kind: 'unauthorized' }
 
 export interface ConnectionEvents {
@@ -91,6 +92,13 @@ export class TerminalConnection {
       if (isUnauthorized(err)) {
         this.closed = true
         this.events.onState({ kind: 'unauthorized' })
+        return
+      }
+      // The server itself does not answer (for example after `astrona ui
+      // stop`): stop retrying after as many attempts as a refused socket.
+      if (this.attempt >= MAX_ATTEMPTS_WITHOUT_OPEN) {
+        this.closed = true
+        this.events.onState({ kind: 'unreachable' })
         return
       }
       this.retry()

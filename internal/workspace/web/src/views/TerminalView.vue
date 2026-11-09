@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { WebglAddon } from '@xterm/addon-webgl'
 import '@xterm/xterm/css/xterm.css'
 import { closeTerminal, isRunGone, isUnauthorized, listTerminals, openTerminal } from '../api'
 import { mirrorInlineStyles } from '../terminal/cspStyles'
@@ -29,6 +30,10 @@ let resizeObserver: ResizeObserver | undefined
 let schemeQuery: MediaQueryList | undefined
 let frame = 0
 let unmounted = false
+// Keyboard focus moves into the terminal when it first connects (after
+// Start, or on opening the page) and after the user asks to reattach. A
+// reconnect after a dropped connection leaves focus where the user put it.
+let focusOnConnect = true
 
 const notice = computed<{ text: string; action?: string } | null>(() => {
   if (problem.value) return { text: problem.value, action: 'Try again' }
@@ -53,6 +58,8 @@ const notice = computed<{ text: string; action?: string } | null>(() => {
         text: 'This terminal is no longer available. If the workspace server restarted, open a new shell; your files are still there.',
         action: 'Open a new shell',
       }
+    case 'unreachable':
+      return { text: 'The workspace server cannot be reached.', action: 'Try again' }
     default:
       return null
   }
@@ -62,6 +69,10 @@ function report(state: LinkState): void {
   link.value = state
   const t = term.value
   if (t) t.options.disableStdin = state.kind !== 'connected'
+  if (t && state.kind === 'connected' && focusOnConnect) {
+    focusOnConnect = false
+    t.focus()
+  }
   const status: ViewStatus = (() => {
     switch (state.kind) {
       case 'connected':
@@ -76,12 +87,17 @@ function report(state: LinkState): void {
         return { tone: 'error', label: 'Shell ended' }
       case 'gone':
         return { tone: 'error', label: 'Disconnected' }
+      case 'unreachable':
+        return { tone: 'error', label: 'Server unreachable' }
       case 'unauthorized':
         return { tone: 'error', label: 'Session ended' }
     }
   })()
   emit('status', status)
   if (state.kind === 'unauthorized') emit('unauthorized')
+  // The page checks the run again and, when the server is really gone,
+  // replaces the workspace with its "Workspace unavailable" message.
+  if (state.kind === 'unreachable') emit('runGone')
 }
 
 function scheduleFit(): void {
@@ -144,12 +160,26 @@ async function attach(): Promise<void> {
 }
 
 function act(): void {
-  if (!problem.value && link.value.kind === 'takenOver') {
-    // Reattaching takes the shell back from the other tab.
-    conn?.connect()
-    return
-  }
+  focusOnConnect = true
+  // Reattaching takes the target's running shell back from another tab. That
+  // tab may have ended this shell and opened a new one meanwhile, so look it
+  // up again rather than reconnecting to the old one.
   void attach()
+}
+
+// The WebGL renderer draws cells on a canvas, so 24-bit ("truecolor") cells
+// need no style attribute, which the Content Security Policy refuses (see
+// cspStyles.ts). Without WebGL, or when the GPU drops the context, xterm.js
+// falls back to its DOM renderer.
+function useWebgl(t: Terminal): void {
+  let addon: WebglAddon | undefined
+  try {
+    addon = new WebglAddon()
+    addon.onContextLoss(() => addon?.dispose())
+    t.loadAddon(addon)
+  } catch {
+    addon?.dispose()
+  }
 }
 
 function applyTheme(): void {
@@ -183,6 +213,7 @@ onMounted(async () => {
   })
   stopMirror = mirrorInlineStyles(host.value)
   t.open(host.value)
+  useWebgl(t)
   t.onData((data) => conn?.sendInput(data))
   t.onBinary((data) => conn?.sendBinary(Uint8Array.from(data, (c) => c.charCodeAt(0) & 0xff)))
   t.onResize(({ cols, rows }) => conn?.resize(cols, rows))

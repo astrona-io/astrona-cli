@@ -48,13 +48,19 @@ const status = ref<ViewStatus>({ tone: 'busy', label: 'Connecting' })
 
 // ---------------------------------------------------------------- layout
 
-const WIDTH_KEY = 'astrona.workspace.taskWidth'
-const DEFAULT_WIDTH = 38
+// The task panel's share of the row, in percent; the terminal gets the rest.
+// The key carries a version so a width saved under an older default does not
+// keep the old split.
+const WIDTH_KEY = 'astrona.workspace.taskWidth.v2'
+const DEFAULT_WIDTH = 25
+const MIN_WIDTH = 15
+const MAX_WIDTH = 70
 
 function storedWidth(): number {
   try {
-    const v = Number(window.localStorage.getItem(WIDTH_KEY))
-    if (v >= 20 && v <= 70) return v
+    const raw = window.localStorage.getItem(WIDTH_KEY)
+    const v = Number(raw)
+    if (raw !== null && v >= MIN_WIDTH && v <= MAX_WIDTH) return v
   } catch {
     // storage unavailable
   }
@@ -115,7 +121,7 @@ function focusTask(): void {
         <article v-else class="prose" v-html="question.html" />
       </section>
 
-      <SplitDivider v-model="width" controls="task-panel" @commit="saveWidth" />
+      <SplitDivider v-model="width" :min="MIN_WIDTH" :max="MAX_WIDTH" controls="task-panel" @commit="saveWidth" />
 
       <section class="view" aria-label="Terminal">
         <component
