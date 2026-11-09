@@ -67,7 +67,7 @@ func TestLoadLabConfigRejectsUnsafeNames(t *testing.T) {
 	}
 }
 
-func TestJoinStrictlyWithinBaseDir(t *testing.T) {
+func TestJoinWithinBaseDir(t *testing.T) {
 	base := t.TempDir()
 	cases := []struct {
 		source string
@@ -80,7 +80,7 @@ func TestJoinStrictlyWithinBaseDir(t *testing.T) {
 		{"a/../../outside.md", false},
 	}
 	for _, c := range cases {
-		got, err := JoinStrictlyWithinBaseDir(base, c.source)
+		got, err := JoinWithinBaseDir(base, c.source)
 		if c.ok {
 			if err != nil {
 				t.Errorf("%q: unexpected error: %v", c.source, err)
@@ -90,10 +90,5 @@ func TestJoinStrictlyWithinBaseDir(t *testing.T) {
 		} else if err == nil {
 			t.Errorf("%q: got %s, want an error", c.source, got)
 		}
-	}
-
-	// The lenient variant keeps passing absolute paths through for lab configs.
-	if got, err := JoinWithinBaseDir(base, "/etc/passwd"); err != nil || got != "/etc/passwd" {
-		t.Errorf("JoinWithinBaseDir absolute = %q, %v; want pass-through", got, err)
 	}
 }

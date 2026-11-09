@@ -272,7 +272,9 @@ func TestCollectRefusesLinkedFolders(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, err := Collect(&config.LabConfig{Resources: c.cfg}, dir)
-			if err == nil || !strings.Contains(err.Error(), "is a link") {
+			// Refused either by config.JoinWithinBaseDir ("through a
+			// symlink") or by the resources walk ("is a link").
+			if err == nil || !strings.Contains(err.Error(), "link") {
 				t.Errorf("err = %v, want a link refused", err)
 			}
 		})
@@ -314,7 +316,7 @@ func TestCopyToRefusesLinkedFolder(t *testing.T) {
 	}
 	r := Resource{Name: "id_ed25519", File: "home/.ssh/id_ed25519", How: HowFile}
 	dest := filepath.Join(t.TempDir(), "out")
-	if _, err := r.CopyTo(dir, dest, false); err == nil || !strings.Contains(err.Error(), "is a link") {
+	if _, err := r.CopyTo(dir, dest, false); err == nil || !strings.Contains(err.Error(), "link") {
 		t.Errorf("err = %v, want a link refused", err)
 	}
 	if _, err := os.Stat(dest); err == nil {

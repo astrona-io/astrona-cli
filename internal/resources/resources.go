@@ -85,7 +85,7 @@ func Collect(cfg *config.LabConfig, baseDir string) ([]Resource, error) {
 		}
 		return nil, nil
 	}
-	root, err := config.JoinStrictlyWithinBaseDir(baseDir, config.ResourcesDir)
+	root, err := config.JoinWithinBaseDir(baseDir, config.ResourcesDir)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func Collect(cfg *config.LabConfig, baseDir string) ([]Resource, error) {
 	covered := map[string]bool{} // top-level names an entry covers
 	for i, e := range cfg.Resources {
 		file := path.Clean(strings.TrimSpace(e.File))
-		if _, err := config.JoinStrictlyWithinBaseDir(root, filepath.FromSlash(file)); err != nil {
+		if _, err := config.JoinWithinBaseDir(root, filepath.FromSlash(file)); err != nil {
 			return nil, fmt.Errorf("resources[%d]: %w", i, err)
 		}
 		fi, err := lstatNoLinks(rt, file)
@@ -455,7 +455,7 @@ func Find(list []Resource, name string) (Resource, bool) {
 
 // Path is where r is inside dir, its lab's copy — never outside it.
 func (r Resource) Path(dir string) (string, error) {
-	p, err := config.JoinStrictlyWithinBaseDir(dir, filepath.FromSlash(r.File))
+	p, err := config.JoinWithinBaseDir(dir, filepath.FromSlash(r.File))
 	if err != nil {
 		return "", fmt.Errorf("resource %s: %w", r.Name, err)
 	}

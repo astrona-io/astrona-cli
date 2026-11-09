@@ -108,7 +108,7 @@ runtime:
 |---|---|---|
 | `name` | string | Required once there's more than one entry; leave empty for a single-VM lab. Same character rule as `metadata.name` — see [Names](#names) |
 | `image.type` | string | `"file"` \| `"url"` \| `"oci"` |
-| `image.source` | string | Path, URL, or OCI reference, depending on `type` |
+| `image.source` | string | Path, URL, or OCI reference, depending on `type`. A `file` path must be relative to the lab directory and stay inside it (no absolute paths, no `..` or symlinks leading out) |
 | `image.checksum` | string | e.g. `sha256:...` — recommended |
 | `image.checksums` | map | Alternative: per-algorithm checksum map |
 | `arch` | string | Guest architecture |
@@ -375,8 +375,8 @@ Shared shape for every script/manifest reference (`bootstrap.init`, `bootstrap.m
 |---|---|---|
 | `name` | string | Label printed as the step runs |
 | `description` | string | Optional, printed alongside `name` |
-| `type` | string | `"file"` \| `"folder"` \| `"url"` (manifests support all three; scripts too) |
-| `source` | string | Path (relative to the lab's base directory) or URL, depending on `type`. A `url` source must be `https://` (redirects to `http://` are refused); scripts and manifests alike are downloaded to a size-capped temp file (50 MiB) and run/applied from there |
+| `type` | string | `"file"` \| `"folder"` \| `"url"` (manifests support all three; scripts too). A script `folder` runs only its regular `*.sh` files, in filename order — number them (`01-x.sh`, `02-y.sh`) to control ordering; hidden files (`.DS_Store`, `.setup.sh.swp`), other extensions (`README.md`, `setup.sh~`), subfolders and symlinks are skipped. A manifest `folder` is handed to `kubectl apply -f` as is |
+| `source` | string | Path or URL, depending on `type`. A `file`/`folder` path must be relative to the lab's base directory and stay inside it, also once symlinks are resolved: absolute paths, `..` that leaves the lab, and links pointing outside it are refused, by `astrona validate` as well as at run time. A `url` source must be `https://` (redirects to `http://` are refused); scripts and manifests alike are downloaded to a size-capped temp file (50 MiB) and run/applied from there |
 | `hint` | string | Validation scripts only: shown when the script fails |
 | `points` | int | Validation scripts only: weight in the score (default `1`) |
 
