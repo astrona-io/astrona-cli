@@ -103,6 +103,7 @@ nav:
       - Lab Resources: guides/lab-resources.md
   - Reference:
       - Lab Config Schema: reference/lab-config.md
+      - Workspace API: reference/workspace-api.md
       - CLI Reference:
           - reference/cli/astrona.md
           - Take a lab:
