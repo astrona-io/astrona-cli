@@ -55,7 +55,7 @@ func LocalURL(pf config.PortForward) string {
 // The TCP probe only proves kubectl is listening on the host side, not
 // that the pod behind it answers.
 func (f Forward) Effective() State {
-	if !hypervisor.ProcessAlive(f.PID) {
+	if !hypervisor.SameProcess(f.PID, f.PIDStart) {
 		return StateStopped
 	}
 	if f.Status.State == StateReady && !probe(f.Spec.Forward.HostPort) {
@@ -164,8 +164,20 @@ func startOne(exe, lab string, pf config.PortForward) error {
 		return fmt.Errorf("failed to start supervisor: %w", err)
 	}
 	pid := cmd.Process.Pid
+	// Read the start time before releasing the process, while pid is
+	// certainly still this supervisor (it can't be reaped until Wait).
+	start, startErr := hypervisor.ProcessStartTime(pid)
 	_ = cmd.Process.Release()
 
+	// Written before the PID so a reader never pairs the new PID with an
+	// earlier supervisor's start time.
+	startPath := filepath.Join(dir, pidStartFile)
+	if startErr == nil {
+		startErr = os.WriteFile(startPath, []byte(start), 0600)
+	}
+	if startErr != nil {
+		_ = os.Remove(startPath)
+	}
 	if err := os.WriteFile(filepath.Join(dir, pidFile), []byte(strconv.Itoa(pid)), 0600); err != nil {
 		_ = syscall.Kill(-pid, syscall.SIGTERM)
 		return fmt.Errorf("failed to record supervisor pid: %w", err)
@@ -218,7 +230,7 @@ func Stop(lab string) (int, error) {
 			continue
 		}
 		n++
-		terminateSupervisor(readPID(filepath.Join(dir, e.Name())))
+		terminateSupervisor(filepath.Join(dir, e.Name()))
 	}
 
 	if err := os.RemoveAll(dir); err != nil {
@@ -261,9 +273,11 @@ func StopAll() ([]string, error) {
 // kubectl), escalating to SIGKILL after 5s. Only acts when pid is still
 // alive *and* still leads its own process group — the supervisor always
 // does (Setsid), so a recycled pid now owned by some unrelated process is
-// left alone.
-func terminateSupervisor(pid int) {
-	if pid <= 0 || !hypervisor.ProcessAlive(pid) {
+// left alone — as is one whose start time no longer matches the recorded
+// one (dir's supervisor.start, when present).
+func terminateSupervisor(dir string) {
+	pid, start := readPID(dir), readPIDStart(dir)
+	if pid <= 0 || !hypervisor.SameProcess(pid, start) {
 		return
 	}
 	if pgid, err := syscall.Getpgid(pid); err != nil || pgid != pid {
@@ -272,7 +286,7 @@ func terminateSupervisor(pid int) {
 
 	_ = syscall.Kill(-pid, syscall.SIGTERM)
 	for i := 0; i < 50; i++ {
-		if !hypervisor.ProcessAlive(pid) {
+		if !hypervisor.SameProcess(pid, start) {
 			return
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -316,7 +330,7 @@ func Pause(lab string) (int, error) {
 	for _, e := range entries {
 		if e.IsDir() {
 			n++
-			terminateSupervisor(readPID(filepath.Join(dir, e.Name())))
+			terminateSupervisor(filepath.Join(dir, e.Name()))
 		}
 	}
 	return n, nil
