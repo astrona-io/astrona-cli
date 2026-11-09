@@ -1308,6 +1308,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Inspect and clean manually">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#vm-state-from-older-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VM state from older versions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -4492,6 +4509,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Inspect and clean manually">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#vm-state-from-older-versions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VM state from older versions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -4534,8 +4568,9 @@ entries until their combined size fits the budget. Age uses filesystem modificat
 times; for a Git checkout, the newest entry within it determines its age. Reading
 a cache file alone does not reset its age. Images and their metadata are removed
 together. GB means 1,000,000,000 bytes, measured as logical file sizes.</p>
-<p>The limits cover downloaded images/addons, cached Git checkouts, catalog metadata
-and update-check metadata. They do not cover lab disks, student resources, results,
+<p>The limits cover downloaded images/addons, cached Git checkouts, catalog metadata,
+update-check metadata and <a href="#vm-state-from-older-versions">VM state left by older versions</a>.
+They do not cover lab disks, student resources, results,
 logs, bundles, installed tools, credentials, or Docker/Podman storage.</p>
 <p>This is cleanup after lab runs, not a background service or a download quota.
 Nothing expires while the CLI is not running. If any saved lab state exists,
@@ -4583,6 +4618,26 @@ Stopped VMs can still depend on cached backing images. Use <code>astrona list</c
 inspect your labs and <code>astrona destroy &lt;lab&gt;</code> to remove those you no longer need.
 Do not delete state files to bypass this check. Symlinked cache locations are
 rejected, and symlinks at the top of a cache are kept for manual inspection.</p>
+<h3 id="vm-state-from-older-versions">VM state from older versions<a class="headerlink" href="#vm-state-from-older-versions" title="Permanent link">&para;</a></h3>
+<p>Older Astrona versions could leave a VM's state directory under
+<code>~/.astrona/qemu/&lt;vm&gt;/</code> without a <code>handle.json</code>. No command can reach such a VM,
+but its disks (large qcow2 files) would stay forever and keep caches from being
+cleaned. <code>astrona data clean</code> lists such a directory, with its size, as
+<code>VM state from an older Astrona</code> and removes it with <code>--yes</code> when all of these hold:</p>
+<ul>
+<li>it is a real directory directly under <code>~/.astrona/qemu</code> (symlinks are kept and
+  never followed);</li>
+<li>it has no <code>handle.json</code>;</li>
+<li>nothing in it changed for 24 hours, so a lab that is still starting is left alone;</li>
+<li>no <code>qemu-system</code> process started with <code>-name astrona-&lt;vm&gt;</code> is running. If one
+  is, or processes cannot be listed, the directory is kept and the preview says so.</li>
+</ul>
+<p>Once removed, it no longer counts as saved lab state, so caches can be cleaned in
+the same run. Automatic cleanup after <code>run</code> and <code>test</code> treats these directories
+like other disposable entries: they are removed once older than
+<code>cache-retention-days</code> or when the size limit is exceeded. <code>astrona destroy &lt;lab&gt;</code>
+removes the lab's own directory straight away, under the same process check.
+<code>--temp-only</code> never touches VM state.</p>
 <p>Ordinary commands hold a shared maintenance lock, so they can run side by side;
 confirmed cleanup or reset requires an exclusive lock. A command that finds the
 lock taken prints <code>Waiting for another Astrona command to finish with local
