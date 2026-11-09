@@ -9,10 +9,12 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/charmbracelet/x/vt v0.1.0
+	github.com/coder/websocket v1.8.13
 	github.com/creack/pty v1.1.24
 	github.com/mattn/go-isatty v0.0.24
 	github.com/spf13/cobra v1.10.2
 	github.com/theckman/yacspin v0.13.12
+	github.com/yuin/goldmark v1.7.13
 	golang.org/x/sys v0.47.0
 	gopkg.in/yaml.v3 v3.0.1
 )
