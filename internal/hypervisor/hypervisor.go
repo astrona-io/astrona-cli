@@ -2262,7 +2262,11 @@ func buildQEMUArgs(processName, machineType, accel string, cpus, memoryMB int, f
 // same call-once-up-front reasoning as networks) — nil for a lab that never
 // calls ResolveInterVMTrust (a single-VM lab, where sshAccess is
 // meaningless).
-func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, networks []QEMUNetworkSpec, trust *InterVMTrust, rep *ui.Reporter) (*config.QEMUHandle, error) {
+//
+// On any failure after the already-running check — including a VM that
+// launches but never becomes SSH-ready — the run's qemu process and state
+// dir are removed again (cleanupVMRun) and no handle is returned.
+func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, networks []QEMUNetworkSpec, trust *InterVMTrust, rep *ui.Reporter) (_ *config.QEMUHandle, retErr error) {
 	// Refuse to launch a second VM on top of an already-running one: nothing
 	// below this point checks for an existing process, so without this guard
 	// a repeat `astrona run` (no `astrona destroy` in between) silently
@@ -2282,6 +2286,29 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 	if err != nil {
 		return nil, err
 	}
+
+	// From here on a failure leaves nothing behind: no disks, keys, seed,
+	// pidfile or handle.json, and no qemu process. Nothing has been handed
+	// to the caller to `astrona destroy` yet. The pidfile is only consulted
+	// once qemu has been launched, so a stale one from an earlier run never
+	// names the process to stop.
+	var (
+		launched bool
+		pid      int
+		pidStart string
+	)
+	defer func() {
+		if retErr == nil {
+			return
+		}
+		if launched && pid == 0 {
+			pid = readPidfileNow(filepath.Join(stateDir, qemuPidfileName))
+			pidStart = recordStart(pid)
+		}
+		if err := cleanupVMRun(clusterName, pid, pidStart, rep); err != nil {
+			rep.Warn("could not clean up after qemu VM %q failed to start: %s", clusterName, err)
+		}
+	}()
 
 	tImg := rep.Step("Acquire base image")
 	qemuPath, err := DetectQEMUBinary(arch)
@@ -2351,7 +2378,7 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 		memoryMB = 2048
 	}
 
-	pidfilePath := filepath.Join(stateDir, "qemu.pid")
+	pidfilePath := filepath.Join(stateDir, qemuPidfileName)
 	consolePath := filepath.Join(stateDir, "console.log")
 	os.Remove(pidfilePath)
 
@@ -2386,7 +2413,7 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 	cmd.Stdout = launchOut
 	cmd.Stderr = launchOut
 
-	var pid int
+	launched = true
 	if cfg.Display {
 		// Detach qemu into its own session so it isn't tied to astrona's
 		// process group/controlling terminal — it must keep running (and
@@ -2397,6 +2424,10 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 			return nil, tLaunch.Fail(fmt.Errorf("failed to launch qemu VM: %w", err))
 		}
 		pid = cmd.Process.Pid
+		pidStart = recordStart(pid)
+		// Reaped as soon as it exits, so a stopped qemu doesn't linger as
+		// a zombie that still answers liveness checks while astrona runs.
+		go func() { _ = cmd.Wait() }()
 		if err := os.WriteFile(pidfilePath, []byte(strconv.Itoa(pid)), 0600); err != nil {
 			return nil, tLaunch.Fail(fmt.Errorf("failed to write qemu pidfile: %w", err))
 		}
@@ -2409,6 +2440,7 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 			return nil, tLaunch.Fail(fmt.Errorf("qemu started but pidfile was not written: %w", err))
 		}
 		pid = p
+		pidStart = recordStart(pid)
 	}
 
 	networkStatus := make([]config.QEMUNetworkStatus, len(networks))
@@ -2420,7 +2452,7 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 		ClusterName:  clusterName,
 		LabName:      labName,
 		PID:          pid,
-		PIDStart:     recordStart(pid),
+		PIDStart:     pidStart,
 		SSHHost:      "127.0.0.1",
 		SSHPort:      sshPort,
 		SSHUser:      qemuSSHUser,
@@ -2440,7 +2472,10 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 
 	tWait := rep.Step("Wait for VM to become SSH-ready")
 	if err := waitForSSHReady(handle, 3*time.Minute); err != nil {
-		return handle, tWait.Fail(fmt.Errorf("VM launched but did not become ready: %w", err))
+		// The console log goes with the state dir; keep its end in the
+		// run log so a VM that never booted can still be diagnosed.
+		writeConsoleTail(tWait.Output(), consolePath, 40)
+		return nil, tWait.Fail(fmt.Errorf("VM launched but did not become ready: %w", err))
 	}
 	tWait.Done()
 
@@ -2477,11 +2512,13 @@ func LoadQEMUHandle(clusterName string) (*config.QEMUHandle, error) {
 	return &h, nil
 }
 
-// DestroyQEMUVM tears down clusterName's VM: SIGTERM (falling back to a
-// forceful kill), then removes the whole per-lab state dir (overlay disk,
-// cloud-init seed, ephemeral SSH key — none of it should outlive the VM).
-// A no-op, not an error, if no VM state is found — matches cmd_down.go's
-// existing best-effort teardown posture for kind.
+// DestroyQEMUVM tears down clusterName's VM through cleanupVMRun: stops its
+// qemu process (only while it is still that VM's) and removes the whole
+// per-lab state dir (disks, cloud-init seed, ephemeral SSH keys, pidfile,
+// console log — none of it should outlive the VM). A no-op, not an error,
+// if no VM state is found — matches cmd_down.go's existing best-effort
+// teardown posture for kind. A state dir without handle.json may belong to
+// a run still provisioning, so only an empty one is removed.
 func DestroyQEMUVM(clusterName string, rep *ui.Reporter) error {
 	stateDir, err := qemuStateDir(clusterName)
 	if err != nil {
@@ -2492,54 +2529,116 @@ func DestroyQEMUVM(clusterName string, rep *ui.Reporter) error {
 	data, err := os.ReadFile(statePath)
 	if err != nil {
 		if os.IsNotExist(err) {
+			_ = os.Remove(stateDir) // fails, harmlessly, unless empty
 			rep.Info("No qemu VM state found for '%s', nothing to tear down.", clusterName)
 			return nil
 		}
 		return fmt.Errorf("failed to read qemu VM state: %w", err)
 	}
 
+	// An unreadable handle.json must not strand the VM's state for good:
+	// fall back to the pidfile, which cleanupVMRun only trusts after the
+	// same command-line check.
 	var h config.QEMUHandle
 	if err := json.Unmarshal(data, &h); err != nil {
-		return fmt.Errorf("failed to parse qemu VM state: %w", err)
-	}
-
-	// handle.json's PID can outlive the VM (crash, host reboot) and be reused
-	// by an unrelated process — only signal it if it's still this VM's qemu.
-	// The recorded start time also catches a reused PID that looks like qemu.
-	signalPID := h.PID > 0 && ProcessAlive(h.PID)
-	if signalPID {
-		cmdline, err := processCommandLine(h.PID)
-		if err != nil || !isQEMUProcessFor(cmdline, qemuProcessName(clusterName)) || !VMRunning(&h) {
-			rep.Warn("pid %d from the saved state of qemu VM %q is no longer that VM's qemu process — not signalling it, just removing the state", h.PID, clusterName)
-			signalPID = false
-		}
+		rep.Warn("saved state of qemu VM %q is unreadable (%s) — using its pidfile instead", clusterName, err)
+		h = config.QEMUHandle{PID: readPidfileNow(filepath.Join(stateDir, qemuPidfileName))}
 	}
 
 	t := rep.Step("Tear down qemu VM %q", clusterName)
-
-	if signalPID {
-		if process, err := os.FindProcess(h.PID); err == nil {
-			_ = process.Signal(syscall.SIGTERM)
-
-			for i := 0; i < 50; i++ {
-				if !VMRunning(&h) {
-					break
-				}
-				time.Sleep(100 * time.Millisecond)
-			}
-
-			if VMRunning(&h) {
-				_ = process.Kill()
-			}
-		}
+	if err := cleanupVMRun(clusterName, h.PID, h.PIDStart, rep); err != nil {
+		return t.Fail(err)
 	}
-
-	if err := os.RemoveAll(stateDir); err != nil {
-		return t.Fail(fmt.Errorf("failed to remove qemu state dir '%s': %w", stateDir, err))
-	}
-
 	t.Done()
 	return nil
+}
+
+// cleanupVMRun is the one teardown for everything a VM run leaves behind,
+// used by every exit path: a CreateQEMUVM that fails part-way (including a
+// VM that never becomes SSH-ready) and DestroyQEMUVM — so destroy, reset
+// and the multi-VM rollback too. It stops pid, but only while it is still
+// the qemu process started for clusterName (its -name matches and, when
+// pidStart is recorded, its start time too), then removes clusterName's
+// state dir. The dir is derived from clusterName, never read from saved
+// state, and holds only that VM's per-run files: base images and the
+// shared image cache live elsewhere and are never touched.
+func cleanupVMRun(clusterName string, pid int, pidStart string, rep *ui.Reporter) error {
+	base, err := QEMUBaseDir()
+	if err != nil {
+		return err
+	}
+	stateDir, err := labDirWithin(base, clusterName)
+	if err != nil {
+		return err
+	}
+
+	stopVMProcess(clusterName, pid, pidStart, rep)
+
+	if err := os.RemoveAll(stateDir); err != nil {
+		return fmt.Errorf("failed to remove qemu state dir '%s': %w", stateDir, err)
+	}
+	return nil
+}
+
+// stopVMProcess sends pid SIGTERM (a forceful kill after 5s) when it is
+// still clusterName's qemu process. A PID can outlive the VM (crash, host
+// reboot) and be reused by an unrelated process, so anything else — or
+// anything that can't be checked — is left alone.
+func stopVMProcess(clusterName string, pid int, pidStart string, rep *ui.Reporter) {
+	if pid <= 0 || !ProcessAlive(pid) {
+		return
+	}
+	h := config.QEMUHandle{PID: pid, PIDStart: pidStart}
+	cmdline, err := processCommandLine(pid)
+	if err != nil || !isQEMUProcessFor(cmdline, qemuProcessName(clusterName)) || !VMRunning(&h) {
+		rep.Warn("pid %d recorded for qemu VM %q is no longer that VM's qemu process — not signalling it, just removing the state", pid, clusterName)
+		return
+	}
+
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return
+	}
+	_ = process.Signal(syscall.SIGTERM)
+	for i := 0; i < 50; i++ {
+		if !VMRunning(&h) {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	_ = process.Kill()
+}
+
+// qemuPidfileName is qemu's -pidfile inside a VM's state dir.
+const qemuPidfileName = "qemu.pid"
+
+// writeConsoleTail copies the last n lines of the serial console log at
+// path to out, if there is one.
+func writeConsoleTail(out io.Writer, path string, n int) {
+	data, err := os.ReadFile(path)
+	text := strings.TrimRight(string(data), "\n")
+	if err != nil || strings.TrimSpace(text) == "" {
+		return
+	}
+	lines := strings.Split(text, "\n")
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	fmt.Fprintf(out, "last %d line(s) of the VM console:\n%s\n", len(lines), strings.Join(lines, "\n"))
+}
+
+// readPidfileNow reads qemu's pidfile once: 0 when it is missing or holds
+// no PID.
+func readPidfileNow(path string) int {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return 0
+	}
+	return pid
 }
 
 // qemuProcessName is the `-name` CreateQEMUVM gives clusterName's qemu
