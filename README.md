@@ -12,7 +12,7 @@ Astrona spins up local Kubernetes labs with [kind](https://kind.sigs.k8s.io/), b
 - **Testing stage** — a CI-only stage that applies a reference solution (scripts and/or manifests) to drive the cluster into the "lab completed" state, so validation has something to check.
 - **Proctor grading** — a student never grades their own work: `astrona submit` hands the cluster to the Proctor, which runs declarative checks (`resourceExists`, `podReady`, `command`) and/or one or more custom pass/fail scripts (`script`/`scripts`) and returns a PASS/FAIL verdict — the same component `astrona test` uses in CI to prove a lab's reference solution actually passes. Output is pytest/robot-style: a PASS/FAIL line with timing per check, then a summary line. `--junit-xml=<path>` on `submit`/`test` additionally writes a JUnit XML report for CI systems (GitHub Actions, GitLab CI, Jenkins) to render natively.
 - **Teardown** — cleanup scripts run before the cluster is deleted, with an optional `keepCluster` flag to leave the cluster running for debugging.
-- **Doc references** — `metadata.docs` points at prerequisites, a formal exam-style question, a softer case-study version, and a step-by-step answer guide, so a marketplace listing or terminal UI always knows which file is canonical instead of guessing.
+- **Doc references** — `metadata.docs` points at prerequisites, a formal exam-style question, a softer case-study version, and a step-by-step answer guide, so a marketplace listing or the browser workspace always knows which file is canonical instead of guessing.
 
 ## Browser workspace
 
@@ -25,12 +25,10 @@ Start. The page is served by `astrona` on `127.0.0.1` only. See the
 
 ## Commands
 
-`astrona ui` opens a terminal home screen with active runs, submission history
-and completed labs/playgrounds. Select a running Kind lab to work on it, or
-start one with `astrona run <lab> --ui`. Submitting or confirming destruction
-in the workspace returns Home. Submission finishes the attempt and stops its
-timer on PASS or FAIL while keeping the environment available. See the
-[UI guide](docs/guides/ui-home.md) for controls and history details.
+`astrona run <lab>` offers to open a Kind lab in the browser workspace, a local
+page with the task and terminals into the lab; `astrona ui <lab>` opens a
+running lab there again. See the
+[browser workspace guide](docs/guides/browser-workspace.md).
 
 Flat, podman-`run`-style verbs at the root — no noun to namespace under. `--config`/`-c`, `--file`/`-f`, `--git`, and `--git-ref` are persistent flags on the root command (shared by every subcommand), not repeated per-command.
 

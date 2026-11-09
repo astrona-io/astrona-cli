@@ -5,8 +5,7 @@
 ## Headless setup for external checks
 
 Use `--headless` when your own script needs to check a running lab. This works
-with Kind and QEMU and keeps running without a UI, including in v0.5.0 and
-later, when the terminal UI is replaced by a browser workspace.
+with Kind and QEMU and never opens the browser workspace.
 
 Settings confirmation is not required, including on a fresh runner:
 
@@ -22,7 +21,7 @@ For a catalog lab, also approve its remote code:
 astrona run ATS000/section-010/module-01/lab-01 --headless --accept-terms --trust
 ```
 
-For run and full reset, headless mode skips the UI invitation, login reminder and new account sessions,
+For run and full reset, headless mode skips the browser question, login reminder and new account sessions,
 even when run in a terminal. The command returns after setup with the lab still running.
 It uses the normal lab name and does real provisioning; it does not apply the
 reference solution, grade the lab or clean up automatically. Arrange cleanup
@@ -33,10 +32,10 @@ instead of a CLI prompt. An existing lab requires explicit `--yes` to replace
 it, deleting its work. Other running labs are left alone. Use a dedicated CI
 environment to avoid replacing a lab you are working on. External lab scripts
 must also be written to run without interactive input. `--headless` cannot be
-combined with `--ui` or `--ui-startup`.
+combined with `--browser`.
 
 For the complete setup, reference solution, grading and cleanup workflow, keep
-using `astrona test`. That command also remains headless in v0.5.0 and later.
+using `astrona test`. That command is always headless.
 
 ## Headless commands
 

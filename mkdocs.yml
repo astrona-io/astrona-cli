@@ -88,7 +88,6 @@ nav:
       - Run Logs: concepts/logs.md
   - Guides:
       - Browser Workspace: guides/browser-workspace.md
-      - UI Home and Workspace: guides/ui-home.md
       - CLI Settings: guides/settings.md
       - Local Data and Caches: guides/local-data.md
       - CLI Usage Terms: guides/cli-terms.md

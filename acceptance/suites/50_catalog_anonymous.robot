@@ -22,7 +22,7 @@ Catalog Lists Trainings
 Signed Out Run Needs Explicit Confirmation
     [Documentation]    Without --without-login a signed-out run must not start silently.
     # Not --headless: that skips the sign-in reminder this test is about.
-    Run Astrona    run    ${CATALOG_LAB}    --ui\=false    --trust    rc=1    timeout=${SLOW_TIMEOUT}
+    Run Astrona    run    ${CATALOG_LAB}    --trust    rc=1    timeout=${SLOW_TIMEOUT}
     Kind Cluster Should Not Exist    ${CATALOG_NAME}
 
 Signed Out Run Creates The Lab

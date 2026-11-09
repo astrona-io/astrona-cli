@@ -177,6 +177,26 @@ func RecordedLabs() ([]string, error) {
 	return labs, nil
 }
 
+// MarkStarted records that the run in lab's record already started at
+// startedAt, outside the browser: a lab whose exam clock started when it
+// became ready (astrona run without the browser). The page then shows it
+// running, and Start can never restart its clock.
+func MarkStarted(lab string, startedAt time.Time) error {
+	rec, err := ReadRun(lab)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(startMarker{RunID: rec.RunID, StartedAt: startedAt.UTC()})
+	if err != nil {
+		return err
+	}
+	dir, err := runDir(lab)
+	if err != nil {
+		return err
+	}
+	return writePrivateFile(filepath.Join(dir, "start.json"), data)
+}
+
 func readStart(lab string) (*startMarker, error) {
 	dir, err := runDir(lab)
 	if err != nil {

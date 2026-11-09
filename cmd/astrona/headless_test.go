@@ -18,58 +18,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestHeadlessOverridesUIBeforeGates(t *testing.T) {
-	for _, mode := range []string{"--headless", "--test-mode"} {
-		for _, option := range []string{"", "--ui=false", "--ui", "--ui-startup"} {
-			t.Run(mode+"/"+option, func(t *testing.T) {
-				t.Setenv("HOME", t.TempDir())
-				flags := &rootFlags{}
-				root := newRootCmd(flags)
-				root.SetOut(io.Discard)
-				root.SetErr(io.Discard)
-				called := false
-				root.PersistentPreRunE = func(*cobra.Command, []string) error { called = true; return nil }
-				run, _, err := root.Find([]string{"run"})
-				if err != nil {
-					t.Fatal(err)
-				}
-				// Model the future UI default without marking it as explicitly requested.
-				if err := run.Flags().Lookup("ui").Value.Set("true"); err != nil {
-					t.Fatal(err)
-				}
-				ran := false
-				run.RunE = func(cmd *cobra.Command, _ []string) error {
-					ran = true
-					for _, name := range []string{"ui", "ui-startup"} {
-						if enabled, _ := cmd.Flags().GetBool(name); enabled {
-							t.Fatalf("%s enabled in headless mode", name)
-						}
-					}
-					return nil
-				}
-				installUIRunGate(root, flags, func(*cobra.Command, uiRunNotice) (bool, error) {
-					t.Fatal("headless mode opened a UI notice")
-					return false, nil
-				})
-				args := []string{"run", "./lab", mode}
-				if option != "" {
-					args = append(args, option)
-				}
-				root.SetArgs(args)
-				err = root.Execute()
-				conflict := option == "--ui" || option == "--ui-startup"
-				if conflict {
-					if err == nil || !strings.Contains(err.Error(), "cannot be combined") || called || ran {
-						t.Fatalf("conflict reached setup: called=%v ran=%v err=%v", called, ran, err)
-					}
-				} else if err != nil || !called || !ran || !flags.headless {
-					t.Fatalf("headless run: called=%v ran=%v err=%v", called, ran, err)
-				}
-			})
-		}
-	}
-}
-
 func TestHeadlessRequiresApprovalsOnTerminal(t *testing.T) {
 	for _, command := range []string{"run", "reset", "test", "submit", "validate"} {
 		t.Run(command, func(t *testing.T) {
@@ -184,10 +132,7 @@ func TestHeadlessSharedFlagAndInteractiveConflicts(t *testing.T) {
 				}
 				return nil
 			}
-			installUIRunGate(root, flags, func(*cobra.Command, uiRunNotice) (bool, error) {
-				t.Fatal("headless command opened a notice")
-				return false, nil
-			})
+			installHeadlessGate(root)
 			root.SetArgs(append([]string{"--headless"}, command...))
 			err = root.Execute()
 			conflict := command[0] == "ui" || command[0] == "shell" || command[0] == "ssh"

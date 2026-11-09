@@ -7,7 +7,8 @@ marked *later* are reserved and answer `404 not_found` until they exist.
 
 The server is started on demand by `astrona run <lab>` (when you answer yes to
 "Open this lab in your browser?") and stopped by `astrona ui stop` or after it
-has been idle for a while. See [Browser Workspace](../guides/browser-workspace.md).
+has been idle for a while; `astrona ui <lab>` starts it for a running lab.
+See the [browser workspace guide](../guides/browser-workspace.md).
 
 ## Conventions
 
