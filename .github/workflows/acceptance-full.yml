@@ -1,8 +1,13 @@
 name: Acceptance (full)
 
 # The Robot Framework suite's smoke and full tiers against the binary a
-# release would ship. Release builds wait on it; it also runs by hand.
+# release would ship. Release builds wait on it; it also runs by hand and on
+# pull requests that change the suite itself.
 on:
+  pull_request:
+    paths:
+      - 'acceptance/**'
+      - '.github/workflows/acceptance-full.yml'
   workflow_call:
     inputs:
       version:
