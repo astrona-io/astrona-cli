@@ -57,6 +57,10 @@ for project in kind kubectl oras; do
 done
 cp LICENSE "$stage/licenses/LICENSE-astrona"
 cp packaging/tools.env "$stage/licenses/tool-versions.txt"
+# The browser workspace page is embedded with go:embed; never package the
+# placeholder. Its bundled third-party licenses ship next to the others.
+.github/scripts/check-workspace-web.sh
+cp internal/workspace/web/dist/THIRD_PARTY_NOTICES.txt "$stage/licenses/THIRD_PARTY_NOTICES-workspace.txt"
 CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath \
   -ldflags "-s -w -X main.Version=$tag -X main.PackageFormat=$format" \
   -o "$stage/astrona" ./cmd/astrona

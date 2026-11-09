@@ -25,7 +25,8 @@ idiomatic Go changes with clear errors and actionable CLI output.
 - [Security boundaries](agent-notes/security.md): before changing filesystem access,
   resource copying, remote code, command execution, SSH, or downloads.
 - [Development conventions and checks](agent-notes/development.md): implementation,
-  CLI prompts/exit codes, grading, docs, build and validation details.
+  CLI prompts/exit codes, grading, docs, build and validation details, and the
+  browser workspace frontend (`internal/workspace/web`).
 
 These references retain the detailed guidance formerly in `CLAUDE.md`; avoid
 loading all of them for a small, unrelated task. Use relevant installed skills

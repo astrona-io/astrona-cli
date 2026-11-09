@@ -29,6 +29,30 @@ jobs:
         with:
           version: latest
 
+  # Type-checks and builds the browser workspace page, and fails on a bundled
+  # dependency whose license is not on the allowlist (build/notices.ts).
+  workspace-web:
+    name: Workspace frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: internal/workspace/web/.nvmrc
+          cache: npm
+          cache-dependency-path: internal/workspace/web/package-lock.json
+
+      - name: Build
+        run: .github/scripts/build-workspace-web.sh
+
+      - name: Audit runtime dependencies
+        working-directory: internal/workspace/web
+        run: npm audit --omit=dev
+
   test:
     name: Unit tests
     runs-on: ubuntu-latest
