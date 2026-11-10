@@ -5350,6 +5350,24 @@ opens it in your default browser. You can follow everything from that tab:</p>
    <strong>Begin this session</strong> opens the intro page. Nothing counts yet; an exam's
    clock still starts only when you click <strong>Start</strong> there.</li>
 </ol>
+<p>While the lab is set up, a card shows whether this run is saved to your
+Astrona account. <code>astrona run</code> decides that when it starts the lab:</p>
+<ul>
+<li><strong>Signed in</strong> (a catalog lab, signed in): <em>Signed in as <username> on
+  <site></em>. The time you spend and your submitted result, pass or fail, are
+  saved to your account. Submitting ends the attempt and removes the lab. For a
+  playground, the card only says that the time you spend in it is saved.</li>
+<li><strong>Not signed in</strong> (a catalog lab, signed out): the run is not saved to an
+  account; the time and your result stay on this computer. The card links to
+  <strong>Create a free Astrona account</strong> on the site astrona signs in to (opened in
+  a new tab) and tells you to run <code>astrona login</code> and start the lab again.
+  Signing in while this run is open does not link it: a run is linked to an
+  account only when <code>astrona run</code> starts.</li>
+<li><strong>Local only</strong> (<code>--local-only</code>): nothing from the run is sent.</li>
+<li>A lab from your own files or <code>--git</code> has no account, and shows no card.</li>
+</ul>
+<p>The intro page repeats this as one line, with the sign-up link when you are
+not signed in.</p>
 <p>Some questions are still asked in the terminal: whether to start a running lab
 over, whether to log in, and whether to trust a lab's repository. The tab says
 so while it waits. If you stop the command (Ctrl+C), the tab says that astrona

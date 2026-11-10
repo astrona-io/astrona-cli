@@ -5778,8 +5778,9 @@ command knows whether the tab is still open.</p>
 <a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="p">],</span>
 <a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"waiting for CoreDNS · 12s"</span><span class="p">,</span>
 <a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">  </span><span class="nt">"logPath"</span><span class="p">:</span><span class="w"> </span><span class="s2">"~/.astrona/logs/…"</span><span class="p">,</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="nt">"alive"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="p">}</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="nt">"account"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"signed-in"</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ada"</span><span class="p">,</span><span class="w"> </span><span class="nt">"site"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://astrona.io"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span><span class="nt">"alive"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="p">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -5823,6 +5824,41 @@ command knows whether the tab is still open.</p>
 is not final, the command was stopped. <code>answered</code> (<code>accepted</code> or <code>declined</code>)
 appears once the terms were answered. At most 200 events are kept. Launches
 older than a day are removed.</p>
+<p><code>account</code> appears once <code>astrona run</code> has decided whose account the run is
+saved to, which is after the lab was resolved and the lab session was (or was
+not) started. The page shows it as a card while the lab is set up.
+<code>playground: true</code> is set with it when the lab is a playground, which has time but
+no attempts, so the card does not mention a result.</p>
+<table>
+<thead>
+<tr>
+<th><code>account.state</code></th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>signed-in</code></td>
+<td>A catalog lab with a lab session: the time and the submitted result, pass or fail, are saved to the account (a playground: the time). <code>username</code> and <code>site</code> say which account.</td>
+</tr>
+<tr>
+<td><code>signed-out</code></td>
+<td>A catalog lab started without a lab session (not signed in): nothing from this run is saved to an account. <code>site</code> is the site astrona would sign in to, for a sign-up link.</td>
+</tr>
+<tr>
+<td><code>local-only</code></td>
+<td>Started with <code>--local-only</code>: nothing is sent.</td>
+</tr>
+<tr>
+<td><code>untracked</code></td>
+<td>A lab from local files or <code>--git</code>: no account applies. The page shows nothing.</td>
+</tr>
+</tbody>
+</table>
+<p><code>account</code> only ever holds <code>state</code>, <code>username</code> and <code>site</code>, never a token,
+device ID or key ID. <code>site</code> is the site the CLI resolved itself (<code>ASTRONA_URL</code>,
+then the saved sign-in, then the profile default), never a value from lab
+content. The state describes this run: signing in later does not change it.</p>
 <p>Errors: <code>404 launch_gone</code> (removed, or never existed).</p>
 <h3 id="post-launchesidterms"><code>POST /launches/{id}/terms</code><a class="headerlink" href="#post-launchesidterms" title="Permanent link">&para;</a></h3>
 <p>Request: <code>{"accept": true, "sha256": "&lt;terms.sha256&gt;"}</code>. Writes the answer
@@ -5895,8 +5931,9 @@ answer; Kind labs are then missing from the list.</p>
 <a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a><span class="w">    </span><span class="nt">"submitted"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
 <a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a><span class="w">    </span><span class="nt">"blocked"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
 <a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a><span class="w">  </span><span class="nt">"runAgain"</span><span class="p">:</span><span class="w"> </span><span class="s2">"astrona run astrona.io/ATS014/section-010/module-01/lab-02"</span>
-<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a><span class="p">}</span>
+<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a><span class="w">  </span><span class="nt">"account"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"signed-in"</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ada"</span><span class="p">,</span><span class="w"> </span><span class="nt">"site"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://astrona.io"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a><span class="w">  </span><span class="nt">"runAgain"</span><span class="p">:</span><span class="w"> </span><span class="s2">"astrona run astrona.io/ATS014/section-010/module-01/lab-02"</span>
+<a id="__codelineno-6-40" name="__codelineno-6-40" href="#__codelineno-6-40"></a><span class="p">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -5981,6 +6018,10 @@ answer; Kind labs are then missing from the list.</p>
 <tr>
 <td><code>submit.blocked</code></td>
 <td>Why Submit is not possible now, for the page to show next to the disabled button; <code>""</code> when it is.</td>
+</tr>
+<tr>
+<td><code>account</code></td>
+<td>Whose account this run is saved to, shown as one line on the intro page; the same object as on <code>GET /launches/{id}</code>. <code>astrona run</code> saves it with the run (<code>runs/&lt;lab&gt;/run.json</code>). A run without one, such as a lab started before this field or reopened with <code>astrona ui</code>, gets <code>signed-in</code> (site only) or <code>local-only</code> from its saved lab session, and no <code>account</code> otherwise.</td>
 </tr>
 <tr>
 <td><code>runAgain</code></td>
@@ -6324,7 +6365,7 @@ separate window instead.</p>
 <tr>
 <td><code>~/.astrona/workspace/runs/&lt;lab&gt;/run.json</code></td>
 <td><code>astrona run</code></td>
-<td>What the page shows for that run: title, mode, rules, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs). Never the solution or the validation block.</td>
+<td>What the page shows for that run: title, mode, rules, the account status, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs). Never the solution or the validation block.</td>
 </tr>
 <tr>
 <td><code>~/.astrona/workspace/runs/&lt;lab&gt;/start.json</code></td>
