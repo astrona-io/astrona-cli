@@ -5148,7 +5148,7 @@
 <p>Let the Astrona website start labs on this computer</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Keep this computer connected to the Astrona site, so "Start on my machine" on a lab page builds the lab here. Runs until Ctrl+C, reconnecting by itself after a drop.</p>
-<p>The website can only ask for run, status, submit, reset, destroy, stop and start, each for a catalog lab by name; astrona checks both before anything runs. Nothing else travels over the connection: no shell commands, files or URLs.</p>
+<p>The website can only ask for run, status, submit, reset, destroy, stop, start and renew (a running playground's full time limit again), each for a catalog lab by name; astrona checks both before anything runs. Nothing else travels over the connection: no shell commands, files or URLs.</p>
 <p>--install starts it with your login session from now on (a LaunchAgent on macOS, a systemd user service on Linux); --uninstall removes that again. Its log is ~/.astrona/logs/connect.log.</p>
 <p>--confirm asks at this terminal before each request from the website runs (status needs no answer). A request you decline, or leave unanswered for two minutes, is refused, and the website says so.</p>
 <p>Signing this computer out on the website ends the connection and removes the sign-in here.</p>

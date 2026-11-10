@@ -5201,8 +5201,15 @@ computer is signed out, the service stops and stays stopped; sign in with
 <td>Stop / Start</td>
 <td><code>astrona stop &lt;lab&gt;</code> / <code>astrona start &lt;lab&gt;</code></td>
 </tr>
+<tr>
+<td>Renew</td>
+<td><code>astrona run renew &lt;lab&gt;</code></td>
+</tr>
 </tbody>
 </table>
+<p>Renew gives a running playground its full time limit again, as
+<code>astrona run renew</code> does at a terminal. For a lab that isn't a running
+playground it fails with renew's own error, and the page shows it.</p>
 <p><code>astrona connect</code> checks the command and the lab name before anything runs and
 refuses everything else: shell commands, local paths, URLs and other options
 never travel over the connection. Each command runs without a terminal, in an
