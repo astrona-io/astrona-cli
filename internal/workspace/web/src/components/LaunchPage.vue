@@ -260,7 +260,9 @@ async function answer(accept: boolean): Promise<void> {
       </div>
 
       <div v-if="readyLab" class="launch__begin">
-        <button type="button" class="btn btn--primary" @click="emit('ready', readyLab)">Begin this session</button>
+        <button type="button" class="btn btn--primary launch__cta" @click="emit('ready', readyLab)">
+          Begin this session <span aria-hidden="true">→</span>
+        </button>
       </div>
 
       <div v-if="launch?.stage === 'failed'" class="dialog__error" role="alert">
