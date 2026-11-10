@@ -21,6 +21,34 @@ export interface Target {
   views: ViewKind[]
 }
 
+/** What a tab of the right panel shows. */
+export type TabKind = 'terminal' | 'browser' | 'docs'
+
+/**
+ * One tab of the right panel. The lab decides the tabs; the page can switch
+ * between them, never add or close one. The first (focus: true) is the
+ * terminal on the lab's own cluster.
+ */
+export interface RunTab {
+  name: string
+  title: string
+  kind: TabKind
+  focus: boolean
+  /** terminal: the target its shell runs on. */
+  target?: string
+  /** browser: http(s)://127.0.0.1:<port>/… of a port forward; docs: an https URL. */
+  url?: string
+  /** docs shipped with the lab: GET /tabs/{name}/doc renders it. */
+  document?: boolean
+}
+
+export interface TabDoc {
+  name: string
+  title: string
+  /** Rendered and sanitised on the server. Inserted as given, never evaluated. */
+  html: string
+}
+
 export interface QuestionSummary {
   id: string
   title: string
@@ -54,6 +82,8 @@ export interface Run {
   /** Summaries only, never the text. */
   questions: QuestionSummary[]
   targets: Target[]
+  /** The right panel's tabs, the focus tab first. */
+  tabs: RunTab[]
   /** True when POST /submit would grade now; submit.blocked says why not. */
   canSubmit: boolean
   submit: SubmitInfo
@@ -139,6 +169,8 @@ export interface Question {
 
 export interface Terminal {
   id: string
+  /** The terminal tab it belongs to. */
+  tab: string
   target: string
   status: 'running' | 'ended'
   /** Set once ended; -1 when killed by a signal. */
@@ -213,12 +245,25 @@ export function clearToken(): void {
 
 const API = '/api/v1'
 
+/**
+ * How long a quick call waits before it counts as unreachable. A server that
+ * is paused (or a laptop that slept) accepts the connection and never
+ * answers; without a limit the page would wait forever.
+ */
+const QUICK_TIMEOUT_MS = 10_000
+
+interface RequestOptions {
+  /** Abort after this many milliseconds; no limit when unset. */
+  timeoutMs?: number
+  headers?: Record<string, string>
+}
+
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
   auth = true,
-  extraHeaders: Record<string, string> = {},
+  { timeoutMs, headers: extraHeaders = {} }: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json', ...extraHeaders }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
@@ -228,6 +273,7 @@ async function request<T>(
     headers.Authorization = `Bearer ${token}`
   }
   let res: Response
+  let text: string
   try {
     res = await fetch(API + path, {
       method,
@@ -236,11 +282,12 @@ async function request<T>(
       credentials: 'omit',
       cache: 'no-store',
       redirect: 'error',
+      signal: timeoutMs === undefined ? undefined : AbortSignal.timeout(timeoutMs),
     })
+    text = await res.text()
   } catch {
     throw new ApiError(0, 'The workspace server cannot be reached.')
   }
-  const text = await res.text()
   let data: unknown = null
   if (text) {
     try {
@@ -266,7 +313,7 @@ export async function exchangeCode(code: string): Promise<void> {
 
 /** A single-use WebSocket ticket, valid for 30 seconds. */
 export async function getTicket(): Promise<string> {
-  const res = await request<{ ticket: string; expiresAt: string }>('POST', '/auth/ticket')
+  const res = await request<{ ticket: string; expiresAt: string }>('POST', '/auth/ticket', undefined, true, { timeoutMs: QUICK_TIMEOUT_MS })
   return res.ticket
 }
 
@@ -276,7 +323,7 @@ export async function listRuns(): Promise<RunListItem[]> {
 }
 
 export function getRun(id: string): Promise<Run> {
-  return request<Run>('GET', lab(id))
+  return request<Run>('GET', lab(id), undefined, true, { timeoutMs: QUICK_TIMEOUT_MS })
 }
 
 /** 409 not_started before Start (never for a playground). */
@@ -295,7 +342,9 @@ export function startRun(id: string, runId: string): Promise<Run> {
  * with it waits for, or returns, that result.
  */
 export function submitRun(id: string, runId: string, idempotencyKey: string): Promise<Submission> {
-  return request<Submission>('POST', `${lab(id)}/submit`, { runId }, true, { 'Idempotency-Key': idempotencyKey })
+  return request<Submission>('POST', `${lab(id)}/submit`, { runId }, true, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  })
 }
 
 /** The run's latest submission; 404 no_submission when there is none. */
@@ -320,14 +369,23 @@ export async function listTerminals(id: string): Promise<Terminal[]> {
   return res.terminals ?? []
 }
 
-/** Can take a minute the first time, while the terminal image is built. */
-export function openTerminal(id: string, runId: string, target: string): Promise<Terminal> {
-  return request<Terminal>('POST', `${lab(id)}/terminals`, { runId, target })
+/**
+ * Opens the shell of a terminal tab, or returns the one still running.
+ * Replaces an ended one. Can take a minute the first time, while the
+ * terminal image is built.
+ */
+export function openTerminal(id: string, runId: string, tab: string): Promise<Terminal> {
+  return request<Terminal>('POST', `${lab(id)}/terminals`, { runId, tab })
 }
 
-/** Ends the shell and forgets the terminal. */
-export async function closeTerminal(id: string, terminalId: string): Promise<void> {
-  await request<null>('DELETE', `${lab(id)}/terminals/${encodeURIComponent(terminalId)}`)
+/** Another request is starting this tab's terminal: try again shortly. */
+export function isTerminalStarting(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 409 && err.code === 'terminal_starting'
+}
+
+/** A docs tab's Markdown, rendered. 409 not_started before Start. */
+export function getTabDoc(id: string, tab: string): Promise<TabDoc> {
+  return request<TabDoc>('GET', `${lab(id)}/tabs/${encodeURIComponent(tab)}/doc`)
 }
 
 // ---------------------------------------------------------------- terminal frames

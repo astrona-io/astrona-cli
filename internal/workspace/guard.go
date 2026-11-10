@@ -8,7 +8,9 @@ import (
 )
 
 // ContentSecurityPolicy allows the page to load and talk to its own origin
-// only: no inline script or style, no external resources, no framing.
+// only: no inline script or style, no external resources, no framing. The
+// page itself (index.html) also gets a frame-src naming exactly the origins
+// of the current runs' page tabs (see Server.pagePolicy).
 const ContentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self'; " +
 	"img-src 'self'; font-src 'self'; connect-src 'self'; media-src 'none'; " +
 	"object-src 'none'; worker-src 'none'; manifest-src 'none'; base-uri 'none'; " +

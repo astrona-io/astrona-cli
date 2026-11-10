@@ -318,6 +318,12 @@
         "runtime": {
           "$ref": "#/$defs/RuntimeConfig"
         },
+        "tabs": {
+          "items": {
+            "$ref": "#/$defs/Tab"
+          },
+          "type": "array"
+        },
         "teardown": {
           "$ref": "#/$defs/TeardownConfig"
         },
@@ -592,6 +598,42 @@
             "kind",
             "qemu"
           ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "Tab": {
+      "additionalProperties": false,
+      "properties": {
+        "cluster": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "name": {
+          "pattern": "^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$",
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "portForward": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "terminal",
+            "browser",
+            "docs"
+          ],
+          "type": "string"
+        },
+        "url": {
           "type": "string"
         }
       },

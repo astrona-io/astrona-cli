@@ -57,6 +57,9 @@ type RunRecord struct {
 	Prerequisites     string   `json:"prerequisites,omitempty"`
 	EstimatedDuration string   `json:"estimatedDuration,omitempty"`
 	Targets           []Target `json:"targets"`
+	// Tabs are the right panel's tabs, the focus tab first; empty in a
+	// record from before tabs (DefaultTabs then).
+	Tabs []Tab `json:"tabs,omitempty"`
 	// KeepEnvironment is teardown.keepCluster: a finished submission
 	// leaves the environment running.
 	KeepEnvironment bool      `json:"keepEnvironment,omitempty"`
@@ -110,6 +113,9 @@ func WriteRun(rec RunRecord) error {
 		if err := config.ValidateName(t.Name); err != nil {
 			return fmt.Errorf("target name: %w", err)
 		}
+	}
+	if err := validateTabs(rec); err != nil {
+		return err
 	}
 	rec.Schema = runRecordSchema
 	if rec.CreatedAt.IsZero() {
@@ -182,6 +188,26 @@ func RecordedLabs() ([]string, error) {
 	return labs, nil
 }
 
+// MarkStarted records that the run in lab's record already started at
+// startedAt, outside the browser: a lab whose exam clock started when it
+// became ready (astrona run without the browser). The page then shows it
+// running, and Start can never restart its clock.
+func MarkStarted(lab string, startedAt time.Time) error {
+	rec, err := ReadRun(lab)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(startMarker{RunID: rec.RunID, StartedAt: startedAt.UTC()})
+	if err != nil {
+		return err
+	}
+	dir, err := runDir(lab)
+	if err != nil {
+		return err
+	}
+	return writePrivateFile(filepath.Join(dir, "start.json"), data)
+}
+
 func readStart(lab string) (*startMarker, error) {
 	dir, err := runDir(lab)
 	if err != nil {
@@ -217,6 +243,7 @@ type runView struct {
 	Intro            runIntro       `json:"intro"`
 	Questions        []questionView `json:"questions"`
 	Targets          []Target       `json:"targets"`
+	Tabs             []tabView      `json:"tabs"`
 	CanSubmit        bool           `json:"canSubmit"`
 	Submit           submitView     `json:"submit"`
 }
@@ -268,6 +295,7 @@ func buildView(rec RunRecord, now time.Time) (v runView, err error) {
 		Rules:     runRules{Strict: rec.Strict, HintsHidden: rec.HintsHidden},
 		Questions: []questionView{{ID: "q1", Title: rec.QuestionTitle}},
 		Targets:   rec.Targets,
+		Tabs:      tabViews(rec.tabs()),
 		Submit:    submitView{Tracking: TrackingNone, KeepEnvironment: rec.KeepEnvironment},
 	}
 	if sub, err := readSubmission(rec); err == nil && sub != nil {

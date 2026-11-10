@@ -12,7 +12,7 @@
 // from the URL astrona prints and open it on port 5173.
 
 import { createHash, randomUUID } from 'node:crypto'
-import type { IncomingMessage, ServerResponse } from 'node:http'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 
@@ -47,6 +47,11 @@ const playground = process.env.MOCK_KIND === 'playground'
 // Shapes follow docs/reference/workspace-api.md.
 const TIME_LIMIT_SECONDS = 45 * 60
 const TARGET = 'demo'
+const LINKED = 'demo-edge'
+
+// A stand-in for a page the lab serves on a port forward. It runs on its own
+// port: the workspace never frames its own origin.
+export const MOCK_APP_ORIGIN = 'http://127.0.0.1:4199'
 
 // MOCK_TRACKING=account|local-only|none picks where a result goes (account).
 const tracking = process.env.MOCK_TRACKING ?? 'account'
@@ -90,7 +95,11 @@ function run() {
       estimatedDuration: playground ? '' : '30m',
     },
     questions: [{ id: 'q1', title: 'Restrict ingress to the API', points: null }],
-    targets: [{ name: TARGET, label: 'main', kind: 'kind', views: ['terminal'] }],
+    targets: [
+      { name: TARGET, label: 'main', kind: 'kind', views: ['terminal'] },
+      { name: LINKED, label: 'edge', kind: 'kind', views: ['terminal'] },
+    ],
+    tabs: TABS,
     canSubmit: submitBlocked() === '',
     submit: {
       tracking,
@@ -150,16 +159,18 @@ function grade(): Record<string, unknown> {
   }
 }
 
-function terminal() {
-  return {
-    id: shell.id,
-    target: TARGET,
-    status: shell.alive ? 'running' : 'ended',
-    exitCode: shell.alive ? null : 0,
-    createdAt: shell.createdAt,
-    attached: shell.socket !== null,
-  }
-}
+const TABS = [
+  { name: 'main', title: 'Terminal', kind: 'terminal', focus: true, target: TARGET },
+  { name: 'cluster-edge', title: 'edge', kind: 'terminal', focus: false, target: LINKED },
+  { name: 'shop', title: 'Shop', kind: 'browser', focus: false, url: `${MOCK_APP_ORIGIN}/` },
+  { name: 'k8s-docs', title: 'Kubernetes docs', kind: 'docs', focus: false, url: 'https://kubernetes.io/docs/concepts/services-networking/network-policies/' },
+  { name: 'notes', title: 'Notes', kind: 'docs', focus: false, document: true },
+]
+
+const notesHTML = `<h1>Notes</h1>
+<p>A document shipped with the lab, rendered like the task.</p>
+<pre><code>kubectl -n shop describe networkpolicy api</code></pre>
+<script>alert('never runs')</script>`
 
 const questionHTML = `
 <p>The <code>shop</code> namespace runs an API that every pod in the cluster can reach today.</p>
@@ -228,7 +239,7 @@ function mockPlugin(): Plugin {
             profile: 'mock',
             startedAt: new Date().toISOString(),
             serverNow: new Date().toISOString(),
-            features: ['runs', 'terminals', 'submit'],
+            features: ['runs', 'terminals', 'tabs', 'submit'],
             assets: 'built',
           })
         }
@@ -250,14 +261,29 @@ function mockPlugin(): Plugin {
           if (!started()) return fail(res, 409, 'not_started', 'click Start first')
           return send(res, 200, { id: 'q1', title: 'Restrict ingress to the API', html: questionHTML, points: null, target: TARGET, hints: [] })
         }
+        if (m === 'GET' && p === '/runs/demo/tabs/notes/doc') {
+          if (!started()) return fail(res, 409, 'not_started', 'click Start first')
+          return send(res, 200, { name: 'notes', title: 'Notes', html: notesHTML })
+        }
         if (m === 'GET' && p === '/runs/demo/terminals') {
-          return send(res, 200, { terminals: shell.id ? [terminal()] : [] })
+          return send(res, 200, { terminals: [...shells.values()].map((sh) => sh.info()) })
         }
         if (m === 'POST' && p === '/runs/demo/terminals') {
           if (!started()) return fail(res, 409, 'not_started', 'click Start first')
+          const body = await readJSON(req)
+          const name = typeof body.tab === 'string' && body.tab ? body.tab : 'main'
+          const tab = TABS.find((t) => t.name === name && t.kind === 'terminal')
+          if (!tab) return fail(res, 400, 'unknown_tab', `this lab has no terminal tab ${name}`)
+          const existing = shells.get(name)
+          if (existing?.alive) return send(res, 200, existing.info())
+          if (starting.has(name)) return fail(res, 409, 'terminal_starting', 'the terminal of this tab is starting')
+          starting.add(name)
           await new Promise((r) => setTimeout(r, 1500)) // the real one builds an image the first time
-          shell.reset()
-          return send(res, 201, terminal())
+          starting.delete(name)
+          existing?.forget()
+          const sh = newShell(name, tab.target!)
+          shells.set(name, sh)
+          return send(res, 201, sh.info())
         }
         if (m === 'POST' && p === '/runs/demo/submit') {
           const key = String(req.headers['idempotency-key'] ?? '')
@@ -276,7 +302,7 @@ function mockPlugin(): Plugin {
           const sub = grade()
           state.submission = sub
           state.keys.set(key, sub)
-          shell.forget()
+          forgetShells()
           return send(res, 200, sub)
         }
         if (m === 'GET' && p === '/runs/demo/submission') {
@@ -290,15 +316,8 @@ function mockPlugin(): Plugin {
           if (state.grading) return fail(res, 409, 'submit_in_progress', 'this lab is being submitted')
           await new Promise((r) => setTimeout(r, 1500))
           state.removed = true
-          shell.forget()
+          forgetShells()
           return send(res, 200, { environmentRemoved: true, messages: ['Lab demo deleted.'] })
-        }
-        const del = /^\/runs\/demo\/terminals\/([^/]+)$/.exec(p)
-        if (m === 'DELETE' && del) {
-          if (del[1] !== shell.id) return fail(res, 404, 'not_found', 'unknown terminal')
-          shell.forget()
-          res.statusCode = 204
-          return res.end()
         }
         return fail(res, 404, 'not_found', 'not found')
       })
@@ -312,7 +331,8 @@ function mockPlugin(): Plugin {
           socket.end('HTTP/1.1 401 Unauthorized\r\n\r\n')
           return
         }
-        if (match[1] !== shell.id) {
+        const shell = [...shells.values()].find((x) => x.id === match[1])
+        if (!shell) {
           socket.end('HTTP/1.1 404 Not Found\r\n\r\n')
           return
         }
@@ -327,16 +347,54 @@ function mockPlugin(): Plugin {
   }
   return {
     name: 'astrona-workspace-mock',
-    configureServer: install,
-    configurePreviewServer: install,
+    configureServer: (server) => {
+      install(server)
+      startMockApp()
+    },
+    configurePreviewServer: (server) => {
+      install(server)
+      startMockApp()
+    },
   }
+}
+
+let mockApp = false
+
+function startMockApp(): void {
+  if (mockApp) return
+  mockApp = true
+  const page = `<!doctype html><meta charset="utf-8"><title>Shop</title>
+<body style="font-family:system-ui;margin:2rem"><h1>Shop</h1><p>A page the lab serves on a port forward.</p>
+<p>Loaded at ${new Date().toISOString()}</p></body>`
+  createServer((_req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.end(page)
+  })
+    .on('error', () => {
+      mockApp = false
+    })
+    .listen(Number(new URL(MOCK_APP_ORIGIN).port), '127.0.0.1')
 }
 
 // ---------------------------------------------------------------- fake shell
 
 const PROMPT = '\x1b[38;5;208mastrona-cli\x1b[0m > '
 
-const shell = {
+const shells = new Map<string, Shell>()
+const starting = new Set<string>()
+
+type Shell = ReturnType<typeof newShell>
+
+// A submitted or removed lab has no terminals left.
+function forgetShells(): void {
+  for (const sh of shells.values()) sh.forget()
+  shells.clear()
+}
+
+function newShell(tab: string, target: string) {
+  const sh = {
+  tab,
+  target,
   id: '',
   alive: false,
   createdAt: '',
@@ -346,13 +404,25 @@ const shell = {
   rows: 24,
   socket: null as Duplex | null,
 
+  info() {
+    return {
+      id: this.id,
+      tab: this.tab,
+      target: this.target,
+      status: this.alive ? 'running' : 'ended',
+      exitCode: this.alive ? null : 0,
+      createdAt: this.createdAt,
+      attached: this.socket !== null,
+    }
+  },
+
   reset() {
     this.id = randomUUID().replace(/-/g, '')
     this.alive = true
     this.createdAt = new Date().toISOString()
     this.buffer = ''
     this.line = ''
-    this.out('\x1b[32mMock terminal.\x1b[0m Try: stty size, ls /, echo hi, exit\r\n' + PROMPT)
+    this.out(`\x1b[32mMock terminal on ${this.target}.\x1b[0m Try: stty size, ls /, echo hi, exit\r\n` + PROMPT)
   },
 
   forget() {
@@ -374,7 +444,7 @@ const shell = {
       close(old, 4001)
     }
     this.socket = socket
-    frame(socket, 1, Buffer.from(JSON.stringify({ type: 'attached', terminal: terminal() })))
+    frame(socket, 1, Buffer.from(JSON.stringify({ type: 'attached', terminal: this.info() })))
     if (this.buffer) frame(socket, 2, Buffer.from(this.buffer))
     let pending = Buffer.alloc(0)
     socket.on('data', (chunk: Buffer) => {
@@ -449,6 +519,9 @@ const shell = {
     }
     this.out(PROMPT)
   },
+  }
+  sh.reset()
+  return sh
 }
 
 function frame(socket: Duplex, opcode: number, payload: Buffer): void {

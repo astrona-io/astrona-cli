@@ -13,14 +13,16 @@ import (
 	"astrona/internal/termbridge"
 )
 
-// maxTerminalsPerLab caps open terminals (running or ended) per lab.
+// maxTerminalsPerLab caps open terminals (running or ended) per lab. A lab
+// has at most config.MaxTabs+1 terminal tabs and one terminal per tab.
 const maxTerminalsPerLab = 12
 
-// terminal is one shell the page opened: a hardened container from
-// labshell.Command on a PTY from termbridge.
+// terminal is one shell the page opened for a terminal tab: a hardened
+// container from labshell.Command on a PTY from termbridge.
 type terminal struct {
 	id        string
 	lab       string
+	tab       string
 	target    string
 	createdAt time.Time
 	cmd       *exec.Cmd
@@ -36,6 +38,7 @@ type terminal struct {
 type TerminalInfo struct {
 	ID        string    `json:"id"`
 	Lab       string    `json:"lab,omitempty"`
+	Tab       string    `json:"tab"`
 	Target    string    `json:"target"`
 	Status    string    `json:"status"`
 	ExitCode  *int      `json:"exitCode"`
@@ -66,7 +69,7 @@ func (t *terminal) exitCode() int {
 }
 
 func (t *terminal) view() TerminalInfo {
-	v := TerminalInfo{ID: t.id, Target: t.target, Status: "running", CreatedAt: t.createdAt.UTC(), Attached: t.session.Attached()}
+	v := TerminalInfo{ID: t.id, Tab: t.tab, Target: t.target, Status: "running", CreatedAt: t.createdAt.UTC(), Attached: t.session.Attached()}
 	if t.ended() {
 		code := t.exitCode()
 		v.Status, v.ExitCode, v.Attached = "ended", &code, false
@@ -96,15 +99,22 @@ func (t *terminal) close() {
 
 // terminals is the registry of open terminals.
 type terminals struct {
-	mu      sync.Mutex
-	byID    map[string]*terminal
-	pending map[string]int // per lab, terminals being started
-	closed  bool
+	mu       sync.Mutex
+	byID     map[string]*terminal
+	pending  map[string]int  // per lab, terminals being started
+	starting map[string]bool // per lab and tab, see tabKey
+	closed   bool
 }
 
 func newTerminals() *terminals {
-	return &terminals{byID: map[string]*terminal{}, pending: map[string]int{}}
+	return &terminals{byID: map[string]*terminal{}, pending: map[string]int{}, starting: map[string]bool{}}
 }
+
+// tabKey keys starting; tab names never contain "/".
+func tabKey(lab, tab string) string { return lab + "/" + tab }
+
+// errTabStarting: the tab's terminal is already being started.
+var errTabStarting = errors.New("this tab's terminal is starting")
 
 func (ts *terminals) get(id string) *terminal {
 	ts.mu.Lock()
@@ -126,19 +136,34 @@ func (ts *terminals) list(lab string) []*terminal {
 	return out
 }
 
-// reserve claims a slot for a new terminal of lab, forgetting the oldest
-// ended terminal when the lab is at the cap. It returns false when every
-// slot holds a running or starting terminal.
-func (ts *terminals) reserve(lab string) bool {
+// reserve claims the slot of tab's terminal. A tab has one terminal: when
+// its shell still runs, reserve returns it and claims nothing; ended
+// terminals of the tab are forgotten, so "open a new shell" replaces them.
+// When the lab is at the cap the oldest ended terminal is forgotten too.
+// It returns ok false when the server is stopping or every slot holds a
+// running or starting terminal, and errTabStarting when the tab's terminal
+// is being started by another request.
+func (ts *terminals) reserve(lab, tab string) (running *terminal, ok bool, err error) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
 	if ts.closed {
-		return false
+		return nil, false, nil
+	}
+	if ts.starting[tabKey(lab, tab)] {
+		return nil, false, errTabStarting
 	}
 	var count int
 	var oldestEnded *terminal
-	for _, t := range ts.byID {
+	for id, t := range ts.byID {
 		if t.lab != lab {
+			continue
+		}
+		if t.tab == tab {
+			if !t.ended() {
+				return t, true, nil
+			}
+			delete(ts.byID, id)
+			go t.close()
 			continue
 		}
 		count++
@@ -148,30 +173,35 @@ func (ts *terminals) reserve(lab string) bool {
 	}
 	if count+ts.pending[lab] >= maxTerminalsPerLab {
 		if oldestEnded == nil {
-			return false
+			return nil, false, nil
 		}
 		delete(ts.byID, oldestEnded.id)
 		go oldestEnded.close()
 	}
 	ts.pending[lab]++
-	return true
+	ts.starting[tabKey(lab, tab)] = true
+	return nil, true, nil
 }
 
-func (ts *terminals) unreserve(lab string) {
+func (ts *terminals) unreserve(lab, tab string) {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
+	ts.release(lab, tab)
+}
+
+// release gives back what reserve claimed; ts.mu must be held.
+func (ts *terminals) release(lab, tab string) {
 	if ts.pending[lab]--; ts.pending[lab] <= 0 {
 		delete(ts.pending, lab)
 	}
+	delete(ts.starting, tabKey(lab, tab))
 }
 
 // add registers t in a reserved slot; false when the server is stopping.
 func (ts *terminals) add(t *terminal) bool {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
-	if ts.pending[t.lab]--; ts.pending[t.lab] <= 0 {
-		delete(ts.pending, t.lab)
-	}
+	ts.release(t.lab, t.tab)
 	if ts.closed {
 		return false
 	}
@@ -179,6 +209,7 @@ func (ts *terminals) add(t *terminal) bool {
 	return true
 }
 
+// remove forgets the terminal id and returns it (nil when unknown).
 func (ts *terminals) remove(id string) *terminal {
 	ts.mu.Lock()
 	defer ts.mu.Unlock()
@@ -230,10 +261,13 @@ func (s *Server) handleTerminals(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"terminals": TerminalInfos(s.terms.list(rec.Lab))})
 }
 
+// handleOpenTerminal opens the shell of one of the run's terminal tabs. The
+// page names a tab, never a target or a command: only what the lab
+// declared can run. A tab whose shell still runs gets that one back (200).
 func (s *Server) handleOpenTerminal(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		RunID  string `json:"runId"`
-		Target string `json:"target"`
+		RunID string `json:"runId"`
+		Tab   string `json:"tab"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -247,18 +281,13 @@ func (s *Server) handleOpenTerminal(w http.ResponseWriter, r *http.Request) {
 		writeErrorCode(w, http.StatusConflict, "run_changed", "this is not the lab's current run; reload")
 		return
 	}
-	target := rec.Targets[0].Name
-	if req.Target != "" {
-		target = ""
-		for _, t := range rec.Targets {
-			if t.Name == req.Target {
-				target = t.Name
-			}
-		}
-		if target == "" {
-			writeErrorCode(w, http.StatusBadRequest, "unknown_target", "unknown target")
-			return
-		}
+	if req.Tab == "" {
+		req.Tab = rec.tabs()[0].Name
+	}
+	tab, found := rec.tab(req.Tab)
+	if !found || tab.Kind != TabTerminal {
+		writeErrorCode(w, http.StatusBadRequest, "unknown_tab", "this lab has no terminal tab by that name")
+		return
 	}
 	v, err := buildView(rec, time.Now())
 	if err != nil {
@@ -273,13 +302,21 @@ func (s *Server) handleOpenTerminal(w http.ResponseWriter, r *http.Request) {
 		writeErrorCode(w, http.StatusConflict, "not_started", "click Start first")
 		return
 	}
-	if !s.terms.reserve(rec.Lab) {
-		writeErrorCode(w, http.StatusTooManyRequests, "too_many_terminals", "close a terminal first")
+	running, ok, err := s.terms.reserve(rec.Lab, tab.Name)
+	switch {
+	case errors.Is(err, errTabStarting):
+		writeErrorCode(w, http.StatusConflict, "terminal_starting", "this tab's terminal is starting; try again in a moment")
+		return
+	case running != nil:
+		writeJSON(w, http.StatusOK, running.view())
+		return
+	case !ok:
+		writeErrorCode(w, http.StatusTooManyRequests, "too_many_terminals", "too many terminals are open")
 		return
 	}
-	t, err := s.startTerminal(rec.Lab, target)
+	t, err := s.startTerminal(rec.Lab, tab.Name, tab.Target)
 	if err != nil {
-		s.terms.unreserve(rec.Lab)
+		s.terms.unreserve(rec.Lab, tab.Name)
 		if errors.Is(err, termbridge.ErrUnsupported) {
 			writeError(w, http.StatusNotImplemented, "terminals are not supported on this platform")
 			return
@@ -298,7 +335,7 @@ func (s *Server) handleOpenTerminal(w http.ResponseWriter, r *http.Request) {
 // startTerminal runs labshell's isolated terminal for target. Its context
 // is the server's: a request context would kill the shell when the POST
 // returns. There is no fallback to a host shell.
-func (s *Server) startTerminal(lab, target string) (*terminal, error) {
+func (s *Server) startTerminal(lab, tab, target string) (*terminal, error) {
 	cmd, err := labshell.Command(s.life, lab, target, nil, true)
 	if err != nil {
 		return nil, err
@@ -315,7 +352,7 @@ func (s *Server) startTerminal(lab, target string) (*terminal, error) {
 		_ = session.Close()
 		return nil, err
 	}
-	return &terminal{id: id, lab: lab, target: target, createdAt: time.Now(), cmd: cmd, session: session, gone: make(chan struct{})}, nil
+	return &terminal{id: id, lab: lab, tab: tab, target: target, createdAt: time.Now(), cmd: cmd, session: session, gone: make(chan struct{})}, nil
 }
 
 func newTerminalID() (string, error) {
@@ -324,16 +361,4 @@ func newTerminalID() (string, error) {
 		return "", err
 	}
 	return b64.EncodeToString(b), nil
-}
-
-func (s *Server) handleCloseTerminal(w http.ResponseWriter, r *http.Request) {
-	lab := r.PathValue("lab")
-	t := s.terms.get(r.PathValue("id"))
-	if t == nil || t.lab != lab {
-		writeError(w, http.StatusNotFound, "no such terminal")
-		return
-	}
-	s.terms.remove(t.id)
-	t.close()
-	w.WriteHeader(http.StatusNoContent)
 }

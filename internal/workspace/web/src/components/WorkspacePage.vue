@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, ref, shallowRef, toRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, toRef, watch } from 'vue'
 import { useCountdown } from '../clock'
 import { getQuestion, isRunGone, isUnauthorized, type Question, type Run } from '../api'
-import { pickView, type ViewHandle, type ViewStatus } from '../views/types'
+import { connectionLost, reconnectAttempt, resetConnectivity } from '../connectivity'
+import type { ViewHandle, ViewStatus } from '../views/types'
+import ConnectionLostDialog from './ConnectionLostDialog.vue'
+import LabTabs from './LabTabs.vue'
 import TopBar from './TopBar.vue'
 import SplitDivider from './SplitDivider.vue'
 
@@ -42,27 +45,29 @@ watch(() => props.run.runId, loadQuestion)
 
 // ---------------------------------------------------------------- view
 
-// The question's own target first, then the first target with a view this
-// build can show.
+// The question's own target, else the lab's own cluster.
 const target = computed(() => {
   const want = question.value?.target
-  const usable = props.run.targets.filter((t) => pickView(t.views))
-  return usable.find((t) => t.name === want) ?? usable[0] ?? null
+  return props.run.targets.find((t) => t.name === want) ?? props.run.targets[0] ?? null
 })
-const view = computed(() => (target.value ? pickView(target.value.views) : null))
-const viewComponent = computed(() => (view.value ? defineAsyncComponent(view.value.component) : null))
 const viewRef = ref<ViewHandle | null>(null)
 const status = ref<ViewStatus>({ tone: 'busy', label: 'Connecting' })
 
 // ---------------------------------------------------------------- layout
 
-const WIDTH_KEY = 'astrona.workspace.taskWidth'
-const DEFAULT_WIDTH = 38
+// The task panel's share of the row, in percent; the terminal gets the rest.
+// The key carries a version so a width saved under an older default does not
+// keep the old split.
+const WIDTH_KEY = 'astrona.workspace.taskWidth.v2'
+const DEFAULT_WIDTH = 25
+const MIN_WIDTH = 15
+const MAX_WIDTH = 70
 
 function storedWidth(): number {
   try {
-    const v = Number(window.localStorage.getItem(WIDTH_KEY))
-    if (v >= 20 && v <= 70) return v
+    const raw = window.localStorage.getItem(WIDTH_KEY)
+    const v = Number(raw)
+    if (raw !== null && v >= MIN_WIDTH && v <= MAX_WIDTH) return v
   } catch {
     // storage unavailable
   }
@@ -89,10 +94,46 @@ function focusView(): void {
 function focusTask(): void {
   task.value?.focus()
 }
+
+// ---------------------------------------------------------------- connection
+
+// While the server cannot be reached the workspace is covered (blurred and
+// inert) by a dialog that cannot be dismissed. A blip shorter than this does
+// not show it.
+const SHOW_LOST_AFTER_MS = 1500
+const lostShown = ref(false)
+const announcement = ref('')
+let lostTimer: number | undefined
+let returnFocus: HTMLElement | null = null
+
+watch(connectionLost, async (lost) => {
+  window.clearTimeout(lostTimer)
+  if (lost) {
+    lostTimer = window.setTimeout(() => {
+      returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      lostShown.value = true
+      announcement.value = 'Connection to the workspace server lost. Reconnecting.'
+    }, SHOW_LOST_AFTER_MS)
+    return
+  }
+  if (!lostShown.value) return
+  lostShown.value = false
+  announcement.value = 'Connection restored.'
+  // Back to where the learner was, once the workspace is no longer inert.
+  await nextTick()
+  if (returnFocus?.isConnected && returnFocus !== document.body) returnFocus.focus({ preventScroll: true })
+  else focusView()
+  returnFocus = null
+})
+
+onBeforeUnmount(() => {
+  window.clearTimeout(lostTimer)
+  resetConnectivity()
+})
 </script>
 
 <template>
-  <div class="workspace">
+  <div class="workspace" :class="{ 'workspace--lost': lostShown }" :inert="lostShown">
     <nav class="skip" aria-label="Skip links">
       <button type="button" class="skip__link" @click="focusView">Skip to terminal</button>
       <button type="button" class="skip__link" @click="focusTask">Skip to task</button>
@@ -144,24 +185,25 @@ function focusTask(): void {
         <article v-else class="prose" v-html="question.html" />
       </section>
 
-      <SplitDivider v-model="width" controls="task-panel" @commit="saveWidth" />
+      <SplitDivider v-model="width" :min="MIN_WIDTH" :max="MAX_WIDTH" controls="task-panel" @commit="saveWidth" />
 
-      <section class="view" aria-label="Terminal">
-        <component
-          :is="viewComponent"
-          v-if="viewComponent && target && (question || questionError)"
-          :key="`${run.runId}/${target.name}`"
+      <section class="view" aria-label="Lab">
+        <LabTabs
+          v-if="question || questionError"
+          :key="run.runId"
           ref="viewRef"
           :lab="run.lab"
           :run-id="run.runId"
-          :target="target.name"
+          :tabs="run.tabs"
           @status="status = $event"
           @leave="focusTask"
           @unauthorized="emit('unauthorized')"
           @run-gone="emit('runGone')"
         />
-        <p v-else-if="!target" class="view__empty muted" role="status">This lab has no terminal to show.</p>
       </section>
     </div>
   </div>
+
+  <ConnectionLostDialog v-if="lostShown" :lab="run.lab" :attempt="reconnectAttempt" />
+  <p class="visually-hidden" aria-live="assertive">{{ announcement }}</p>
 </template>

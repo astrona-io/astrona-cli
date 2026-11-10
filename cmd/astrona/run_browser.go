@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/exam"
 	"astrona/internal/labops"
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
@@ -23,7 +25,7 @@ import (
 // wantBrowser decides whether `astrona run` opens the lab in the browser
 // workspace. It is asked after trust, before anything is built:
 //
-//   - --no-browser, --headless and the terminal UI (--ui) never open it;
+//   - --no-browser and --headless never open it;
 //   - only Kind labs open in the browser; --browser on another runtime fails;
 //   - --browser opens it without asking, even without a terminal;
 //   - without a terminal on stdin and stdout the answer is no;
@@ -31,13 +33,13 @@ import (
 //   - with no browser on this machine (no display) nothing is asked.
 //
 // The question goes to stderr; always and never are saved to the setting.
-func wantBrowser(flags *rootFlags, cfg *config.LabConfig, browser, noBrowser, tui bool) (bool, error) {
-	if noBrowser || flags.headless || tui {
+func wantBrowser(flags *rootFlags, cfg *config.LabConfig, browser, noBrowser bool) (bool, error) {
+	if noBrowser || flags.headless {
 		return false, nil
 	}
 	if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" {
 		if browser {
-			return false, fmt.Errorf("--browser opens Kind labs only; this lab runs on %s. Use --ui for the terminal workspace", cfg.Runtime.Type)
+			return false, fmt.Errorf("--browser opens Kind labs only; this lab runs on %s. Reach its VMs with astrona ssh", cfg.Runtime.Type)
 		}
 		return false, nil
 	}
@@ -67,15 +69,11 @@ func wantBrowser(flags *rootFlags, cfg *config.LabConfig, browser, noBrowser, tu
 	return askBrowser(os.Stdin, promptOut, path)
 }
 
-// checkBrowserFlags refuses --browser with a flag that never opens it. It
-// runs before anything else; --headless also turns --ui off, so it is
-// checked first for a clear message.
-func checkBrowserFlags(browser, headless, tui bool) error {
-	switch {
-	case browser && headless:
+// checkBrowserFlags refuses --browser with --headless, which never opens
+// it. It runs before anything else.
+func checkBrowserFlags(browser, headless bool) error {
+	if browser && headless {
 		return fmt.Errorf("--browser and --headless cannot be used together")
-	case browser && tui:
-		return fmt.Errorf("--browser and --ui cannot be used together")
 	}
 	return nil
 }
@@ -136,6 +134,39 @@ func openBrowserWorkspace(cfg *config.LabConfig, baseDir string, flags *rootFlag
 	if err := workspace.WriteRun(rec); err != nil {
 		return fmt.Errorf("the lab is running, but the browser workspace could not be prepared: %w", err)
 	}
+	return launchBrowserWorkspace(rec.Lab)
+}
+
+// reopenBrowserWorkspace is astrona ui <lab>: it keeps the run's record
+// when it is the current run (so a Start already clicked stays), else
+// records it. A lab whose exam clock already runs (started without the
+// browser) is recorded as started, so the page can never restart its clock.
+func reopenBrowserWorkspace(cfg *config.LabConfig, baseDir string, flags *rootFlags) error {
+	rec, err := browserRunRecord(cfg, baseDir, flags)
+	if err != nil {
+		return fmt.Errorf("the browser workspace could not be prepared: %w", err)
+	}
+	if saved, err := workspace.ReadRun(rec.Lab); err != nil || saved.RunID != rec.RunID {
+		if err := workspace.WriteRun(rec); err != nil {
+			return fmt.Errorf("the browser workspace could not be prepared: %w", err)
+		}
+		clock, err := exam.Load(rec.Lab)
+		if err != nil {
+			return err
+		}
+		if rec.Exam && clock != nil {
+			if err := workspace.MarkStarted(rec.Lab, clock.StartedAt); err != nil {
+				return fmt.Errorf("the browser workspace could not be prepared: %w", err)
+			}
+		}
+	}
+	return launchBrowserWorkspace(rec.Lab)
+}
+
+// launchBrowserWorkspace starts the workspace server (or reuses a running
+// one), prints a launch URL for lab with a fresh single-use code and opens
+// it in the browser, or says to open it when there is no browser here.
+func launchBrowserWorkspace(lab string) error {
 	info, _, err := workspace.EnsureServer()
 	if err != nil {
 		return fmt.Errorf("the lab is running, but the browser workspace did not start: %w", err)
@@ -144,9 +175,9 @@ func openBrowserWorkspace(cfg *config.LabConfig, baseDir string, flags *rootFlag
 	if err != nil {
 		return err
 	}
-	link := launchWorkspaceURL(base, rec.Lab)
+	link := launchWorkspaceURL(base, lab)
 	fmt.Printf("\nBrowser workspace: %s\n", link)
-	fmt.Printf("The link works once and for %s; `astrona ui status` prints a new one.\n", workspace.DefaultCodeTTL)
+	fmt.Printf("The link works once and for %s; `astrona ui %s` opens a new one.\n", workspace.DefaultCodeTTL, uiLabArg(lab))
 	switch {
 	case browserCommand(goruntime.GOOS, os.Getenv, exec.LookPath, link) == nil:
 		fmt.Println("No browser to open here: open the link above in a browser on this machine.")
@@ -186,6 +217,11 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 	for _, link := range links {
 		rec.Targets = append(rec.Targets, workspace.Target{Name: link.Cluster, Label: link.Name, Kind: "kind", Views: []string{"terminal"}})
 	}
+	tabs, err := browserTabs(cfg, rec.Targets, links, baseDir, flags)
+	if err != nil {
+		return workspace.RunRecord{}, err
+	}
+	rec.Tabs = tabs
 	rec.QuestionTitle = "Task"
 	rec.Question = "No task document provided. Use the terminal to explore the lab."
 	if cfg.Metadata.Docs.Question != "" {
@@ -226,4 +262,61 @@ func readLabDocument(doc, baseDir string, flags *rootFlags) (string, error) {
 		}
 	}
 	return labops.ReadLabDoc(configPath, doc)
+}
+
+// browserTabs are the right panel's tabs: the focus tab (the lab's own
+// cluster), then the lab's tabs. Only what the lab declares becomes a tab;
+// without `tabs` there is only the focus tab.
+func browserTabs(cfg *config.LabConfig, targets []workspace.Target, links []cluster.LinkState, baseDir string, flags *rootFlags) ([]workspace.Tab, error) {
+	if len(cfg.Tabs) == 0 {
+		return workspace.DefaultTabs(targets), nil
+	}
+	if err := config.ValidateTabs(cfg); err != nil {
+		return nil, err
+	}
+	forwards := map[string]config.PortForward{}
+	for _, pf := range cfg.Runtime.PortForwards {
+		forwards[pf.Name] = pf.Normalized()
+	}
+	tabs := []workspace.Tab{workspace.FocusTab(targets[0].Name)}
+	for _, t := range cfg.Tabs {
+		tab := workspace.Tab{Name: t.Name, Title: labops.SanitizeLine(strings.TrimSpace(t.Title)), Kind: t.Type}
+		switch t.Type {
+		case config.TabTerminal:
+			tab.Target = targets[0].Name
+			if t.Cluster != "" {
+				tab.Target = ""
+				for _, link := range links {
+					if link.Name == t.Cluster {
+						tab.Target = link.Cluster
+					}
+				}
+				if tab.Target == "" {
+					return nil, fmt.Errorf("tab %s: linked cluster %s is not running", t.Name, t.Cluster)
+				}
+			}
+		case config.TabBrowser:
+			pf := forwards[t.PortForward]
+			path, err := config.TabPath(t.Path)
+			if err != nil {
+				return nil, fmt.Errorf("tab %s: %w", t.Name, err)
+			}
+			tab.URL = workspace.BrowserTabURL(pf.Scheme, pf.HostPort, path)
+		case config.TabDocs:
+			if t.URL != "" {
+				tab.URL = t.URL
+				break
+			}
+			text, err := readLabDocument(t.File, baseDir, flags)
+			if err != nil {
+				return nil, fmt.Errorf("read the document of tab %s: %w", t.Name, err)
+			}
+			if len(text) > config.MaxTabDocBytes {
+				return nil, fmt.Errorf("the document of tab %s is larger than %d KiB", t.Name, config.MaxTabDocBytes>>10)
+			}
+			_, tab.Doc = docFrontMatter(labops.SanitizeTerminalText(text))
+		}
+		tabs = append(tabs, tab)
+	}
+	return tabs, nil
 }

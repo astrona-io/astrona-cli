@@ -104,7 +104,7 @@ linters:
     # layer is denied the layers above it, so cmd/astrona can become thin
     # Cobra wiring over internal packages a browser workspace can also call.
     # workspace is the top internal layer: it may import everything below
-    # it, and only the global no-cmd and no-tui-in-internal rules apply to
+    # it, and only the global no-cmd and no-cobra-in-internal rules apply to
     # it. `pkg` is a prefix match; `files` globs match absolute paths.
     depguard:
       rules:
@@ -237,18 +237,10 @@ linters:
           deny:
             - pkg: "astrona/cmd"
               desc: "workspace is the top internal layer; cmd wires it, not the reverse"
-        no-tui-in-internal:
+        no-cobra-in-internal:
           list-mode: lax
           files: ["**/internal/**"]
           deny:
-            - pkg: "charm.land/bubbletea"
-              desc: "the terminal UI is cmd-only"
-            - pkg: "charm.land/bubbles"
-              desc: "the terminal UI is cmd-only"
-            - pkg: "github.com/charmbracelet/bubbletea"
-              desc: "the terminal UI is cmd-only"
-            - pkg: "github.com/charmbracelet/bubbles"
-              desc: "the terminal UI is cmd-only"
             - pkg: "github.com/spf13/cobra"
               desc: "Cobra belongs to cmd"
     # labops, authoring and preflight are libraries the CLI and the browser
