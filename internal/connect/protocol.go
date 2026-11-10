@@ -41,7 +41,9 @@ const (
 )
 
 // Commands is everything the site may ask for, each for one catalog lab.
-var Commands = []string{"run", "status", "submit", "reset", "destroy", "stop", "start"}
+// renew is for a running playground only; for any other lab it fails with
+// renew's own error.
+var Commands = []string{"run", "status", "submit", "reset", "destroy", "stop", "start", "renew"}
 
 // labPattern is a catalog lab name (TRAINING/section-010/lab-01), the same
 // shape the site accepts. No dots-only segments, no leading dash or slash.

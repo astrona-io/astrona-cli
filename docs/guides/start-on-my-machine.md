@@ -81,6 +81,11 @@ Only these commands, each for one catalog lab named like
 | Reset | `astrona reset <lab> --yes` |
 | Destroy | `astrona destroy <lab>` |
 | Stop / Start | `astrona stop <lab>` / `astrona start <lab>` |
+| Renew | `astrona run renew <lab>` |
+
+Renew gives a running playground its full time limit again, as
+`astrona run renew` does at a terminal. For a lab that isn't a running
+playground it fails with renew's own error, and the page shows it.
 
 `astrona connect` checks the command and the lab name before anything runs and
 refuses everything else: shell commands, local paths, URLs and other options
