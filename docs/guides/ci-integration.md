@@ -180,7 +180,7 @@ Every command whose output is data takes `-o json` and then prints exactly one J
 
 | Command | JSON |
 |---|---|
-| `astrona submit -o json` | `{lab, pass, earned, max, percent, attempt, checks: [{name, pass, points, message, hint, durationMs}]}` (hints left out under exam conditions; still recorded as an attempt; exit codes as above) |
+| `astrona submit -o json` | `{lab, pass, earned, max, percent, attempt, checks: [{name, pass, points, message, hint, durationMs, vm}]}` (`vm` only for a multi-VM qemu lab's per-VM results) (hints left out under exam conditions; still recorded as an attempt; exit codes as above) |
 | `astrona submit --history -o json` | the recorded attempts |
 | `astrona status -o json` | health, context, port forwards, linked clusters, exam clock, last attempt, suggested next step |
 | `astrona validate` / `check` / `doctor -o json` | `{ok, problems, results: [{section, name, status: ok\|warn\|fail, detail, fix}]}` — exit code still non-zero on any `fail` (a lab config that can't be found or loaded is a `fail` result in this report too, not an empty stdout) |
