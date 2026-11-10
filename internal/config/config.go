@@ -180,9 +180,10 @@ type QEMUVM struct {
 	// layered *after* the lab's shared root Bootstrap/Validation (LabConfig
 	// fields), which for a multi-VM lab run against every VM in turn
 	// instead of just once (see scripts.go's runBootstrap and proctor.go's
-	// gradeScripts). Meaningless for a single-VM lab (this is the list's
-	// only entry, root Bootstrap/Validation already cover it) — leave unset
-	// there.
+	// gradeScripts). In a single-VM lab Validation is graded after the
+	// root one (its checks and scripts run in the one VM); Bootstrap is
+	// meaningful only in a multi-VM lab. A Validation block's command
+	// checks run inside this VM, not on the host.
 	Bootstrap  *BootstrapConfig  `yaml:"bootstrap"`
 	Validation *ValidationConfig `yaml:"validation"`
 }

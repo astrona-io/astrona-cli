@@ -32,6 +32,9 @@ type CheckResult struct {
 	Duration time.Duration
 	Hint     string // shown on failure (unless hints are hidden)
 	Points   int    // weight in the score, >= 1
+	// VM is the qemu VM the result was graded on, in a multi-VM lab (its
+	// name is then also suffixed "(vm)"); empty otherwise.
+	VM string
 }
 
 // Score is a submission's weighted result.
@@ -132,30 +135,50 @@ func (p *Proctor) finished(r CheckResult) {
 }
 
 // planned lists the names Evaluate grades for cfg, in its order: the
-// checks, then the validation scripts as gradeScripts runs them.
+// root checks, then the validation scripts and each VM's own checks as
+// gradeScripts runs them.
 func (p *Proctor) planned(cfg *config.LabConfig) []string {
 	var names []string
 	for _, c := range cfg.Validation.Checks {
 		names = append(names, c.Name)
 	}
-	block := func(val config.ValidationConfig, vmSuffix string) {
+	scripts := func(val config.ValidationConfig, vmSuffix string) {
 		for _, s := range validationScripts(val) {
 			if s.Source != "" {
 				names = append(names, scriptName(s, vmSuffix))
 			}
 		}
 	}
+	own := func(val *config.ValidationConfig, vmSuffix string) {
+		if val == nil {
+			return
+		}
+		for _, c := range val.Checks {
+			names = append(names, vmName(c.Name, vmSuffix))
+		}
+		scripts(*val, vmSuffix)
+	}
 	if p.env.Executor != nil {
-		block(cfg.Validation, "")
+		scripts(cfg.Validation, "")
+		if vm := p.singleVM(cfg); vm != nil {
+			own(vm.Validation, "")
+		}
 		return names
 	}
 	for _, vm := range cfg.Runtime.QEMU {
-		block(cfg.Validation, vm.Name)
-		if vm.Validation != nil {
-			block(*vm.Validation, vm.Name)
-		}
+		scripts(cfg.Validation, vm.Name)
+		own(vm.Validation, vm.Name)
 	}
 	return names
+}
+
+// singleVM is the one runtime.qemu entry of a single-VM qemu lab (graded
+// through env.Executor), nil for any other lab.
+func (p *Proctor) singleVM(cfg *config.LabConfig) *config.QEMUVM {
+	if p.env.Type != runtime.RuntimeQEMU || len(cfg.Runtime.QEMU) != 1 {
+		return nil
+	}
+	return &cfg.Runtime.QEMU[0]
 }
 
 // StopOn makes Evaluate give up before its next check or validation
@@ -498,17 +521,30 @@ func withTimeout(out string, err error) string {
 	return err.Error() + " — output so far: " + out
 }
 
-// gradeScripts runs every validation script this lab defines: the shared
-// root Validation.Script/Scripts once for a single-environment lab
-// (env.Executor != nil), or — for a multi-VM qemu lab — once per VM (in
-// config.Runtime.QEMU's order): the shared root ones again first, then that
-// VM's own nested QEMUVM.Validation.Script/Scripts. Every multi-VM result's
-// name is suffixed "(vmName)" (runValidationBlock) so two VMs running the
-// same shared script don't collide in the report — see the design note in
-// runValidationBlock for why a shared script's result isn't deduplicated.
+// gradeScripts runs every validation script this lab defines, and each
+// qemu VM's own checks: the shared root Validation.Script/Scripts once for
+// a single-environment lab (env.Executor != nil) — followed, for a single-VM
+// qemu lab, by that VM's own runtime.qemu[0].validation block — or, for a
+// multi-VM qemu lab, once per VM (in config.Runtime.QEMU's order): the
+// shared root ones again first, then that VM's own nested QEMUVM.Validation
+// checks and scripts (runVMBlock). Every multi-VM result's name is suffixed
+// "(vmName)" (runValidationBlock) so two VMs running the same shared script
+// don't collide in the report — see the design note in runValidationBlock
+// for why a shared script's result isn't deduplicated.
 func (p *Proctor) gradeScripts(cfg *config.LabConfig) ([]CheckResult, error) {
 	if p.env.Executor != nil {
-		return p.runValidationBlock(cfg.Validation, p.env.Executor, "")
+		results, err := p.runValidationBlock(cfg.Validation, p.env.Executor, "")
+		if err != nil {
+			return nil, err
+		}
+		if vm := p.singleVM(cfg); vm != nil && vm.Validation != nil {
+			own, err := p.runVMBlock(*vm.Validation, p.env.Executor, "")
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, own...)
+		}
+		return results, nil
 	}
 
 	var results []CheckResult
@@ -526,7 +562,7 @@ func (p *Proctor) gradeScripts(cfg *config.LabConfig) ([]CheckResult, error) {
 		results = append(results, vmResults...)
 
 		if vm.Validation != nil {
-			ownResults, err := p.runValidationBlock(*vm.Validation, executor, vm.Name)
+			ownResults, err := p.runVMBlock(*vm.Validation, executor, vm.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -535,6 +571,117 @@ func (p *Proctor) gradeScripts(cfg *config.LabConfig) ([]CheckResult, error) {
 	}
 
 	return results, nil
+}
+
+// runVMBlock grades a VM's own runtime.qemu[].validation block through
+// that VM's executor: its checks (runVMChecks), then its scripts.
+func (p *Proctor) runVMBlock(val config.ValidationConfig, ex executor.ScriptExecutor, vm string) ([]CheckResult, error) {
+	results, err := p.runVMChecks(val.Checks, ex, vm)
+	if err != nil {
+		return nil, err
+	}
+	scriptResults, err := p.runValidationBlock(val, ex, vm)
+	if err != nil {
+		return nil, err
+	}
+	return append(results, scriptResults...), nil
+}
+
+// runVMChecks runs a VM's own checks. A command check runs inside that VM,
+// over the same path as its validation scripts (runVMCommand); every other
+// type grades as a root check does (an http check from this machine;
+// Kubernetes checks are refused, a qemu lab has no cluster). In a multi-VM
+// lab each result's name is suffixed "(vm)" and its VM is set.
+func (p *Proctor) runVMChecks(checks []config.ValidationCheck, ex executor.ScriptExecutor, vm string) ([]CheckResult, error) {
+	var results []CheckResult
+	for _, c := range checks {
+		c.Name = vmName(c.Name, vm)
+		if !strings.EqualFold(c.Type, "command") {
+			res, err := p.runChecks([]config.ValidationCheck{c})
+			if err != nil {
+				return nil, err
+			}
+			for i := range res {
+				res[i].VM = vm
+			}
+			results = append(results, res...)
+			continue
+		}
+		if err := p.stopped(); err != nil {
+			return nil, err
+		}
+		start := time.Now()
+		p.started()
+		result, err := p.runVMCommand(c, ex)
+		if err != nil {
+			return nil, fmt.Errorf("check '%s': %w", c.Name, err)
+		}
+		result.VM = vm
+		result.Duration = time.Since(start)
+		results = append(results, result)
+		p.finished(result)
+	}
+	return results, nil
+}
+
+// runVMCommand runs a command check inside a VM: its words, each quoted so
+// nothing is interpolated, are the one line of a script the VM's executor
+// runs there (the same way as a validation script). Output and matchers
+// are judged as for a root command check. Only a real execution problem
+// (the VM unreachable: ssh exit 255) is an error.
+func (p *Proctor) runVMCommand(c config.ValidationCheck, ex executor.ScriptExecutor) (CheckResult, error) {
+	result := CheckResult{Name: c.Name, Hint: c.Hint, Points: config.EffectivePoints(c.Points)}
+	parts := strings.Fields(c.Command)
+	if len(parts) == 0 {
+		result.Message = "empty command"
+		return result, nil
+	}
+	quoted := make([]string, len(parts))
+	for i, w := range parts {
+		quoted[i] = shellQuote(w)
+	}
+	f, err := os.CreateTemp("", "astrona-check-*.sh")
+	if err != nil {
+		return result, err
+	}
+	defer os.Remove(f.Name())
+	_, err = f.WriteString("exec " + strings.Join(quoted, " ") + "\n")
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return result, err
+	}
+
+	limit := c.EffectiveTimeout()
+	ctx, cancel := executor.WithTimeout(limit)
+	defer cancel()
+	var out strings.Builder
+	err = executor.Timed(ctx, limit, ex.RunScript(ctx, f.Name(), &out))
+	trimmed := strings.TrimSpace(out.String())
+	if executor.IsTimeout(err) {
+		result.Message = withTimeout(trimmed, err)
+		return result, nil
+	}
+	var exitErr *exec.ExitError
+	if err != nil && !errors.As(err, &exitErr) {
+		return result, err
+	}
+	ok, why := matchOutput(c, trimmed)
+	result.Pass = err == nil && ok
+	result.Message = joinMessage(trimmed, why)
+	return result, nil
+}
+
+// shellQuote single-quotes s for bash.
+func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
+
+// vmName is a result's name in a multi-VM lab: "name (vm)".
+func vmName(name, vm string) string {
+	if vm == "" {
+		return name
+	}
+	return fmt.Sprintf("%s (%s)", name, vm)
 }
 
 // runValidationBlock runs val's Script (if set) then Scripts (if any)
@@ -562,6 +709,7 @@ func (p *Proctor) runValidationBlock(val config.ValidationConfig, executor execu
 		}
 
 		result := CheckResult{
+			VM:       vmSuffix,
 			Name:     scriptName(scriptItem, vmSuffix),
 			Pass:     scriptPass,
 			Message:  message,
@@ -591,10 +739,7 @@ func scriptName(s config.ResourceItem, vmSuffix string) string {
 	if name == "" {
 		name = "validation script"
 	}
-	if vmSuffix != "" {
-		name = fmt.Sprintf("%s (%s)", name, vmSuffix)
-	}
-	return name
+	return vmName(name, vmSuffix)
 }
 
 // runScript runs a single validation script through executor. Exit code 0

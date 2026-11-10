@@ -68,13 +68,21 @@ func CheckConfig(cfg *config.LabConfig, baseDir string) []preflight.Result {
 	if !cfg.HasGrading() {
 		res = append(res, preflight.Result{Status: preflight.Warn, Name: "validation", Detail: "nothing to grade — no checks and no scripts, so `astrona submit` and `astrona test` exit 1 (fine for a playground)"})
 	}
-	for i, c := range cfg.Validation.Checks {
-		known := false
-		for _, t := range config.CheckTypes {
-			known = known || strings.EqualFold(t, c.Type)
+	checkTypes := func(where string, checks []config.ValidationCheck) {
+		for i, c := range checks {
+			known := false
+			for _, t := range config.CheckTypes {
+				known = known || strings.EqualFold(t, c.Type)
+			}
+			if !known {
+				fail(fmt.Sprintf("%s.checks[%d]", where, i), fmt.Sprintf("unsupported type '%s' (%s)", c.Type, strings.Join(config.CheckTypes, ", ")))
+			}
 		}
-		if !known {
-			fail(fmt.Sprintf("validation.checks[%d]", i), fmt.Sprintf("unsupported type '%s' (%s)", c.Type, strings.Join(config.CheckTypes, ", ")))
+	}
+	checkTypes("validation", cfg.Validation.Checks)
+	for _, vm := range cfg.Runtime.QEMU {
+		if vm.Validation != nil {
+			checkTypes("runtime.qemu["+vm.Name+"].validation", vm.Validation.Checks)
 		}
 	}
 

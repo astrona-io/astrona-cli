@@ -28,6 +28,8 @@ type SubmissionCheck struct {
 	Message    string `json:"message,omitempty"`
 	Hint       string `json:"hint,omitempty"`
 	DurationMs int64  `json:"durationMs"`
+	// VM is the qemu VM a multi-VM lab's check was graded on.
+	VM string `json:"vm,omitempty"`
 }
 
 // Submission is a graded result: what `astrona submit -o json` prints and,
@@ -55,7 +57,7 @@ func NewSubmission(cfg *config.LabConfig, lab string, results []proctor.CheckRes
 	out := Submission{Lab: lab, Pass: pass, Earned: sc.Earned, Max: sc.Max, Percent: sc.Percent(),
 		PassPercent: cfg.Validation.PassPercent, OverTime: overTime, Attempt: attempt, Time: now, Checks: []SubmissionCheck{}}
 	for _, r := range results {
-		c := SubmissionCheck{Name: r.Name, Pass: r.Pass, Points: r.Points, Message: r.Message, DurationMs: r.Duration.Milliseconds()}
+		c := SubmissionCheck{Name: r.Name, Pass: r.Pass, Points: r.Points, Message: r.Message, DurationMs: r.Duration.Milliseconds(), VM: r.VM}
 		if !r.Pass && !hideHints {
 			c.Hint = r.Hint
 		}

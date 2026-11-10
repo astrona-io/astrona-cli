@@ -123,7 +123,7 @@ runtime:
 | `sshPasswordAuth` | bool | Enable password auth in addition to key auth, for the `student` account only — the `astrona` automation account (see [Runtimes](../concepts/runtimes.md)) is always key-auth only |
 | `display` | bool | Show a QEMU display window |
 | `bootstrap` | BootstrapConfig | Runs only against this VM, after the shared root `bootstrap` (multi-VM only) |
-| `validation` | ValidationConfig | Runs only against this VM, after the shared root `validation` (multi-VM only) |
+| `validation` | ValidationConfig | Graded only against this VM, after the shared root `validation`: its `command` checks and scripts run inside this VM, `http` checks from this machine. Results are suffixed `(name)` in a multi-VM lab. Its `passPercent` is ignored — the root one sets the pass mark |
 
 See [Runtimes](../concepts/runtimes.md) for single- vs multi-VM behavior.
 

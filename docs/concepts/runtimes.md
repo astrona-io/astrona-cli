@@ -327,7 +327,7 @@ In a multi-VM lab:
 
 - Every VM gets an implicit host-only management NIC (astrona's own control channel) in addition to any declared `networks`.
 - `sshAccess` wires up passwordless SSH from one named VM into another — both must already share a `runtime.networks` segment; it doesn't create connectivity on its own, only trust over a path that already exists.
-- The lab's shared root `bootstrap`/`validation` run once per VM, in `runtime.qemu`'s order; a VM's own nested `bootstrap`/`validation` block (if set) runs after that, scoped to just that VM.
+- The lab's shared root `bootstrap`/`validation` run once per VM, in `runtime.qemu`'s order; a VM's own nested `bootstrap`/`validation` block (if set) runs after that, scoped to just that VM. A nested `validation` block's `command` checks run inside that VM, and its results are suffixed `(vmName)` — see [Grading](grading.md#script-checks-validationscript-validationscripts).
 
 ## Choosing one
 
