@@ -5823,12 +5823,12 @@
 <tr>
 <td><code>bootstrap</code></td>
 <td>BootstrapConfig</td>
-<td>Runs only against this VM, after the shared root <code>bootstrap</code> (multi-VM only)</td>
+<td><code>init</code> scripts that run only against this VM, right after the shared root <code>bootstrap.init</code> on it (in a single-VM lab too)</td>
 </tr>
 <tr>
 <td><code>validation</code></td>
 <td>ValidationConfig</td>
-<td>Graded only against this VM, after the shared root <code>validation</code>: its <code>command</code> checks and scripts run inside this VM, <code>http</code> checks from this machine. Results are suffixed <code>(name)</code> in a multi-VM lab. Its <code>passPercent</code> is ignored — the root one sets the pass mark</td>
+<td>Graded only against this VM, after the shared root <code>validation</code>: its <code>command</code> checks and scripts run inside this VM, <code>http</code> checks from this machine. Results are suffixed <code>(name)</code> in a multi-VM lab. <code>passPercent</code> is not allowed here (<code>astrona validate</code> fails): the root <code>validation.passPercent</code> is the lab's one pass mark</td>
 </tr>
 </tbody>
 </table>
@@ -6240,7 +6240,7 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <tr>
 <td><code>passPercent</code></td>
 <td>int</td>
-<td><code>1</code>–<code>100</code>: pass once the score reaches this percentage (e.g. <code>66</code>). Unset: every check and script must pass</td>
+<td><code>1</code>–<code>100</code>: pass once the score reaches this percentage (e.g. <code>66</code>). Unset: every check and script must pass. Root <code>validation</code> only — rejected in a <code>runtime.qemu[].validation</code> block</td>
 </tr>
 </tbody>
 </table>
