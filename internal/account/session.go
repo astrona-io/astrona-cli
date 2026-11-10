@@ -361,9 +361,11 @@ func (c *Client) postStop(ctx context.Context, cr *Credentials, sessionID, reaso
 }
 
 // RenewedSession is POST {site}/api/cli/lab-sessions/{id}/renew's answer.
-// The site closed PreviousID like a destroy — its BankedSeconds count as
-// playground time — and started ID for the same playground, with a full
-// time limit up to DeadlineAt (RFC 3339).
+// The site keeps the session open and restarts its time limit, up to
+// DeadlineAt (RFC 3339): ID is PreviousID and BankedSeconds is 0, and the
+// time counts once, when the playground ends. An older site closed
+// PreviousID like a destroy (BankedSeconds counted as playground time) and
+// answered with a new ID; the CLI accepts both.
 type RenewedSession struct {
 	PreviousID    string `json:"previous_id"`
 	BankedSeconds int    `json:"banked_seconds"`
@@ -378,8 +380,8 @@ type RenewedSession struct {
 var ErrPlaygroundStopped = errors.New("this playground has already stopped")
 
 // RenewLabSession restarts a running playground's timer (`astrona run
-// renew`): the site banks the session so far, as a destroy would, and
-// starts a new one with a full time limit. A rejected access token is
+// renew`): the same session goes on with a full time limit again. A
+// rejected access token is
 // renewed once; 404 wraps ErrSessionGone and 409
 // ErrPlaygroundStopped.
 func (c *Client) RenewLabSession(ctx context.Context, s Store, cr *Credentials, sessionID string) (*RenewedSession, error) {

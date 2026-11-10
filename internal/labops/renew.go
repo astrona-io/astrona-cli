@@ -68,16 +68,16 @@ func RunningPlaygrounds(name string, forget func(clusterName string)) ([]string,
 // RenewResult is what a renewed playground got.
 type RenewResult struct {
 	Cluster string
-	// Banked is the playground time so far the site sent to the account,
-	// rounded to the minute.
+	// Banked is playground time an older site counted at the renew, rounded
+	// to the minute. 0 from a site that keeps the session going.
 	Banked time.Duration
 	// Deadline is when the playground now stops and is removed.
 	Deadline time.Time
 }
 
-// RenewPlayground has the site bank the playground's time so far and start
-// a new session with a full time limit, remembers that session and its
-// deadline, and replaces the watchdog with one for it. Notices and
+// RenewPlayground has the site restart the playground session's time limit,
+// remembers the new deadline (and the session id, should an older site
+// answer with a new one), and replaces the watchdog with one for it. Notices and
 // warnings go to warn; what to print about the result is the caller's.
 func RenewPlayground(ctx context.Context, warn io.Writer, clusterName string) (*RenewResult, error) {
 	release, err := labstate.LockMutation(clusterName)
@@ -99,7 +99,7 @@ func RenewPlayground(ctx context.Context, warn io.Writer, clusterName string) (*
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	NoticeOtherSite(warn, creds.Site, "the playground time so far")
+	NoticeOtherSite(warn, creds.Site, "the playground's new time limit")
 	renewed, err := client.RenewLabSession(ctx, store, creds, st.Session.ID)
 	if errors.Is(err, account.ErrPlaygroundStopped) {
 		return nil, fmt.Errorf("%w — `astrona destroy %s`, then run it again", err, clusterName)
@@ -114,7 +114,9 @@ func RenewPlayground(ctx context.Context, warn io.Writer, clusterName string) (*
 	}
 	if err := labstate.Update(clusterName, func(s *labstate.State) {
 		if s.Session != nil && s.Session.ID == st.Session.ID {
-			s.Session.ID = renewed.ID
+			if renewed.ID != "" { // the same id; an older site answers with a new one
+				s.Session.ID = renewed.ID
+			}
 			s.Session.ExpiresAt = renewed.ExpiresAt
 			s.Session.DeadlineAt = renewed.DeadlineAt
 			s.Session.MaxMinutes = renewed.MaxMinutes

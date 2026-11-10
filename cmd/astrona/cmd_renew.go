@@ -22,9 +22,9 @@ func newRunRenewCmd() *cobra.Command {
 		ValidArgsFunction: labCompletion(nil),
 		Short:             "Give a running playground its full time limit again",
 		Long: "A playground stops and is removed at its time limit (2 hours unless its config.yaml sets " +
-			"metadata.timeLimit). Still working in it? `astrona run renew` resets that timer without touching " +
-			"the playground: the time so far is sent to your account as playground time — just as " +
-			"`astrona destroy` would — and a new timer starts with the full time limit.\n\n" +
+			"metadata.timeLimit). Still working in it? `astrona run renew` starts that timer again with the full " +
+			"time limit, without touching the playground. Its session goes on, and all of its time counts " +
+			"as playground time when it ends.\n\n" +
 			"With no name, every running playground is renewed. A name is the lab as `astrona list` shows it " +
 			"(with or without the prefix shown in `astrona list`) or its catalog name:\n\n" +
 			"  astrona run renew\n" +
@@ -74,7 +74,10 @@ func renewPlayground(ctx context.Context, cluster string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Renewed %s: %s of playground time sent to your account, and a new timer started —\nit now stops and is removed at %s (in %s).\n",
-		r.Cluster, r.Banked, r.Deadline.Local().Format("15:04"), time.Until(r.Deadline).Round(time.Minute))
+	fmt.Printf("Renewed %s: it now stops and is removed at %s (in %s).\n",
+		r.Cluster, r.Deadline.Local().Format("15:04"), time.Until(r.Deadline).Round(time.Minute))
+	if r.Banked > 0 { // an older site closed the session and started a new one
+		fmt.Printf("%s of playground time so far was sent to your account.\n", r.Banked)
+	}
 	return nil
 }
