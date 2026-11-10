@@ -264,6 +264,8 @@ type SubmitRequest struct {
 	Keep bool
 	// Destroy is how a finished attempt's lab is deleted.
 	Destroy DestroyOptions
+	// Progress, when set, follows each check while grading runs.
+	Progress proctor.Progress
 
 	// Graded runs once the attempt is recorded, before the result is sent:
 	// cmd writes the JUnit report and prints the result there. Its error
@@ -390,6 +392,9 @@ func Submit(ctx context.Context, req SubmitRequest) (*SubmitResult, error) {
 	previous, _ := proctor.LoadAttempts(clusterName)
 	if req.ScriptOut != nil {
 		pr.ScriptOutputTo(req.ScriptOut)
+	}
+	if req.Progress != nil {
+		pr.ReportProgress(req.Progress)
 	}
 	start := time.Now()
 	pr.StopOn(ctx)

@@ -256,6 +256,10 @@ dialog stays open. Keep the page open; if the connection drops, the page asks
 the server for the result again, and the same submission is never graded
 twice.
 
+While the checks run, the dialog lists each one: waiting, running with the
+time so far, or passed or failed with how long it took. A check that retries
+for minutes shows as running rather than leaving the page looking stuck.
+
 The results page shows pass or fail, the score, the pass mark, the attempt
 number and every check with its points. A failed check shows its hint only when
 the lab shows hints. Check commands, expected values and the solution are never

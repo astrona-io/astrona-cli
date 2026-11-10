@@ -98,6 +98,64 @@ type Proctor struct {
 	// stop, when set, ends grading before its next check or script once
 	// it is cancelled (StopOn).
 	stop context.Context
+	// progress, when set, hears about each check as Evaluate runs it
+	// (ReportProgress); step is the index of the current one.
+	progress Progress
+	step     int
+}
+
+// Progress follows an Evaluate: Planned once with every check's and
+// validation script's name in grading order, then Started and Finished for
+// each, by its index in that list. Grading that stops on an error leaves
+// the rest unfinished.
+type Progress interface {
+	Planned(names []string)
+	Started(i int)
+	Finished(i int, r CheckResult)
+}
+
+// ReportProgress sends Evaluate's progress to pr (the browser workspace
+// shows it while grading).
+func (p *Proctor) ReportProgress(pr Progress) { p.progress = pr }
+
+func (p *Proctor) started() {
+	if p.progress != nil {
+		p.progress.Started(p.step)
+	}
+}
+
+func (p *Proctor) finished(r CheckResult) {
+	if p.progress != nil {
+		p.progress.Finished(p.step, r)
+	}
+	p.step++
+}
+
+// planned lists the names Evaluate grades for cfg, in its order: the
+// checks, then the validation scripts as gradeScripts runs them.
+func (p *Proctor) planned(cfg *config.LabConfig) []string {
+	var names []string
+	for _, c := range cfg.Validation.Checks {
+		names = append(names, c.Name)
+	}
+	block := func(val config.ValidationConfig, vmSuffix string) {
+		for _, s := range validationScripts(val) {
+			if s.Source != "" {
+				names = append(names, scriptName(s, vmSuffix))
+			}
+		}
+	}
+	if p.env.Executor != nil {
+		block(cfg.Validation, "")
+		return names
+	}
+	for _, vm := range cfg.Runtime.QEMU {
+		block(cfg.Validation, vm.Name)
+		if vm.Validation != nil {
+			block(*vm.Validation, vm.Name)
+		}
+	}
+	return names
 }
 
 // StopOn makes Evaluate give up before its next check or validation
@@ -203,6 +261,10 @@ func (p *Proctor) Evaluate(cfg *config.LabConfig) ([]CheckResult, bool, error) {
 	if !cfg.HasGrading() {
 		return nil, false, config.ErrNothingToGrade
 	}
+	p.step = 0
+	if p.progress != nil {
+		p.progress.Planned(p.planned(cfg))
+	}
 	results, err := p.runChecks(cfg.Validation.Checks)
 	if err != nil {
 		return nil, false, fmt.Errorf("Proctor checks failed to run: %w", err)
@@ -246,12 +308,14 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 		}
 		result := CheckResult{Name: c.Name, Hint: c.Hint, Points: config.EffectivePoints(c.Points)}
 		checkStart := time.Now()
+		p.started()
 
 		t, err := p.targetFor(c)
 		if err != nil {
 			result.Message = err.Error()
 			result.Duration = time.Since(checkStart)
 			results = append(results, result)
+			p.finished(result)
 			continue
 		}
 
@@ -371,6 +435,7 @@ func (p *Proctor) runChecks(checks []config.ValidationCheck) ([]CheckResult, err
 
 		result.Duration = time.Since(checkStart)
 		results = append(results, result)
+		p.finished(result)
 	}
 
 	return results, nil
@@ -481,12 +546,7 @@ func (p *Proctor) gradeScripts(cfg *config.LabConfig) ([]CheckResult, error) {
 func (p *Proctor) runValidationBlock(val config.ValidationConfig, executor executor.ScriptExecutor, vmSuffix string) ([]CheckResult, error) {
 	var results []CheckResult
 
-	scriptsList := val.Scripts
-	if val.Script != nil {
-		scriptsList = append([]config.ResourceItem{*val.Script}, scriptsList...)
-	}
-
-	for _, scriptItem := range scriptsList {
+	for _, scriptItem := range validationScripts(val) {
 		if err := p.stopped(); err != nil {
 			return nil, err
 		}
@@ -495,30 +555,46 @@ func (p *Proctor) runValidationBlock(val config.ValidationConfig, executor execu
 			continue
 		}
 		scriptStart := time.Now()
+		p.started()
 		scriptPass, message, err := p.runScript(&scriptItem, executor)
 		if err != nil {
 			return nil, err
 		}
 
-		name := scriptItem.Name
-		if name == "" {
-			name = "validation script"
-		}
-		if vmSuffix != "" {
-			name = fmt.Sprintf("%s (%s)", name, vmSuffix)
-		}
-
-		results = append(results, CheckResult{
-			Name:     name,
+		result := CheckResult{
+			Name:     scriptName(scriptItem, vmSuffix),
 			Pass:     scriptPass,
 			Message:  message,
 			Duration: time.Since(scriptStart),
 			Hint:     scriptItem.Hint,
 			Points:   config.EffectivePoints(scriptItem.Points),
-		})
+		}
+		results = append(results, result)
+		p.finished(result)
 	}
 
 	return results, nil
+}
+
+// validationScripts is val's Script (if set) then its Scripts.
+func validationScripts(val config.ValidationConfig) []config.ResourceItem {
+	if val.Script == nil {
+		return val.Scripts
+	}
+	return append([]config.ResourceItem{*val.Script}, val.Scripts...)
+}
+
+// scriptName is a validation script's result name: "name (vmSuffix)" in a
+// multi-VM lab.
+func scriptName(s config.ResourceItem, vmSuffix string) string {
+	name := s.Name
+	if name == "" {
+		name = "validation script"
+	}
+	if vmSuffix != "" {
+		name = fmt.Sprintf("%s (%s)", name, vmSuffix)
+	}
+	return name
 }
 
 // runScript runs a single validation script through executor. Exit code 0

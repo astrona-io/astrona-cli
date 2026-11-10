@@ -62,6 +62,8 @@ const state = {
   tokens: new Set<string>(),
   tickets: new Set<string>(),
   grading: false,
+  // Each check's progress while grading (run().submit.checks).
+  checks: [] as Record<string, unknown>[],
   removed: false,
   attempts: 0,
   submission: null as Record<string, unknown> | null,
@@ -105,6 +107,7 @@ function run() {
       tracking,
       keepEnvironment: false,
       grading: state.grading,
+      ...(state.grading && state.checks.length ? { checks: state.checks } : {}),
       submitted: state.submission !== null,
       blocked: submitBlocked(),
     },
@@ -118,6 +121,21 @@ function submitBlocked(): string {
   if (state.grading) return 'the lab is being submitted'
   if (!state.startedAt) return 'start the lab first'
   return ''
+}
+
+// The checks run one after another, as GET /runs/demo reports them.
+async function gradeSlowly(): Promise<void> {
+  const names = ['NetworkPolicy api exists in shop', 'Frontend pods reach the API on 8080', 'Other pods cannot reach the API']
+  state.checks = names.map((name) => ({ name, state: 'waiting' }))
+  for (const [i, c] of state.checks.entries()) {
+    c.state = 'running'
+    c.startedAt = new Date().toISOString()
+    const ms = i === 2 ? 6000 : 1500
+    await new Promise((r) => setTimeout(r, ms))
+    c.state = i === 2 && state.attempts === 0 ? 'failed' : 'passed'
+    c.seconds = ms / 1000
+  }
+  state.checks = []
 }
 
 // A sample graded result: names, pass/fail, points and an allowed hint only.
@@ -301,7 +319,7 @@ function mockPlugin(): Plugin {
           const blocked = submitBlocked()
           if (blocked) return fail(res, 409, playground ? 'no_grading' : 'not_started', blocked)
           state.grading = true
-          await new Promise((r) => setTimeout(r, 3000)) // checks take a while
+          await gradeSlowly() // checks take a while
           state.grading = false
           const sub = grade()
           state.submission = sub

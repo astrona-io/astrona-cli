@@ -104,10 +104,22 @@ export interface SubmitInfo {
   keepEnvironment: boolean
   /** A submission of this run is being graded now. */
   grading: boolean
+  /** While grading: each check's progress in grading order; absent until the checks start. */
+  checks?: GradeCheck[]
   /** This run has a saved result (GET /submission). */
   submitted: boolean
   /** Why Submit is not possible now; "" when it is. */
   blocked: string
+}
+
+/** One check while a submission is graded: never its command or output. */
+export interface GradeCheck {
+  name: string
+  state: 'waiting' | 'running' | 'passed' | 'failed'
+  /** Set once the check runs. */
+  startedAt?: string
+  /** How long it took, once it is done. */
+  seconds?: number
 }
 
 export interface SubmissionCheck {
