@@ -4803,6 +4803,12 @@ until you press Ctrl+C. If the network drops, it reconnects by itself: it
 retries after about a second, waits up to a minute between tries, and spreads
 the retries out at random. Each new connection tells the site how the previous
 one ended, so support can see drops.</p>
+<p>Pressing Ctrl+C while the website's command runs stops it the way Ctrl+C stops
+<code>astrona run</code> at a terminal: a lab that is being built stops at the next step,
+removes what this run created, and the lab page shows that the build failed.
+<code>astrona connect</code> waits for that, up to two minutes, before it exits. Press
+Ctrl+C a second time to quit at once; anything left over is then removed by
+<code>astrona destroy</code>.</p>
 <h2 id="confirm-each-request">Confirm each request<a class="headerlink" href="#confirm-each-request" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>connect<span class="w"> </span>--confirm
 </code></pre></div>
@@ -4823,6 +4829,13 @@ needs a terminal, so it can't be combined with <code>--install</code>.</p>
 <code>kind</code> the same way. On Linux the user service runs while you are logged in;
 <code>loginctl enable-linger</code> keeps it running after you log out. <code>--install</code> isn't
 available on Windows yet.</p>
+<p>Stopping the service (logging out, <code>--uninstall</code>) also lets a running lab
+build clean up first. If another <code>astrona connect</code> takes the connection over,
+the service exits with an error, and the service manager starts it again about
+ten seconds later, so it takes the connection back. To run <code>astrona connect</code> in
+a terminal for longer, run <code>astrona connect --uninstall</code> first. If this
+computer is signed out, the service stops and stays stopped; sign in with
+<code>astrona login</code>, then run <code>astrona connect --install</code> again.</p>
 <h2 id="what-the-website-can-ask-for">What the website can ask for<a class="headerlink" href="#what-the-website-can-ask-for" title="Permanent link">&para;</a></h2>
 <p>Only these commands, each for one catalog lab named like
 <code>ATS000/section-010/module-01/lab-01</code>:</p>
@@ -4882,7 +4895,8 @@ the one lab pages preselect, or sign one out, go to <strong>Settings → Devices
 the website. Signing out a computer that is connected ends its connection and
 removes its sign-in. <code>astrona connect</code> then stops and doesn't reconnect.</p>
 <p>Only one <code>astrona connect</code> runs per computer. Starting a second one takes the
-connection over, and the first one stops.</p>
+connection over, and the first one stops, unless it is the installed service,
+which starts again and takes the connection back.</p>
 
 
 
