@@ -5948,11 +5948,11 @@ answer; Kind labs are then missing from the list.</p>
 </tr>
 <tr>
 <td><code>targets</code></td>
-<td>Where terminals run. <code>label</code> is the display name (<code>main</code>, or a linked cluster's name). <code>views</code> lists what the target offers: <code>["terminal"]</code> today; a desktop will add <code>"desktop"</code>.</td>
+<td>Where terminals run. <code>kind</code> is <code>kind</code> (a Kind cluster) or <code>vm</code> (one VM of a QEMU lab; <code>name</code> is the VM's handle, the lab name for a single-VM lab or <code>&lt;lab&gt;-&lt;vm&gt;</code>). <code>label</code> is the display name (<code>main</code>, a linked cluster's name, or the VM's name in a multi-VM lab). <code>views</code> lists what the target offers: <code>["terminal"]</code> today; a desktop will add <code>"desktop"</code>.</td>
 </tr>
 <tr>
 <td><code>tabs</code></td>
-<td>The right panel, as the lab declares it (lab config <code>tabs</code>). The first is always the focus tab: <code>name</code> <code>main</code>, a terminal on the lab's own cluster. The page shows exactly these and cannot add or close one. <code>kind</code> is <code>terminal</code> (<code>target</code> says where its shell runs), <code>browser</code> (<code>url</code> is a loopback port forward of the lab), or <code>docs</code>: either <code>url</code> (an <code>https</code> documentation page, shown in a frame) or <code>document: true</code> (Markdown shipped with the lab, fetched from <code>GET /tabs/{name}/doc</code>). A lab that declares no tabs gets only the focus tab.</td>
+<td>The right panel, as the lab declares it (lab config <code>tabs</code>). The first is always the focus tab: <code>name</code> <code>main</code>, a terminal on the lab's own cluster. The page shows exactly these and cannot add or close one. <code>kind</code> is <code>terminal</code> (<code>target</code> says where its shell runs), <code>browser</code> (<code>url</code> is a loopback port forward of the lab), or <code>docs</code>: either <code>url</code> (an <code>https</code> documentation page, shown in a frame) or <code>document: true</code> (Markdown shipped with the lab, fetched from <code>GET /tabs/{name}/doc</code>). A lab that declares no tabs gets only the focus tab. A QEMU lab cannot declare tabs: a single-VM lab gets the focus tab on its VM, a multi-VM lab gets the focus tab on its first VM (titled with the VM's name) and a terminal tab <code>vm-&lt;name&gt;</code> for each further VM.</td>
 </tr>
 <tr>
 <td><code>canSubmit</code></td>
@@ -6179,11 +6179,19 @@ terminal tab.</p>
 is still running (nothing new is started), or <code>201</code> with a new one; a new one
 replaces the tab's ended shell. While one request starts a tab's shell, another
 for the same tab gets <code>409 terminal_starting</code>.</p>
-<p>This can take a minute the first time on a machine, while the terminal image is
-built. The terminal is a hardened container on the Kind network that mounts only
-the lab's own workspace directory; its prompt is <code>astrona-cli &gt;</code> and <code>$HOME</code> is
-<code>/workspace</code>. If the container cannot start, the answer is
-<code>502 terminal_failed</code> and nothing else is started in its place.</p>
+<p>On a <code>kind</code> target this can take a minute the first time on a machine, while
+the terminal image is built. The terminal is a hardened container on the Kind
+network that mounts only the lab's own workspace directory; its prompt is
+<code>astrona-cli &gt;</code> and <code>$HOME</code> is <code>/workspace</code>. If the container cannot start, the
+answer is <code>502 terminal_failed</code> and nothing else is started in its place.</p>
+<p>On a <code>vm</code> target the terminal is an <code>ssh -tt</code> login into that VM as the lab's
+student user, with the lab's own key and known-hosts file, no SSH config
+(<code>-F /dev/null</code>), no agent, no forwarding and no escape character, and a
+10-second connect timeout. The shell starts in <code>~/.astrona/runtime/&lt;lab&gt;</code> in
+the VM. The lab's resources are installed in the student's home first, as for
+<code>astrona ssh</code>. If that fails, the answer is <code>502 terminal_failed</code>. If ssh
+cannot connect, the terminal ends with ssh's error and exit code <code>255</code>. There
+is never a fallback to a shell on the host.</p>
 <p>Errors: <code>409 not_started</code>, <code>409 run_changed</code>, <code>409 run_stopped</code>,
 <code>409 terminal_starting</code>, <code>400 unknown_tab</code>, <code>429 too_many_terminals</code>,
 <code>501 unsupported</code>.</p>

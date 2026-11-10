@@ -5328,7 +5328,7 @@
 
 
 <h1 id="browser-workspace">Browser Workspace<a class="headerlink" href="#browser-workspace" title="Permanent link">&para;</a></h1>
-<p>The browser workspace is a local web page for working on a Kind lab: the task
+<p>The browser workspace is a local web page for working on a lab, Kind or QEMU: the task
 on one side, a terminal on the lab on the other, in your own browser. <code>astrona</code>
 serves the page itself, on <code>127.0.0.1</code> only; nothing leaves your machine. It
 replaces the earlier terminal UI: <code>astrona ui</code> now opens this page.</p>
@@ -5353,7 +5353,7 @@ opens it in your default browser. You can follow everything from that tab:</p>
 <p>Some questions are still asked in the terminal: whether to start a running lab
 over, whether to log in, and whether to trust a lab's repository. The tab says
 so while it waits. If you stop the command (Ctrl+C), the tab says that astrona
-stopped. A QEMU lab ends the page and carries on in the terminal (see
+stopped. A QEMU lab opens the same way, with a terminal on each VM (see
 <a href="#qemu-labs">QEMU labs</a>).</p>
 <p>The <a href="../settings/"><code>browser</code> setting</a> changes this:</p>
 <ul>
@@ -5420,9 +5420,25 @@ removed are listed on one line below.</p>
 <p>The page refreshes every five seconds. When the container engine does not
 answer, it says so, since Kind labs cannot be listed without it.</p>
 <h2 id="qemu-labs">QEMU labs<a class="headerlink" href="#qemu-labs" title="Permanent link">&para;</a></h2>
-<p>QEMU (VM) labs do not open in the browser yet, and <code>--browser</code> on a QEMU lab is
-an error. Once a QEMU lab is ready, <code>astrona run</code> prints the <code>astrona ssh</code>
-command for each VM; <code>astrona status &lt;lab&gt;</code> shows them again.</p>
+<p>A QEMU (VM) lab opens in the browser like a Kind lab: the intro, <strong>Start</strong>, the
+timer, <strong>Submit</strong> and <strong>All labs</strong> work the same way. Its terminals are SSH
+logins into the VMs, as the lab's <code>student</code> user, starting in the lab's
+workspace directory in the VM (<code>~/.astrona/runtime/&lt;lab&gt;</code>), the same login
+<code>astrona ssh</code> gives you. There is no <code>kubectl</code> and no host shell.</p>
+<ul>
+<li>A single-VM lab has one <strong>Terminal</strong> tab on its VM.</li>
+<li>A multi-VM lab has one tab per VM, named after the VM. The first VM in the
+  lab's config is the focus tab.</li>
+</ul>
+<p><img alt="A multi-VM lab in the browser workspace: one terminal tab per VM" src="../../assets/browser-workspace-vm-terminals.png" /></p>
+<p>The VM tabs are fixed: a QEMU lab cannot declare <a href="../../reference/lab-config/#tabs"><code>tabs</code></a>.
+When a shell ends (<code>exit</code>), <strong>Open a new shell</strong> logs in to the same VM again.
+The workspace connects with the lab's own key and known-hosts file only; it
+never uses your SSH config, agent or keys. If the VM does not answer within 10
+seconds, ssh gives up and the tab shows that the shell ended; nothing else is
+started in its place.</p>
+<p><code>astrona run</code> still prints the <code>astrona ssh</code> command for each VM, and
+<code>astrona status &lt;lab&gt;</code> shows them again, for a terminal outside the browser.</p>
 <h2 id="before-you-start">Before you start<a class="headerlink" href="#before-you-start" title="Permanent link">&para;</a></h2>
 <p>The first page shows the lab's prerequisites, its time limit and number of
 questions, and the rules for an exam. <strong>Environment ready</strong> means the lab
@@ -5445,7 +5461,7 @@ run sends nothing.</p>
   panel already shows the task; the lab's name is in the browser tab's title.
   <strong>All labs</strong> and <strong>About Astrona</strong> sit at the bottom of the panel.</li>
 <li><strong>Terminal</strong> (right): a shell on the lab with <code>kubectl</code> pointed at its
-  cluster. Keyboard focus moves into the terminal after <strong>Start</strong> and when the
+  cluster (on a QEMU lab, an SSH login into its VM; see <a href="#qemu-labs">QEMU labs</a>). Keyboard focus moves into the terminal after <strong>Start</strong> and when the
   page opens. Press <kbd>F6</kbd> to leave the terminal; <kbd>Shift</kbd>+<kbd>F6</kbd>
   works too. The skip links at the top move focus between task and terminal.</li>
 <li><strong>Divider</strong>: drag it, or focus it and use the arrow keys (<kbd>Shift</kbd> for
@@ -5554,8 +5570,8 @@ longer running.</p>
   a local-only run, finishes it. A fail keeps the attempt open: fix the lab
   and submit again.</li>
 <li>Whether the environment stays. When a pass finishes the attempt, the cluster
-  and its terminals are removed, unless the lab sets <code>teardown.keepCluster</code>.</li>
-<li>If the checks cannot run (for example, the container engine stopped),
+  (or the VMs) and its terminals are removed, unless the lab sets <code>teardown.keepCluster</code>.</li>
+<li>If the checks cannot run (for example, the container engine or a VM stopped),
   nothing is recorded or sent and the lab keeps running.</li>
 </ul>
 <p><img alt="The Submit lab dialog over the workspace, for a local lab that is not linked to an account" src="../../assets/browser-workspace-submit.png" /></p>
