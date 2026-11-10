@@ -376,16 +376,18 @@ func PrepareSubmit(req SubmitRequest) (*SubmitSession, error) {
 
 // runStart is when the submitted run's time started: the learner's Start,
 // else when the lab became ready. Zero for a playground or an unknown start.
+// A Start before the lab became ready belongs to an earlier run of the lab
+// and is ignored.
 func runStart(startedAt time.Time, before *labstate.State) time.Time {
 	if before == nil || before.Session.IsPlayground() {
 		return time.Time{}
 	}
-	if !startedAt.IsZero() {
-		return startedAt
-	}
 	ready, err := time.Parse(time.RFC3339, before.StartedAt)
 	if err != nil {
-		return time.Time{}
+		ready = time.Time{}
+	}
+	if !startedAt.IsZero() && (ready.IsZero() || !startedAt.Before(ready)) {
+		return startedAt
 	}
 	return ready
 }

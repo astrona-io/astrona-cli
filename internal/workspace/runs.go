@@ -103,16 +103,7 @@ func CurrentRunDigest(lab string) (string, error) {
 	return RunDigest(labops.RunID(st)), nil
 }
 
-func runDir(lab string) (string, error) {
-	if err := config.ValidateName(lab); err != nil {
-		return "", fmt.Errorf("lab name: %w", err)
-	}
-	dir, err := StateDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "runs", lab), nil
-}
+func runDir(lab string) (string, error) { return labops.WorkspaceRunDir(lab) }
 
 // WriteRun saves rec for the server, replacing an earlier record of the lab
 // and its Start marker (a new record is a new run).
@@ -255,10 +246,15 @@ func ReportStart(lab string, at time.Time) {
 }
 
 // StartedAt is when the learner pressed Start on lab's current run in the
-// browser workspace; false when it was not started there.
+// browser workspace; false when it was not started there. A record and
+// marker left by an earlier run of the lab match each other, so the record
+// must also be the lab's current run.
 func StartedAt(lab string) (time.Time, bool) {
 	rec, err := ReadRun(lab)
 	if err != nil {
+		return time.Time{}, false
+	}
+	if current, err := CurrentRunDigest(lab); err != nil || current == "" || current != rec.RunID {
 		return time.Time{}, false
 	}
 	m, err := readStart(lab)
