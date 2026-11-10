@@ -110,7 +110,7 @@ removed are listed on one line below.
 To get there:
 
 - `astrona ui` with no lab name, when no lab or several labs are running;
-- **All labs** in the workspace's top bar;
+- **All labs** at the bottom of the workspace's task panel;
 - **See all labs on this computer** after a playground ended or a lab was
   removed.
 
@@ -145,7 +145,10 @@ run sends nothing.
 
 ## The workspace
 
-- **Task** (left): the question text, rendered from the lab's docs.
+- **Task** (left): the question text, rendered from the lab's docs. Its
+  top-level heading (such as `# Exam Question: <lab>`) is left out, since the
+  panel already shows the task; the lab's name is in the browser tab's title.
+  **All labs** and **About Astrona** sit at the bottom of the panel.
 - **Terminal** (right): a shell on the lab with `kubectl` pointed at its
   cluster. Keyboard focus moves into the terminal after **Start** and when the
   page opens. Press <kbd>F6</kbd> to leave the terminal; <kbd>Shift</kbd>+<kbd>F6</kbd>
@@ -154,9 +157,10 @@ run sends nothing.
   bigger steps, <kbd>Home</kbd> / <kbd>End</kbd> for the limits). The task
   panel starts at 25% of the width and can take 15% to 70%; it never gets
   narrower than 280 pixels. The browser remembers the width you chose.
-- **Hide**: the button next to **Task** collapses the task panel to a thin
-  rail, so the terminal gets the whole width. Click the rail (or use **Skip to
-  task**) to show the task again. The browser remembers this choice too.
+- **Hide task**: the button next to **Task** collapses the task panel to a
+  thin rail, so the terminal gets the whole width. Click **Show task** on the
+  rail (or use **Skip to task**) to show the task again; **All labs** (⌂) and **About** (ⓘ) stay at
+  the bottom of the rail. The browser remembers this choice too.
 
 When you are done, use **Submit** in the top bar (see
 [Submit or end from the browser](#submit-or-end-from-the-browser));

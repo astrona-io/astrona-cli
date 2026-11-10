@@ -520,7 +520,7 @@ func (s *Server) handleQuestion(w http.ResponseWriter, r *http.Request) {
 		writeErrorCode(w, http.StatusConflict, "not_started", "click Start first")
 		return
 	}
-	html, err := renderMarkdown(rec.Question)
+	html, err := renderQuestion(rec.Question)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -4,6 +4,7 @@ import { useCountdown } from '../clock'
 import { getQuestion, isRunGone, isUnauthorized, type Question, type Run } from '../api'
 import { connectionLost, reconnectAttempt, resetConnectivity } from '../connectivity'
 import type { ViewHandle, ViewStatus } from '../views/types'
+import AboutDialog from './AboutDialog.vue'
 import ConnectionLostDialog from './ConnectionLostDialog.vue'
 import LabTabs from './LabTabs.vue'
 import TopBar from './TopBar.vue'
@@ -48,13 +49,9 @@ watch(() => props.run.runId, loadQuestion)
 
 // ---------------------------------------------------------------- view
 
-// The question's own target, else the lab's own cluster.
-const target = computed(() => {
-  const want = question.value?.target
-  return props.run.targets.find((t) => t.name === want) ?? props.run.targets[0] ?? null
-})
 const viewRef = ref<ViewHandle | null>(null)
 const status = ref<ViewStatus>({ tone: 'busy', label: 'Connecting' })
+const aboutOpen = ref(false)
 
 // ---------------------------------------------------------------- layout
 
@@ -176,7 +173,7 @@ onBeforeUnmount(() => {
       <button type="button" class="skip__link" @click="focusTask">Skip to task</button>
     </nav>
 
-    <TopBar :run="run" :status="status" @end="emit('end')" @home="emit('home')" />
+    <TopBar :run="run" :status="status" @end="emit('end')" />
 
     <div v-if="timeUp && run.playground" class="timeup" role="status">
       <p class="timeup__text">
@@ -210,10 +207,20 @@ onBeforeUnmount(() => {
           title="Show the task"
           @click="setCollapsed(false)"
         >
-          <span aria-hidden="true">»</span>
-          <span class="task-rail__label">Task</span>
+          <span class="task-rail__icon" aria-hidden="true">›</span>
+          <span class="task-rail__label" aria-hidden="true">Show task</span>
           <span class="visually-hidden">Show the task</span>
         </button>
+        <div class="task-rail__links">
+          <button type="button" class="task-rail__link" title="All labs on this computer" @click="emit('home')">
+            <span aria-hidden="true">⌂</span>
+            <span class="visually-hidden">All labs</span>
+          </button>
+          <button type="button" class="task-rail__link" title="About Astrona" aria-haspopup="dialog" @click="aboutOpen = true">
+            <span aria-hidden="true">ⓘ</span>
+            <span class="visually-hidden">About</span>
+          </button>
+        </div>
       </div>
       <section
         v-show="!collapsed"
@@ -223,31 +230,38 @@ onBeforeUnmount(() => {
         tabindex="-1"
         aria-labelledby="task-heading"
       >
-        <div class="task__head">
+        <div class="task__body">
           <div class="task__bar">
-            <p class="eyebrow">
+            <p id="task-heading" class="eyebrow">
               Task<template v-if="question?.points"> · {{ question.points }} points</template>
             </p>
             <button
               type="button"
-              class="btn btn--ghost btn--sm task__collapse"
+              class="task__link task__collapse"
               aria-controls="task-panel"
               aria-expanded="true"
               title="Hide the task for more room"
               @click="setCollapsed(true)"
             >
-              <span aria-hidden="true">«</span> Hide
+              <span class="task__link-icon" aria-hidden="true">‹</span>
+              Hide task
             </button>
           </div>
-          <h2 id="task-heading" class="task__title">{{ question?.title || run.title }}</h2>
-          <p v-if="target" class="task__target small muted">
-            Target: <code>{{ target.label || target.name }}</code>
-          </p>
+          <p v-if="questionError" class="error" role="alert">Could not load the task: {{ questionError }}</p>
+          <p v-else-if="!question" class="muted">Loading the task…</p>
+          <!-- Rendered and sanitised on the server; innerHTML never runs scripts and CSP blocks inline handlers. -->
+          <article v-else class="prose" v-html="question.html" />
         </div>
-        <p v-if="questionError" class="error" role="alert">Could not load the task: {{ questionError }}</p>
-        <p v-else-if="!question" class="muted">Loading the task…</p>
-        <!-- Rendered and sanitised on the server; innerHTML never runs scripts and CSP blocks inline handlers. -->
-        <article v-else class="prose" v-html="question.html" />
+        <footer class="task__foot">
+          <button type="button" class="task__link" title="Every lab running on this computer" @click="emit('home')">
+            <span class="task__link-icon" aria-hidden="true">⌂</span>
+            All labs
+          </button>
+          <button type="button" class="task__link" aria-haspopup="dialog" @click="aboutOpen = true">
+            <span class="task__link-icon" aria-hidden="true">ⓘ</span>
+            About Astrona
+          </button>
+        </footer>
       </section>
 
       <SplitDivider v-if="!collapsed" v-model="width" :min="MIN_WIDTH" :max="MAX_WIDTH" controls="task-panel" @commit="saveWidth" />
@@ -269,6 +283,7 @@ onBeforeUnmount(() => {
     </div>
   </div>
 
+  <AboutDialog v-if="aboutOpen" @close="aboutOpen = false" />
   <ConnectionLostDialog v-if="lostShown" :lab="run.lab" :attempt="reconnectAttempt" />
   <p class="visually-hidden" aria-live="assertive">{{ announcement }}</p>
 </template>
