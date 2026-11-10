@@ -4,7 +4,11 @@
 //   npm run dev                       mock server (exam lab)
 //   MOCK_KIND=playground npm run dev  mock playground
 //   MOCK_KIND=qemu npm run dev        mock QEMU lab with two VMs (exam)
+//   MOCK_ACCOUNT=signed-out npm run dev   account status: signed-in (default),
+//                                     signed-out, local-only or untracked
 //   open http://127.0.0.1:5173/#code=dev&lab=demo   (code "expired" shows the 401 page)
+//   open http://127.0.0.1:5173/#code=dev&launch=<32 hex digits>   the setup page,
+//                                     ready after 40 s of polling
 //
 // To develop against a real workspace server instead, set
 // ASTRONA_WORKSPACE=http://127.0.0.1:<port> (the port is in
@@ -64,8 +68,54 @@ const LINKED = qemu ? 'demo-worker' : 'demo-edge'
 // port: the workspace never frames its own origin.
 export const MOCK_APP_ORIGIN = 'http://127.0.0.1:4199'
 
-// MOCK_TRACKING=account|local-only|none picks where a result goes (account).
-const tracking = process.env.MOCK_TRACKING ?? 'account'
+// MOCK_ACCOUNT=signed-in|signed-out|local-only|untracked picks whose account
+// the run is saved to (signed-in), on the launch page and the briefing.
+const accountState = process.env.MOCK_ACCOUNT ?? 'signed-in'
+const account: Record<string, string> =
+  accountState === 'signed-in'
+    ? { state: accountState, username: 'ada', site: 'https://astrona.io' }
+    : accountState === 'signed-out'
+      ? { state: accountState, site: 'https://astrona.io' }
+      : { state: accountState }
+
+// MOCK_TRACKING=account|local-only|none picks where a result goes (from
+// MOCK_ACCOUNT unless given).
+const tracking =
+  process.env.MOCK_TRACKING ??
+  (accountState === 'signed-in' ? 'account' : accountState === 'local-only' ? 'local-only' : 'none')
+
+// GET /launches/{id}: a browser-first `astrona run` that sets up for
+// LAUNCH_SECONDS from its first poll (a new id starts over), then hands the page lab "demo".
+const LAUNCH_SECONDS = 40
+const LAUNCH_STEPS = ['Check the container engine', 'Create kind cluster', 'Install Calico', 'Apply lab resources', 'Wait for pods']
+const launchFirstPoll = new Map<string, number>()
+
+function mockLaunch(id: string) {
+  if (!launchFirstPoll.has(id)) launchFirstPoll.set(id, Date.now())
+  const elapsed = (Date.now() - launchFirstPoll.get(id)!) / 1000
+  const per = LAUNCH_SECONDS / LAUNCH_STEPS.length
+  const done = Math.min(LAUNCH_STEPS.length, Math.floor(elapsed / per))
+  const at = new Date().toISOString()
+  const events: Record<string, unknown>[] = [{ at, kind: 'section', label: 'Cluster' }]
+  LAUNCH_STEPS.forEach((label, i) => {
+    if (i > done) return
+    events.push({ at, kind: 'step', label })
+    if (i < done) events.push({ at, kind: 'ok', label, seconds: per })
+  })
+  const ready = done >= LAUNCH_STEPS.length
+  return {
+    schema: 1,
+    id,
+    pid: 1,
+    stage: ready ? 'ready' : 'preparing',
+    title: playground ? 'Kubernetes playground' : QUESTION_TITLE,
+    ...(ready ? { lab: 'demo' } : { status: `waiting · ${Math.round(elapsed % per)}s` }),
+    events,
+    account,
+    ...(playground ? { playground } : {}),
+    alive: true,
+  }
+}
 
 const state = {
   startedAt: null as string | null,
@@ -128,6 +178,7 @@ function run() {
       blocked: submitBlocked(),
     },
     runAgain: 'astrona run astrona.io/ATS014/section-010/module-01/lab-02',
+    ...(accountState === 'untracked' ? {} : { account }),
   }
 }
 
@@ -288,6 +339,8 @@ function mockPlugin(): Plugin {
             assets: 'built',
           })
         }
+        const launchMatch = /^\/launches\/([0-9a-f]{32})$/.exec(p)
+        if (m === 'GET' && launchMatch) return send(res, 200, mockLaunch(launchMatch[1]))
         if (m === 'GET' && p === '/runs') {
           const r = run()
           return send(res, 200, { runs: [{ lab: r.lab, title: r.title, mode: r.mode, playground: r.playground, status: r.status }] })

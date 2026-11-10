@@ -77,8 +77,11 @@ type RunRecord struct {
 	KeepEnvironment bool `json:"keepEnvironment,omitempty"`
 	// RunAgain is the command that starts this lab again ("" when the
 	// source is not known).
-	RunAgain  string    `json:"runAgain,omitempty"`
-	CreatedAt time.Time `json:"createdAt"`
+	RunAgain string `json:"runAgain,omitempty"`
+	// Account is the account astrona run saved this run to (nil when
+	// another command, such as astrona ui, wrote the record).
+	Account   *AccountStatus `json:"account,omitempty"`
+	CreatedAt time.Time      `json:"createdAt"`
 }
 
 // startMarker records the Start click for one run.
@@ -307,6 +310,8 @@ type runView struct {
 	CanSubmit        bool           `json:"canSubmit"`
 	Submit           submitView     `json:"submit"`
 	RunAgain         string         `json:"runAgain"`
+	// Account is the account this run is saved to; absent when unknown.
+	Account *AccountStatus `json:"account,omitempty"`
 }
 
 // submitView is what ending the run does, for the page to explain before
@@ -362,6 +367,7 @@ func buildView(rec RunRecord, now time.Time) (v runView, err error) {
 		Tabs:      tabViews(rec.tabs()),
 		Submit:    submitView{Tracking: TrackingNone, KeepEnvironment: rec.KeepEnvironment},
 		RunAgain:  rec.RunAgain,
+		Account:   rec.Account,
 	}
 	if sub, err := readSubmission(rec); err == nil && sub != nil {
 		v.Submit.Submitted = true
@@ -390,6 +396,9 @@ func buildView(rec RunRecord, now time.Time) (v runView, err error) {
 		return v, nil
 	}
 	v.Submit.Tracking = trackingOf(st)
+	if v.Account == nil {
+		v.Account = accountFromState(st)
+	}
 	defer func() {
 		switch {
 		case err != nil:

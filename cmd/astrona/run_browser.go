@@ -281,6 +281,7 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 		HintsHidden:     cfg.Exam.HideHints,
 		KeepEnvironment: cfg.Teardown.KeepCluster,
 		Targets:         browserTargets(cfg, name),
+		Account:         flags.runAccount,
 	}
 	if st.Source != nil {
 		rec.RunAgain = labops.SourceCommand("run", st.Source)
