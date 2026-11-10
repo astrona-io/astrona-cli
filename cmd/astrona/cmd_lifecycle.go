@@ -15,7 +15,7 @@ import (
 // resolveLifecycleLab picks the kind lab `stop`/`start` act on
 // (labops.ResolveKindLab): the lab config from -c/--file/--git is loaded
 // only when no name is given. A catalog lab name selects its config.
-func resolveLifecycleLab(labArg string, flags *rootFlags, want func(status string) bool, verb string) (string, error) {
+func resolveLifecycleLab(cmd *cobra.Command, labArg string, flags *rootFlags, want func(status string) bool, verb string) (string, error) {
 	// A catalog name (ATS016/…/lab-01) acts on that lab through its config.
 	labArg, err := catalogLabArg(labArg, flags)
 	if err != nil {
@@ -26,9 +26,39 @@ func resolveLifecycleLab(labArg string, flags *rootFlags, want func(status strin
 		if loaded, _, cleanup, err := LoadLabForCommand(flags); err == nil {
 			defer cleanup()
 			cfg = loaded
+		} else {
+			if labSourceSelected(cmd, flags) || labConfigHere(flags) {
+				return "", fmt.Errorf("load selected lab: %w", err)
+			}
+			if err := labDiscoveryAllowed(); err != nil {
+				return "", err
+			}
 		}
 	}
 	return labops.ResolveKindLab(labArg, cfg, want, verb)
+}
+
+func labSourceSelected(cmd *cobra.Command, flags *rootFlags) bool {
+	if flags.fromCurrent || flags.gitURL != "" || flags.labArg != "" {
+		return true
+	}
+	for _, name := range []string{"config", "file", "git", "git-ref"} {
+		if cmd.Flags().Changed(name) {
+			return true
+		}
+	}
+	return false
+}
+
+func labDiscoveryAllowed() error {
+	saved, err := loadCurrentLab()
+	if err != nil {
+		return fmt.Errorf("read saved lab selection: %w", err)
+	}
+	if saved != nil {
+		return fmt.Errorf("the saved lab selection could not be loaded; select a lab explicitly")
+	}
+	return nil
 }
 
 func newStopCmd(flags *rootFlags) *cobra.Command {
@@ -44,7 +74,7 @@ func newStopCmd(flags *rootFlags) *cobra.Command {
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only running kind lab.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lab, err := resolveLifecycleLab(firstArg(args), flags, func(s string) bool { return s != "Stopped" }, "stop")
+			lab, err := resolveLifecycleLab(cmd, firstArg(args), flags, func(s string) bool { return s != "Stopped" }, "stop")
 			if err != nil {
 				return err
 			}
@@ -86,7 +116,7 @@ func newStartCmd(flags *rootFlags) *cobra.Command {
 			"With no lab-name, uses the lab config from -c/--file/--git, or the only stopped kind lab.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			lab, err := resolveLifecycleLab(firstArg(args), flags, func(s string) bool {
+			lab, err := resolveLifecycleLab(cmd, firstArg(args), flags, func(s string) bool {
 				return s == "Stopped" || strings.HasPrefix(s, "Degraded")
 			}, "start")
 			if err != nil {

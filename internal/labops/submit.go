@@ -373,6 +373,11 @@ func PrepareSubmit(req SubmitRequest) (*SubmitSession, error) {
 // grades stops before the next check with ErrInterrupted, recording and
 // sending nothing; once grading is done, the rest runs to its end.
 func Submit(ctx context.Context, req SubmitRequest) (*SubmitResult, error) {
+	release, err := labstate.LockMutation(config.NormalizeClusterName(req.Config.Metadata.Name))
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	s, err := PrepareSubmit(req)
 	if err != nil {
 		return nil, err
@@ -460,6 +465,9 @@ func Submit(ctx context.Context, req SubmitRequest) (*SubmitResult, error) {
 	// here is a warning, never a different exit code.
 	outcome := DeliverResult(ctx, req.Status, req.Warn, clusterName, source, CapCheckTexts(res.Result), now)
 	res.Sent, res.Queued = outcome == ResultSent, outcome == ResultQueued
+	// Cleanup acquires the lock again and checks the graded run's identity.
+	// Until delivery finishes, reset must not replace its session or history.
+	release()
 	if req.Completed != nil {
 		req.Completed(res)
 	}

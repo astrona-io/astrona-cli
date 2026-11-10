@@ -60,6 +60,10 @@ func StartLinkedClusters(ctx context.Context, cfg *config.LabConfig, baseDir, la
 		return nil, err
 	}
 	defer release()
+	lockedChildren := make([]string, len(states))
+	for i, state := range states {
+		lockedChildren[i] = state.Cluster
+	}
 	if err := cluster.WriteLinks(labCluster, states); err != nil {
 		return nil, fmt.Errorf("save linked clusters: %w", err)
 	}
@@ -68,7 +72,7 @@ func StartLinkedClusters(ctx context.Context, cfg *config.LabConfig, baseDir, la
 			return nil, err
 		}
 		// Clusters created earlier learn the names of later ones.
-		RefreshLinkNames(labCluster, true, rep)
+		RefreshLinkNamesLocked(labCluster, true, lockedChildren, rep)
 		return states, nil
 	}
 	byName := map[string]cluster.LinkState{}
@@ -100,7 +104,7 @@ func StartLinkedClusters(ctx context.Context, cfg *config.LabConfig, baseDir, la
 		byName[l.Name] = states[i]
 	}
 	// Clusters created earlier learn the names of later ones.
-	RefreshLinkNames(labCluster, true, rep)
+	RefreshLinkNamesLocked(labCluster, true, lockedChildren, rep)
 	return states, nil
 }
 

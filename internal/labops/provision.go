@@ -527,7 +527,7 @@ func ResetLinkedCluster(ctx context.Context, cfg *config.LabConfig, baseDir stri
 		return nil, fmt.Errorf("linked cluster '%s' (%s): %w", l.Name, target, err)
 	}
 	// Its node has a new IP; every cluster of the lab needs to know it.
-	lifecycle.RefreshLinkNames(clusterName, false, rep)
+	lifecycle.RefreshLinkNamesLocked(clusterName, false, []string{target}, rep)
 
 	var forwards []portforward.Forward
 	for _, pf := range cfg.Runtime.PortForwards {
