@@ -32,6 +32,7 @@ See the [browser workspace guide](../guides/browser-workspace.md).
   | --- | --- | --- |
   | 400 | `bad_request` | Malformed body, wrong content type, unknown field, invalid size. |
   | 400 | `unknown_tab` | `tab` is not one of the run's terminal tabs. |
+  | 400 | `invalid_idempotency_key` | `POST /submit` without an `Idempotency-Key` of 8 to 128 letters, digits, `-` or `_`. |
   | 401 | `unauthorized` | Missing or invalid token, launch code or ticket. |
   | 403 | `forbidden` | Not a loopback peer, foreign `Origin`, cross-site `Sec-Fetch-Site`. |
   | 404 | `not_found` | Unknown route, lab, question or terminal. |
@@ -40,11 +41,19 @@ See the [browser workspace guide](../guides/browser-workspace.md).
   | 409 | `not_started` | Question text or terminals requested before **Start**. |
   | 409 | `run_stopped` | The lab is no longer running (stopped, destroyed or restarted). |
   | 409 | `terminal_starting` | Another request is already starting this tab's terminal. Try again in a few seconds. |
+  | 409 | `submit_in_progress` | The lab is already being submitted (with another `Idempotency-Key`), or removal was asked for while it is. |
+  | 409 | `no_grading` | `POST /submit` on a playground: it has no checks. End it with `POST /destroy`. |
+  | 409 | `lab_busy` | Another astrona command holds the lab's lock. Nothing was graded or sent. |
+  | 409 | `not_trusted` | The lab's scripts were never approved on this machine. Approve it with `astrona run` in a terminal. |
+  | 409 | `environment_kept` | `POST /destroy` on a lab with `teardown.keepCluster`. Nothing was removed. |
+  | 404 | `no_submission` | `GET /submission` for a run that was never submitted. |
   | 421 | `unexpected_host` | `Host` is not `127.0.0.1:<port>` or `localhost:<port>`. |
   | 429 | `too_many_terminals` | The lab already has 12 open terminals. |
   | 500 | `internal` | Anything else. The message says what failed. |
   | 501 | `unsupported` | Terminals on a platform without a PTY (native Windows). |
   | 502 | `terminal_failed` | The terminal container could not be started. Nothing else was started instead. |
+  | 500, 502 | `grading_failed` | The checks could not run (config not loadable, container engine down). Nothing was recorded or sent; the lab keeps running. |
+  | 502 | `destroy_failed` | Removing the environment failed. The message says what is left. |
   | 503 | `unavailable` | The server is stopping; no new terminal is started. |
 
 ## Authentication
@@ -92,8 +101,11 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | `GET /runs/{lab}/terminals` | Open terminals. |
 | `GET /runs/{lab}/tabs/{name}/doc` | A docs tab's Markdown, rendered to HTML. After **Start** only. |
 | `POST /runs/{lab}/terminals` | Open the shell of a terminal tab. After **Start** only. |
+| `POST /runs/{lab}/submit` | Grade the run, record and send the result. Needs an `Idempotency-Key` header. |
+| `GET /runs/{lab}/submission` | The run's latest submission, or that one is being graded. |
+| `POST /runs/{lab}/destroy` | Remove the environment without grading: ends a playground, or removes a lab as `astrona destroy` does. |
 | `GET /ws/v1/terminals/{id}?ticket=…` | Attach to a terminal (WebSocket). |
-| *later* `PUT /runs/{lab}/progress`, `POST /runs/{lab}/submit`, `GET /runs/{lab}/submission`, `GET /runs/{lab}/events` | Not implemented yet. |
+| *later* `PUT /runs/{lab}/progress`, `GET /runs/{lab}/events` | Not implemented yet. |
 
 GET routes never change saved state, so polling them is safe.
 
@@ -105,7 +117,7 @@ GET routes never change saved state, so polling them is safe.
   "profile": ".astrona",
   "startedAt": "2026-11-09T21:00:00Z",
   "serverNow": "2026-11-09T21:05:12Z",
-  "features": ["runs", "terminals", "tabs"],
+  "features": ["runs", "terminals", "tabs", "submit"],
   "assets": "built"
 }
 ```
@@ -155,7 +167,14 @@ GET routes never change saved state, so polling them is safe.
       "url": "https://kubernetes.io/docs/concepts/workloads/pods/" },
     { "name": "notes", "title": "Notes", "kind": "docs", "focus": false, "document": true }
   ],
-  "canSubmit": false
+  "canSubmit": true,
+  "submit": {
+    "tracking": "account",
+    "keepEnvironment": false,
+    "grading": false,
+    "submitted": false,
+    "blocked": ""
+  }
 }
 ```
 
@@ -173,7 +192,12 @@ GET routes never change saved state, so polling them is safe.
 | `questions` | Summaries only, never the text. Today every lab has exactly one question, `q1`, built from `metadata.docs.question`. `points` is `null` until per-question points exist. |
 | `targets` | Where terminals run. `label` is the display name (`main`, or a linked cluster's name). `views` lists what the target offers: `["terminal"]` today; a desktop will add `"desktop"`. |
 | `tabs` | The right panel, as the lab declares it (lab config `tabs`). The first is always the focus tab: `name` `main`, a terminal on the lab's own cluster. The page shows exactly these and cannot add or close one. `kind` is `terminal` (`target` says where its shell runs), `browser` (`url` is a loopback port forward of the lab), or `docs`: either `url` (an `https` documentation page, shown in a frame) or `document: true` (Markdown shipped with the lab, fetched from `GET /tabs/{name}/doc`). A lab that declares no tabs gets only the focus tab. |
-| `canSubmit` | Always `false` until submit lands in the browser. Submit with `astrona submit` meanwhile. |
+| `canSubmit` | `true` when `POST /submit` would grade now: a lab or exam that was started and is still running (an expired exam can still be submitted). Never for a playground. |
+| `submit.tracking` | Where a result goes. `account`: the run has an Astrona lab session; the result is sent when astrona is signed in to that site. `local-only`: never sent. `none`: no lab session; the result stays on this machine. |
+| `submit.keepEnvironment` | The lab sets `teardown.keepCluster`: a submission never removes the environment, and `POST /destroy` refuses. |
+| `submit.grading` | A submission of this run is being graded now. |
+| `submit.submitted` | This run has a saved result (`GET /submission`). |
+| `submit.blocked` | Why Submit is not possible now, for the page to show next to the disabled button; `""` when it is. |
 
 Responses never contain the solution document, validation scripts, check
 commands, expected values, admin credentials or kubeconfigs.
@@ -227,6 +251,105 @@ playground Start is accepted and changes nothing.
 Only now does the exam clock start (`astrona status` and `astrona submit` see
 it). A run that declined the browser keeps the old behaviour: the clock starts
 when the lab is ready.
+
+### `POST /runs/{lab}/submit`
+
+Request: `{"runId": "<runId>"}` with an `Idempotency-Key: <key>` header (8 to
+128 letters, digits, `-` or `_`; the page makes 32 random hex characters per
+confirmed submission).
+
+It does what `astrona submit` does, through the same code
+(`labops.Submit`), under the lab's lock:
+
+1. The lab's checks run against the environment.
+2. The result is saved in this machine's attempt history.
+3. It is sent where the run is tracked (`submit.tracking`). A `local-only` run
+   is never sent; a run without a lab session stays on this machine.
+4. When the attempt is finished (sent, or a `local-only` result saved) and the
+   lab does not keep its environment, the environment is removed: terminals
+   are closed first, then the cluster is deleted. A result that is not sent
+   leaves the environment running and the attempt open.
+
+Grading can take minutes; the response waits for it. The work does not depend
+on the request: if the connection drops, grading goes on and
+`GET /submission` reports it. Repeating the request with the same key and
+`runId` waits for, or returns, the same outcome and never grades twice. A
+different key while grading runs gives `409 submit_in_progress`. The key is
+only remembered by this server process.
+
+If the checks cannot run (`grading_failed`, `not_trusted`, `lab_busy`),
+nothing is recorded or sent and the lab keeps running.
+
+Response: `200` with the submission:
+
+```json
+{
+  "lab": "pod-basics",
+  "runId": "3f1c…",
+  "result": {
+    "pass": false, "earned": 6, "max": 10, "percent": 60, "passPercent": 66,
+    "overTime": false, "attempt": 2, "time": "2026-11-09T21:40:00Z",
+    "checks": [
+      { "name": "Pod web is running", "pass": true, "points": 6 },
+      { "name": "Pod web uses nginx:1.27", "pass": false, "points": 4, "hint": "…" }
+    ]
+  },
+  "recorded": true,
+  "sent": true,
+  "finished": true,
+  "environmentRemoved": true,
+  "messages": ["Sent to your lab page (attempt 2): https://…", "Lab pod-basics deleted."]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `result.checks` | Name, pass/fail and points per check. `hint` only for a failed check of a lab that shows hints. Never the check's command, output or expected value. |
+| `result.overTime` | A strict exam submitted after its deadline: it cannot pass. |
+| `recorded` | Saved in this machine's attempt history. |
+| `sent` | Recorded on the Astrona lab page. |
+| `finished` | The attempt is over: sent, or a `local-only` result saved. |
+| `environmentRemoved` | The cluster was deleted after the submission. |
+| `messages` | What astrona said while sending and cleaning up, as sanitised plain text (at most 40 lines). |
+| `cleanupError` | Present when the result stands but removing the environment failed. |
+
+The latest submission is kept in `runs/<lab>/submission.json` until the lab
+is run again.
+
+Errors: `400 invalid_idempotency_key`, `409 run_changed`, `409 run_stopped`,
+`409 not_started`, `409 no_grading`, `409 submit_in_progress`, `409 lab_busy`,
+`409 not_trusted`, `500`/`502 grading_failed`.
+
+### `GET /runs/{lab}/submission`
+
+```json
+{ "state": "grading" }
+{ "state": "failed", "error": { "code": "grading_failed", "message": "…" } }
+{ "state": "done", "submission": { …as above… } }
+```
+
+`grading` while a submission runs, `failed` when the last one this server ran
+could not grade, `done` with the saved result. `404 no_submission` when the run
+was never submitted. Read-only.
+
+### `POST /runs/{lab}/destroy`
+
+Request: `{"runId": "<runId>"}`. No grading, nothing is submitted.
+
+- A **playground** is deleted as when the CLI ends it: terminals are closed,
+  the cluster is deleted, and the playground's clock is stopped on the site
+  with a usage report (unless the run is local only). An expired playground
+  can still be ended.
+- A **lab** is removed as `astrona destroy <lab>` does: teardown scripts run
+  when the lab is trusted (skipped with a message otherwise), the cluster is
+  deleted, the exam clock is cleared, and the Astrona lab page is told the lab
+  was removed. A lab with `teardown.keepCluster` answers
+  `409 environment_kept` and nothing is removed.
+
+Response: `200 {"environmentRemoved": true, "messages": ["…"]}`.
+
+Errors: `409 run_changed`, `409 submit_in_progress`, `409 environment_kept`,
+`502 destroy_failed`.
 
 ### `GET /runs/{lab}/terminals`
 
@@ -288,7 +411,7 @@ Server to client:
 | `{"type":"takenOver"}` | The same terminal was opened in another tab or view. Closes with `4001`. Do not reconnect automatically. |
 | `{"type":"overrun"}` | This view fell more than the buffer behind. Closes with `4002`; reconnect to get a fresh replay. |
 | `{"type":"pong"}` | Answer to a ping. |
-| `{"type":"error","message":"…"}` | A control frame was invalid or a resize failed. The connection stays open. |
+| `{"type":"error","message":"…"}` | A control frame was invalid or a resize failed, or input was dropped because a strict exam's time is up. The connection stays open. |
 
 Client to server:
 
@@ -300,6 +423,10 @@ Client to server:
 Other close codes: `1001` when the server shuts down or the terminal is
 replaced, `1008` for a control frame that is not valid JSON, `1009` for a frame
 larger than 64 KiB.
+
+In a strict exam the terminal is read-only once the deadline has passed: the
+server drops keyboard input (and says so once per attachment), while output
+still flows. Submit still works.
 
 Opening the same terminal again takes it over: only the newest view can type.
 Closing the WebSocket (tab closed, page reloaded) does not end the shell;
@@ -336,6 +463,7 @@ separate window instead.
 | `~/.astrona/workspace/server.log` | server | Its log. |
 | `~/.astrona/workspace/runs/<lab>/run.json` | `astrona run` | What the page shows for that run: title, mode, rules, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs). Never the solution or the validation block. |
 | `~/.astrona/workspace/runs/<lab>/start.json` | Start | When Start was clicked, for which `runId`. |
+| `~/.astrona/workspace/runs/<lab>/submission.json` | Submit | The latest browser submission for that `runId`: the result as `GET /submission` shows it. |
 | `~/.astrona/exams/<lab>.json` | Start (exam labs) | The exam clock, as before. |
 
 Other profiles use their own home (`~/.astrona-dev/…`).

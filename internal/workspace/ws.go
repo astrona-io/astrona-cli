@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/coder/websocket"
 
@@ -19,7 +20,23 @@ const (
 
 	closeTakenOver websocket.StatusCode = 4001
 	closeOverrun   websocket.StatusCode = 4002
+
+	strictRecheck = 5 * time.Second
 )
+
+// strictDeadline is the time limit of lab's started strict exam, or zero
+// when the run is not strict or has no running clock.
+func strictDeadline(lab string) time.Time {
+	rec, err := ReadRun(lab)
+	if err != nil || !rec.Strict {
+		return time.Time{}
+	}
+	v, err := buildView(rec, time.Now())
+	if err != nil || v.DeadlineAt == nil {
+		return time.Time{}
+	}
+	return *v.DeadlineAt
+}
 
 type controlMessage struct {
 	Type     string        `json:"type"`
@@ -92,12 +109,27 @@ func (s *Server) bridge(conn *websocket.Conn, t *terminal) {
 		// Detaching unblocks client.Read in the output loop below.
 		defer client.Close()
 		defer cancel()
+		// A strict exam's terminal is read-only once its time is up. The
+		// deadline is looked up at attach and, while there is none yet,
+		// again at most every few seconds rather than on every keystroke.
+		deadline, checked := strictDeadline(t.lab), time.Now()
+		warned := false
 		for {
 			typ, data, err := conn.Read(ctx)
 			if err != nil {
 				return
 			}
 			if typ == websocket.MessageBinary {
+				if deadline.IsZero() && time.Since(checked) > strictRecheck {
+					deadline, checked = strictDeadline(t.lab), time.Now()
+				}
+				if !deadline.IsZero() && !time.Now().Before(deadline) {
+					if !warned {
+						warned = true
+						_ = send(controlMessage{Type: "error", Message: "Time is up: in this strict exam the terminal is read-only. Submit to record your result."})
+					}
+					continue
+				}
 				_, _ = client.Write(data) // a dead client ends the output loop
 				continue
 			}

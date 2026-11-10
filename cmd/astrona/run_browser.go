@@ -200,14 +200,15 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 		return workspace.RunRecord{}, fmt.Errorf("lab %s has no saved state", name)
 	}
 	rec := workspace.RunRecord{
-		Lab:         name,
-		RunID:       workspace.RunDigest(labops.RunID(st)),
-		Title:       labops.SanitizeLine(cfg.Metadata.Name),
-		Exam:        cfg.Exam.Enabled(),
-		Playground:  st.Session.IsPlayground() || labops.IsPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground",
-		Strict:      cfg.Exam.Strict,
-		HintsHidden: cfg.Exam.HideHints,
-		Targets:     []workspace.Target{{Name: name, Label: "main", Kind: "kind", Views: []string{"terminal"}}},
+		Lab:             name,
+		RunID:           workspace.RunDigest(labops.RunID(st)),
+		Title:           labops.SanitizeLine(cfg.Metadata.Name),
+		Exam:            cfg.Exam.Enabled(),
+		Playground:      st.Session.IsPlayground() || labops.IsPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground",
+		Strict:          cfg.Exam.Strict,
+		HintsHidden:     cfg.Exam.HideHints,
+		KeepEnvironment: cfg.Teardown.KeepCluster,
+		Targets:         []workspace.Target{{Name: name, Label: "main", Kind: "kind", Views: []string{"terminal"}}},
 	}
 	if rec.Exam {
 		rec.TimeLimitSeconds = int64(cfg.Exam.Limit() / time.Second)

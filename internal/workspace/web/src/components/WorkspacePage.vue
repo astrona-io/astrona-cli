@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, toRef, watch } from 'vue'
+import { useCountdown } from '../clock'
 import { getQuestion, isRunGone, isUnauthorized, type Question, type Run } from '../api'
 import { connectionLost, reconnectAttempt, resetConnectivity } from '../connectivity'
 import type { ViewHandle, ViewStatus } from '../views/types'
@@ -9,7 +10,14 @@ import TopBar from './TopBar.vue'
 import SplitDivider from './SplitDivider.vue'
 
 const props = defineProps<{ run: Run }>()
-const emit = defineEmits<{ unauthorized: []; runGone: [] }>()
+const emit = defineEmits<{ unauthorized: []; runGone: []; end: [] }>()
+
+// ---------------------------------------------------------------- time up
+
+// Time-up never submits anything: it says so and offers Submit. A strict
+// exam's terminal stops taking input on the server at the deadline.
+const left = useCountdown(toRef(() => props.run.deadlineAt))
+const timeUp = computed(() => props.run.status === 'expired' || left.value === 0)
 
 // ---------------------------------------------------------------- task
 
@@ -131,7 +139,28 @@ onBeforeUnmount(() => {
       <button type="button" class="skip__link" @click="focusTask">Skip to task</button>
     </nav>
 
-    <TopBar :run="run" :status="status" />
+    <TopBar :run="run" :status="status" @end="emit('end')" />
+
+    <div v-if="timeUp && run.playground" class="timeup" role="status">
+      <p class="timeup__text">
+        <span class="timeup__title">The playground's time is up.</span>
+        <span class="small">astrona removes it shortly. End it now to remove it yourself.</span>
+      </p>
+    </div>
+    <div v-else-if="timeUp" class="timeup" role="status">
+      <p class="timeup__text">
+        <span class="timeup__title">Time is up.</span>
+        <span class="small">
+          Submit now to record your result; nothing is submitted automatically.
+          <template v-if="run.rules.strict">
+            In this strict exam a submission after the deadline cannot pass, and the terminal no longer takes input.
+          </template>
+        </span>
+      </p>
+      <button v-if="run.canSubmit" type="button" class="btn btn--sm btn--primary" aria-haspopup="dialog" @click="emit('end')">
+        {{ run.mode === 'exam' ? 'Submit exam' : 'Submit lab' }}
+      </button>
+    </div>
 
     <div class="workspace__row" :style="rowStyle">
       <section

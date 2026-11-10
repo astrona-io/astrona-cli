@@ -209,6 +209,15 @@ func (ts *terminals) add(t *terminal) bool {
 	return true
 }
 
+// remove forgets the terminal id and returns it (nil when unknown).
+func (ts *terminals) remove(id string) *terminal {
+	ts.mu.Lock()
+	defer ts.mu.Unlock()
+	t := ts.byID[id]
+	delete(ts.byID, id)
+	return t
+}
+
 // running reports whether any terminal is still running.
 func (ts *terminals) running() bool {
 	for _, t := range ts.list("") {

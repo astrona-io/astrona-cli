@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { Run } from '../api'
+import BrandMark from './BrandMark.vue'
 
 // Before Start there is no task text and no terminal: reading time is not
 // free working time. The clock starts on the server when Start is clicked.
@@ -29,9 +30,13 @@ const facts = computed(() => {
 const rules = computed(() => {
   const list: string[] = []
   if (props.run.mode === 'exam') list.push('The timer keeps running if you close this page or lose the connection.')
-  if (props.run.rules.strict) list.push('A submission after the deadline cannot pass.')
+  if (props.run.rules.strict)
+    list.push('A submission after the deadline cannot pass, and the terminal stops taking input when time is up.')
   if (props.run.rules.hintsHidden) list.push('Hints are not shown.')
-  list.push('Submit from your terminal with astrona submit when you are done.')
+  list.push('Nothing is submitted automatically, not even when time is up.')
+  list.push(
+    `When you are done, use ${props.run.mode === 'exam' ? 'Submit exam' : 'Submit lab'} at the top of the workspace (or astrona submit in a terminal).`,
+  )
   return list
 })
 </script>
@@ -39,7 +44,10 @@ const rules = computed(() => {
 <template>
   <main class="intro">
     <section class="panel intro__card" aria-labelledby="intro-title">
-      <p class="eyebrow eyebrow--page">{{ playground ? 'Playground' : 'Lab briefing' }}</p>
+      <div class="brand">
+        <BrandMark />
+        <p class="eyebrow eyebrow--page">{{ playground ? 'Playground' : 'Lab briefing' }}</p>
+      </div>
       <h1 id="intro-title" ref="heading" class="intro__title" tabindex="-1">{{ run.title }}</h1>
       <dl v-if="!playground" class="intro__facts">
         <div v-for="f in facts" :key="f.label" class="stat">

@@ -70,6 +70,7 @@ type Server struct {
 	lifeCancel context.CancelFunc
 	runMu      sync.Mutex // serialises Start
 	terms      *terminals
+	subs       submits
 	stop       chan struct{}
 	stopOnce   sync.Once
 }
@@ -104,6 +105,7 @@ func New(cfg Config) (*Server, error) {
 		assets:    assets,
 		startedAt: time.Now(),
 		terms:     newTerminals(),
+		subs:      submits{jobs: map[string]*submitJob{}},
 		stop:      make(chan struct{}),
 	}
 	s.life, s.lifeCancel = context.WithCancel(context.Background())
@@ -244,6 +246,9 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/runs/{lab}/questions/{id}", s.requireToken(s.handleQuestion))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/start", s.requireToken(s.handleStart))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/tabs/{name}/doc", s.requireToken(s.handleTabDoc))
+	mux.HandleFunc("POST /api/v1/runs/{lab}/submit", s.requireToken(s.handleSubmit))
+	mux.HandleFunc("GET /api/v1/runs/{lab}/submission", s.requireToken(s.handleSubmission))
+	mux.HandleFunc("POST /api/v1/runs/{lab}/destroy", s.requireToken(s.handleDestroy))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/terminals", s.requireToken(s.handleTerminals))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/terminals", s.requireToken(s.handleOpenTerminal))
 	mux.HandleFunc("/api/", s.requireToken(func(w http.ResponseWriter, _ *http.Request) {
@@ -297,7 +302,7 @@ func (s *Server) handleServer(w http.ResponseWriter, _ *http.Request) {
 		"profile":   s.cfg.Profile,
 		"startedAt": s.startedAt.UTC(),
 		"serverNow": time.Now().UTC(),
-		"features":  []string{"runs", "terminals", "tabs"},
+		"features":  []string{"runs", "terminals", "tabs", "submit"},
 		"assets":    s.assetsKind(),
 	})
 }

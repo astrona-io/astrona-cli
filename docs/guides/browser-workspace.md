@@ -97,7 +97,9 @@ bar counts down to the deadline.
   panel starts at 25% of the width and can take 15% to 70%; it never gets
   narrower than 280 pixels. The browser remembers the width you chose.
 
-Submit from a terminal with `astrona submit` when you are done.
+When you are done, use **Submit** in the top bar (see
+[Submit or end from the browser](#submit-or-end-from-the-browser));
+`astrona submit` in a terminal does the same.
 
 ### Tabs
 
@@ -156,6 +158,60 @@ earlier server then shows **Session ended**.
 
 With reduced motion or reduced transparency set in the system, the workspace
 is dimmed rather than blurred.
+
+### Submit or end from the browser
+
+The top bar has one button to finish the session. Its label fits the run:
+
+| Run | Button | What it does |
+| --- | --- | --- |
+| Lab | **Submit lab** | Grades it, as `astrona submit` does. |
+| Exam | **Submit exam** | The same; the exam time is recorded at that moment. |
+| Playground | **End playground** | Deletes it now. Nothing is graded. |
+
+The button is disabled, with the reason next to it, when it cannot be used:
+before **Start**, while a submission is being graded, or once the lab is no
+longer running.
+
+It always opens a dialog first that says what is about to happen for this run:
+
+- The checks run and the result is saved on this machine as a new attempt.
+- Where the result goes. A run linked to your Astrona account is sent to your
+  lab page when astrona is signed in to the same site, and that attempt is
+  then finished. A local-only run is never sent, and its attempt is finished
+  once saved. A run without a lab session keeps the result on this machine,
+  and you can submit again.
+- Whether the environment stays. When the attempt is finished, the cluster and
+  its terminals are removed, unless the lab sets `teardown.keepCluster`.
+- If the checks cannot run (for example, the container engine stopped),
+  nothing is recorded or sent and the lab keeps running.
+
+![The Submit lab dialog over the workspace, for a local lab that is not linked to an account](../assets/browser-workspace-submit.png)
+
+**Cancel** has the focus and **Esc** closes the dialog. While grading runs, the
+dialog stays open. Keep the page open; if the connection drops, the page asks
+the server for the result again, and the same submission is never graded
+twice.
+
+The results page shows pass or fail, the score, the pass mark, the attempt
+number and every check with its points. A failed check shows its hint only when
+the lab shows hints. Check commands, expected values and the solution are never
+shown. Below that it says whether the result was saved and sent and whether
+the environment was removed.
+
+![The results page: FAIL, 4 of 5 points, each check with its points and the hint for the failed one](../assets/browser-workspace-results.png)
+
+From there you can:
+
+- go back to the workspace while the environment still runs;
+- remove the environment (with a confirmation);
+- start over with `astrona run <lab>` in a terminal.
+
+When the time is up, a banner says so and offers **Submit**. Nothing is
+submitted automatically. In a strict exam a submission after the deadline
+cannot pass, and the terminal stops taking input at the deadline. Closing or
+reloading the tab during a session or while grading asks for confirmation
+first.
 
 ## The workspace server
 
