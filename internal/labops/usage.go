@@ -10,6 +10,7 @@ import (
 	"astrona/internal/account"
 	"astrona/internal/labstate"
 	"astrona/internal/outbox"
+	"astrona/internal/settings"
 	"astrona/internal/ui"
 )
 
@@ -24,6 +25,11 @@ import (
 // lab's state: it ends when the lab is destroyed or started again, its
 // session is gone or expired, or the site stops taking samples (a lab that
 // passed). `astrona run renew` keeps it: it reads the new session id.
+//
+// The usage-samples setting turns all of it off: no reporter starts, a
+// running one stops at its next tick, samples waiting in the outbox are
+// dropped, and submit and destroy send no usage summary. A local-only run
+// (--local-only) has no session, so it never sends any either.
 
 const (
 	// UsageReportInterval is how often the reporter samples a lab.
@@ -32,9 +38,20 @@ const (
 	usageIdlePosts = 3
 )
 
-// StartUsageReporter starts the reporter for a lab that just became ready.
-// A failure is only a notice on warn: the lab works the same without it.
+// UsageSamplesAllowed says whether the usage-samples setting allows sending
+// a lab's CPU and memory samples and its usage summary. Replaced in tests.
+var UsageSamplesAllowed = func() bool {
+	path, err := settings.Path("")
+	return err == nil && settings.UsageSamples(path)
+}
+
+// StartUsageReporter starts the reporter for a lab that just became ready,
+// unless usage samples are turned off in settings. A failure is only a
+// notice on warn: the lab works the same without it.
 func StartUsageReporter(warn io.Writer, clusterName string) {
+	if !UsageSamplesAllowed() {
+		return
+	}
 	pid, err := SpawnUsageReporter(clusterName)
 	if err != nil {
 		ui.Fwarnf(warn, "couldn't start measuring the lab's CPU and memory (%s)", err)
@@ -53,6 +70,29 @@ func StartUsageReporter(warn io.Writer, clusterName string) {
 // its output in a log next to the lab's state. Replaced in tests.
 var SpawnUsageReporter = func(clusterName string) (int, error) {
 	return SpawnDetached("usage-reporter", clusterName, ".usage.log")
+}
+
+// StopUsageReporters ends the usage reporter of every remembered lab, for
+// `astrona logout`: they post with this profile's sign-in, so none keeps
+// sending after it is gone. Samples already waiting in the outbox stay there
+// until the next sign-in (or are dropped when usage samples are turned off).
+// It returns the labs whose reporter it stopped.
+func StopUsageReporters() []string {
+	names, err := labstate.Names()
+	if err != nil {
+		return nil
+	}
+	var stopped []string
+	for _, name := range names {
+		st, err := labstate.Load(name)
+		if err != nil || st == nil || st.Session == nil || st.Session.ReporterPID == 0 {
+			continue
+		}
+		if stopHelper(st.Session.ReporterPID, "usage-reporter", name) {
+			stopped = append(stopped, name)
+		}
+	}
+	return stopped
 }
 
 // UsageSampler measures the lab once; ok is false when the lab could not be
@@ -75,6 +115,10 @@ func ReportUsage(ctx context.Context, w io.Writer, clusterName string, tick time
 			return err
 		}
 		if st == nil || st.LocalOnly || st.Session == nil || st.StartedAt == "" {
+			return nil
+		}
+		if !UsageSamplesAllowed() {
+			fmt.Fprintf(w, "%s usage samples are turned off in settings; stopping\n", time.Now().Format(time.RFC3339))
 			return nil
 		}
 		if finished, err := labstate.ReadSubmission(clusterName, st.StartedAt); err != nil || finished != nil {
@@ -148,6 +192,9 @@ type keptCounter struct {
 }
 
 func (k *keptCounter) Usage(ctx context.Context, site, session string, samples []account.UsageSample) error {
+	if !UsageSamplesAllowed() {
+		return nil
+	}
 	cr, err := k.Active(ctx, site)
 	if err != nil {
 		return err

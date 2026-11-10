@@ -122,12 +122,29 @@ var (
 	// ErrSessionGone: the site doesn't know the lab session, or it isn't
 	// this account's (HTTP 404) — e.g. it expired.
 	ErrSessionGone = errors.New("the lab session has expired or isn't yours")
-	// ErrAttemptFinished: the session's attempt already has its result
-	// (HTTP 409).
+	// ErrAttemptFinished: the session's attempt is over (HTTP 409) — it
+	// passed, or the site keeps one result per attempt (sites before
+	// several submits per attempt).
 	ErrAttemptFinished = errors.New("this lab attempt is already finished")
 	// ErrSessionExpired: the session's time ran out (HTTP 410).
 	ErrSessionExpired = errors.New("this lab session has expired")
+	// ErrTooManyResults: the attempt holds as many results as the site
+	// keeps (HTTP 429 on the results endpoint).
+	ErrTooManyResults = errors.New("this lab attempt has too many results")
 )
+
+// ResultPost is one graded result for a lab session.
+type ResultPost struct {
+	// Result is what `astrona submit -o json` prints (any JSON value).
+	Result any
+	// Usage, when not nil, is the CLI's summary of what the lab used.
+	Usage *UsageReport
+	// Key identifies this submit: a retry with the same key gets the
+	// stored result back instead of a second one. Empty sends none.
+	Key string
+	// At, when not zero, is when it was graded (a result sent late).
+	At time.Time
+}
 
 // LabResult is POST {site}/api/cli/lab-sessions/{id}/results's answer.
 type LabResult struct {
@@ -147,10 +164,17 @@ type LabResult struct {
 //
 // usage, when not nil, is the CLI's summary of what the lab used.
 func (c *Client) SendLabResult(ctx context.Context, s Store, cr *Credentials, sessionID string, result any, usage *UsageReport) (*LabResult, error) {
+	return c.PostLabResult(ctx, s, cr, sessionID, ResultPost{Result: result, Usage: usage})
+}
+
+// PostLabResult is SendLabResult with the submit's idempotency key and
+// grading time. The site answers a key it already holds with the stored
+// result. 429 wraps ErrTooManyResults.
+func (c *Client) PostLabResult(ctx context.Context, s Store, cr *Credentials, sessionID string, p ResultPost) (*LabResult, error) {
 	if sessionID == "" || strings.ContainsAny(sessionID, "/?#") {
 		return nil, fmt.Errorf("invalid lab session id %q", sessionID)
 	}
-	lr, err := c.postLabResult(ctx, cr, sessionID, result, usage)
+	lr, err := c.postLabResult(ctx, cr, sessionID, p)
 	var he *httpError
 	if errors.As(err, &he) && he.Status == http.StatusUnauthorized {
 		renewed, rerr := c.Renew(ctx, s, cr)
@@ -160,7 +184,7 @@ func (c *Client) SendLabResult(ctx context.Context, s Store, cr *Credentials, se
 			}
 			return nil, fmt.Errorf("%s didn't accept your sign-in and it couldn't be renewed: %w", cr.Site, rerr)
 		}
-		lr, err = c.postLabResult(ctx, renewed, sessionID, result, usage)
+		lr, err = c.postLabResult(ctx, renewed, sessionID, p)
 	}
 	if err == nil {
 		return lr, nil
@@ -177,15 +201,23 @@ func (c *Client) SendLabResult(ctx context.Context, s Store, cr *Credentials, se
 		return nil, withMessage(ErrAttemptFinished, he.Message)
 	case http.StatusGone:
 		return nil, withMessage(ErrSessionExpired, he.Message)
+	case http.StatusTooManyRequests:
+		return nil, withMessage(ErrTooManyResults, he.Message)
 	default:
 		return nil, fmt.Errorf("%s couldn't record the result (%w)", cr.Site, he)
 	}
 }
 
-func (c *Client) postLabResult(ctx context.Context, cr *Credentials, sessionID string, result any, usage *UsageReport) (*LabResult, error) {
-	payload := map[string]any{"result": result}
-	if usage != nil {
-		payload["usage"] = usage
+func (c *Client) postLabResult(ctx context.Context, cr *Credentials, sessionID string, p ResultPost) (*LabResult, error) {
+	payload := map[string]any{"result": p.Result}
+	if p.Usage != nil {
+		payload["usage"] = p.Usage
+	}
+	if p.Key != "" {
+		payload["idempotency_key"] = p.Key
+	}
+	if !p.At.IsZero() {
+		payload["at"] = p.At.UTC().Format(time.RFC3339Nano)
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {

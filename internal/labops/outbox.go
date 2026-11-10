@@ -2,6 +2,7 @@ package labops
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"syscall"
+	"testing"
 	"time"
 
 	"astrona/internal/account"
@@ -87,6 +89,9 @@ func (s *SiteSender) Resume(ctx context.Context, site, session string, at time.T
 }
 
 func (s *SiteSender) Stop(ctx context.Context, site, session, reason string, at time.Time, usage *account.UsageReport) error {
+	if !UsageSamplesAllowed() {
+		usage = nil // turned off after the stop was queued: send no summary
+	}
 	cr, err := s.Active(ctx, site)
 	if err != nil {
 		return err
@@ -95,11 +100,23 @@ func (s *SiteSender) Stop(ctx context.Context, site, session, reason string, at 
 }
 
 func (s *SiteSender) Usage(ctx context.Context, site, session string, samples []account.UsageSample) error {
+	if !UsageSamplesAllowed() {
+		return nil // samples kept while offline are dropped, not sent
+	}
 	cr, err := s.Active(ctx, site)
 	if err != nil {
 		return err
 	}
 	_, err = s.Client.SendLabUsage(ctx, s.Store, cr, session, samples)
+	return s.Classify(err)
+}
+
+func (s *SiteSender) Result(ctx context.Context, site, session, key string, result json.RawMessage, usage *account.UsageReport, at time.Time) error {
+	cr, err := s.Active(ctx, site)
+	if err != nil {
+		return err
+	}
+	_, err = s.Client.PostLabResult(ctx, s.Store, cr, session, account.ResultPost{Result: result, Usage: usage, Key: key, At: at})
 	return s.Classify(err)
 }
 
@@ -237,6 +254,9 @@ func RunOutboxFlusher(ctx context.Context, budget time.Duration) error {
 // never blocks the caller, inherits this process's environment and logs to
 // flush.log in the outbox directory.
 func StartOutboxFlusher() {
+	if testing.Testing() {
+		return // a test binary has no outbox-flush command to start
+	}
 	if n, err := outbox.Pending(); err != nil || n == 0 {
 		return
 	}

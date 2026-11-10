@@ -6,7 +6,8 @@
 // "astrona-training" topic) and from sources the user adds. Everything a
 // manifest says is untrusted data: lab paths are checked to stay inside
 // the repository, and running a lab still goes through astrona's trust
-// prompt like any remote lab.
+// prompt like any remote lab — an official lab skips it only at the commit
+// astrona.io publishes for it (labops.OfficialTrust), never by name alone.
 package catalog
 
 import (
@@ -235,6 +236,17 @@ func (c Catalog) Find(id string) (Training, Lab, bool) {
 		}
 	}
 	return Training{}, Lab{}, false
+}
+
+// OfficialRepo is the repository name of a git URL on GitHub under
+// DefaultOrg (https://github.com/astrona-io/ATS014.git → ATS014); ok is
+// false for any other host or owner.
+func OfficialRepo(gitURL string) (name string, ok bool) {
+	o, r, ok := githubRepo(gitURL)
+	if !ok || !strings.EqualFold(o, DefaultOrg) {
+		return "", false
+	}
+	return r, true
 }
 
 func sameTraining(t Training, owner string) bool {

@@ -148,7 +148,7 @@ It needs Linux, Docker or Podman, Kind and kubectl, plus network access to GitHu
 `acceptance/` holds a [Robot Framework](https://robotframework.org/) suite that drives the built `./astrona` the way a learner and a lab author would. It has two tiers, chosen by tag:
 
 - **`smoke`** runs on every pull request (`Acceptance (smoke)` in CI, report in the `oat-smoke-report` artifact).
-- **`full`** adds the lab tools (shell, soft reset, doctor, diagnose, port forwards), a signed-out catalog lab and the two VM targets. The `Acceptance (full)` workflow runs it on every release tag, RCs included, before anything is built, in two jobs: `Acceptance full (kind)` runs the smoke and full tiers without the `vm` tests, `Acceptance full (vm)` runs only the `vm` tests. The release only builds when both pass, and their reports are attached to the GitHub release as `oat-report-<version>-kind.zip` and `oat-report-<version>-vm.zip`. Run it by hand from the Actions tab.
+- **`full`** adds the lab tools (shell, soft reset, doctor, diagnose, port forwards), a signed-out catalog lab, the two VM targets and a signed-in learner (the `login` suite). The `Acceptance (full)` workflow runs it on every release tag, RCs included, before anything is built, in three jobs: `Acceptance full (kind)` runs the smoke and full tiers without the `vm` and `login` tests, `Acceptance full (vm)` runs only the `vm` tests and `Acceptance full (login)` only the `login` tests. The release only builds when all three pass, and their reports are attached to the GitHub release as `oat-report-<version>-kind.zip`, `oat-report-<version>-vm.zip` and `oat-report-<version>-login.zip`. Run it by hand from the Actions tab.
 
 ```sh
 just oat                    # build ./astrona, run the smoke tier, write oat-report/
@@ -157,10 +157,11 @@ just oat --exclude kind     # only the checks that create no cluster
 just oat --include vm       # smoke tier plus both VM targets
 just oat --include vm --exclude kind    # VM targets only (and the smoke checks that need neither)
 just oat --include vm --exclude desktop # VM with terminal only, e.g. on a Linux box without X
+just oat --include login     # smoke tier plus the signed-in learner
 just oat --test "Run Creates The Lab"
 ```
 
-Other tags say what a test needs: `kind` creates a cluster, `network` reaches astrona.io, `vm` boots a QEMU VM, `desktop` opens that VM's window. The workspace UI is a terminal app that needs an interactive terminal, so it is covered by the PTY tests in `go test`, not here.
+Other tags say what a test needs: `kind` creates a cluster, `network` reaches the internet (astrona.io, the lab catalog), `vm` boots a QEMU VM, `desktop` opens that VM's window, `login` starts its own Keycloak. The workspace UI is a terminal app that needs an interactive terminal, so it is covered by the PTY tests in `go test`, not here.
 
 It needs kind, kubectl and Docker or Podman, plus `uv` (Robot Framework is pinned in `acceptance/requirements.txt`). Each suite gets a throwaway `HOME`, so your own labs and settings under `~/.astrona-dev` are untouched; the container engine's config still comes from your real home. kind cluster names are shared by the whole engine, so a suite refuses to start while a cluster named after its example lab (`k8s-basics-01`) exists. Set `OAT_ISOLATE_HOME=false` to run against your real `HOME`.
 
@@ -172,11 +173,30 @@ They need qemu with hardware acceleration: on macOS `brew install qemu` (HVF, Ap
 
 The VM base image is a Debian 13 genericcloud qcow2 (about 330 MB, amd64 or arm64 to match the host) from a dated build at cloud.debian.org. Its URL and the SHA-512 sums from that build's `SHA512SUMS` are pinned in `acceptance/resources/astrona.resource`. It is downloaded once into `~/.cache/astrona-oat/images/` (`$XDG_CACHE_HOME/astrona-oat`, or `OAT_CACHE_DIR` when set), verified on every run and hard-linked into a copy of the lab (astrona refuses a symlinked base image). To move to a newer build, change the date in the URL and both sums together. Delete the cache folder to free the space.
 
+#### Login suite
+
+`80_login.robot` is a signed-in learner: `astrona login --headless`, then a headless Chromium opens the link it prints and signs in, then `whoami`, a catalog lab run under a lab session, a submit graded as not passed, `progress`, destroy and `logout`. It needs no account and no secret. The suite starts its own sign-in stack and removes it afterwards:
+
+- **Keycloak** (`quay.io/keycloak/keycloak:26.8`, the image the Astrona workspace runs) in a container on a free loopback port, with the realm in `acceptance/keycloak/`: a public `astrona-cli` client with the OAuth 2.0 device grant and a consent screen. Setup creates a test user whose random password exists only in the suite's process; it is never logged or written down.
+- **A fake Astrona site** (Python's `http.server` in a thread) that answers the CLI's `/api/cli` calls: it passes the device flow through to Keycloak, accepts a lab-session call only with a bearer token Keycloak's userinfo vouches for, and records what the CLI sent so the suite can check it (a session for the catalog lab created by the test user, the result posted on submit, the sign-in revoked on logout).
+
+So it does not exercise the real astrona.io device page (astrona-web) or astrona-svc-labs, only the CLI's side of their contract.
+
+It needs Podman or Docker (the suite uses whichever answers, Podman first; set `OAT_CONTAINER_RUNTIME=docker` to choose), kind for the catalog lab, and Playwright's Chromium, installed once:
+
+```sh
+uv run --with-requirements acceptance/requirements.txt playwright install chromium
+```
+
+The first run pulls the Keycloak image; Keycloak then needs up to a minute to start. `--include full` runs this suite too; add `--exclude login` to leave it out.
+
 | Path | Contents |
 |---|---|
 | `acceptance/suites/` | One `.robot` file per area; tag each test with its tier (`smoke` or `full`) and what it needs (`kind`, `network`, `vm`, `desktop`) |
 | `acceptance/labs/` | The VM labs the VM suites run; their `base.qcow2` is linked in at run time, never committed |
 | `acceptance/resources/astrona.resource` | Shared keywords: `Run Astrona`, `Run Astrona Json`, `Run Kubectl On Lab` |
+| `acceptance/keycloak/` | The Keycloak realm the login suite imports |
+| `acceptance/libraries/SignInStack.py` | The login suite's Keycloak container, fake site and browser sign-in |
 | `acceptance/libraries/AstronaLib.py` | Only what Robot cannot express cleanly: isolated `HOME`, JSON parsing, kind and qemu lookups, the VM image cache, the desktop window check |
 
 ## Dependency updates

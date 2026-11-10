@@ -1,5 +1,6 @@
 // Package outbox keeps what the CLI tells Astrona about a running lab — clock
-// pauses and resumes, stops, resource samples — on disk until the site has it.
+// pauses and resumes, stops, resource samples, graded results that could not
+// be sent at once — on disk until the site has it.
 // Every signal carries the time it happened, so signals kept while offline are
 // sent later, in order, and land where they belong. One file per lab session
 // under ~/.astrona/outbox; a lock serializes writers and flushers across
@@ -28,6 +29,9 @@ const (
 	Resume = "resume"
 	Stop   = "stop"
 	Usage  = "usage"
+	// Result is a graded result (`astrona submit`) the site did not get at
+	// once. Its Key makes a repeat delivery return the stored result.
+	Result = "result"
 )
 
 // MaxUsageSamples bounds what one session keeps while offline: a day of
@@ -55,6 +59,9 @@ type Event struct {
 	Reason string               `json:"reason,omitempty"`
 	Usage  *account.UsageReport `json:"usage,omitempty"`
 	Sample *account.UsageSample `json:"sample,omitempty"`
+	// Key and Result belong to a Result event (Usage is its usage summary).
+	Key    string          `json:"key,omitempty"`
+	Result json.RawMessage `json:"result,omitempty"`
 }
 
 // queue is one session's file.
@@ -86,6 +93,7 @@ type Sender interface {
 	Resume(ctx context.Context, site, session string, at time.Time) error
 	Stop(ctx context.Context, site, session, reason string, at time.Time, usage *account.UsageReport) error
 	Usage(ctx context.Context, site, session string, samples []account.UsageSample) error
+	Result(ctx context.Context, site, session, key string, result json.RawMessage, usage *account.UsageReport, at time.Time) error
 }
 
 // PermanentError marks an error the site gave for good (a session that is gone, a
@@ -431,6 +439,8 @@ func sendNext(ctx context.Context, s Sender, q *queue) (int, error) {
 		return 1, s.Resume(ctx, q.Site, q.Session, ev.At)
 	case Stop:
 		return 1, s.Stop(ctx, q.Site, q.Session, ev.Reason, ev.At, ev.Usage)
+	case Result:
+		return 1, s.Result(ctx, q.Site, q.Session, ev.Key, ev.Result, ev.Usage, ev.At)
 	case Usage:
 		var samples []account.UsageSample
 		n := 0

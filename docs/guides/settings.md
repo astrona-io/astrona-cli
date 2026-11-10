@@ -27,6 +27,7 @@ astrona settings -o json
 | `keep-context` | `no` | Leave kubectl's current-context unchanged on commands with `--keep-context` |
 | `parallel` | `1` | Start up to 1–5 linked clusters at once on commands with `--parallel` |
 | `login-reminder` | `yes` | Offer guests login before each lab run; `no` hides reminders |
+| `usage-samples` | `yes` | While signed in, send a running lab's CPU and memory use to its lab session (every 15 seconds) and a usage summary with submit and playground deletion; `no` sends none of it — see [Resource usage](lab-catalog.md#resource-usage) |
 | `update-check` | `yes` | Check for new CLI releases and show update notices |
 | `cache-retention-days` | `30` | Maximum disposable-cache age; whole days from 1 to 36500 |
 | `cache-max-size-gb` | `50` | Combined disposable-cache limit in decimal GB; `0` means unlimited size |
@@ -50,7 +51,8 @@ alone, and keeps `settings-review.json`, so the review questions are not asked
 again. To also forget the selected lab and the cached catalog, use
 `astrona data reset`.
 
-`settings`, `settings get` and `settings view` display booleans as `yes` / `no`.
+`settings`, `settings get` and `settings view` display booleans as `yes` / `no`;
+`set` also accepts `true` / `false` and `on` / `off`.
 JSON output and saved files retain `true` / `false`.
 
 Explicit flags override saved values, including `--verbose=false`,

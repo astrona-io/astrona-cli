@@ -57,6 +57,11 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"astrona starts a lab session on Astrona; once the lab is ready it prints the lab page URL. " +
 			"Your matching course page connects to it without a redirect, and setup time never counts. Labs from " +
 			"your own files or repositories (-c / --git) run without signing in.\n\n" +
+			"While a signed-in lab runs, a background helper sends its CPU and memory use to the lab session every " +
+			"15 seconds, and submit and playground deletion send a usage summary; `astrona settings set usage-samples no` turns " +
+			"that off. --local-only keeps the whole run on this machine: astrona does not read your sign-in, starts no " +
+			"lab session and sends no progress, results or usage, and `astrona submit` records the result locally only. " +
+			"Starting a running lab over with --local-only detaches its session without closing it on Astrona.\n\n" +
 			"If the lab is already running, run asks whether to destroy it and start over (or keep it as " +
 			"it is); --yes starts over without asking and is required when not in a terminal. If other " +
 			"labs are running, it also offers to destroy them first — only when asked in a terminal; " +
@@ -184,7 +189,15 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 					rep.Warn("couldn't destroy %s: %s — continuing", other, err)
 				}
 			}
-			labops.EndOldSession(os.Stderr, clusterName) // an old playground's watchdog would remove the new lab
+			if flags.localOnly {
+				// --local-only: detach the old run here, never through the
+				// Astrona API, before it is replaced.
+				if err := detachRunLocally(clusterName); err != nil {
+					return err
+				}
+			} else {
+				labops.EndOldSession(os.Stderr, clusterName) // an old playground's watchdog would remove the new lab
+			}
 			if choice.startOver {
 				// With --keep-context run won't switch again: the old lab's context goes back first.
 				if err := labops.RemoveForRestart(os.Stdout, cfg, baseDir, clusterName, flags.keepContext, flags.localOnly, rep); err != nil {
@@ -212,6 +225,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&flags.headless, "test-mode", false, "Deprecated alias for --headless")
 	legacy := cmd.Flags().Lookup("test-mode")
 	legacy.Hidden, legacy.Deprecated = true, "use --headless instead"
+	cmd.Flags().BoolVar(&flags.localOnly, "local-only", false, "Keep this run on this machine: no lab session, progress, results or CPU/memory samples are sent to Astrona, even when signed in")
 	cmd.Flags().BoolVar(&withoutLogin, "without-login", false, "Confirm running a catalog lab without signing in or tracking progress on Astrona")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "If the lab is already running, destroy it and start over without asking")
 	cmd.Flags().BoolVar(&browser, "browser", false, "Open the Kind lab in the browser workspace once it is ready, without asking")
@@ -330,4 +344,28 @@ func configFlagHint(baseDir string) string {
 		return ""
 	}
 	return " -c " + baseDir
+}
+
+// detachRunLocally forgets the old run's account session before it is
+// replaced by a --local-only run, without calling Astrona. The upload block
+// is saved first, so a failed teardown or a later command cannot send its
+// results.
+func detachRunLocally(name string) error {
+	st, err := labstate.Load(name)
+	if err != nil {
+		return err
+	}
+	if st == nil {
+		st = &labstate.State{}
+	}
+	oldSession := st.Session
+	st.Session, st.LocalOnly = nil, true
+	st.StartedAt = ""
+	if err := labstate.Save(name, st); err != nil {
+		return err
+	}
+	if oldSession.IsPlayground() {
+		labops.StopWatchdog(oldSession.WatchdogPID, name)
+	}
+	return nil
 }

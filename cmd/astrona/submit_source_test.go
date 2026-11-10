@@ -22,15 +22,17 @@ func TestSubmitCleansUpAfterConfirmedResult(t *testing.T) {
 		name                                                 string
 		pass, keep, keepCluster, json, deleteFails, replaced bool
 		status                                               int
+		calls                                                int32 // result posts; 0 means 1
 		deleted, wantError                                   bool
 	}{
 		{name: "uploaded pass", pass: true, status: 201, deleted: true},
 		{name: "JSON uploaded pass", pass: true, json: true, status: 201, deleted: true},
 		{name: "keep", pass: true, keep: true, status: 201},
 		{name: "keepCluster", pass: true, keepCluster: true, status: 201},
-		{name: "uploaded failure", status: 201, deleted: true, wantError: true},
+		{name: "uploaded failure", status: 201, wantError: true}, // a FAIL keeps the lab for another submit
 		{name: "unsent failure", status: 502, wantError: true},
-		{name: "server error", pass: true, status: 502},
+		// Queued in the outbox: the pass finishes, and the destroy retries it before its stop.
+		{name: "server error", pass: true, status: 502, deleted: true, calls: 2},
 		{name: "expired session", pass: true, status: 410},
 		{name: "cleanup error", pass: true, status: 201, deleteFails: true, wantError: true},
 		{name: "replaced during upload", pass: true, status: 201, replaced: true, wantError: true},
@@ -90,7 +92,10 @@ func TestSubmitCleansUpAfterConfirmedResult(t *testing.T) {
 			stdout := captureStdout(t, func() {
 				err = submitLoadedLab(&rootFlags{catalogLab: "ATS/x", headless: true}, cfg, t.TempDir(), options, &status)
 			})
-			if (err != nil) != tc.wantError || calls.Load() != 1 {
+			if tc.calls == 0 {
+				tc.calls = 1
+			}
+			if (err != nil) != tc.wantError || calls.Load() != tc.calls {
 				t.Fatalf("submission error=%v calls=%d; output=%s", err, calls.Load(), stdout)
 			}
 			if tc.json && !json.Valid([]byte(stdout)) {
@@ -178,8 +183,9 @@ func TestSubmitSavedCatalogWithoutRefetchOrApproval(t *testing.T) {
 			if err != nil || len(attempts) != 1 || attempts[0].Pass != pass {
 				t.Fatalf("attempts=%v err=%v", attempts, err)
 			}
+			// Only a pass finishes the run; after a FAIL it keeps going.
 			finished, err := labstate.ReadSubmission("astro-offline", st.StartedAt)
-			if err != nil || finished == nil || finished.Pass != pass {
+			if err != nil || (finished != nil) != pass || (finished != nil && !finished.Pass) {
 				t.Fatalf("completion=%v err=%v", finished, err)
 			}
 		})

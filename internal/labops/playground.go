@@ -229,9 +229,14 @@ var WatchdogCommandLine = func(pid int) (string, error) {
 // <clusterName>` — the process SpawnWatchdog started, not one that reused
 // its pid.
 func IsWatchdogFor(cmdline, clusterName string) bool {
+	return isHelperFor(cmdline, "playground-watchdog", clusterName)
+}
+
+// isHelperFor reports whether cmdline is `astrona <command> <clusterName>`.
+func isHelperFor(cmdline, command, clusterName string) bool {
 	fields := strings.Fields(cmdline)
 	for i := 0; i+1 < len(fields); i++ {
-		if fields[i] == "playground-watchdog" && fields[i+1] == clusterName {
+		if fields[i] == command && fields[i+1] == clusterName {
 			return true
 		}
 	}
@@ -239,18 +244,23 @@ func IsWatchdogFor(cmdline, clusterName string) bool {
 }
 
 // StopWatchdog ends clusterName's playground watchdog — unless that is us.
-// The pid is only signalled while it still leads its own session (Setsid)
-// and runs that watchdog's command line: anything else reused the number
-// and is left alone.
 func StopWatchdog(pid int, clusterName string) {
+	stopHelper(pid, "playground-watchdog", clusterName)
+}
+
+// stopHelper ends the detached `astrona <command> <clusterName>` at pid —
+// unless that is us. The pid is only signalled while it still leads its own
+// session (Setsid) and runs that command line: anything else reused the
+// number and is left alone. It reports whether it signalled the helper.
+func stopHelper(pid int, command, clusterName string) bool {
 	if pid <= 0 || pid == os.Getpid() || !hypervisor.ProcessAlive(pid) {
-		return
+		return false
 	}
 	if pgid, err := syscall.Getpgid(pid); err != nil || pgid != pid {
-		return
+		return false
 	}
-	if cmdline, err := WatchdogCommandLine(pid); err != nil || !IsWatchdogFor(cmdline, clusterName) {
-		return
+	if cmdline, err := WatchdogCommandLine(pid); err != nil || !isHelperFor(cmdline, command, clusterName) {
+		return false
 	}
-	_ = syscall.Kill(-pid, syscall.SIGTERM)
+	return syscall.Kill(-pid, syscall.SIGTERM) == nil
 }
