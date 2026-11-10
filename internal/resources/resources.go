@@ -492,7 +492,8 @@ func Labs() ([]string, error) {
 // file is only replaced with force; files are written 0644/0755 (they're
 // the student's now), links are never followed.
 func (r Resource) CopyTo(dir, dest string, force bool) (string, error) {
-	if _, err := r.Path(dir); err != nil {
+	sourcePath, err := r.Path(dir)
+	if err != nil {
 		return "", err
 	}
 	rt, err := openNoLink(dir)
@@ -507,11 +508,22 @@ func (r Resource) CopyTo(dir, dest string, force bool) (string, error) {
 	if fi, err := os.Stat(dest); err == nil && fi.IsDir() {
 		dest = filepath.Join(dest, path.Base(r.File))
 	}
-	if destInfo, err := os.Stat(dest); err == nil && os.SameFile(sourceInfo, destInfo) {
-		return "", fmt.Errorf("%s is the source resource; choose another destination", dest)
+	if destInfo, err := os.Stat(dest); err == nil {
+		if os.SameFile(sourceInfo, destInfo) {
+			return "", fmt.Errorf("%s is the source resource; choose another destination", dest)
+		}
+		if destInfo.IsDir() {
+			containsSource, err := directoryContainsPath(destInfo, sourcePath)
+			if err != nil {
+				return "", err
+			}
+			if containsSource {
+				return "", fmt.Errorf("%s contains the source resource; choose another destination", dest)
+			}
+		}
 	}
 	if sourceInfo.IsDir() {
-		inside, err := destinationInsideSource(sourceInfo, dest)
+		inside, err := directoryContainsPath(sourceInfo, dest)
 		if err != nil {
 			return "", err
 		}
@@ -534,10 +546,10 @@ func (r Resource) CopyTo(dir, dest string, force bool) (string, error) {
 	return dest, nil
 }
 
-// Resolve the nearest existing destination ancestor so directory aliases and
-// destinations with several missing components receive the same check.
-func destinationInsideSource(sourceInfo fs.FileInfo, dest string) (bool, error) {
-	ancestor, err := filepath.Abs(dest)
+// Resolve the nearest existing ancestor so aliases and paths with several
+// missing components receive the same containment check.
+func directoryContainsPath(directory fs.FileInfo, name string) (bool, error) {
+	ancestor, err := filepath.Abs(name)
 	if err != nil {
 		return false, err
 	}
@@ -561,7 +573,7 @@ func destinationInsideSource(sourceInfo fs.FileInfo, dest string) (bool, error) 
 		if err != nil {
 			return false, err
 		}
-		if os.SameFile(sourceInfo, info) {
+		if os.SameFile(directory, info) {
 			return true, nil
 		}
 		parent := filepath.Dir(ancestor)

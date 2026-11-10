@@ -376,6 +376,59 @@ func TestCopyToRefusesDirectoryDescendants(t *testing.T) {
 	}
 }
 
+func TestCopyToRefusesAncestorDestination(t *testing.T) {
+	for _, kind := range []string{"directory", "file"} {
+		for _, alias := range []bool{false, true} {
+			name := kind
+			if alias {
+				name += " alias"
+			}
+			t.Run(name, func(t *testing.T) {
+				file := "tool/tool"
+				if kind == "directory" {
+					file += "/notes.txt"
+				}
+				base := lab(t, map[string]string{file: "student edits", "tool/keep.txt": "other resource"})
+				dest := base
+				if alias {
+					dest = filepath.Join(t.TempDir(), "alias")
+					if err := os.Symlink(base, dest); err != nil {
+						t.Fatal(err)
+					}
+				}
+				r := Resource{Name: "tool", File: "tool", How: HowFile, Dir: kind == "directory"}
+				_, copyErr := r.CopyTo(filepath.Join(base, "tool"), dest, true)
+				for path, want := range map[string]string{file: "student edits", "tool/keep.txt": "other resource"} {
+					if data, err := os.ReadFile(filepath.Join(base, path)); err != nil || string(data) != want {
+						t.Errorf("ancestor copy changed %s: %q, %v", path, data, err)
+					}
+				}
+				if copyErr == nil || !strings.Contains(copyErr.Error(), "contains the source resource") {
+					t.Fatalf("ancestor copy error = %v", copyErr)
+				}
+				external := lab(t, map[string]string{"tool/old.txt": "replace me"})
+				if alias {
+					aliasPath := filepath.Join(t.TempDir(), "alias")
+					if err := os.Symlink(external, aliasPath); err != nil {
+						t.Fatal(err)
+					}
+					external = aliasPath
+				}
+				copied, err := r.CopyTo(filepath.Join(base, "tool"), external, true)
+				if err != nil {
+					t.Fatalf("valid external copy: %v", err)
+				}
+				if kind == "directory" {
+					copied = filepath.Join(copied, "notes.txt")
+				}
+				if data, err := os.ReadFile(copied); err != nil || string(data) != "student edits" {
+					t.Fatalf("external copy = %q, %v", data, err)
+				}
+			})
+		}
+	}
+}
+
 // CopyTo doesn't follow a link in the middle of a path in the copy.
 func TestCopyToRefusesLinkedFolder(t *testing.T) {
 	dir := t.TempDir()

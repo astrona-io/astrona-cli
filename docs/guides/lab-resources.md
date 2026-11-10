@@ -66,6 +66,11 @@ Host `res path`, `show` and `copy` use the editable Kind workspace when it has
 been initialized; otherwise they use the original snapshot. For QEMU, use those
 commands inside the VM to inspect edits; the host has the shipped snapshot.
 
+Host `res copy --force` replaces an existing destination only when it is separate
+from the source. Copying onto the source, into its own subdirectories, or over a
+directory containing it is refused before any files are changed. This also applies
+when the destination reaches those paths through a directory symlink.
+
 ## Execution rules
 
 | Resource | Runs as | Working directory in the lab |
