@@ -5413,7 +5413,7 @@ removed are listed on one line below.</p>
 <p>To get there:</p>
 <ul>
 <li><code>astrona ui</code> with no lab name, when no lab or several labs are running;</li>
-<li><strong>All labs</strong> in the workspace's top bar;</li>
+<li><strong>All labs</strong> at the bottom of the workspace's task panel;</li>
 <li><strong>See all labs on this computer</strong> after a playground ended or a lab was
   removed.</li>
 </ul>
@@ -5440,7 +5440,10 @@ and sent once Astrona can be reached; it never holds up <strong>Start</strong>. 
 run sends nothing.</p>
 <h2 id="the-workspace">The workspace<a class="headerlink" href="#the-workspace" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Task</strong> (left): the question text, rendered from the lab's docs.</li>
+<li><strong>Task</strong> (left): the question text, rendered from the lab's docs. Its
+  top-level heading (such as <code># Exam Question: &lt;lab&gt;</code>) is left out, since the
+  panel already shows the task; the lab's name is in the browser tab's title.
+  <strong>All labs</strong> and <strong>About Astrona</strong> sit at the bottom of the panel.</li>
 <li><strong>Terminal</strong> (right): a shell on the lab with <code>kubectl</code> pointed at its
   cluster. Keyboard focus moves into the terminal after <strong>Start</strong> and when the
   page opens. Press <kbd>F6</kbd> to leave the terminal; <kbd>Shift</kbd>+<kbd>F6</kbd>
@@ -5449,9 +5452,10 @@ run sends nothing.</p>
   bigger steps, <kbd>Home</kbd> / <kbd>End</kbd> for the limits). The task
   panel starts at 25% of the width and can take 15% to 70%; it never gets
   narrower than 280 pixels. The browser remembers the width you chose.</li>
-<li><strong>Hide</strong>: the button next to <strong>Task</strong> collapses the task panel to a thin
-  rail, so the terminal gets the whole width. Click the rail (or use <strong>Skip to
-  task</strong>) to show the task again. The browser remembers this choice too.</li>
+<li><strong>Hide task</strong>: the button next to <strong>Task</strong> collapses the task panel to a
+  thin rail, so the terminal gets the whole width. Click <strong>Show task</strong> on the
+  rail (or use <strong>Skip to task</strong>) to show the task again; <strong>All labs</strong> (⌂) and <strong>About</strong> (ⓘ) stay at
+  the bottom of the rail. The browser remembers this choice too.</li>
 </ul>
 <p>When you are done, use <strong>Submit</strong> in the top bar (see
 <a href="#submit-or-end-from-the-browser">Submit or end from the browser</a>);
