@@ -140,20 +140,19 @@ func LoadLab(src LabSource, opts LoadOptions) (*LoadedLab, error) {
 // is read.
 func LoadSavedLab(name string, src LabSource, opts LoadOptions) (*LoadedLab, error) {
 	path := src.Config
+	var err error
 	if src.Git != "" {
-		repo, err := gitsource.CachedGitConfigSource(src.Git, src.GitRef)
+		var repo string
+		repo, err = gitsource.CachedGitConfigSource(src.Git, src.GitRef)
 		if err != nil {
 			return nil, err
 		}
-		path, err = config.JoinWithinBaseDir(repo, path)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if strings.HasPrefix(path, "https://") || strings.HasPrefix(path, "http://") {
+		path, err = config.ResolveGitConfigPath(repo, path, src.File)
+	} else if strings.HasPrefix(path, "https://") || strings.HasPrefix(path, "http://") {
 		return nil, fmt.Errorf("run %s has only a remote config URL; no local copy is available to reuse. The lab is still running", name)
+	} else {
+		path, err = config.ResolveConfigPath(path, src.File, "", "", false)
 	}
-	path, err := config.ResolveConfigPath(path, src.File, "", "", false)
 	if err != nil {
 		return nil, fmt.Errorf("cannot reopen %s from its local files; restore the saved config or cached repository. The lab is still running: %w", name, err)
 	}

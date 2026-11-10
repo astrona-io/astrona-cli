@@ -7,6 +7,23 @@ import (
 	"testing"
 )
 
+func TestResolveGitConfigPathRejectsFilenameEscapes(t *testing.T) {
+	repo := t.TempDir()
+	outside := filepath.Join(t.TempDir(), "outside.yaml")
+	if err := os.WriteFile(outside, []byte("metadata: {name: outside}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	rel, err := filepath.Rel(repo, outside)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range []string{outside, rel} {
+		if _, err := ResolveGitConfigPath(repo, ".", file); err == nil {
+			t.Fatalf("accepted config file outside checkout: %q", file)
+		}
+	}
+}
+
 func TestValidateName(t *testing.T) {
 	cases := []struct {
 		name string

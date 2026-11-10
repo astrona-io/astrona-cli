@@ -20,7 +20,7 @@ func TestDevelopmentGitCache(t *testing.T) {
 	if filepath.Dir(got) != filepath.Join(home, ".astrona-dev", "cache", "repos") {
 		t.Fatalf("wrong cache: %s", got)
 	}
-	if _, err := os.Stat(got); err != nil {
+	if _, err := os.Stat(filepath.Dir(got)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(home, ".astrona")); !os.IsNotExist(err) {

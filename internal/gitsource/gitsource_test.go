@@ -1,12 +1,16 @@
 package gitsource
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"astrona/internal/apphome"
 )
 
 // captureStdio runs fn with os.Stdout and os.Stderr redirected and returns
@@ -34,6 +38,137 @@ func captureStdio(t *testing.T, fn func()) (stdout, stderr string) {
 	stopOut, stopErr := read(&os.Stdout), read(&os.Stderr)
 	fn()
 	return stopOut(), stopErr()
+}
+
+func TestGitCacheSeparatesURLAndRef(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	root := t.TempDir()
+	a, b := filepath.Join(root, "repo@branch"), filepath.Join(root, "repo")
+	for _, repo := range []string{a, b} {
+		if err := os.Mkdir(repo, 0700); err != nil {
+			t.Fatal(err)
+		}
+		fixtureGit(t, repo, "init", "-q", "--initial-branch=main")
+		commitFixture(t, repo, repo)
+		fixtureGit(t, repo, "branch", "branch@")
+	}
+	first, err := ResolveGitConfigSource(a, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := ResolveGitConfigSource(b, "branch@", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second {
+		t.Fatal("different repository/ref pairs shared a checkout")
+	}
+	if got, err := os.ReadFile(filepath.Join(second, "config.yaml")); err != nil || string(got) != b {
+		t.Fatalf("requested repository content = %q, %v", got, err)
+	}
+}
+
+func TestLegacyGitCacheChecksOrigin(t *testing.T) {
+	for _, matching := range []bool{true, false} {
+		t.Run(map[bool]string{true: "matching", false: "colliding"}[matching], func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+			t.Setenv("XDG_CACHE_HOME", t.TempDir())
+			src, _, _ := newGitFixture(t)
+			cache, err := apphome.ReposDir()
+			if err != nil {
+				t.Fatal(err)
+			}
+			sum := sha256.Sum256([]byte(src + "@"))
+			legacy := filepath.Join(cache, hex.EncodeToString(sum[:])[:16])
+			if err := os.MkdirAll(filepath.Dir(legacy), 0700); err != nil {
+				t.Fatal(err)
+			}
+			refreshFixture(t, src, "", legacy)
+			if !matching {
+				fixtureGit(t, legacy, "remote", "set-url", "origin", "https://other.example/repo.git")
+			}
+			got, err := CachedGitConfigSource(src, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (got == legacy) != matching {
+				t.Fatalf("legacy reuse: got %s, matching=%v", got, matching)
+			}
+			if matching {
+				if err := os.Rename(src, src+"-offline"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			updated, err := ResolveGitConfigSource(src, "", false)
+			if err != nil || updated != got {
+				t.Fatalf("resolve cache = %q, %v", updated, err)
+			}
+			if !matching && fixtureGit(t, legacy, "remote", "get-url", "origin") != "https://other.example/repo.git" {
+				t.Fatal("mismatched legacy cache was changed")
+			}
+		})
+	}
+}
+
+func TestGitCacheRefusesChangedOriginBeforeCleaning(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	src, _, _ := newGitFixture(t)
+	dir, err := ResolveGitConfigSource(src, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(dir, "notes")
+	if err := os.WriteFile(marker, []byte("keep"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	fixtureGit(t, dir, "remote", "set-url", "origin", "https://other.example/repo.git")
+	for _, resolve := range []func() (string, error){
+		func() (string, error) { return CachedGitConfigSource(src, "") },
+		func() (string, error) { return ResolveGitConfigSource(src, "", false) },
+		func() (string, error) { return dir, cloneOrUpdateGitRepo(src, "", dir, false) },
+	} {
+		if _, err := resolve(); err == nil || !strings.Contains(err.Error(), "expected") {
+			t.Fatalf("mismatched origin accepted: %v", err)
+		}
+	}
+	if got, err := os.ReadFile(marker); err != nil || string(got) != "keep" {
+		t.Fatalf("mismatched checkout was cleaned: %q, %v", got, err)
+	}
+}
+
+func TestGitCacheRelativeSourceOrigin(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	src, _, _ := newGitFixture(t)
+	t.Chdir(filepath.Dir(src))
+	first, err := ResolveGitConfigSource("./origin", "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second, err := ResolveGitConfigSource("./origin", "", false); err != nil || second != first {
+		t.Fatalf("relative origin reuse = %q, %v", second, err)
+	}
+}
+
+func TestGitCacheRetriesFailedFirstClone(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	src, _, _ := newGitFixture(t)
+	offline := src + "-offline"
+	if err := os.Rename(src, offline); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ResolveGitConfigSource(src, "", false); err == nil {
+		t.Fatal("unavailable first clone succeeded")
+	}
+	if err := os.Rename(offline, src); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ResolveGitConfigSource(src, "", false); err != nil {
+		t.Fatalf("first clone could not be retried: %v", err)
+	}
 }
 
 // Clone/update progress — ours and, with verbose, git's — must stay off

@@ -5,6 +5,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,34 +19,67 @@ import (
 	"astrona/internal/ui"
 )
 
-// gitCacheDir returns (creating if needed) the cache directory a given repo
-// URL + ref pins to. Keyed by a hash of url+ref, not the raw URL, so
-// arbitrary remote-supplied strings never become path components (same
-// path-safety concern as joinWithinBaseDir in scripts.go, different
-// mechanism — here we don't need the directory name to be human-readable).
+// gitCacheDir resolves the checkout and creates its parent directory. Git
+// creates the checkout itself, so a failed first clone can be retried.
 func gitCacheDir(url, ref string) (string, error) {
 	dir, err := CachedGitConfigSource(url, ref)
 	if err != nil {
 		return "", err
 	}
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dir), 0755); err != nil {
 		return "", fmt.Errorf("failed to create git cache dir '%s': %w", dir, err)
 	}
 	return dir, nil
 }
 
-// CachedGitConfigSource returns the existing checkout's location without
-// creating directories, contacting the remote, or changing working files.
+// CachedGitConfigSource returns the checkout's location without changing files
+// or contacting the remote. Legacy cache keys are reused only for their origin.
 func CachedGitConfigSource(url, ref string) (string, error) {
 	cacheDir, err := apphome.ReposDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve user cache dir: %w", err)
 	}
 
-	sum := sha256.Sum256([]byte(url + "@" + ref))
-	key := hex.EncodeToString(sum[:])[:16]
+	identity, _ := json.Marshal([2]string{url, ref})
+	sum := sha256.Sum256(identity)
+	dir := filepath.Join(cacheDir, "v2-"+hex.EncodeToString(sum[:])[:16])
+	if _, err := os.Stat(dir); err == nil {
+		if err := checkOrigin(dir, url); err != nil {
+			return "", err
+		}
+		return dir, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
 
-	return filepath.Join(cacheDir, key), nil
+	// Keep existing saved runs and offline checkouts usable. The old key
+	// could collide for distinct URL/ref pairs, so its origin must match.
+	legacySum := sha256.Sum256([]byte(url + "@" + ref))
+	legacy := filepath.Join(cacheDir, hex.EncodeToString(legacySum[:])[:16])
+	if _, err := os.Stat(legacy); err == nil && checkOrigin(legacy, url) == nil {
+		return legacy, nil
+	}
+	return dir, nil
+}
+
+func checkOrigin(dir, want string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "git", "-C", dir, "config", "--local", "--no-includes", "--get-all", "remote.origin.url").Output()
+	if err != nil {
+		return fmt.Errorf("cannot verify cached repository origin in %q; its files were kept: %w", dir, err)
+	}
+	got := strings.TrimSuffix(string(out), "\n")
+	if got == want {
+		return nil
+	}
+	// Git records relative filesystem sources as absolute paths on clone.
+	if !strings.Contains(want, ":") || filepath.IsAbs(want) || strings.HasPrefix(want, "./") || strings.HasPrefix(want, "../") {
+		if abs, err := filepath.Abs(want); err == nil && filepath.IsAbs(got) && filepath.Clean(got) == abs {
+			return nil
+		}
+	}
+	return fmt.Errorf("cached repository %q has origin %q, expected %q; its files were kept", dir, got, want)
 }
 
 // runGit runs a git subcommand, optionally scoped to repoDir (git -C
@@ -186,6 +221,9 @@ func cloneOrUpdateGitRepo(url, ref, destDir string, verbose bool) error {
 			return fail("can't clone "+url, err)
 		}
 	} else {
+		if err := checkOrigin(destDir, url); err != nil {
+			return err
+		}
 		target = localGitRevision(gitPath, destDir, cachedRevisionRef)
 		fmt.Fprintf(os.Stderr, "Checking %s ...\n", url)
 		remoteRef, revision, probeErr := remoteGitRevision(gitPath, destDir, ref)

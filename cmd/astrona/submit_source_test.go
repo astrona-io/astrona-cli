@@ -129,7 +129,7 @@ func TestSubmitSavedCatalogWithoutRefetchOrApproval(t *testing.T) {
 			t.Setenv("KIND_EXPERIMENTAL_PROVIDER", "docker")
 			bin := t.TempDir()
 			for name, script := range map[string]string{
-				"git":     "if [ \"$3\" = rev-parse ] && [ \"$4\" = HEAD ]; then echo abc123; else exit 99; fi",
+				"git":     "if [ \"$3\" = rev-parse ] && [ \"$4\" = HEAD ]; then echo abc123; elif [ \"$3\" = config ]; then echo https://github.com/astrona-io/ATS014.git; else exit 99; fi",
 				"docker":  "if [ \"$1\" = ps ]; then echo astro-offline-control-plane; fi",
 				"kubectl": "exit 98",
 				"grade":   fmt.Sprintf("exit %d", map[bool]int{true: 0, false: 1}[pass]),
