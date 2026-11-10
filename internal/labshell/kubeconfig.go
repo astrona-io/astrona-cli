@@ -1,10 +1,12 @@
 package labshell
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"syscall"
 
 	"astrona/internal/cluster"
 	"astrona/internal/config"
@@ -85,7 +87,8 @@ func copyKubeconfig(root *os.Root, lab string) error {
 	if err != nil {
 		return err
 	}
-	if err := writePrivate(root, "config/"+lab+".yaml", data); err != nil {
+	previous, err := root.ReadFile("config/" + lab + ".yaml")
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	work, err := childDir(root, "work", false)
@@ -104,10 +107,91 @@ func copyKubeconfig(root *os.Root, lab string) error {
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("workspace kubeconfig must be a regular file")
 		}
-		return nil // Keep namespace/context edits made in another terminal tab.
+		if bytes.Equal(previous, data) {
+			return nil // Keep edits when the generated credentials have not changed.
+		}
+		file, err := kube.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+		if err != nil {
+			return err
+		}
+		opened, err := file.Stat()
+		if err != nil || !opened.Mode().IsRegular() || !os.SameFile(info, opened) {
+			file.Close()
+			return fmt.Errorf("workspace kubeconfig changed while opening it")
+		}
+		current, err := io.ReadAll(io.LimitReader(file, 4*1024*1024+1))
+		file.Close()
+		if err != nil {
+			return err
+		}
+		if len(current) > 4*1024*1024 {
+			return fmt.Errorf("workspace kubeconfig is too large")
+		}
+		updated, err := refreshCredentials(current, data)
+		if err != nil {
+			return fmt.Errorf("refresh %s terminal credentials: %w", lab, err)
+		}
+		if err := writePrivate(kube, name, updated); err != nil {
+			return err
+		}
+	} else {
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if err := writePrivate(kube, name, data); err != nil {
+			return err
+		}
 	}
-	if !errors.Is(err, os.ErrNotExist) {
-		return err
+	return writePrivate(root, "config/"+lab+".yaml", data)
+}
+
+// Refresh only generated cluster/user fields. Contexts, namespaces, preferences
+// and any extra entries belong to the student and survive a linked reset.
+func refreshCredentials(current, generated []byte) ([]byte, error) {
+	var working, fresh map[string]any
+	if err := yaml.Unmarshal(current, &working); err != nil {
+		return nil, err
 	}
-	return writePrivate(kube, name, data)
+	if working == nil {
+		return nil, fmt.Errorf("workspace kubeconfig must be a mapping")
+	}
+	if err := yaml.Unmarshal(generated, &fresh); err != nil {
+		return nil, err
+	}
+	for _, field := range []struct{ list, value string }{{"clusters", "cluster"}, {"users", "user"}} {
+		entries, ok := working[field.list].([]any)
+		if working[field.list] != nil && !ok {
+			return nil, fmt.Errorf("workspace kubeconfig %s must be a list", field.list)
+		}
+		for _, replacement := range fresh[field.list].([]any) {
+			replace := replacement.(map[string]any)
+			found := false
+			for _, raw := range entries {
+				entry, ok := raw.(map[string]any)
+				if !ok {
+					return nil, fmt.Errorf("workspace kubeconfig %s entry must be a mapping", field.list)
+				}
+				if entry["name"] != replace["name"] {
+					continue
+				}
+				values, ok := entry[field.value].(map[string]any)
+				if !ok {
+					return nil, fmt.Errorf("workspace kubeconfig %s must be a mapping", field.value)
+				}
+				for key, value := range replace[field.value].(map[string]any) {
+					values[key] = value
+				}
+				found = true
+			}
+			if !found {
+				entries = append(entries, replacement)
+			}
+		}
+		working[field.list] = entries
+	}
+	data, err := yaml.Marshal(working)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }

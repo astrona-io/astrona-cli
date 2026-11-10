@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"astrona/internal/apphome"
+	"astrona/internal/config"
 )
 
 type Store struct {
@@ -184,6 +185,12 @@ func (s Store) PlanClean(ctx context.Context, tempOnly bool, now time.Time) (Pla
 			if err != nil {
 				return p, err
 			}
+			if name == "labs" {
+				entries, err = savedLabEntries(r, entries)
+				if err != nil {
+					return p, err
+				}
+			}
 			if name == "qemu" && !tempOnly {
 				entries, err = s.addLegacyVMs(ctx, &p, r, entries, now)
 				if err != nil {
@@ -246,6 +253,49 @@ func (s Store) PlanClean(ctx context.Context, tempOnly bool, now time.Time) (Pla
 		}
 	}
 	return p, nil
+}
+
+// Helper logs and permanent lock files do not depend on cached lab files.
+// Keep them on disk, and still defer cleanup for any unrecognized entry.
+func savedLabEntries(r *os.Root, entries []fs.DirEntry) ([]fs.DirEntry, error) {
+	labs, err := openChild(r, "labs")
+	if err != nil {
+		return nil, err
+	}
+	defer labs.Close()
+	var saved []fs.DirEntry
+	for _, entry := range entries {
+		if entry.Name() == "locks" && entry.IsDir() {
+			locks, err := openChild(labs, "locks")
+			if err != nil {
+				return nil, err
+			}
+			files, err := fs.ReadDir(locks.FS(), ".")
+			locks.Close()
+			if err != nil {
+				return nil, err
+			}
+			known := true
+			for _, file := range files {
+				lab, ok := strings.CutSuffix(file.Name(), ".json.lock")
+				if !ok || !file.Type().IsRegular() || config.ValidateName(lab) != nil {
+					known = false
+					break
+				}
+			}
+			if known {
+				continue
+			}
+		}
+		if entry.Type().IsRegular() {
+			name := strings.TrimSuffix(strings.TrimSuffix(entry.Name(), ".usage.log"), ".watchdog.log")
+			if name != entry.Name() && config.ValidateName(name) == nil {
+				continue
+			}
+		}
+		saved = append(saved, entry)
+	}
+	return saved, nil
 }
 
 // addLegacyVMs plans removal of VM state dirs that have no handle.json, were

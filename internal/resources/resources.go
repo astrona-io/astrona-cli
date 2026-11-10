@@ -500,11 +500,24 @@ func (r Resource) CopyTo(dir, dest string, force bool) (string, error) {
 		return "", err
 	}
 	defer rt.Close()
-	if _, err := lstatNoLinks(rt, r.File); err != nil { // before replacing anything
+	sourceInfo, err := lstatNoLinks(rt, r.File)
+	if err != nil { // before replacing anything
 		return "", fmt.Errorf("copy %s: %w", r.Name, err)
 	}
 	if fi, err := os.Stat(dest); err == nil && fi.IsDir() {
 		dest = filepath.Join(dest, path.Base(r.File))
+	}
+	if destInfo, err := os.Stat(dest); err == nil && os.SameFile(sourceInfo, destInfo) {
+		return "", fmt.Errorf("%s is the source resource; choose another destination", dest)
+	}
+	if sourceInfo.IsDir() {
+		inside, err := destinationInsideSource(sourceInfo, dest)
+		if err != nil {
+			return "", err
+		}
+		if inside {
+			return "", fmt.Errorf("%s is inside the source resource; choose another destination", dest)
+		}
 	}
 	if _, err := os.Lstat(dest); err == nil {
 		if !force {
@@ -519,4 +532,42 @@ func (r Resource) CopyTo(dir, dest string, force bool) (string, error) {
 		return "", fmt.Errorf("copy %s: %w", r.Name, err)
 	}
 	return dest, nil
+}
+
+// Resolve the nearest existing destination ancestor so directory aliases and
+// destinations with several missing components receive the same check.
+func destinationInsideSource(sourceInfo fs.FileInfo, dest string) (bool, error) {
+	ancestor, err := filepath.Abs(dest)
+	if err != nil {
+		return false, err
+	}
+	for {
+		resolved, err := filepath.EvalSymlinks(ancestor)
+		if err == nil {
+			ancestor = resolved
+			break
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return false, err
+		}
+		parent := filepath.Dir(ancestor)
+		if parent == ancestor {
+			return false, err
+		}
+		ancestor = parent
+	}
+	for {
+		info, err := os.Stat(ancestor)
+		if err != nil {
+			return false, err
+		}
+		if os.SameFile(sourceInfo, info) {
+			return true, nil
+		}
+		parent := filepath.Dir(ancestor)
+		if parent == ancestor {
+			return false, nil
+		}
+		ancestor = parent
+	}
 }

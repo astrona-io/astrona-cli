@@ -308,6 +308,74 @@ func TestSnapshotRefusesLinkedFolders(t *testing.T) {
 	}
 }
 
+func TestCopyToRefusesItself(t *testing.T) {
+	for _, destination := range []string{"file", "directory", "directory alias"} {
+		t.Run(destination, func(t *testing.T) {
+			dir := t.TempDir()
+			source := filepath.Join(dir, "notes.txt")
+			if err := os.WriteFile(source, []byte("student edits"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			dest := source
+			switch destination {
+			case "directory":
+				dest = dir
+			case "directory alias":
+				dest = filepath.Join(t.TempDir(), "alias")
+				if err := os.Symlink(dir, dest); err != nil {
+					t.Fatal(err)
+				}
+			}
+			r := Resource{Name: "notes", File: "notes.txt", How: HowFile}
+			if _, err := r.CopyTo(dir, dest, true); err == nil || !strings.Contains(err.Error(), "source resource") {
+				t.Fatalf("self-copy error = %v", err)
+			}
+			if data, err := os.ReadFile(source); err != nil || string(data) != "student edits" {
+				t.Fatalf("self-copy changed source: %q, %v", data, err)
+			}
+		})
+	}
+}
+
+func TestCopyToRefusesDirectoryDescendants(t *testing.T) {
+	for _, destination := range []string{"source", "descendant", "source alias", "descendant alias"} {
+		t.Run(destination, func(t *testing.T) {
+			dir := lab(t, map[string]string{"tool/sub/notes.txt": "student edits"})
+			source := filepath.Join(dir, "tool")
+			dest := source
+			switch destination {
+			case "descendant":
+				dest = filepath.Join(source, "new", "copy")
+			case "source alias", "descendant alias":
+				target := source
+				if destination == "descendant alias" {
+					target = filepath.Join(source, "sub")
+				}
+				alias := filepath.Join(t.TempDir(), "alias")
+				if err := os.Symlink(target, alias); err != nil {
+					t.Fatal(err)
+				}
+				dest = filepath.Join(alias, "new", "copy")
+			}
+			r := Resource{Name: "tool", File: "tool", How: HowFile, Dir: true}
+			if _, err := r.CopyTo(dir, dest, true); err == nil || !strings.Contains(err.Error(), "source resource") {
+				t.Fatalf("descendant copy error = %v", err)
+			}
+			if data, err := os.ReadFile(filepath.Join(source, "sub", "notes.txt")); err != nil || string(data) != "student edits" {
+				t.Fatalf("descendant copy changed source: %q, %v", data, err)
+			}
+			entries, err := os.ReadDir(source)
+			if err != nil || len(entries) != 1 || entries[0].Name() != "sub" {
+				t.Fatalf("descendant copy created files in source: %v, %v", entries, err)
+			}
+			entries, err = os.ReadDir(filepath.Join(source, "sub"))
+			if err != nil || len(entries) != 1 || entries[0].Name() != "notes.txt" {
+				t.Fatalf("descendant copy created files in source child: %v, %v", entries, err)
+			}
+		})
+	}
+}
+
 // CopyTo doesn't follow a link in the middle of a path in the copy.
 func TestCopyToRefusesLinkedFolder(t *testing.T) {
 	dir := t.TempDir()
