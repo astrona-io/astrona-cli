@@ -5048,8 +5048,32 @@
 <li><code>bootstrap.manifests</code> / <code>testing.manifests</code> apply against the cluster via <code>kubectl --context kind-&lt;cluster-name&gt;</code>.</li>
 <li><code>validation.checks</code> of type <code>resourceExists</code>/<code>podReady</code> run against the same context.</li>
 <li>Scripts (<code>bootstrap.init</code>, <code>teardown.init</code>, <code>validation.script</code>) run on the <strong>host</strong> — there's no VM to SSH into — with <code>KUBECONFIG</code> set to the lab's own kubeconfig (see below), so a plain <code>kubectl</code> in a script always hits the lab.</li>
-<li><code>runtime.portForwards</code> exposes in-cluster services on <code>127.0.0.1</code> — see <a href="#port-forwards">Port forwards</a>.</li>
+<li>Those scripts, and <code>command</code> checks, also get the lab's cluster by name, so they never need to hardcode it:</li>
 </ul>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ASTRONA_KUBE_CONTEXT</code></td>
+<td>The context in <code>KUBECONFIG</code>, <code>kind-astro-&lt;lab&gt;</code></td>
+</tr>
+<tr>
+<td><code>ASTRONA_KIND_CLUSTER</code></td>
+<td>The kind cluster, <code>astro-&lt;lab&gt;</code>. Its node containers are <code>$ASTRONA_KIND_CLUSTER-control-plane</code>, <code>$ASTRONA_KIND_CLUSTER-worker</code>, <code>$ASTRONA_KIND_CLUSTER-worker2</code>, …</td>
+</tr>
+<tr>
+<td><code>ASTRONA_CONTAINER_ENGINE</code></td>
+<td><code>docker</code> or <code>podman</code>, whichever runs the cluster: <code>"$ASTRONA_CONTAINER_ENGINE" exec "$ASTRONA_KIND_CLUSTER-control-plane" …</code></td>
+</tr>
+</tbody>
+</table>
+<p>A script that uses them works unchanged on any cluster that sets them, for example a cluster shared by several labs. Keep a fallback for an older astrona that does not set them: <code>${ASTRONA_KUBE_CONTEXT:-kind-astro-&lt;lab&gt;}</code>.
+- <code>runtime.portForwards</code> exposes in-cluster services on <code>127.0.0.1</code> — see <a href="#port-forwards">Port forwards</a>.</p>
 <h3 id="dns-for-the-lab-network-runtimekinddns">DNS for the lab network (<code>runtime.kind.dns</code>)<a class="headerlink" href="#dns-for-the-lab-network-runtimekinddns" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">runtime</span><span class="p">:</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">kind</span><span class="p">:</span>
@@ -5097,7 +5121,7 @@
 <p><code>astrona destroy</code> (or deleting the lab after a passing <code>astrona submit</code>) switches back to that context — but only if the lab's context is still current: if you've switched to another one meanwhile, that's left as it is and destroy says so. If the previous context no longer exists, nothing is switched and destroy says so; if you had none, it's unset again. The context to go back to is kept in <code>~/.astrona/labs/&lt;lab&gt;.json</code> (mode <code>0600</code>). Starting a lab over (<code>run</code> on a running lab, <code>reset</code>) keeps the context from before the lab first ran. Labs started on top of each other chain: run lab A (from <code>prod</code>), then lab B (from A's context), and destroying A first hands <code>prod</code> on to B, so destroying B still brings you back to <code>prod</code>. The context is put back before the lab is deleted — if the delete then fails, your context stays restored and a later <code>astrona destroy</code> just removes what's left.
 - <code>--keep-context</code> on <code>run</code>/<code>reset</code> leaves your current-context alone: reach the lab with <code>astrona shell</code> or <code>kubectl --context kind-astro-&lt;lab&gt; …</code>. Either way, the switch never happens mid-build — <code>kind create cluster</code>'s own switch is undone straight away, and only the finished lab is made current.
 - still lets kind add the <code>kind-&lt;lab&gt;</code> context to your own kubeconfig, so <code>kubectl --context kind-astro-&lt;lab&gt; …</code> works from any terminal.
-- runs lab scripts and <code>command</code> validation checks with <code>KUBECONFIG=&lt;lab kubeconfig&gt;</code>.
+- runs lab scripts and <code>command</code> validation checks with <code>KUBECONFIG=&lt;lab kubeconfig&gt;</code>, plus <code>ASTRONA_KUBE_CONTEXT</code>, <code>ASTRONA_KIND_CLUSTER</code> and <code>ASTRONA_CONTAINER_ENGINE</code> (see <a href="#kind-default">above</a>).
 - deletes the file on <code>astrona destroy</code>.</p>
 </li>
 </ul>
