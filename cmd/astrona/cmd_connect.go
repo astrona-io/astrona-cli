@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -21,11 +22,12 @@ import (
 	"astrona/internal/labops"
 	"astrona/internal/preflight"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
 
 func newConnectCmd() *cobra.Command {
-	var install, uninstall, service bool
+	var install, uninstall, service, confirm bool
 	cmd := &cobra.Command{
 		Use:   "connect",
 		Short: "Let the Astrona website start labs on this computer",
@@ -36,12 +38,19 @@ func newConnectCmd() *cobra.Command {
 			"connection: no shell commands, files or URLs.\n\n" +
 			"--install starts it with your login session from now on (a LaunchAgent on macOS, a systemd " +
 			"user service on Linux); --uninstall removes that again. Its log is ~/.astrona/logs/connect.log.\n\n" +
+			"--confirm asks at this terminal before each request from the website runs (status needs no " +
+			"answer). A request you decline, or leave unanswered for two minutes, is refused, and the " +
+			"website says so.\n\n" +
 			"Signing this computer out on the website ends the connection and removes the sign-in here.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switch {
 			case install && uninstall:
 				return errors.New("choose --install or --uninstall, not both")
+			case confirm && (install || uninstall || service):
+				return errors.New("--confirm asks at a terminal, so it can't run as a service; run astrona connect --confirm in a terminal")
+			case confirm && (!isatty.IsTerminal(os.Stdin.Fd()) || !isatty.IsTerminal(os.Stdout.Fd())):
+				return errors.New("--confirm needs a terminal to ask in")
 			case install:
 				return installConnectService()
 			case uninstall:
@@ -53,17 +62,18 @@ func newConnectCmd() *cobra.Command {
 			}
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 			defer stop()
-			return runConnect(ctx, client, store, site, service)
+			return runConnect(ctx, client, store, site, service, confirm)
 		},
 	}
 	cmd.Flags().BoolVar(&install, "install", false, "Start astrona connect with your login session from now on")
 	cmd.Flags().BoolVar(&uninstall, "uninstall", false, "Stop starting astrona connect with your login session")
 	cmd.Flags().BoolVar(&service, "service", false, "Run under the service --install sets up")
+	cmd.Flags().BoolVar(&confirm, "confirm", false, "Ask at this terminal before each request from the website runs")
 	_ = cmd.Flags().MarkHidden("service")
 	return cmd
 }
 
-func runConnect(ctx context.Context, client *account.Client, store account.Store, site string, service bool) error {
+func runConnect(ctx context.Context, client *account.Client, store account.Store, site string, service, confirm bool) error {
 	if _, err := client.Active(ctx, store, site); err != nil {
 		if errors.Is(err, account.ErrSignedOut) {
 			return fmt.Errorf("you're not signed in to Astrona (%s) — sign in with: astrona login, then run astrona connect again", site)
@@ -74,12 +84,17 @@ func runConnect(ctx context.Context, client *account.Client, store account.Store
 	if err != nil {
 		return err
 	}
+	run := childRunner(exe, os.Stdout)
+	if confirm {
+		run = confirmRunner(ctx, run, os.Stdin, os.Stdout, confirmWait)
+		fmt.Println("Each request from the website waits for your answer here.")
+	}
 	err = connect.Run(ctx, connect.Options{
 		Client: client,
 		Store:  store,
 		Site:   site,
 		Hello:  connectHello,
-		Run:    childRunner(exe, os.Stdout),
+		Run:    run,
 		Log:    os.Stdout,
 	})
 	if err == nil {
@@ -123,6 +138,77 @@ func connectHello(ctx context.Context) connect.Hello {
 		h.Capacity = capacity
 	}
 	return h
+}
+
+// confirmWait is how long --confirm waits for an answer before refusing.
+const confirmWait = 2 * time.Minute
+
+// confirmDoes says in a few words what each command will do on this computer.
+var confirmDoes = map[string]string{
+	"run":     "build and start",
+	"start":   "start",
+	"stop":    "stop",
+	"reset":   "reset (your changes in it are lost)",
+	"destroy": "delete",
+	"submit":  "grade and submit",
+}
+
+// confirmRunner asks on out before each command except status and runs it
+// only on a yes typed on in. No answer within wait, or ctx ending, refuses it.
+// The worker runs one command at a time, so questions never overlap.
+func confirmRunner(ctx context.Context, next connect.Runner, in io.Reader, out io.Writer, wait time.Duration) connect.Runner {
+	// One reader for the whole run: a line typed while nothing is asked is
+	// read and dropped below, never taken as the answer to the next question.
+	lines := make(chan string)
+	go func() {
+		scanner := bufio.NewScanner(in)
+		for scanner.Scan() {
+			select {
+			case lines <- scanner.Text():
+			case <-ctx.Done():
+				return
+			}
+		}
+		close(lines)
+	}()
+	return func(ctx context.Context, c connect.Command) error {
+		does, ask := confirmDoes[c.Command]
+		if !ask {
+			return next(ctx, c)
+		}
+	drain:
+		for {
+			select {
+			case _, ok := <-lines:
+				if !ok {
+					break drain
+				}
+			default:
+				break drain
+			}
+		}
+		fmt.Fprintf(out, "The website asks to %s %s on this computer. Allow? [y/N] ", does, c.Lab)
+		timer := time.NewTimer(wait)
+		defer timer.Stop()
+		select {
+		case answer, ok := <-lines:
+			if !ok {
+				fmt.Fprintln(out)
+				return fmt.Errorf("%w: no terminal to confirm it on this computer", connect.ErrRejected)
+			}
+			switch strings.ToLower(strings.TrimSpace(answer)) {
+			case "y", "yes":
+				return next(ctx, c)
+			}
+			return fmt.Errorf("%w: declined on this computer", connect.ErrRejected)
+		case <-timer.C:
+			fmt.Fprintln(out, "\nNo answer; refused.")
+			return fmt.Errorf("%w: not confirmed on this computer in time", connect.ErrRejected)
+		case <-ctx.Done():
+			fmt.Fprintln(out)
+			return ctx.Err()
+		}
+	}
 }
 
 // connectArgs is the astrona command line for a command from the website.
