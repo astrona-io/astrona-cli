@@ -120,28 +120,28 @@ function submitBlocked(): string {
 }
 
 // A sample graded result: names, pass/fail, points and an allowed hint only.
+// The first attempt fails (the attempt stays open); later ones pass.
 function grade(): Record<string, unknown> {
   state.attempts++
   const checks = [
     { name: 'NetworkPolicy api exists in shop', pass: true, points: 2 },
     { name: 'Frontend pods reach the API on 8080', pass: true, points: 4 },
-    { name: 'Other pods cannot reach the API', pass: false, points: 4 },
+    { name: 'Other pods cannot reach the API', pass: state.attempts > 1, points: 4 },
   ]
   const earned = checks.filter((c) => c.pass).reduce((n, c) => n + c.points, 0)
+  const pass = checks.every((c) => c.pass)
   const sent = tracking === 'account'
-  const finished = sent || tracking === 'local-only'
-  const messages =
-    tracking === 'account'
-      ? [`Sent to your lab page (attempt ${state.attempts}): https://astrona.io/labs/demo`, 'Lab demo deleted.']
-      : tracking === 'local-only'
-        ? ['This run is local only; the result was not sent to your account.', 'Lab demo deleted.']
-        : []
+  const finished = pass && (sent || tracking === 'local-only')
+  const messages: string[] = []
+  if (sent) messages.push(`Sent to your lab page (attempt ${state.attempts}): https://astrona.io/labs/demo`)
+  if (tracking === 'local-only') messages.push('This run is local only; the result was not sent to your account.')
+  if (finished) messages.push('Lab demo deleted.')
   if (finished) state.removed = true
   return {
     lab: 'demo',
     runId: 'f'.repeat(64),
     result: {
-      pass: false,
+      pass,
       earned,
       max: 10,
       percent: earned * 10,
@@ -153,6 +153,7 @@ function grade(): Record<string, unknown> {
     },
     recorded: true,
     sent,
+    queued: false,
     finished,
     environmentRemoved: finished,
     messages,

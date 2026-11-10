@@ -27,12 +27,12 @@ export function endSessionCopy(run: Run, expired: boolean): EndCopy {
   switch (tracking) {
     case 'account':
       p.push(
-        'This run is linked to your Astrona account. If astrona is signed in to the same site, the result is sent to your lab page and this attempt is finished: it cannot be submitted again. If it cannot be sent, you are told why and the attempt stays open.',
+        'This run is linked to your Astrona account. If astrona is signed in to the same site, the result is sent to your lab page (or saved to send once Astrona can be reached). A pass finishes this attempt. A fail keeps it open: fix the lab and submit again.',
       )
       break
     case 'local-only':
       p.push(
-        'This run is local only: nothing is sent to your Astrona account. Once the result is saved here, this attempt is finished.',
+        'This run is local only: nothing is sent to your Astrona account. A pass saved here finishes this attempt; a fail keeps it open, so you can fix the lab and submit again.',
       )
       break
     default:
@@ -50,12 +50,12 @@ export function endSessionCopy(run: Run, expired: boolean): EndCopy {
     )
   } else {
     p.push(
-      'Once the attempt is finished, the environment is removed: its cluster, terminals and everything you changed in it are deleted. If the result is not sent, the environment keeps running.',
+      'When a pass finishes the attempt, the environment is removed: its cluster, terminals and everything you changed in it are deleted. After a fail, or a result that is not sent, the environment keeps running.',
     )
   }
   if (exam) {
     let line = 'Your exam time is recorded at the moment you submit.'
-    if (!keepEnvironment && tracking !== 'none') line += ' The timer stops when the environment is removed.'
+    if (!keepEnvironment && tracking !== 'none') line += ' A pass stops the timer when the environment is removed; after a fail it keeps running.'
     else line += ' The timer keeps running until the environment is removed.'
     p.push(line)
   }

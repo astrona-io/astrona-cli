@@ -59,6 +59,7 @@ type submission struct {
 	Result             submitResult `json:"result"`
 	Recorded           bool         `json:"recorded"`
 	Sent               bool         `json:"sent"`
+	Queued             bool         `json:"queued"`
 	Finished           bool         `json:"finished"`
 	EnvironmentRemoved bool         `json:"environmentRemoved"`
 	Messages           []string     `json:"messages"`
@@ -384,7 +385,7 @@ func (s *Server) runSubmit(rec RunRecord, job *submitJob) {
 	}
 	sub := &submission{
 		Lab: rec.Lab, RunID: rec.RunID, Result: browserResult(res.Result),
-		Recorded: res.Recorded, Sent: res.Sent, Finished: res.Finished, EnvironmentRemoved: removed,
+		Recorded: res.Recorded, Sent: res.Sent, Queued: res.Queued, Finished: res.Finished, EnvironmentRemoved: removed,
 		Messages: status.lines(),
 	}
 	if err != nil {

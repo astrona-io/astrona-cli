@@ -22,9 +22,14 @@ const savedLine = computed(() =>
     : 'This attempt could not be saved in this machine’s history (see the workspace server log).',
 )
 const sentLine = computed(() => {
-  if (props.submission.sent) return 'Sent to your Astrona lab page. This attempt is finished.'
-  if (props.submission.finished) return 'Not sent: this run is local only. This attempt is finished.'
-  return 'Not sent to your Astrona account.'
+  const s = props.submission
+  let line = 'Not sent to your Astrona account.'
+  if (s.sent) line = 'Sent to your Astrona lab page.'
+  else if (s.queued) line = 'Saved to send to your Astrona lab page once Astrona can be reached.'
+  else if (s.finished) line = 'Not sent: this run is local only.'
+  if (s.finished) return `${line} This attempt is finished.`
+  if (!s.result.pass) return `${line} A failed result keeps the attempt open: fix the lab and submit again.`
+  return `${line} The attempt stays open.`
 })
 const environmentLine = computed(() => {
   if (props.submission.environmentRemoved) return 'The environment was removed.'
