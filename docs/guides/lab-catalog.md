@@ -100,7 +100,7 @@ A module's playground (`astrona run ATS014/section-000/module-01/playground`) is
 3. Once the playground is built, run starts a **watchdog** — a detached `astrona` process in its own session, so closing the terminal doesn't stop it — and prints when it ends: `Playground ready. It stops and is removed at 16:40 (in 2h0m0s)`. The watchdog compares against the wall clock every minute (a laptop that slept still stops on time); at the deadline it stops the clock on the site as "time limit" and removes the cluster exactly like `astrona destroy`. Its output goes to `~/.astrona/labs/<lab>.watchdog.log`. If it can't be started, run warns and the playground stays until you `astrona destroy` it — the site still stops the clock at the deadline.
 4. `astrona destroy` ends it sooner: it stops the watchdog and the clock (as "destroyed") and removes the playground. It prints nothing extra when that works; if the site can't be reached it warns — the clock then stops by itself at the time limit.
 
-Still working when the limit is near? `astrona run renew` sends the time so far to your account (as destroy would) and starts a new timer with the full time limit, without touching the playground:
+Still working when the limit is near? `astrona run renew` starts the timer again with the full time limit, without touching the playground. Its session goes on, and all of its time counts as playground time when it ends:
 
 ```sh
 astrona run renew                                              # every running playground
@@ -108,15 +108,14 @@ astrona run renew astrona.io/ATS014/section-000/module-01/playground
 ```
 
 ```text
-Renewed astro-…: 1h52m0s of playground time sent to your account, and a new timer started —
-it now stops and is removed at 18:35 (in 2h0m0s).
+Renewed astro-…: it now stops and is removed at 18:35 (in 2h0m0s).
 ```
 
 A playground that already stopped can't be renewed — run it again. `astrona reset` of a playground does what `run` does: a fresh playground session with a new clock and watchdog once it is rebuilt. If a playground fails to build, its session is stopped, so no time is counted for it.
 
 Before removing a playground, the watchdog locks it and rechecks the run,
-session, and deadline. A watchdog left over from a renewed or replaced run
-cannot stop its new session or remove the lab.
+session, and deadline. A watchdog left over from before a renew, or from a
+replaced run, cannot stop the playground or remove the lab.
 
 ## Resource usage
 

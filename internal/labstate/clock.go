@@ -20,8 +20,8 @@ type remoteClock struct {
 
 // SetRemotePaused records that the site is to be told the run's clock paused
 // (or resumed) at at, and reports whether that is news — false when the
-// session's clock is already in that state. A new session (a renew) starts
-// running.
+// session's clock is already in that state. A new session (a run, or a
+// renew on an older site) starts running.
 func SetRemotePaused(lab, started, session string, paused bool, at time.Time) (bool, error) {
 	dir, err := activityDir(lab, started)
 	if err != nil {

@@ -24,7 +24,7 @@ import (
 // saying so. It follows the
 // lab's state: it ends when the lab is destroyed or started again, its
 // session is gone or expired, or the site stops taking samples (a lab that
-// passed). `astrona run renew` keeps it: it reads the new session id.
+// passed). `astrona run renew` keeps it going.
 //
 // The usage-samples setting turns all of it off: no reporter starts, a
 // running one stops at its next tick, samples waiting in the outbox are
