@@ -186,6 +186,8 @@ It always opens a dialog first that says what is about to happen for this run:
 - If the checks cannot run (for example, the container engine stopped),
   nothing is recorded or sent and the lab keeps running.
 
+![The Submit lab dialog over the workspace, for a local lab that is not linked to an account](../assets/browser-workspace-submit.png)
+
 **Cancel** has the focus and **Esc** closes the dialog. While grading runs, the
 dialog stays open. Keep the page open; if the connection drops, the page asks
 the server for the result again, and the same submission is never graded
@@ -195,7 +197,11 @@ The results page shows pass or fail, the score, the pass mark, the attempt
 number and every check with its points. A failed check shows its hint only when
 the lab shows hints. Check commands, expected values and the solution are never
 shown. Below that it says whether the result was saved and sent and whether
-the environment was removed. From there you can:
+the environment was removed.
+
+![The results page: FAIL, 4 of 5 points, each check with its points and the hint for the failed one](../assets/browser-workspace-results.png)
+
+From there you can:
 
 - go back to the workspace while the environment still runs;
 - remove the environment (with a confirmation);
