@@ -220,8 +220,12 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer rep.Close()
+			rep.SetObserver(start.Observe)
 			if flags.launch != nil {
-				rep.SetObserver(flags.launch.Observe)
+				rep.SetObserver(func(e ui.Event) {
+					flags.launch.Observe(e)
+					start.Observe(e)
+				})
 				flags.launch.SetLog(rep.LogPath())
 				flags.launch.Stage(workspace.LaunchPreparing, "")
 			}
