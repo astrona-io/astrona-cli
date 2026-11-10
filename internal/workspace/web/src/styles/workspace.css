@@ -189,7 +189,21 @@
 
 .launch__begin {
   display: flex;
-  justify-content: flex-end;
+}
+
+/* The one thing to do once the lab is ready: as wide as the log above it. */
+.launch__cta {
+  flex: 1;
+  min-height: 60px;
+  padding: 18px 32px;
+  font-size: 19px;
+  letter-spacing: 0.01em;
+  box-shadow: 0 6px 24px -8px var(--orange);
+}
+
+.launch__cta:focus-visible {
+  outline: 3px solid var(--orange-hover);
+  outline-offset: 3px;
 }
 
 .launch__section {
