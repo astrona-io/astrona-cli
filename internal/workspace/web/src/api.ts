@@ -397,6 +397,8 @@ export interface Launch {
   logPath?: string
   /** The account the run is saved to, once astrona run knows it. */
   account?: AccountStatus
+  /** Set with account: the lab is a playground (time, no attempts). */
+  playground?: boolean
   /** False once the command in the terminal has exited. */
   alive: boolean
   answered?: 'accepted' | 'declined'

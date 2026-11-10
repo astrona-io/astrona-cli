@@ -70,7 +70,7 @@ const rules = computed(() => {
         </ul>
       </div>
 
-      <AccountNotice :account="run.account" compact />
+      <AccountNotice :account="run.account" :playground="playground" compact />
 
       <hr class="rule" />
 

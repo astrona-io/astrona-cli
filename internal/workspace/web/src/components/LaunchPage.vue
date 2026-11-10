@@ -227,7 +227,7 @@ async function answer(accept: boolean): Promise<void> {
         <template v-else>{{ launch.stage === 'checking' ? 'Checking the lab…' : 'Working…' }}</template>
       </p>
 
-      <AccountNotice v-if="launch?.account && (readyLab || !final)" :account="launch.account" />
+      <AccountNotice v-if="launch?.account && (readyLab || !final)" :account="launch.account" :playground="launch.playground" />
 
       <div v-if="rows.length" class="launch__term">
         <div class="launch__bar" aria-hidden="true">

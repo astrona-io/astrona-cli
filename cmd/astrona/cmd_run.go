@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"astrona/internal/addons"
 	"astrona/internal/catalog"
@@ -208,7 +209,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer start.Abandon()
 			flags.runAccount = runAccountStatus(flags, acct, start.Session)
-			flags.launch.SetAccount(flags.runAccount)
+			flags.launch.SetAccount(flags.runAccount,
+				start.Session.IsPlayground() || labops.IsPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground")
 			start.Progress("preparing", "Preparing your lab environment")
 
 			rep, err := ui.New("run", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})

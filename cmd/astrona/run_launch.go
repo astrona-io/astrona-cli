@@ -173,14 +173,16 @@ func (l *browserLaunch) SetTitle(title string) {
 	l.writeLocked(true)
 }
 
-// SetAccount tells the page which account the run is saved to.
-func (l *browserLaunch) SetAccount(a *workspace.AccountStatus) {
+// SetAccount tells the page which account the run is saved to, and
+// whether the lab is a playground.
+func (l *browserLaunch) SetAccount(a *workspace.AccountStatus, playground bool) {
 	if l == nil {
 		return
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.rec.Account = a
+	l.rec.Playground = playground
 	l.writeLocked(true)
 }
 

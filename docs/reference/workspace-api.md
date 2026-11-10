@@ -183,10 +183,12 @@ older than a day are removed.
 `account` appears once `astrona run` has decided whose account the run is
 saved to, which is after the lab was resolved and the lab session was (or was
 not) started. The page shows it as a card while the lab is set up.
+`playground: true` is set with it when the lab is a playground, which has time but
+no attempts, so the card does not mention a result.
 
 | `account.state` | Meaning |
 | --- | --- |
-| `signed-in` | A catalog lab with a lab session: the time and every attempt are saved to the account. `username` and `site` say which account. |
+| `signed-in` | A catalog lab with a lab session: the time and the submitted result, pass or fail, are saved to the account (a playground: the time). `username` and `site` say which account. |
 | `signed-out` | A catalog lab started without a lab session (not signed in): nothing from this run is saved to an account. `site` is the site astrona would sign in to, for a sign-up link. |
 | `local-only` | Started with `--local-only`: nothing is sent. |
 | `untracked` | A lab from local files or `--git`: no account applies. The page shows nothing. |

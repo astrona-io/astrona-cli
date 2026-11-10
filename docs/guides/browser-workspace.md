@@ -29,10 +29,11 @@ While the lab is set up, a card shows whether this run is saved to your
 Astrona account. `astrona run` decides that when it starts the lab:
 
 - **Signed in** (a catalog lab, signed in): *Signed in as <username> on
-  <site>*. The time you spend on the lab and every attempt you submit are saved
-  to your account; a pass finishes the attempt, a fail keeps it open.
+  <site>*. The time you spend and your submitted result, pass or fail, are
+  saved to your account. Submitting ends the attempt and removes the lab. For a
+  playground, the card only says that the time you spend in it is saved.
 - **Not signed in** (a catalog lab, signed out): the run is not saved to an
-  account; the time and attempts stay on this computer. The card links to
+  account; the time and your result stay on this computer. The card links to
   **Create a free Astrona account** on the site astrona signs in to (opened in
   a new tab) and tells you to run `astrona login` and start the lab again.
   Signing in while this run is open does not link it: a run is linked to an

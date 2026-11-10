@@ -112,6 +112,7 @@ function mockLaunch(id: string) {
     ...(ready ? { lab: 'demo' } : { status: `waiting · ${Math.round(elapsed % per)}s` }),
     events,
     account,
+    ...(playground ? { playground } : {}),
     alive: true,
   }
 }

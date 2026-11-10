@@ -7,7 +7,7 @@ import type { AccountStatus } from '../api'
 // card; the lab briefing one line. A lab from the student's own files
 // ("untracked") shows nothing: no account applies to it.
 
-const props = defineProps<{ account?: AccountStatus | null; compact?: boolean }>()
+const props = defineProps<{ account?: AccountStatus | null; compact?: boolean; playground?: boolean }>()
 
 /** The CLI's own site, only as an http(s) origin; null otherwise. */
 const site = computed<URL | null>(() => {
@@ -54,9 +54,12 @@ const signedInAs = computed(() => {
     <p id="account-title" class="account__title readiness readiness--ok">
       <span class="dot" aria-hidden="true" /> <span class="account__name">{{ signedInAs }}</span>
     </p>
-    <p class="muted">
-      This run is linked to your Astrona account. The time you spend on this lab and every attempt you submit are saved
-      there. A pass finishes the attempt; a fail keeps it open, so you can fix the lab and submit again.
+    <p v-if="playground" class="muted">
+      This run is linked to your Astrona account. The time you spend in this playground is saved to your account.
+    </p>
+    <p v-else class="muted">
+      This run is linked to your Astrona account. The time you spend and your submitted result, pass or fail, are saved
+      there. Submitting ends the attempt and removes the lab.
     </p>
   </section>
 
@@ -65,13 +68,21 @@ const signedInAs = computed(() => {
     <p id="account-title" class="account__title readiness readiness--info">
       <span class="dot" aria-hidden="true" /> This run is not saved to an Astrona account
     </p>
-    <p class="muted">
-      You are not signed in, so the time you spend and your attempts stay on this computer. That is fine for trying a
-      lab out.
+    <p v-if="playground" class="muted">
+      You are not signed in, so the time you spend in this playground stays on this computer. That is fine for trying
+      it out.
     </p>
-    <p>
-      Become an Astrona student to keep your work: with a free account, the time you spend on a lab and every attempt you
-      submit are saved to your account, and a pass finishes the attempt there.
+    <p v-else class="muted">
+      You are not signed in, so the time you spend and your result stay on this computer. That is fine for trying a lab
+      out.
+    </p>
+    <p v-if="playground">
+      Become an Astrona student to keep your work: with a free account, the time you spend in a playground is saved to
+      your account.
+    </p>
+    <p v-else>
+      Become an Astrona student to keep your work: with a free account, the time you spend on a lab and your submitted
+      result are saved to your account.
     </p>
     <div v-if="signupHref" class="account__actions">
       <a class="btn btn--primary btn--sm" :href="signupHref" target="_blank" rel="noopener noreferrer">
@@ -79,7 +90,8 @@ const signedInAs = computed(() => {
       </a>
     </div>
     <p class="muted">
-      Then run <code>astrona login</code> in your terminal and start the lab again: that run is saved to your account.
+      Then run <code>astrona login</code> in your terminal and start the {{ playground ? 'playground' : 'lab' }} again: that run is saved to your
+      account.
     </p>
     <p class="small muted">
       Signing in now does not link this run. A run is linked to an account when <code>astrona run</code> starts, and
@@ -93,8 +105,8 @@ const signedInAs = computed(() => {
       <span class="dot" aria-hidden="true" /> Local only
     </p>
     <p class="muted">
-      You started this run with <code>--local-only</code>: nothing from it is sent to your Astrona account. The time you
-      spend and your attempts stay on this computer.
+      You started this run with <code>--local-only</code>: nothing from it is sent to your Astrona account.
+      {{ playground ? 'The time you spend stays on this computer.' : 'The time you spend and your result stay on this computer.' }}
     </p>
   </section>
 </template>
