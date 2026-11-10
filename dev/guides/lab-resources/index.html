@@ -4814,6 +4814,10 @@ execution rules are retained for this explicit compatibility option.</p>
 <p>Host <code>res path</code>, <code>show</code> and <code>copy</code> use the editable Kind workspace when it has
 been initialized; otherwise they use the original snapshot. For QEMU, use those
 commands inside the VM to inspect edits; the host has the shipped snapshot.</p>
+<p>Host <code>res copy --force</code> replaces an existing destination only when it is separate
+from the source. Copying onto the source, into its own subdirectories, or over a
+directory containing it is refused before any files are changed. This also applies
+when the destination reaches those paths through a directory symlink.</p>
 <h2 id="execution-rules">Execution rules<a class="headerlink" href="#execution-rules" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

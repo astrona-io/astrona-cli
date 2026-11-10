@@ -5067,6 +5067,9 @@ protects teardown scripts, linked resets and deletion. If an older installation
 has lost its saved ownership, inspect <code>astrona list</code> and explicitly destroy the
 leftover cluster by its full name before retrying; editing a config cannot claim
 an existing cluster.</p>
+<p>DNS refresh also checks ownership and locks every linked cluster it updates.
+Busy or replaced linked clusters are skipped with a warning and excluded from
+the refreshed DNS routes; the lab remains accessible.</p>
 <h3 id="dependencies-and-start-order">Dependencies and start order<a class="headerlink" href="#dependencies-and-start-order" title="Permanent link">&para;</a></h3>
 <p>By default clusters are created <strong>one at a time</strong>: every linked cluster first, then the lab's own. Each one is only created once the previous is fully ready — its bootstrap done and its <code>waitFor</code> gates passed. Use <code>dependsOn</code> when one linked cluster needs another:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="w">    </span><span class="nt">clusters</span><span class="p">:</span>
@@ -5334,6 +5337,7 @@ addresses in their own container hosts file.)</p>
 </tr>
 </tbody>
 </table>
+<p>After rebuilding a linked cluster, open a new lab terminal to refresh its credentials. Your selected context, namespaces and other kubeconfig preferences are preserved.</p>
 <p>Before bootstrap scripts run, <code>astrona run</code> and <code>astrona test</code> wait for the cluster's DNS (CoreDNS) — a script resolving a linked cluster's host in the first seconds after a cluster is created would otherwise fail with <code>bad address</code>.</p>
 <p><code>astrona bundle</code> packs linked clusters too — each must pin its node image (<code>version</code> or <code>image</code>); see <a href="../offline-bundles/">Offline Bundles</a>.</p>
 <h2 id="planning-resources">Planning resources<a class="headerlink" href="#planning-resources" title="Permanent link">&para;</a></h2>

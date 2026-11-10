@@ -5153,6 +5153,7 @@ Kind workspace files. Copy anything you want to keep out before deleting a run.<
 <a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    db: error: unable to forward port because pod is not running. Current status=Pending
 </code></pre></div>
 <p><strong>How it works.</strong> Each forward gets its own detached supervisor process (a hidden <code>astrona port-forward supervise</code>), which runs <code>kubectl --context kind-&lt;lab&gt; port-forward --address 127.0.0.1 …</code> and restarts it with backoff (1s doubling up to 10s) whenever it exits — plain <code>kubectl port-forward</code> dies whenever the pod behind it restarts. State lives in <code>~/.astrona/portforward/&lt;lab&gt;/&lt;name&gt;/</code> (<code>spec.json</code>, <code>status.json</code>, <code>supervisor.pid</code>, <code>supervisor.log</code> — check the log when a forward won't come up).</p>
+<p>Stopping a forward checks the saved process start time before signalling its process group. For older records without that timestamp, the process must identify itself as the supervisor for that exact lab and forward. An unrelated process that reused the PID is left alone.</p>
 <p><strong>Status</strong> (<code>astrona port-forward list</code>):</p>
 <table>
 <thead>
@@ -5263,7 +5264,12 @@ Kind workspace files. Copy anything you want to keep out before deleting a run.<
 </code></pre></div>
 <p>In a multi-VM lab:</p>
 <ul>
-<li>Every VM gets an implicit host-only management NIC (astrona's own control channel) in addition to any declared <code>networks</code>.</li>
+<li>
+<p>Each VM's saved handle identifies its parent lab. Creation and config-based teardown reserve the VM names and refuse names belonging to another lab, even when the names match the config. A child without readable ownership is kept; inspect it and use <code>astrona destroy &lt;exact-vm-name&gt;</code> if you intend to remove it. Destroying a parent by name rechecks each discovered child's ownership before removing it.</p>
+</li>
+<li>
+<p>Every VM gets an implicit host-only management NIC (astrona's own control channel) in addition to any declared <code>networks</code>.</p>
+</li>
 <li><code>sshAccess</code> wires up passwordless SSH from one named VM into another — both must already share a <code>runtime.networks</code> segment; it doesn't create connectivity on its own, only trust over a path that already exists.</li>
 <li>The lab's shared root <code>bootstrap</code>/<code>validation</code> run once per VM, in <code>runtime.qemu</code>'s order; a VM's own nested <code>bootstrap</code>/<code>validation</code> block (if set) runs after that, scoped to just that VM.</li>
 </ul>
