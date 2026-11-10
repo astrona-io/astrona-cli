@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { Run, Submission } from '../api'
+import { formatDuration } from '../clock'
 import { runAgainCommand } from '../endSession'
 
 // The graded result of a submission and what happened to it. Shows only
@@ -40,6 +41,7 @@ const environmentLine = computed(() => {
     return `The environment keeps running (teardown.keepCluster). Remove it with astrona destroy ${props.lab}.`
   return 'The environment is still running: you can keep working and submit again, or remove it.'
 })
+const timeSpent = computed(() => (r.value.elapsedSeconds ? formatDuration(r.value.elapsedSeconds * 1000) : ''))
 const time = computed(() => {
   const t = new Date(r.value.time)
   return Number.isNaN(t.getTime()) ? '' : t.toLocaleString()
@@ -66,6 +68,10 @@ const time = computed(() => {
         <div class="stat">
           <dt class="stat__label">Checks passed</dt>
           <dd class="stat__value">{{ passedCount }} / {{ r.checks.length }}</dd>
+        </div>
+        <div v-if="timeSpent" class="stat">
+          <dt class="stat__label">Time spent</dt>
+          <dd class="stat__value">{{ timeSpent }}</dd>
         </div>
         <div class="stat">
           <dt class="stat__label">Attempt</dt>

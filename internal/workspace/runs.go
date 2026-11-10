@@ -211,6 +211,20 @@ func MarkStarted(lab string, startedAt time.Time) error {
 	return writePrivateFile(filepath.Join(dir, "start.json"), data)
 }
 
+// StartedAt is when the learner pressed Start on lab's current run in the
+// browser workspace; false when it was not started there.
+func StartedAt(lab string) (time.Time, bool) {
+	rec, err := ReadRun(lab)
+	if err != nil {
+		return time.Time{}, false
+	}
+	m, err := readStart(lab)
+	if err != nil || m == nil || m.RunID != rec.RunID {
+		return time.Time{}, false
+	}
+	return m.StartedAt, true
+}
+
 func readStart(lab string) (*startMarker, error) {
 	dir, err := runDir(lab)
 	if err != nil {
