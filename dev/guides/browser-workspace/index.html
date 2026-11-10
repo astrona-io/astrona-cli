@@ -5502,6 +5502,12 @@ window</strong>.</p>
   the lab are kept.</li>
 <li><strong>Connection lost</strong>: see below.</li>
 </ul>
+<p>Output longer than the screen scrolls back like a local terminal: use the
+mouse wheel or trackpad, drag the scrollbar on the right (shown once there is
+history), or press Shift+Page Up / Shift+Page Down. The terminal keeps the last
+5000 lines. The prompt line always sits above the hint bar at the bottom, and
+the shell's size (<code>stty size</code>) follows the visible area when you resize the
+window, hide the task or drag the divider.</p>
 <p>The terminal draws with WebGL, so programs that use 24-bit ("truecolor")
 colours show them. Where WebGL is not available, it falls back to a renderer
 that shows those colours as the terminal's default colours; 16 and 256-colour
