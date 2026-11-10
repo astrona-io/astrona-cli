@@ -58,6 +58,7 @@ function close(): void {
         <p v-for="(p, i) in copy.paragraphs" :key="i">{{ p }}</p>
       </div>
       <p v-if="busy" class="dialog__busy" role="status"><span class="dot" aria-hidden="true" /> {{ copy.busy }}</p>
+      <slot v-if="busy" />
       <p v-if="error" ref="errorBox" class="dialog__error" role="alert" tabindex="-1">{{ error }}</p>
       <div class="dialog__actions">
         <button ref="cancelButton" type="button" class="btn btn--ghost" :disabled="busy" @click="close">

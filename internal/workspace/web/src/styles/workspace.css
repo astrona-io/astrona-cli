@@ -925,6 +925,54 @@
   font-weight: 500;
 }
 
+/* Each check while a submission is graded (GradingProgress). */
+.grading__checks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 40vh;
+  margin: 0;
+  padding: 12px 14px;
+  overflow-y: auto;
+  border: 1px solid var(--line-bright);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  list-style: none;
+}
+
+.grading__check {
+  display: grid;
+  grid-template-columns: 1.2em 1fr auto;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.grading__check--running {
+  color: var(--ink);
+}
+
+.grading__check--running .grading__mark {
+  color: var(--amber);
+}
+
+.grading__check--passed .grading__mark {
+  color: var(--green);
+}
+
+.grading__check--failed .grading__mark {
+  color: var(--red);
+}
+
+.grading__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.grading__time {
+  font-variant-numeric: tabular-nums;
+}
+
 .dialog__error {
   margin: 0;
   padding: 10px 14px;

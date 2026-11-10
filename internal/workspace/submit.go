@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 
 	"astrona/internal/labops"
 	"astrona/internal/labstate"
+	"astrona/internal/proctor"
 	"astrona/internal/ui"
 )
 
@@ -69,9 +71,10 @@ type submission struct {
 // submitJob is one submission being graded; a retry with the same
 // Idempotency-Key waits for it instead of grading again.
 type submitJob struct {
-	key   string
-	runID string
-	done  chan struct{}
+	key      string
+	runID    string
+	done     chan struct{}
+	progress *gradeProgress
 	// Set before done is closed.
 	sub    *submission
 	status int
@@ -86,6 +89,74 @@ func (j *submitJob) finished() bool {
 	default:
 		return false
 	}
+}
+
+// Check states in submitView.Checks.
+const (
+	CheckWaiting = "waiting"
+	CheckRunning = "running"
+	CheckPassed  = "passed"
+	CheckFailed  = "failed"
+)
+
+// gradeCheck is one check while a submission is graded: its name, state
+// and timing only, never its command or output.
+type gradeCheck struct {
+	Name  string `json:"name"`
+	State string `json:"state"`
+	// StartedAt is set once the check runs; Seconds once it is done.
+	StartedAt *time.Time `json:"startedAt,omitempty"`
+	Seconds   *float64   `json:"seconds,omitempty"`
+}
+
+// gradeProgress is the proctor.Progress of a submission being graded:
+// labops.Submit writes it, GET /runs/{lab} reads it.
+type gradeProgress struct {
+	mu     sync.Mutex
+	checks []gradeCheck
+}
+
+func (g *gradeProgress) Planned(names []string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.checks = make([]gradeCheck, len(names))
+	for i, n := range names {
+		g.checks[i] = gradeCheck{Name: n, State: CheckWaiting}
+	}
+}
+
+func (g *gradeProgress) Started(i int) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if i >= 0 && i < len(g.checks) {
+		now := time.Now().UTC()
+		g.checks[i].State, g.checks[i].StartedAt = CheckRunning, &now
+	}
+}
+
+func (g *gradeProgress) Finished(i int, r proctor.CheckResult) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if i < 0 || i >= len(g.checks) {
+		return
+	}
+	c := &g.checks[i]
+	c.State = CheckFailed
+	if r.Pass {
+		c.State = CheckPassed
+	}
+	secs := math.Round(r.Duration.Seconds()*100) / 100
+	c.Seconds = &secs
+}
+
+// snapshot copies the checks for a response; nil before grading starts.
+func (g *gradeProgress) snapshot() []gradeCheck {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.checks == nil {
+		return nil
+	}
+	return append([]gradeCheck(nil), g.checks...)
 }
 
 // submits holds the latest submission job per lab.
@@ -104,6 +175,16 @@ func (ss *submits) get(lab string) *submitJob {
 func (ss *submits) grading(lab, runID string) bool {
 	j := ss.get(lab)
 	return j != nil && j.runID == runID && !j.finished()
+}
+
+// gradingChecks is the progress of lab's run runID while it is being
+// graded; ok is false when it is not.
+func (ss *submits) gradingChecks(lab, runID string) (checks []gradeCheck, ok bool) {
+	j := ss.get(lab)
+	if j == nil || j.runID != runID || j.finished() {
+		return nil, false
+	}
+	return j.progress.snapshot(), true
 }
 
 // closeLab ends every terminal of lab.
@@ -297,7 +378,7 @@ func (s *Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
 		writeErrorCode(w, http.StatusConflict, "not_started", "click Start first")
 		return
 	}
-	job = &submitJob{key: key, runID: rec.RunID, done: make(chan struct{})}
+	job = &submitJob{key: key, runID: rec.RunID, done: make(chan struct{}), progress: &gradeProgress{}}
 	s.subs.jobs[rec.Lab] = job
 	s.subs.mu.Unlock()
 
@@ -363,6 +444,7 @@ func (s *Server) runSubmit(rec RunRecord, job *submitJob) {
 		ScriptOut: logw,
 		Status:    status,
 		Warn:      status,
+		Progress:  job.progress,
 		Destroy: labops.DestroyOptions{
 			Out:        status,
 			ForgetWarn: status,

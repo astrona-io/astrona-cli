@@ -16,6 +16,7 @@ import {
   newIdempotencyKey,
   startRun,
   submitRun,
+  type GradeCheck,
   type MachineLab,
   type Run,
   type Submission,
@@ -30,6 +31,7 @@ import HomePage from './components/HomePage.vue'
 import WorkspacePage from './components/WorkspacePage.vue'
 import ResultsPage from './components/ResultsPage.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
+import GradingProgress from './components/GradingProgress.vue'
 
 type Screen =
   | { kind: 'loading' }
@@ -280,6 +282,7 @@ async function confirmDialog(): Promise<void> {
 async function submit(r: Run): Promise<void> {
   submitKey ??= newIdempotencyKey()
   let sub: Submission
+  followGrading(r)
   try {
     sub = await submitRun(r.lab, r.runId, submitKey)
   } catch (err) {
@@ -295,10 +298,43 @@ async function submit(r: Run): Promise<void> {
       failDialog(err)
       return
     }
+  } finally {
+    stopFollowingGrading()
   }
   dialog.value = null
   screen.value = { kind: 'results', submission: sub }
   await updateRunQuietly()
+}
+
+// Each check's progress while the submission this page started is graded,
+// from the run's submit state (GET /runs/{lab}).
+const gradingChecks = ref<GradeCheck[]>([])
+let gradingPoll: number | undefined
+let followingGrading = false
+
+function followGrading(r: Run): void {
+  followingGrading = true
+  gradingChecks.value = []
+  const next = (): void => {
+    gradingPoll = window.setTimeout(async () => {
+      try {
+        const latest = await getRun(r.lab)
+        if (!followingGrading) return
+        syncServerClock(latest.serverNow)
+        if (latest.runId === r.runId && latest.submit.checks) gradingChecks.value = latest.submit.checks
+      } catch {
+        // The submission itself reports what went wrong.
+      }
+      if (followingGrading) next()
+    }, 1500)
+  }
+  next()
+}
+
+function stopFollowingGrading(): void {
+  followingGrading = false
+  window.clearTimeout(gradingPoll)
+  gradingChecks.value = []
 }
 
 // Polls GET /submission until the grading this page started is done.
@@ -463,6 +499,7 @@ function onLaunchGone(): void {
 
 onBeforeUnmount(() => {
   window.clearTimeout(poll)
+  stopFollowingGrading()
   window.removeEventListener('beforeunload', beforeUnload)
 })
 
@@ -530,5 +567,7 @@ watchEffect(() => {
     :danger="dialog === 'remove' || !!run?.playground"
     @confirm="confirmDialog"
     @cancel="closeDialog"
-  />
+  >
+    <GradingProgress v-if="gradingChecks.length" :checks="gradingChecks" />
+  </ConfirmDialog>
 </template>

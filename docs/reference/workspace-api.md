@@ -288,6 +288,7 @@ answer; Kind labs are then missing from the list.
 | `submit.tracking` | Where a result goes. `account`: the run has an Astrona lab session; the result is sent when astrona is signed in to that site. `local-only`: never sent. `none`: no lab session; the result stays on this machine. |
 | `submit.keepEnvironment` | The lab sets `teardown.keepCluster`: a submission never removes the environment, and `POST /destroy` refuses. |
 | `submit.grading` | A submission of this run is being graded now. |
+| `submit.checks` | Only while `grading`, once the checks start: each check and validation script in grading order, as `{"name", "state", "startedAt", "seconds"}`. `state` is `waiting`, `running`, `passed` or `failed`; `startedAt` is set once it runs, `seconds` (its duration) once it is done. Never its command or output. Poll `GET /runs/{lab}` for it while `POST /submit` waits. |
 | `submit.submitted` | This run has a saved result (`GET /submission`). |
 | `submit.blocked` | Why Submit is not possible now, for the page to show next to the disabled button; `""` when it is. |
 | `runAgain` | The command that starts this lab again, as `astrona run` was given it: the catalog ID, the `--git` source, or the config path (`-c`). Never the cluster name, which `astrona run` does not accept. `""` when the source is not known. |

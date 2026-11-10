@@ -261,6 +261,9 @@ type submitView struct {
 	KeepEnvironment bool `json:"keepEnvironment"`
 	// Grading: a submission of this run is being graded now.
 	Grading bool `json:"grading"`
+	// Checks: while Grading, each check's progress in grading order
+	// (empty until the checks start).
+	Checks []gradeCheck `json:"checks,omitempty"`
 	// Submitted: this run has a saved result (GET .../submission).
 	Submitted bool `json:"submitted"`
 	// Blocked says why Submit is not possible now ("" when it is).
@@ -443,9 +446,10 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if s.subs.grading(rec.Lab, rec.RunID) {
+	if checks, ok := s.subs.gradingChecks(rec.Lab, rec.RunID); ok {
 		v.Submit.Grading, v.CanSubmit = true, false
 		v.Submit.Blocked = "the lab is being submitted"
+		v.Submit.Checks = checks
 	}
 	writeJSON(w, http.StatusOK, v)
 }
