@@ -5379,7 +5379,7 @@ is saved with the run and also applies after reopening the CLI.</p>
 <ul>
 <li>The clock lives in <code>~/.astrona/exams/&lt;lab&gt;.json</code>; <code>astrona reset</code> starts a fresh one, <code>astrona destroy</code> clears it. It keeps running while a lab is paused with <code>astrona stop</code>, like a real exam.</li>
 <li>Without <code>strict</code>, an over-time submission is still graded normally — the time is just reported ("over time by 5m").</li>
-<li><code>astrona submit --history</code> adds a TIME USED column for exam attempts, marking over-time ones.</li>
+<li><code>astrona submit --history</code> adds a TIME USED column, marking over-time exam attempts. A learning lab's time counts from Start in the browser workspace, or from when the lab became ready; <code>astrona submit</code> prints it as <code>Time spent</code>.</li>
 <li><code>astrona test</code> (CI) ignores exam settings.</li>
 </ul>
 <h2 id="junit-xml-for-ci">JUnit XML for CI<a class="headerlink" href="#junit-xml-for-ci" title="Permanent link">&para;</a></h2>
