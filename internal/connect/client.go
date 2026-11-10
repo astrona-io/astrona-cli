@@ -91,10 +91,19 @@ type client struct {
 // Run keeps this computer connected until ctx is done (nil), the site
 // revokes it (ErrRevoked) or replaces it (ErrReplaced), or the sign-in is
 // gone (wrapping account.ErrSignedOut). Drops reconnect with backoff, 1 s
-// doubling to 60 s with jitter.
+// doubling to 60 s with jitter. It returns only once a command that was
+// running has returned too, so the command can clean up after itself.
 func Run(ctx context.Context, o Options) error {
 	c := &client{o: o, results: make(chan result, 64), work: make(chan Command, queueSize)}
-	go c.worker(ctx)
+	// Returning for any reason stops the worker's command, then waits for it.
+	workCtx, stopWork := context.WithCancel(ctx)
+	workerDone := make(chan struct{})
+	go func() {
+		defer close(workerDone)
+		c.worker(workCtx)
+	}()
+	defer func() { <-workerDone }()
+	defer stopWork()
 	var last *Disconnect
 	attempts := 0
 	for {

@@ -121,6 +121,7 @@ func launchAgentPlist(exe, logPath string) string {
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
   <key>ThrottleInterval</key><integer>10</integer>
+  <key>ExitTimeOut</key><integer>150</integer>
   <key>ProcessType</key><string>Background</string>
   <key>StandardOutPath</key><string>` + x(logPath) + `</string>
   <key>StandardErrorPath</key><string>` + x(logPath) + `</string>
@@ -195,6 +196,9 @@ func systemdUnit(exe, logPath string) string {
 		b.WriteString("Environment=" + systemdQuote(kv[0]+"="+kv[1]) + "\n")
 	}
 	b.WriteString("Restart=on-failure\nRestartSec=10\n")
+	// Stopping signals connect alone, which interrupts a running lab command
+	// once and waits for it to clean up (up to two minutes).
+	b.WriteString("KillMode=mixed\nTimeoutStopSec=150\n")
 	b.WriteString("StandardOutput=append:" + logPath + "\nStandardError=append:" + logPath + "\n\n")
 	b.WriteString("[Install]\nWantedBy=default.target\n")
 	return b.String()

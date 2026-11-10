@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"os/signal"
 	"runtime"
 	"strings"
 	"sync"
@@ -60,7 +59,7 @@ func newConnectCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+			ctx, stop := cancelOnSignal(onConnectSignal, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 			defer stop()
 			return runConnect(ctx, client, store, site, service, confirm)
 		},
@@ -73,9 +72,31 @@ func newConnectCmd() *cobra.Command {
 	return cmd
 }
 
+// onConnectSignal: the first Ctrl+C (or SIGTERM from the service manager)
+// stops connect, which waits for a running command to clean up first; a
+// second one passes the interrupt on, so that command quits now too, and
+// quits.
+func onConnectSignal(_ os.Signal, first bool) {
+	if first {
+		if connectChildren.interrupt(false) {
+			fmt.Println("Stopping — the running command cleans up first. Press Ctrl+C again to quit now.")
+		}
+		return
+	}
+	connectChildren.interrupt(true)
+	fmt.Println("\nQuitting now — anything left over is removed by `astrona destroy`.")
+	os.Exit(exitInterrupted)
+}
+
 func runConnect(ctx context.Context, client *account.Client, store account.Store, site string, service, confirm bool) error {
 	if _, err := client.Active(ctx, store, site); err != nil {
 		if errors.Is(err, account.ErrSignedOut) {
+			if service {
+				// Exiting with an error would have the service manager start
+				// it again every few seconds, to the same answer.
+				fmt.Printf("Stopped: not signed in to Astrona (%s) — sign in with: astrona login, then restart it with: astrona connect --install\n", site)
+				return nil
+			}
 			return fmt.Errorf("you're not signed in to Astrona (%s) — sign in with: astrona login, then run astrona connect again", site)
 		}
 		return err
@@ -86,7 +107,7 @@ func runConnect(ctx context.Context, client *account.Client, store account.Store
 	}
 	run := childRunner(exe, os.Stdout)
 	if confirm {
-		run = confirmRunner(ctx, run, os.Stdin, os.Stdout, confirmWait)
+		run = confirmRunner(run, os.Stdin, os.Stdout, confirmWait)
 		fmt.Println("Each request from the website waits for your answer here.")
 	}
 	err = connect.Run(ctx, connect.Options{
@@ -109,6 +130,11 @@ func runConnect(ctx context.Context, client *account.Client, store account.Store
 		hint = " — only one astrona connect runs per computer"
 	}
 	if service {
+		if errors.Is(err, connect.ErrReplaced) {
+			// Fail, so the service manager starts it again and it takes the
+			// connection back: whoever replaced it must not keep it for good.
+			return fmt.Errorf("%w — the service starts it again", err)
+		}
 		// The service manager would only start it again to the same answer:
 		// end cleanly and leave the reason in the log.
 		fmt.Printf("Stopped: %v%s\n", err, hint)
@@ -156,17 +182,30 @@ var confirmDoes = map[string]string{
 // confirmRunner asks on out before each command except status and runs it
 // only on a yes typed on in. No answer within wait, or ctx ending, refuses it.
 // The worker runs one command at a time, so questions never overlap.
-func confirmRunner(ctx context.Context, next connect.Runner, in io.Reader, out io.Writer, wait time.Duration) connect.Runner {
-	// One reader for the whole run: a line typed while nothing is asked is
-	// read and dropped below, never taken as the answer to the next question.
-	lines := make(chan string)
+func confirmRunner(next connect.Runner, in io.Reader, out io.Writer, wait time.Duration) connect.Runner {
+	// One reader for the whole run. It reads every line as soon as it is
+	// typed and stamps it with that time, so a line typed before a question
+	// was printed is ignored below, never taken as its answer. It never
+	// waits for a question: with no one reading, the oldest line is dropped.
+	type line struct {
+		text string
+		at   time.Time
+	}
+	lines := make(chan line, 16)
 	go func() {
 		scanner := bufio.NewScanner(in)
 		for scanner.Scan() {
-			select {
-			case lines <- scanner.Text():
-			case <-ctx.Done():
-				return
+			l := line{text: scanner.Text(), at: time.Now()}
+			for sent := false; !sent; {
+				select {
+				case lines <- l:
+					sent = true
+				default:
+					select {
+					case <-lines:
+					default:
+					}
+				}
 			}
 		}
 		close(lines)
@@ -176,37 +215,32 @@ func confirmRunner(ctx context.Context, next connect.Runner, in io.Reader, out i
 		if !ask {
 			return next(ctx, c)
 		}
-	drain:
-		for {
-			select {
-			case _, ok := <-lines:
-				if !ok {
-					break drain
-				}
-			default:
-				break drain
-			}
-		}
+		asked := time.Now()
 		fmt.Fprintf(out, "The website asks to %s %s on this computer. Allow? [y/N] ", does, c.Lab)
 		timer := time.NewTimer(wait)
 		defer timer.Stop()
-		select {
-		case answer, ok := <-lines:
-			if !ok {
+		for {
+			select {
+			case answer, ok := <-lines:
+				if !ok {
+					fmt.Fprintln(out)
+					return fmt.Errorf("%w: no terminal to confirm it on this computer", connect.ErrRejected)
+				}
+				if answer.at.Before(asked) {
+					continue // typed before this question
+				}
+				switch strings.ToLower(strings.TrimSpace(answer.text)) {
+				case "y", "yes":
+					return next(ctx, c)
+				}
+				return fmt.Errorf("%w: declined on this computer", connect.ErrRejected)
+			case <-timer.C:
+				fmt.Fprintln(out, "\nNo answer; refused.")
+				return fmt.Errorf("%w: not confirmed on this computer in time", connect.ErrRejected)
+			case <-ctx.Done():
 				fmt.Fprintln(out)
-				return fmt.Errorf("%w: no terminal to confirm it on this computer", connect.ErrRejected)
+				return ctx.Err()
 			}
-			switch strings.ToLower(strings.TrimSpace(answer)) {
-			case "y", "yes":
-				return next(ctx, c)
-			}
-			return fmt.Errorf("%w: declined on this computer", connect.ErrRejected)
-		case <-timer.C:
-			fmt.Fprintln(out, "\nNo answer; refused.")
-			return fmt.Errorf("%w: not confirmed on this computer in time", connect.ErrRejected)
-		case <-ctx.Done():
-			fmt.Fprintln(out)
-			return ctx.Err()
 		}
 	}
 }
@@ -243,10 +277,17 @@ func childRunner(exe string, log io.Writer) connect.Runner {
 		child.Stdin = nil
 		child.Stdout, child.Stderr = last, last
 		child.Env = append(os.Environ(), "ASTRONA_NO_UPDATE_CHECK=1")
-		// Ctrl+C on connect: let the command stop and clean up as it would at a terminal.
+		// Ctrl+C on connect: let the command stop and clean up as it would at
+		// a terminal. In its own process group, this is the only interrupt
+		// it gets; connect waits for it, up to WaitDelay.
+		ownProcessGroup(child)
 		child.Cancel = func() error { return child.Process.Signal(os.Interrupt) }
 		child.WaitDelay = 2 * time.Minute
-		err = child.Run()
+		if err = child.Start(); err == nil {
+			connectChildren.add(child.Process)
+			err = child.Wait()
+			connectChildren.remove(child.Process)
+		}
 		var exit *exec.ExitError
 		switch {
 		case err == nil:
@@ -259,6 +300,40 @@ func childRunner(exe string, log io.Writer) connect.Runner {
 			return err
 		}
 	}
+}
+
+// connectChildren are the commands running for the website, for a second
+// Ctrl+C to pass on.
+var connectChildren = &childSet{procs: map[*os.Process]struct{}{}}
+
+type childSet struct {
+	mu    sync.Mutex
+	procs map[*os.Process]struct{}
+}
+
+func (s *childSet) add(p *os.Process) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.procs[p] = struct{}{}
+}
+
+func (s *childSet) remove(p *os.Process) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.procs, p)
+}
+
+// interrupt sends each running command SIGINT when send is set, and says
+// whether any is running.
+func (s *childSet) interrupt(send bool) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if send {
+		for p := range s.procs {
+			_ = p.Signal(os.Interrupt)
+		}
+	}
+	return len(s.procs) > 0
 }
 
 // lastLine copies output to w, indented, and keeps its last non-empty line.
