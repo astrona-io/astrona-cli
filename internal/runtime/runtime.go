@@ -13,6 +13,8 @@ import (
 	"astrona/internal/hypervisor"
 	"astrona/internal/portforward"
 	"astrona/internal/ui"
+	"astrona/internal/vmprovider"
+	"astrona/internal/vmprovider/qemu"
 )
 
 // RuntimeType is which backend a lab runs on.
@@ -154,7 +156,9 @@ func CreateEnvironment(ctx context.Context, name, baseDir string, cfg config.Run
 			if len(cfg.QEMU[0].SSHAccess) > 0 {
 				return nil, fmt.Errorf("runtime.qemu vm sshAccess needs a multi-VM lab (name this VM and add another) — nothing for it to reach in a single-VM lab")
 			}
-			handle, err := hypervisor.CreateQEMUVM(name, name, baseDir, cfg.QEMU[0].AsQEMUConfig(), networks[cfg.QEMU[0].Name], nil, rep)
+			vm, err := qemu.ForLab(rep, networks, nil).Create(ctx, vmprovider.Spec{
+				Name: name, Lab: name, VM: cfg.QEMU[0].Name, BaseDir: baseDir, Machine: cfg.QEMU[0].AsQEMUConfig(),
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -162,10 +166,10 @@ func CreateEnvironment(ctx context.Context, name, baseDir string, cfg config.Run
 				Type:        RuntimeQEMU,
 				Name:        name,
 				KubeContext: "",
-				Executor:    sshExecutorFor(handle),
+				Executor:    sshExecutorFor(vm),
 			}, nil
 		}
-		return createMultiQEMUEnvironment(name, baseDir, cfg.QEMU, networks, rep)
+		return createMultiQEMUEnvironment(ctx, name, baseDir, cfg.QEMU, networks, rep)
 	default:
 		return nil, fmt.Errorf("unsupported runtime type '%s'", runtimeType)
 	}
@@ -183,7 +187,7 @@ func CreateEnvironment(ctx context.Context, name, baseDir string, cfg config.Run
 // torn down before returning the error — a half-started multi-VM lab never
 // lingers as a set of ghost VMs the caller doesn't know exist yet (nothing
 // has been returned to it to run `astrona destroy` against).
-func createMultiQEMUEnvironment(name, baseDir string, vms []config.QEMUVM, networks map[string][]hypervisor.QEMUNetworkSpec, rep *ui.Reporter) (*LabEnvironment, error) {
+func createMultiQEMUEnvironment(ctx context.Context, name, baseDir string, vms []config.QEMUVM, networks map[string][]hypervisor.QEMUNetworkSpec, rep *ui.Reporter) (*LabEnvironment, error) {
 	// Resolved once, up front, for every VM in the lab together — same
 	// reasoning as networks above: a target's authorized_keys must already
 	// carry its source's public key by the time cloud-init runs on that
@@ -194,21 +198,24 @@ func createMultiQEMUEnvironment(name, baseDir string, vms []config.QEMUVM, netwo
 		return nil, err
 	}
 
+	provider := qemu.ForLab(rep, networks, trust)
 	executors := make(map[string]executor.ScriptExecutor, len(vms))
 	var started []string
 
 	for _, vm := range vms {
 		rep.Section("Machine: %s", vm.Name)
-		handle, err := hypervisor.CreateQEMUVM(name+"-"+vm.Name, name, baseDir, vm.AsQEMUConfig(), networks[vm.Name], trust[vm.Name], rep)
+		inst, err := provider.Create(ctx, vmprovider.Spec{
+			Name: name + "-" + vm.Name, Lab: name, VM: vm.Name, BaseDir: baseDir, Machine: vm.AsQEMUConfig(),
+		})
 		if err != nil {
 			for _, s := range started {
-				if derr := hypervisor.DestroyQEMUVM(name+"-"+s, rep); derr != nil {
+				if derr := provider.Delete(ctx, name+"-"+s); derr != nil {
 					rep.Warn("failed to roll back vm '%s' after vm '%s' failed to start: %s", s, vm.Name, derr)
 				}
 			}
 			return nil, fmt.Errorf("failed to start vm '%s': %w", vm.Name, err)
 		}
-		executors[vm.Name] = sshExecutorFor(handle)
+		executors[vm.Name] = sshExecutorFor(inst)
 		started = append(started, vm.Name)
 	}
 
@@ -242,8 +249,10 @@ func LoadEnvironment(name string, cfg config.RuntimeConfig) (*LabEnvironment, er
 		if err := config.ValidateQEMUVMs(cfg.QEMU); err != nil {
 			return nil, err
 		}
+		ctx := context.Background()
+		provider := qemu.New(nil)
 		if !config.IsMultiVM(cfg.QEMU) {
-			handle, err := hypervisor.LoadQEMUHandle(name)
+			vm, err := provider.Get(ctx, name)
 			if err != nil {
 				return nil, err
 			}
@@ -251,16 +260,16 @@ func LoadEnvironment(name string, cfg config.RuntimeConfig) (*LabEnvironment, er
 				Type:        RuntimeQEMU,
 				Name:        name,
 				KubeContext: "",
-				Executor:    sshExecutorFor(handle),
+				Executor:    sshExecutorFor(vm),
 			}, nil
 		}
 		executors := make(map[string]executor.ScriptExecutor, len(cfg.QEMU))
 		for _, vm := range cfg.QEMU {
-			handle, err := hypervisor.LoadQEMUHandle(name + "-" + vm.Name)
+			inst, err := provider.Get(ctx, name+"-"+vm.Name)
 			if err != nil {
 				return nil, fmt.Errorf("vm '%s': %w", vm.Name, err)
 			}
-			executors[vm.Name] = sshExecutorFor(handle)
+			executors[vm.Name] = sshExecutorFor(inst)
 		}
 		return &LabEnvironment{Type: RuntimeQEMU, Name: name, Executors: executors}, nil
 	default:
@@ -303,10 +312,12 @@ func destroyEnvironment(name string, runtimeType RuntimeType, cfg config.Runtime
 		// tell multi-VM from single-VM apart; DestroyQEMUVM(name) is the
 		// same best-effort fallback the single-VM path always was, rather
 		// than silently no-op-ing an empty VM list.
+		ctx := context.Background()
+		provider := qemu.New(rep)
 		if config.IsMultiVM(cfg.QEMU) && len(cfg.QEMU) > 0 {
 			var failed []string
 			for _, vm := range cfg.QEMU {
-				if err := hypervisor.DestroyQEMUVM(name+"-"+vm.Name, rep); err != nil {
+				if err := provider.Delete(ctx, name+"-"+vm.Name); err != nil {
 					failed = append(failed, fmt.Sprintf("%s: %s", vm.Name, err))
 				}
 			}
@@ -315,24 +326,24 @@ func destroyEnvironment(name string, runtimeType RuntimeType, cfg config.Runtime
 			}
 			return nil
 		}
-		return hypervisor.DestroyQEMUVM(name, rep)
+		return provider.Delete(ctx, name)
 	default:
 		return fmt.Errorf("unsupported runtime type '%s'", runtimeType)
 	}
 }
 
 // sshExecutorFor builds the executor init/bootstrap/testing/teardown scripts
-// run under. Deliberately uses the VM's dedicated adminSSHUser identity
-// (h.AdminUser/h.AdminKeyPath), not h.SSHUser/h.SSHKeyPath — the latter is
-// the human-facing account `astrona ssh` connects as, which a lab may lock
+// run under. A vmprovider.Instance carries the VM's dedicated admin
+// identity (for qemu, the handle's AdminUser/AdminKeyPath), not the
+// human-facing account `astrona ssh` connects as, which a lab may lock
 // down independently without affecting the CLI's own script execution.
-func sshExecutorFor(h *config.QEMUHandle) executor.SSHExecutor {
+func sshExecutorFor(vm vmprovider.Instance) executor.SSHExecutor {
 	return executor.SSHExecutor{
-		Host:       h.SSHHost,
-		Port:       h.SSHPort,
-		User:       h.AdminUser,
-		KeyPath:    h.AdminKeyPath,
-		KnownHosts: h.KnownHosts,
+		Host:       vm.SSHHost,
+		Port:       vm.SSHPort,
+		User:       vm.User,
+		KeyPath:    vm.KeyPath,
+		KnownHosts: vm.KnownHosts,
 	}
 }
 
