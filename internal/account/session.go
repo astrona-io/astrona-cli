@@ -360,6 +360,62 @@ func (c *Client) postStop(ctx context.Context, cr *Credentials, sessionID, reaso
 	return err
 }
 
+// StartLabSession starts a lab session's clock on the site: the learner
+// pressed Start in the browser workspace (or the clock started at readiness
+// outside it), so the website lab page never claims the session. at, when not
+// zero, is when the clock started. The site sets the start only once and
+// returns a finished session unchanged, so a repeat is harmless. A rejected
+// access token is renewed once; a session the site doesn't know (or that
+// isn't yours) wraps ErrSessionGone.
+func (c *Client) StartLabSession(ctx context.Context, s Store, cr *Credentials, sessionID string, at time.Time) error {
+	if sessionID == "" || strings.ContainsAny(sessionID, "/?#") {
+		return fmt.Errorf("invalid lab session id %q", sessionID)
+	}
+	err := c.postStart(ctx, cr, sessionID, at)
+	var he *httpError
+	if errors.As(err, &he) && he.Status == http.StatusUnauthorized {
+		renewed, rerr := c.Renew(ctx, s, cr)
+		if rerr != nil {
+			return rerr
+		}
+		err = c.postStart(ctx, renewed, sessionID, at)
+	}
+	if err == nil {
+		return nil
+	}
+	if !errors.As(err, &he) {
+		return fmt.Errorf("could not reach %s to start the lab's clock: %w", cr.Site, err)
+	}
+	switch he.Status {
+	case http.StatusUnauthorized:
+		return fmt.Errorf("the Astrona site %s didn't accept your sign-in: %w", cr.Site, ErrSignedOut)
+	case http.StatusNotFound:
+		return withMessage(ErrSessionGone, he.Message)
+	default:
+		return fmt.Errorf("%s couldn't start the lab's clock (%w)", cr.Site, he)
+	}
+}
+
+func (c *Client) postStart(ctx context.Context, cr *Credentials, sessionID string, at time.Time) error {
+	payload := map[string]any{}
+	if !at.IsZero() {
+		payload["at"] = at.UTC().Format(time.RFC3339Nano)
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	endpoint := cr.Site + "/api/cli/lab-sessions/" + url.PathEscape(sessionID) + "/start"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	var out map[string]any
+	_, err = c.send(req, cr, &out)
+	return err
+}
+
 // RenewedSession is POST {site}/api/cli/lab-sessions/{id}/renew's answer.
 // The site keeps the session open and restarts its time limit, up to
 // DeadlineAt (RFC 3339): ID is PreviousID and BankedSeconds is 0, and the

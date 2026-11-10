@@ -1,5 +1,5 @@
 // Package outbox keeps what the CLI tells Astrona about a running lab — clock
-// pauses and resumes, stops, resource samples, graded results that could not
+// starts, pauses and resumes, stops, resource samples, graded results that could not
 // be sent at once — on disk until the site has it.
 // Every signal carries the time it happened, so signals kept while offline are
 // sent later, in order, and land where they belong. One file per lab session
@@ -25,6 +25,9 @@ import (
 
 // Kinds of signal.
 const (
+	// Start is the lab's clock starting outside the website lab page (the
+	// browser workspace's Start button).
+	Start  = "start"
 	Pause  = "pause"
 	Resume = "resume"
 	Stop   = "stop"
@@ -89,6 +92,7 @@ type Status struct {
 // Sender delivers signals to the site. PermanentError drops the signal;
 // ErrSignedOut keeps it until `astrona login`. Other errors keep it for retry.
 type Sender interface {
+	Start(ctx context.Context, site, session string, at time.Time) error
 	Pause(ctx context.Context, site, session string, at time.Time) error
 	Resume(ctx context.Context, site, session string, at time.Time) error
 	Stop(ctx context.Context, site, session, reason string, at time.Time, usage *account.UsageReport) error
@@ -433,6 +437,8 @@ func Flush(ctx context.Context, s Sender) (Status, error) {
 func sendNext(ctx context.Context, s Sender, q *queue) (int, error) {
 	ev := q.Events[0]
 	switch ev.Kind {
+	case Start:
+		return 1, s.Start(ctx, q.Site, q.Session, ev.At)
 	case Pause:
 		return 1, s.Pause(ctx, q.Site, q.Session, ev.At)
 	case Resume:

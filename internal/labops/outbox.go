@@ -72,6 +72,14 @@ func (s *SiteSender) Classify(err error) error {
 	return err
 }
 
+func (s *SiteSender) Start(ctx context.Context, site, session string, at time.Time) error {
+	cr, err := s.Active(ctx, site)
+	if err != nil {
+		return err
+	}
+	return s.Classify(s.Client.StartLabSession(ctx, s.Store, cr, session, at))
+}
+
 func (s *SiteSender) Pause(ctx context.Context, site, session string, at time.Time) error {
 	cr, err := s.Active(ctx, site)
 	if err != nil {
@@ -195,6 +203,33 @@ func SignalClock(ctx context.Context, lab, started string, paused bool, at time.
 	status, err := QueueSignal(ctx, st.Session, outbox.Event{Kind: kind, At: at.UTC()})
 	if err != nil || status.State != outbox.Online {
 		return ClockWaiting, status, err
+	}
+	return ClockSent, status, nil
+}
+
+// StartTarget is the lab session to tell when lab's clock starts outside the
+// website lab page; nil for a local-only or untracked run.
+func StartTarget(lab string) (*labstate.Session, error) {
+	st, err := labstate.Load(lab)
+	if err != nil || st == nil || st.LocalOnly || st.Session == nil || st.Session.ID == "" || st.Session.Site == "" {
+		return nil, err
+	}
+	return st.Session, nil
+}
+
+// SignalStart tells Astrona that sess's clock started at at: the learner
+// pressed Start in the browser workspace, so the website lab page never
+// claims the session. The site keeps the first start. Offline (or signed
+// out) it waits in the outbox and a detached flusher sends it later; the
+// answer says which.
+func SignalStart(ctx context.Context, sess *labstate.Session, at time.Time) (string, outbox.Status, error) {
+	status, err := QueueSignal(ctx, sess, outbox.Event{Kind: outbox.Start, At: at.UTC()})
+	if err != nil {
+		return ClockWaiting, status, err
+	}
+	if status.State != outbox.Online {
+		StartOutboxFlusher()
+		return ClockWaiting, status, nil
 	}
 	return ClockSent, status, nil
 }
