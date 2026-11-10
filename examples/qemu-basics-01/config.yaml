@@ -61,21 +61,21 @@ runtime:
     # guest you actually want to look at — either way `astrona run` returns
     # immediately and the VM keeps running in the background; `astrona list`
     # shows what's still up, `astrona destroy -c examples/qemu-basics-01`
-    # (or `astrona ssh -c examples/qemu-basics-01` then shut down from
+    # (or `astrona ssh qemu-basics-01` then shut down from
     # inside) tears it down again.
     display: false
 
 bootstrap:
   init:
     - name: "hello-vm"
-      description: "Prove SSH exec into the VM works and leave a marker file"
+      description: "Prove SSH exec into the VM works (prints the hostname)"
       type: "file"
       source: "hello-vm.sh"
 
 validation:
   script:
     name: "verify-marker-file"
-    description: "Confirms the marker file bootstrap wrote is present with the right content"
+    description: "Confirms the marker file the student wrote is present with the right content"
     type: "file"
     source: "validate.sh"
 

@@ -6,7 +6,7 @@ Check the [prerequisites](./prerequisites.md) first. Want the formal, no-hints v
 
 ## Scenario
 
-You've been handed a freshly booted VM, not a container. The platform team already wired up bootstrap — check `../config.yaml`'s `bootstrap` section, it runs `hello-vm.sh` on boot so you know the VM is actually reachable over SSH.
+You've been handed a freshly booted VM, not a container. The platform team already wired up bootstrap — check `../config.yaml`'s `bootstrap` section, it runs `hello-vm.sh` on boot so you know the VM is actually reachable over SSH. That's all it does; the rest is on you.
 
 Your task: get the VM into the state the lab expects to see. You won't be told the exact commands — that's the point. You do have the grading criteria, because real labs don't hide how they're graded: it's the whole `validation` block in [`../config.yaml`](../config.yaml) — this lab only uses `validation.script` (there's no `validation.checks` here, since there's no kubectl target to check against).
 
@@ -26,9 +26,8 @@ At the time of writing, that script requires:
 ## Steps
 
 1. `astrona run -c .` from inside `examples/qemu-basics-01/` — boots the VM and runs bootstrap over SSH.
-2. Do whatever work you think satisfies the check above (SSH in yourself using the same key `astrona` generated, or just trust that bootstrap already did it — see the [step-by-step guide](./step-by-step-guide.md) for how to connect manually).
-3. `astrona submit -c .` — this is "I'm done, submit for grading." You don't grade yourself; the Proctor does, running `validate.sh` inside the VM. Read the PASS/FAIL output.
-4. Iterate until `PROCTOR: PASS`.
-5. `astrona destroy -c .` — tears down the VM once you're done.
+2. Do whatever work you think satisfies the check above. Bootstrap only proves SSH works — it doesn't do this part for you. `astrona ssh qemu-basics-01` gets you a shell inside the VM (see the [step-by-step guide](./step-by-step-guide.md) if you're stuck connecting).
+3. `astrona submit -c . --watch` — optional, and safe: it re-grades while you work and records nothing. Iterate until it says you're passing, then Ctrl-C.
+4. `astrona submit -c .` — this is "I'm done, submit for grading." You don't grade yourself; the Proctor does, running `validate.sh` inside the VM. Read the PASS/FAIL output. A submit is final: pass or fail, it ends the attempt and deletes the VM, so there's nothing to tear down afterwards — and another try means a fresh `astrona run`.
 
 Stuck, or want to see it done for you instead of figuring it out? See the [step-by-step guide](./step-by-step-guide.md).
