@@ -97,6 +97,10 @@
          <lastmod>2026-11-10</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/guides/lab-exams/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/guides/lab-resources/</loc>
          <lastmod>2026-11-10</lastmod>
     </url>
@@ -214,6 +218,46 @@
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_doctor/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_exam/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_exam_abandon/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_exam_break/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_exam_next/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_exam_prev/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_exam_resume/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_exam_start/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_exam_status/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_exam_submit/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_exam_task/</loc>
          <lastmod>2026-11-10</lastmod>
     </url>
     <url>
