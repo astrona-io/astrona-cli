@@ -13,6 +13,7 @@ import (
 	"astrona/internal/labops"
 	"astrona/internal/ui"
 	"astrona/internal/version"
+	"astrona/internal/workspace"
 )
 
 // helpTemplateBody is Cobra's own default help template (see
@@ -41,6 +42,9 @@ type rootFlags struct {
 	// launch is the browser tab `astrona run` opened before the lab exists
 	// (browserFirst); nil when it opens the browser only once the lab is ready.
 	launch *browserLaunch
+	// runAccount is the account `astrona run` saves this run to, for the
+	// browser workspace (nil until run knows it).
+	runAccount *workspace.AccountStatus
 	// settingsFile is an optional path override for isolated command tests.
 	settingsFile string
 	settingsArgs []string

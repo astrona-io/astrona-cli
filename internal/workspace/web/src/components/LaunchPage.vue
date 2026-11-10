@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { answerTerms, getLaunch, isLaunchGone, isUnauthorized, type Launch, type LaunchEvent } from '../api'
+import AccountNotice from './AccountNotice.vue'
 import BrandMark from './BrandMark.vue'
 
 // What `astrona run` shows before its lab exists: the CLI terms (when they
@@ -225,6 +226,8 @@ async function answer(accept: boolean): Promise<void> {
         </template>
         <template v-else>{{ launch.stage === 'checking' ? 'Checking the lab…' : 'Working…' }}</template>
       </p>
+
+      <AccountNotice v-if="launch?.account && (readyLab || !final)" :account="launch.account" />
 
       <div v-if="rows.length" class="launch__term">
         <div class="launch__bar" aria-hidden="true">

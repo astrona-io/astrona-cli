@@ -207,6 +207,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer start.Abandon()
+			flags.runAccount = runAccountStatus(flags, acct, start.Session)
+			flags.launch.SetAccount(flags.runAccount)
 			start.Progress("preparing", "Preparing your lab environment")
 
 			rep, err := ui.New("run", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})

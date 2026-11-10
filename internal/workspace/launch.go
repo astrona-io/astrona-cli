@@ -82,6 +82,8 @@ type Launch struct {
 	Status  string `json:"status,omitempty"`
 	Error   string `json:"error,omitempty"`
 	LogPath string `json:"logPath,omitempty"`
+	// Account is the account this run is saved to, once run knows it.
+	Account *AccountStatus `json:"account,omitempty"`
 }
 
 // LaunchAnswer is answer.json: the page's answer to the terms.

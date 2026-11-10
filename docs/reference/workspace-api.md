@@ -160,6 +160,7 @@ command knows whether the tab is still open.
   ],
   "status": "waiting for CoreDNS · 12s",
   "logPath": "~/.astrona/logs/…",
+  "account": { "state": "signed-in", "username": "ada", "site": "https://astrona.io" },
   "alive": true
 }
 ```
@@ -178,6 +179,22 @@ command knows whether the tab is still open.
 is not final, the command was stopped. `answered` (`accepted` or `declined`)
 appears once the terms were answered. At most 200 events are kept. Launches
 older than a day are removed.
+
+`account` appears once `astrona run` has decided whose account the run is
+saved to, which is after the lab was resolved and the lab session was (or was
+not) started. The page shows it as a card while the lab is set up.
+
+| `account.state` | Meaning |
+| --- | --- |
+| `signed-in` | A catalog lab with a lab session: the time and every attempt are saved to the account. `username` and `site` say which account. |
+| `signed-out` | A catalog lab started without a lab session (not signed in): nothing from this run is saved to an account. `site` is the site astrona would sign in to, for a sign-up link. |
+| `local-only` | Started with `--local-only`: nothing is sent. |
+| `untracked` | A lab from local files or `--git`: no account applies. The page shows nothing. |
+
+`account` only ever holds `state`, `username` and `site`, never a token,
+device ID or key ID. `site` is the site the CLI resolved itself (`ASTRONA_URL`,
+then the saved sign-in, then the profile default), never a value from lab
+content. The state describes this run: signing in later does not change it.
 
 Errors: `404 launch_gone` (removed, or never existed).
 
@@ -266,6 +283,7 @@ answer; Kind labs are then missing from the list.
     "submitted": false,
     "blocked": ""
   },
+  "account": { "state": "signed-in", "username": "ada", "site": "https://astrona.io" },
   "runAgain": "astrona run astrona.io/ATS014/section-010/module-01/lab-02"
 }
 ```
@@ -291,6 +309,7 @@ answer; Kind labs are then missing from the list.
 | `submit.checks` | Only while `grading`, once the checks start: each check and validation script in grading order, as `{"name", "state", "startedAt", "seconds"}`. `state` is `waiting`, `running`, `passed` or `failed`; `startedAt` is set once it runs, `seconds` (its duration) once it is done. Never its command or output. Poll `GET /runs/{lab}` for it while `POST /submit` waits. |
 | `submit.submitted` | This run has a saved result (`GET /submission`). |
 | `submit.blocked` | Why Submit is not possible now, for the page to show next to the disabled button; `""` when it is. |
+| `account` | Whose account this run is saved to, shown as one line on the intro page; the same object as on `GET /launches/{id}`. `astrona run` saves it with the run (`runs/<lab>/run.json`). A run without one, such as a lab started before this field or reopened with `astrona ui`, gets `signed-in` (site only) or `local-only` from its saved lab session, and no `account` otherwise. |
 | `runAgain` | The command that starts this lab again, as `astrona run` was given it: the catalog ID, the `--git` source, or the config path (`-c`). Never the cluster name, which `astrona run` does not accept. `""` when the source is not known. |
 
 Responses never contain the solution document, validation scripts, check
@@ -580,7 +599,7 @@ separate window instead.
 | `~/.astrona/workspace/server.log` | server | Its log. |
 | `~/.astrona/workspace/launches/<id>/launch.json` | `astrona run` | A browser-first run before its lab exists: stage, terms notice, setup progress. |
 | `~/.astrona/workspace/launches/<id>/answer.json` | server | The page's answer to the terms. |
-| `~/.astrona/workspace/runs/<lab>/run.json` | `astrona run` | What the page shows for that run: title, mode, rules, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs). Never the solution or the validation block. |
+| `~/.astrona/workspace/runs/<lab>/run.json` | `astrona run` | What the page shows for that run: title, mode, rules, the account status, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs). Never the solution or the validation block. |
 | `~/.astrona/workspace/runs/<lab>/start.json` | Start | When Start was clicked, for which `runId`. |
 | `~/.astrona/workspace/runs/<lab>/submission.json` | Submit | The latest browser submission for that `runId`: the result as `GET /submission` shows it. |
 | `~/.astrona/exams/<lab>.json` | Start (exam labs) | The exam clock, as before. |

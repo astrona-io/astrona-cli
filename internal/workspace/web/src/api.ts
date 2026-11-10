@@ -90,6 +90,24 @@ export interface Run {
   submit: SubmitInfo
   /** The command that starts this lab again; "" when its source is unknown. */
   runAgain: string
+  /** The account this run is saved to; absent when unknown. */
+  account?: AccountStatus
+}
+
+/**
+ * Whose account a run is saved to, as `astrona run` decided it: "signed-in"
+ * (a lab session on that account), "signed-out" (a catalog lab run without
+ * one), "local-only" (--local-only) or "untracked" (a lab from the student's
+ * own files). Never a token: username and site only.
+ */
+export type AccountState = 'signed-in' | 'signed-out' | 'local-only' | 'untracked'
+
+export interface AccountStatus {
+  state: AccountState
+  /** The signed-in student; may be absent. */
+  username?: string
+  /** The CLI's own Astrona site (scheme://host[:port]); never from lab content. */
+  site?: string
 }
 
 /**
@@ -377,6 +395,8 @@ export interface Launch {
   status?: string
   error?: string
   logPath?: string
+  /** The account the run is saved to, once astrona run knows it. */
+  account?: AccountStatus
   /** False once the command in the terminal has exited. */
   alive: boolean
   answered?: 'accepted' | 'declined'

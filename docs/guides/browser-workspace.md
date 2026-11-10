@@ -25,6 +25,24 @@ opens it in your default browser. You can follow everything from that tab:
    **Begin this session** opens the intro page. Nothing counts yet; an exam's
    clock still starts only when you click **Start** there.
 
+While the lab is set up, a card shows whether this run is saved to your
+Astrona account. `astrona run` decides that when it starts the lab:
+
+- **Signed in** (a catalog lab, signed in): *Signed in as <username> on
+  <site>*. The time you spend on the lab and every attempt you submit are saved
+  to your account; a pass finishes the attempt, a fail keeps it open.
+- **Not signed in** (a catalog lab, signed out): the run is not saved to an
+  account; the time and attempts stay on this computer. The card links to
+  **Create a free Astrona account** on the site astrona signs in to (opened in
+  a new tab) and tells you to run `astrona login` and start the lab again.
+  Signing in while this run is open does not link it: a run is linked to an
+  account only when `astrona run` starts.
+- **Local only** (`--local-only`): nothing from the run is sent.
+- A lab from your own files or `--git` has no account, and shows no card.
+
+The intro page repeats this as one line, with the sign-up link when you are
+not signed in.
+
 Some questions are still asked in the terminal: whether to start a running lab
 over, whether to log in, and whether to trust a lab's repository. The tab says
 so while it waits. If you stop the command (Ctrl+C), the tab says that astrona

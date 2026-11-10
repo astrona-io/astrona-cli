@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { Run } from '../api'
+import AccountNotice from './AccountNotice.vue'
 import BrandMark from './BrandMark.vue'
 
 // Before Start there is no task text and no terminal: reading time is not
@@ -68,6 +69,8 @@ const rules = computed(() => {
           <li v-for="r in rules" :key="r">{{ r }}</li>
         </ul>
       </div>
+
+      <AccountNotice :account="run.account" compact />
 
       <hr class="rule" />
 
