@@ -21,6 +21,8 @@ func commandGroups(flags *rootFlags) []commandGroup {
 			newSetupCmd(),
 			newLoginCmd(),
 			newWhoamiCmd(),
+			newConnectCmd(),
+			newDevicesCmd(),
 			newLogoutCmd(),
 		}},
 		{"lab", "Take a lab:", []*cobra.Command{

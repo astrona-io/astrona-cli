@@ -69,6 +69,10 @@ type rootFlags struct {
 	// an exam's clock waits for Start there instead of starting when the
 	// lab is ready.
 	browserRun bool
+	// adoptSession is run's hidden --session: the lab session the website
+	// created for this device, which `astrona connect` runs (it is taken
+	// over instead of starting a new one).
+	adoptSession string
 	// cmdPath is the running command below the root ("run", "res list"),
 	// so a hand-over can ask the other version which flags it takes.
 	cmdPath []string

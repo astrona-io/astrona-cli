@@ -322,15 +322,30 @@ func (ls *LabStart) Interrupted() {
 // playground, with the config's time limit. out gets what the user is
 // told (stdout in cmd), warn the warnings (stderr).
 func StartLabSession(ctx context.Context, out, warn io.Writer, acct *Account, command string, cfg *config.LabConfig, lab string) (*LabStart, error) {
+	return startLabSession(ctx, out, warn, acct, command, cfg, lab, "")
+}
+
+// AdoptLabSession is StartLabSession for a session the website already
+// created for this device (`astrona connect` was sent `run` for it): it
+// takes that session over instead of starting another. It needs acct.
+func AdoptLabSession(ctx context.Context, out, warn io.Writer, acct *Account, command string, cfg *config.LabConfig, lab, sessionID string) (*LabStart, error) {
+	if acct == nil {
+		return nil, NotSignedInError(account.ErrSignedOut, command, lab)
+	}
+	return startLabSession(ctx, out, warn, acct, command, cfg, lab, sessionID)
+}
+
+func startLabSession(ctx context.Context, out, warn io.Writer, acct *Account, command string, cfg *config.LabConfig, lab, adopt string) (*LabStart, error) {
 	ls := &LabStart{out: out, warn: warn}
 	if acct == nil {
 		return ls, nil
 	}
-	var opts []account.SessionOptions
+	opt := account.SessionOptions{Adopt: adopt}
 	if IsPlaygroundName(lab) {
 		minutes, _ := cfg.Metadata.TimeLimitMinutes() // checked by lifecycle.Validate
-		opts = append(opts, account.SessionOptions{Kind: "playground", TimeLimitMinutes: minutes})
+		opt.Kind, opt.TimeLimitMinutes = "playground", minutes
 	}
+	opts := []account.SessionOptions{opt}
 	var err error
 	ls.Page, ls.Session, err = StartSession(ctx, out, warn, acct, command, lab, opts...)
 	return ls, err

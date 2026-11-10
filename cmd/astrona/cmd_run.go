@@ -1,6 +1,7 @@
 package main
 
 import (
+	"astrona/internal/account"
 	"astrona/internal/apphome"
 	"astrona/internal/authoring"
 	"context"
@@ -114,6 +115,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if flags.configPath == "" {
 				return fmt.Errorf("please specify a configuration file using --config or -c")
 			}
+			if flags.adoptSession != "" && (flags.catalogLab == "" || flags.localOnly || flags.headless) {
+				return fmt.Errorf("--session runs a lab session the website started: it needs an Astrona catalog lab, without --local-only or --headless")
+			}
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err
@@ -160,6 +164,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if flags.adoptSession != "" && acct == nil {
+				return labops.NotSignedInError(account.ErrSignedOut, "run", flags.catalogLab)
+			}
 
 			approved := true
 			if !flags.localOnly {
@@ -196,7 +203,12 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 
 			// The session is started before the build, so a refusal costs
 			// nothing; the page is only opened once the lab is ready.
-			start, err := labops.StartLabSession(ctx, os.Stdout, os.Stderr, acct, "run", cfg, flags.catalogLab)
+			var start *labops.LabStart
+			if flags.adoptSession != "" {
+				start, err = labops.AdoptLabSession(ctx, os.Stdout, os.Stderr, acct, "run", cfg, flags.catalogLab, flags.adoptSession)
+			} else {
+				start, err = labops.StartLabSession(ctx, os.Stdout, os.Stderr, acct, "run", cfg, flags.catalogLab)
+			}
 			if err != nil {
 				return err
 			}
@@ -262,6 +274,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&browser, "browser", false, "Open the Kind lab in the browser workspace once it is ready, without asking")
 	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "Do not open the browser workspace or ask about it")
 	cmd.MarkFlagsMutuallyExclusive("browser", "no-browser")
+	// `astrona connect` runs `run <lab> --session <id>` for "Start on my machine".
+	cmd.Flags().StringVar(&flags.adoptSession, "session", "", "Run the lab session the website started for this device (used by astrona connect)")
+	_ = cmd.Flags().MarkHidden("session")
 	cmd.AddCommand(newRunRenewCmd())
 	return cmd
 }

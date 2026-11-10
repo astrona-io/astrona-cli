@@ -14,8 +14,13 @@ import (
 
 // resolveLifecycleLab picks the kind lab `stop`/`start` act on
 // (labops.ResolveKindLab): the lab config from -c/--file/--git is loaded
-// only when no name is given.
+// only when no name is given. A catalog lab name selects its config.
 func resolveLifecycleLab(labArg string, flags *rootFlags, want func(status string) bool, verb string) (string, error) {
+	// A catalog name (ATS016/…/lab-01) acts on that lab through its config.
+	labArg, err := catalogLabArg(labArg, flags)
+	if err != nil {
+		return "", err
+	}
 	var cfg *config.LabConfig
 	if labArg == "" {
 		if loaded, _, cleanup, err := LoadLabForCommand(flags); err == nil {

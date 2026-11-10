@@ -88,6 +88,7 @@ nav:
       - Run Logs: concepts/logs.md
   - Guides:
       - Browser Workspace: guides/browser-workspace.md
+      - Start Labs from the Website: guides/start-on-my-machine.md
       - CLI Settings: guides/settings.md
       - Local Data and Caches: guides/local-data.md
       - CLI Usage Terms: guides/cli-terms.md
@@ -110,6 +111,8 @@ nav:
               - reference/cli/astrona_setup.md
               - reference/cli/astrona_login.md
               - reference/cli/astrona_whoami.md
+              - reference/cli/astrona_connect.md
+              - reference/cli/astrona_devices.md
               - reference/cli/astrona_logout.md
               - reference/cli/astrona_labs.md
               - reference/cli/astrona_labs_add.md

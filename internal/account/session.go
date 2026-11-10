@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -39,9 +40,14 @@ type LabSession struct {
 
 // SessionOptions makes a session a playground: its clock starts now and
 // stops at astrona destroy or after TimeLimitMinutes (0: the site's default).
+//
+// Adopt, when set, takes over the session with that id instead of creating
+// one: the website created it for this device and `astrona connect` was
+// sent `run` for it. Its token comes in the answer, never down the socket.
 type SessionOptions struct {
 	Kind             string
 	TimeLimitMinutes int
+	Adopt            string
 }
 
 // CreateLabSession asks cr's site for a session for the catalog lab lab.
@@ -68,6 +74,9 @@ func (c *Client) CreateLabSession(ctx context.Context, s Store, cr *Credentials,
 	if err == nil {
 		return ls, nil
 	}
+	if errors.Is(err, ErrSessionGone) {
+		return nil, err
+	}
 	if !errors.As(err, &he) {
 		return nil, fmt.Errorf("could not reach %s to start a lab session: %w", cr.Site, err)
 	}
@@ -91,6 +100,9 @@ func withMessage(err error, msg string) error {
 }
 
 func (c *Client) postLabSession(ctx context.Context, cr *Credentials, lab string, opt SessionOptions) (*LabSession, error) {
+	if opt.Adopt != "" {
+		return c.adoptLabSession(ctx, cr, lab, opt.Adopt)
+	}
 	payload := map[string]any{"lab": lab}
 	if opt.Kind != "" {
 		payload["kind"] = opt.Kind
@@ -117,6 +129,38 @@ func (c *Client) postLabSession(ctx context.Context, cr *Credentials, lab string
 	}
 	return &ls, nil
 }
+
+// adoptLabSession is POST {site}/api/cli/lab-sessions/{id}/adopt. Only the
+// device the session was created for may adopt it, and only for the lab it
+// is for; anything else is refused here before it is run.
+func (c *Client) adoptLabSession(ctx context.Context, cr *Credentials, lab, id string) (*LabSession, error) {
+	if !uuidPattern.MatchString(id) {
+		return nil, fmt.Errorf("%q is not a lab session id", id)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cr.Site+"/api/cli/lab-sessions/"+id+"/adopt", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+cr.AccessToken)
+	var ls LabSession
+	if _, err := do(c.HTTP, req, &ls); err != nil {
+		var he *httpError
+		if errors.As(err, &he) && he.Status == http.StatusNotFound {
+			return nil, withMessage(ErrSessionGone, he.Message)
+		}
+		return nil, err
+	}
+	if ls.ID != id || ls.Lab != lab {
+		return nil, fmt.Errorf("%s answered for another lab session than %s", cr.Site, id)
+	}
+	if ls.URL == "" {
+		return nil, fmt.Errorf("%s sent no lab page URL for the session", cr.Site)
+	}
+	return &ls, nil
+}
+
+// uuidPattern is a lab session id as the site issues them.
+var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 var (
 	// ErrSessionGone: the site doesn't know the lab session, or it isn't
