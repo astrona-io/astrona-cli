@@ -3,8 +3,8 @@ package workspace
 import (
 	"bytes"
 
-	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/v2"
+	"github.com/yuin/goldmark/v2/extension"
 )
 
 // markdown renders lab documents. goldmark's default renderer is the safe
