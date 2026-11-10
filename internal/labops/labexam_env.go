@@ -36,8 +36,10 @@ type ExamPrepareRequest struct {
 	// Progress, when set, gets the page's line for each step ("Building
 	// cluster 2 of 4", "Applying task 7 setup"). It is called from a
 	// queue, never from the build: a slow site doesn't hold the build up,
-	// and the last step is sent again during a long one (keepalive).
-	Progress func(step string)
+	// and the last step is sent again during a long one (keepalive). task
+	// is set (non-zero) on the line that says a task's setup was applied,
+	// so labs records when it was (the task's setup_at).
+	Progress func(step string, task int)
 	Rep      *ui.Reporter
 }
 
@@ -127,14 +129,15 @@ func PrepareExam(ctx context.Context, req ExamPrepareRequest) error {
 
 	var q *stepQueue
 	if req.Progress != nil {
-		q = newStepQueue(req.Progress)
+		q = newStepQueue(func(s progressStep) { req.Progress(s.Message, s.Task) })
 		defer q.close()
 	}
-	step := func(format string, a ...any) {
+	stepFor := func(task int, format string, a ...any) {
 		if q != nil {
-			q.add(fmt.Sprintf(format, a...))
+			q.add(progressStep{Message: fmt.Sprintf(format, a...), Task: task})
 		}
 	}
+	step := func(format string, a ...any) { stepFor(0, format, a...) }
 
 	// Each cluster logs to its own run log: their output would interleave
 	// on screen. rep only prints from this goroutine (RunParallel's hooks).
@@ -177,9 +180,10 @@ func PrepareExam(ctx context.Context, req ExamPrepareRequest) error {
 				return err
 			}
 			step("Applying task %d setup", tl.task.Position)
-			if err := applyExamTask(c.Name, runtimeCfg, tl, sub); err != nil {
+			if err := applyExamTask(c.N, c.Name, runtimeCfg, tl, sub); err != nil {
 				return fmt.Errorf("task %d (%s) setup on cluster %d: %w", tl.task.Position, tl.task.Lab, c.N, err)
 			}
+			stepFor(tl.task.Position, "Task %d is set up", tl.task.Position)
 		}
 		step("Cluster %d of %d is ready", c.N, total)
 		return nil
@@ -204,41 +208,66 @@ func PrepareExam(ctx context.Context, req ExamPrepareRequest) error {
 	return ctx.Err()
 }
 
-// applyExamTask runs a task's setup (its lab's bootstrap: init scripts,
-// manifests, readiness gates) on the exam cluster. A cluster-scoped task
-// changes the control plane, so the API server is given time to settle
-// before the next setup.
-func applyExamTask(clusterName string, rt config.RuntimeConfig, tl examTaskLab, rep *ui.Reporter) error {
+// examEnvironment is exam cluster n (kind cluster clusterName) as a task's
+// scripts and checks see it: KUBECONFIG is the cluster's exam kubeconfig,
+// whose current-context is exam-<n>, ASTRONA_KUBE_CONTEXT is exam-<n> and
+// ASTRONA_KIND_CLUSTER is clusterName. A lab's scripts refuse to run
+// unless the current context is ASTRONA_KUBE_CONTEXT, so this is what lets
+// them run on an exam cluster without weakening that guard. astrona's own
+// kubectl calls stay pinned to kind-<clusterName>, which the exam
+// kubeconfig also holds (and the student's kubeconfig, which bootstrap
+// manifests use, has before exam-<n> is added).
+func examEnvironment(n int, clusterName string, rt config.RuntimeConfig) (*runtime.LabEnvironment, error) {
 	env, err := runtime.LoadEnvironment(clusterName, rt)
+	if err != nil {
+		return nil, err
+	}
+	kubeconfig, err := cluster.WriteExamKubeconfig(clusterName, ExamContext(n))
+	if err != nil {
+		return nil, err
+	}
+	env.UseScriptContext(ExamContext(n), kubeconfig)
+	env.AddEnv(lifecycle.CAEnv(clusterName)...)
+	return env, nil
+}
+
+// applyExamTask runs a task's setup on exam cluster n: the lab's shared
+// CA when it has one (as a lab run installs it, before bootstrap), then
+// its bootstrap (init scripts, manifests, readiness gates). A
+// cluster-scoped task changes the control plane, so the API server is
+// given time to settle before the next setup. The CA belongs to the exam
+// cluster, so every task on it trusts the same one, and it goes away with
+// the cluster.
+func applyExamTask(n int, clusterName string, rt config.RuntimeConfig, tl examTaskLab, rep *ui.Reporter) error {
+	env, err := examEnvironment(n, clusterName, rt)
 	if err != nil {
 		return err
 	}
-	env.AddEnv(lifecycle.CAEnv(clusterName)...)
 	rep.Section("Task %d: %s", tl.task.Position, tl.task.Lab)
+	if err := lifecycle.PrepareSharedCA(tl.cfg, clusterName); err != nil {
+		return err
+	}
+	if err := lifecycle.InstallSharedCA(tl.cfg, env, rep); err != nil {
+		return err
+	}
 	if err := lifecycle.Bootstrap(tl.cfg, tl.baseDir, env, rep); err != nil {
 		return err
 	}
 	if tl.task.Scope == "cluster" {
-		return waitAPIServer(clusterName, env.KubeContext, 3*time.Minute, rep)
+		return waitAPIServer(env.Kubeconfig, ExamContext(n), 3*time.Minute, rep)
 	}
 	return nil
 }
 
-// waitAPIServer waits until the cluster's API server answers /readyz.
-func waitAPIServer(clusterName, kubeContext string, limit time.Duration, rep *ui.Reporter) error {
+// waitAPIServer waits until the API server of kubeContext in kubeconfig
+// answers /readyz.
+func waitAPIServer(kubeconfig, kubeContext string, limit time.Duration, rep *ui.Reporter) error {
 	t := rep.Step("Wait for the API server to settle")
 	kubectl, err := executor.LookKubectl()
 	if err != nil {
 		return t.Fail(err)
 	}
-	kubeconfig := cluster.ExistingKubeconfig(clusterName)
-	args := []string{"get", "--raw=/readyz", "--request-timeout=10s"}
-	if kubeconfig != "" {
-		args = append([]string{"--kubeconfig", kubeconfig}, args...)
-	}
-	if kubeContext != "" {
-		args = append([]string{"--context", kubeContext}, args...)
-	}
+	args := []string{"--kubeconfig", kubeconfig, "--context", kubeContext, "get", "--raw=/readyz", "--request-timeout=10s"}
 	deadline := time.Now().Add(limit)
 	var out []byte
 	for {

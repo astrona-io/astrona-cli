@@ -113,6 +113,59 @@ func WriteLabKubeconfig(clusterName string, rep *ui.Reporter) (string, error) {
 	return path, nil
 }
 
+// examKubeconfigFile is an exam cluster's kubeconfig for task scripts.
+const examKubeconfigFile = "exam-kubeconfig"
+
+// WriteExamKubeconfig writes exam cluster clusterName's kubeconfig for the
+// tasks' scripts and checks: its isolated kubeconfig plus a context
+// (exam-<n>) on the same cluster and user, made current — lab scripts
+// check that the current context is the one astrona names. 0600, next to
+// the isolated kubeconfig, and removed with it.
+func WriteExamKubeconfig(clusterName, context string) (string, error) {
+	src, err := KubeconfigPath(clusterName)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return "", fmt.Errorf("cluster %s has no kubeconfig: %w", clusterName, err)
+	}
+	kubectl, err := executor.LookKubectl()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Dir(src)
+	tmp, err := os.CreateTemp(dir, "."+examKubeconfigFile+".*")
+	if err != nil {
+		return "", err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	_ = tmp.Chmod(0600)
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return "", err
+	}
+	if err := tmp.Close(); err != nil {
+		return "", err
+	}
+	ref := "kind-" + clusterName
+	for _, args := range [][]string{
+		{"config", "set-context", context, "--cluster=" + ref, "--user=" + ref},
+		{"config", "use-context", context},
+	} {
+		cmd := exec.Command(kubectl, append([]string{"--kubeconfig", tmpPath}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return "", fmt.Errorf("kubectl %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+		}
+	}
+	path := filepath.Join(dir, examKubeconfigFile)
+	if err := os.Rename(tmpPath, path); err != nil {
+		return "", fmt.Errorf("failed to write '%s': %w", path, err)
+	}
+	return path, nil
+}
+
 // RemoveLabState deletes ~/.astrona/kind/<lab> (its kubeconfig). Missing is
 // fine.
 func RemoveLabState(lab string) error {

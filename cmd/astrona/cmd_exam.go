@@ -186,7 +186,7 @@ func prepareAttempt(ctx context.Context, out, warn io.Writer, api *labops.ExamAP
 	preparing := !st.Ready
 	req := labops.ExamPrepareRequest{State: st, Profile: profile, Load: examLabLoader(flags), Only: only, Parallel: parallel, Rep: rep}
 	if preparing {
-		req.Progress = func(step string) { _ = api.Progress(context.Background(), st.ID, "preparing", step) }
+		req.Progress = func(step string, task int) { _ = api.Progress(context.Background(), st.ID, "preparing", step, task) }
 	}
 	err = labops.PrepareExam(ctx, req)
 	if err == nil {
@@ -204,7 +204,7 @@ func prepareAttempt(ctx context.Context, out, warn io.Writer, api *labops.ExamAP
 		if errors.Is(err, context.Canceled) {
 			reason = "preparation was interrupted"
 		}
-		_ = api.Progress(bg, st.ID, "failed", reason)
+		_ = api.Progress(bg, st.ID, "failed", reason, 0)
 		if terr := labops.TeardownExam(st, rep); terr != nil {
 			rep.Warn("some exam clusters could not be deleted: %s", terr)
 		}
@@ -222,7 +222,7 @@ func prepareAttempt(ctx context.Context, out, warn io.Writer, api *labops.ExamAP
 	}
 	st.Ready = true
 	if preparing {
-		if err := api.Progress(context.WithoutCancel(ctx), st.ID, "ready", fmt.Sprintf("All %d clusters are ready", len(st.Clusters))); err != nil {
+		if err := api.Progress(context.WithoutCancel(ctx), st.ID, "ready", fmt.Sprintf("All %d clusters are ready", len(st.Clusters)), 0); err != nil {
 			rep.Warn("could not tell Astrona the exam is ready: %s (astrona exam resume tries again)", err)
 		}
 	}

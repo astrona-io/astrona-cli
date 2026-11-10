@@ -217,12 +217,17 @@ func (c *Client) GetLabExam(ctx context.Context, s Store, cr *Credentials, id st
 
 // LabExamProgress reports a preparation step: phase is preparing, ready
 // or failed. failed ends the attempt without counting it. Labs takes at
-// most 240 characters of message.
-func (c *Client) LabExamProgress(ctx context.Context, s Store, cr *Credentials, id, phase, message string) error {
+// most 240 characters of message. task, when non-zero on a preparing
+// step, says that task's setup was applied: labs records when (setup_at).
+func (c *Client) LabExamProgress(ctx context.Context, s Store, cr *Credentials, id, phase, message string, task int) error {
 	if r := []rune(message); len(r) > 240 {
 		message = string(r[:239]) + "…"
 	}
-	return c.labExamCall(ctx, s, cr, http.MethodPost, id, "/progress", map[string]string{"phase": phase, "message": message}, nil, "report the exam's preparation")
+	body := map[string]any{"phase": phase, "message": message}
+	if task > 0 {
+		body["task"] = task
+	}
+	return c.labExamCall(ctx, s, cr, http.MethodPost, id, "/progress", body, nil, "report the exam's preparation")
 }
 
 // OpenLabExamTask records that the student moved to the task at position.
@@ -313,8 +318,8 @@ func (c *Client) labExamCall(ctx context.Context, s Store, cr *Credentials, meth
 		if rd != nil {
 			req.Header.Set("Content-Type", "application/json")
 		}
-		req.Header.Set("Authorization", "Bearer "+creds.AccessToken)
-		_, err = do(c.HTTP, req, out)
+		// send signs it (Astrona-Proof) when this computer has a device key.
+		_, err = c.send(req, creds, out)
 		return err
 	}
 	err := send(cr)
@@ -331,6 +336,10 @@ func (c *Client) labExamCall(ctx context.Context, s Store, cr *Credentials, meth
 	}
 	if err == nil {
 		return nil
+	}
+	if IsProofError(err) {
+		// Renewing would not help: this computer's key doesn't match.
+		return err
 	}
 	if !errors.As(err, &he) {
 		return fmt.Errorf("could not reach %s to %s: %w", cr.Site, what, err)

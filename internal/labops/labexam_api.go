@@ -67,13 +67,14 @@ func (a *ExamAPI) Get(ctx context.Context, id string) (*account.LabExam, error) 
 	return a.Client.GetLabExam(ctx, a.Store, cr, id)
 }
 
-// Progress reports preparation: preparing, ready or failed.
-func (a *ExamAPI) Progress(ctx context.Context, id, phase, message string) error {
+// Progress reports preparation: preparing, ready or failed. task, when
+// non-zero, is the task whose setup the step says was applied.
+func (a *ExamAPI) Progress(ctx context.Context, id, phase, message string, task int) error {
 	cr, err := a.creds(ctx)
 	if err != nil {
 		return err
 	}
-	return a.Client.LabExamProgress(ctx, a.Store, cr, id, phase, message)
+	return a.Client.LabExamProgress(ctx, a.Store, cr, id, phase, message, task)
 }
 
 // OpenTask records that the student moved to task position.
