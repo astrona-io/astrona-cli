@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch, watchEffect } from 'vue'
-import { launch, rememberLab } from './boot'
+import { launch, rememberHome, rememberLab } from './boot'
 import {
   ApiError,
   clearToken,
@@ -11,10 +11,10 @@ import {
   getToken,
   isRunGone,
   isUnauthorized,
-  listRuns,
   newIdempotencyKey,
   startRun,
   submitRun,
+  type MachineLab,
   type Run,
   type Submission,
 } from './api'
@@ -24,6 +24,7 @@ import { endSessionCopy, removeCopy, runAgainCommand, type EndCopy } from './end
 import MessagePage from './components/MessagePage.vue'
 import IntroPage from './components/IntroPage.vue'
 import LaunchPage from './components/LaunchPage.vue'
+import HomePage from './components/HomePage.vue'
 import WorkspacePage from './components/WorkspacePage.vue'
 import ResultsPage from './components/ResultsPage.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
@@ -31,6 +32,7 @@ import ConfirmDialog from './components/ConfirmDialog.vue'
 type Screen =
   | { kind: 'loading' }
   | { kind: 'launch'; id: string }
+  | { kind: 'home' }
   | { kind: 'message'; title: string; body: string; command?: string }
   | { kind: 'intro' }
   | { kind: 'workspace' }
@@ -40,6 +42,9 @@ const screen = shallowRef<Screen>({ kind: 'loading' })
 const run = ref<Run | null>(null)
 const starting = ref(false)
 const startError = ref<string | null>(null)
+// The page holds a session token: messages can offer "See all labs".
+const signedIn = ref(false)
+const home = ref<InstanceType<typeof HomePage> | null>(null)
 let labId: string | null = launch.lab
 let poll: number | undefined
 // What to run for a new link. The lab is known from the launch link or the
@@ -164,20 +169,40 @@ watch(connectionLost, (lost) => {
   if (lost && screen.value.kind === 'workspace') schedule()
 })
 
-async function chooseLab(): Promise<string | null> {
-  const runs = await listRuns()
-  const active = runs.filter((r) => r.status !== 'stopped' && r.status !== 'failed')
-  if (active.length === 1) return active[0]!.lab
-  screen.value = {
-    kind: 'message',
-    title: active.length === 0 ? 'No lab is running' : 'Choose a lab',
-    body:
-      active.length === 0
-        ? 'Start a lab from your terminal and answer yes when astrona asks to open it in your browser.'
-        : `Several labs are running (${active.map((r) => r.lab).join(', ')}). Open one with its name.`,
-    command: active.length === 0 ? 'astrona run <lab>' : 'astrona ui <lab>',
+// "Labs on this computer": every lab, opened in the browser or not.
+function showHome(): void {
+  window.clearTimeout(poll)
+  labId = null
+  rememberHome()
+  screen.value = { kind: 'home' }
+}
+
+async function openFromHome(lab: string): Promise<void> {
+  labId = lab
+  rememberLab(lab)
+  screen.value = { kind: 'loading' }
+  try {
+    await refresh()
+    const now = screen.value as Screen
+    if (now.kind === 'intro' || now.kind === 'workspace') schedule()
+  } catch (err) {
+    showError(err)
   }
-  return null
+}
+
+// End or remove a lab from the list: the same dialog as in the workspace,
+// and the list again afterwards.
+let dialogFromHome = false
+async function removeFromHome(l: MachineLab): Promise<void> {
+  try {
+    run.value = await getRun(l.lab)
+  } catch (err) {
+    if (isUnauthorized(err)) showError(err)
+    else home.value?.reload()
+    return
+  }
+  dialogFromHome = true
+  openDialog(run.value.playground ? 'end' : 'remove')
 }
 
 async function start(): Promise<void> {
@@ -233,6 +258,7 @@ function openDialog(kind: DialogKind): void {
 
 function closeDialog(): void {
   if (dialogBusy.value) return
+  dialogFromHome = false
   dialog.value = null
   dialogError.value = null
 }
@@ -305,6 +331,12 @@ async function removeEnvironment(r: Run): Promise<void> {
   }
   dialog.value = null
   window.clearTimeout(poll)
+  if (dialogFromHome) {
+    dialogFromHome = false
+    run.value = null
+    home.value?.reload()
+    return
+  }
   screen.value = r.playground
     ? {
         kind: 'message',
@@ -397,12 +429,15 @@ onMounted(async () => {
       }
       return
     }
+    signedIn.value = true
     if (!labId && launch.launchId) {
       screen.value = { kind: 'launch', id: launch.launchId }
       return
     }
-    labId ??= await chooseLab()
-    if (!labId) return
+    if (!labId) {
+      showHome()
+      return
+    }
     rememberLab(labId)
     await refresh()
     if (screen.value.kind === 'intro' || screen.value.kind === 'workspace') schedule()
@@ -454,11 +489,20 @@ watchEffect(() => {
     @unauthorized="showError(new ApiError(401, 'unauthorized'))"
     @gone="onLaunchGone"
   />
+  <HomePage
+    v-else-if="screen.kind === 'home'"
+    ref="home"
+    @open="openFromHome"
+    @remove="removeFromHome"
+    @unauthorized="showError(new ApiError(401, 'unauthorized'))"
+  />
   <MessagePage
     v-else-if="screen.kind === 'message'"
     :title="screen.title"
     :body="screen.body"
     :command="screen.command"
+    :home="signedIn && screen !== sessionEnded"
+    @home="showHome"
   />
   <IntroPage
     v-else-if="screen.kind === 'intro' && run"
@@ -474,6 +518,7 @@ watchEffect(() => {
     @unauthorized="onUnauthorized"
     @run-gone="onRunGone"
     @end="openDialog('end')"
+    @home="showHome"
   />
   <ResultsPage
     v-else-if="screen.kind === 'results'"

@@ -13,6 +13,9 @@ const emit = defineEmits<{ ready: [lab: string]; unauthorized: []; gone: [] }>()
 const POLL_MS = 600
 const launch = shallowRef<Launch | null>(null)
 const loadError = ref<string | null>(null)
+// The lab is ready: the page waits for "Begin this session" instead of
+// switching on its own.
+const readyLab = ref<string | null>(null)
 let timer: number | undefined
 let stopped = false
 
@@ -23,7 +26,7 @@ async function poll(): Promise<void> {
     launch.value = l
     if (l.stage === 'ready' && l.lab) {
       stopped = true
-      emit('ready', l.lab)
+      readyLab.value = l.lab
       return
     }
     if (final.value) {
@@ -63,6 +66,7 @@ const final = computed(() => {
 const heading = computed(() => {
   const l = launch.value
   if (!l) return 'Starting astrona…'
+  if (readyLab.value) return l.title ? `${l.title} is ready` : 'Your lab is ready'
   if (l.stage === 'declined') return 'Terms declined'
   if (l.stage === 'failed') return 'The lab could not be set up'
   if (l.stage === 'ended') return 'Nothing more to show here'
@@ -74,6 +78,8 @@ const heading = computed(() => {
 const lead = computed(() => {
   const l = launch.value
   if (!l) return ''
+  if (readyLab.value)
+    return 'Everything is set up and nothing counts yet. The next page shows what to expect; your time starts when you click Start there.'
   if (l.stage === 'declined') return 'Nothing was started and astrona has stopped. You can close this tab.'
   if (l.stage === 'failed') return l.message || 'astrona stopped with an error. The lab was not started, or what was started was removed.'
   if (l.stage === 'ended') return l.message || 'astrona finished in your terminal.'
@@ -135,7 +141,7 @@ const rows = computed<Row[]>(() => {
 
 const current = computed(() => {
   const l = launch.value
-  if (!l || final.value) return null
+  if (!l || final.value || readyLab.value) return null
   for (let i = rows.value.length - 1; i >= 0; i--) {
     const r = rows.value[i]
     if (r.state === 'running') return r
@@ -212,7 +218,7 @@ async function answer(accept: boolean): Promise<void> {
       <h1 id="launch-title" class="intro__title">{{ heading }}</h1>
       <p class="muted">{{ lead }}</p>
 
-      <p v-if="launch && !final && launch.stage !== 'terms'" class="readiness readiness--busy" role="status">
+      <p v-if="launch && !final && !readyLab && launch.stage !== 'terms'" class="readiness readiness--busy" role="status">
         <span class="dot" aria-hidden="true" />
         <template v-if="current">
           {{ current.label }}<span v-if="launch.status" class="muted"> — {{ launch.status }}</span>
@@ -220,7 +226,12 @@ async function answer(accept: boolean): Promise<void> {
         <template v-else>{{ launch.stage === 'checking' ? 'Checking the lab…' : 'Working…' }}</template>
       </p>
 
-      <ol v-if="rows.length" ref="list" class="launch__steps" aria-label="Setup steps">
+      <div v-if="rows.length" class="launch__term">
+        <div class="launch__bar" aria-hidden="true">
+          <span class="launch__light" /><span class="launch__light" /><span class="launch__light" />
+          <span class="launch__cmd">astrona run {{ launch?.lab || launch?.title || '' }}</span>
+        </div>
+      <ol ref="list" class="launch__steps" aria-label="Setup steps">
         <li
           v-for="r in rows"
           :key="r.key"
@@ -239,7 +250,18 @@ async function answer(accept: boolean): Promise<void> {
             <span class="launch__time small muted">{{ seconds(r.seconds) }}</span>
           </template>
         </li>
+        <li v-if="!final && !readyLab" class="launch__cursor" aria-hidden="true"><span>▍</span></li>
+        <li v-if="readyLab" class="launch__step launch__step--ok launch__done">
+          <span class="launch__mark" aria-hidden="true">➜</span>
+          <span class="launch__label">Lab ready</span>
+          <span />
+        </li>
       </ol>
+      </div>
+
+      <div v-if="readyLab" class="launch__begin">
+        <button type="button" class="btn btn--primary" @click="emit('ready', readyLab)">Begin this session</button>
+      </div>
 
       <div v-if="launch?.stage === 'failed'" class="dialog__error" role="alert">
         <p v-if="launch.error">{{ launch.error }}</p>

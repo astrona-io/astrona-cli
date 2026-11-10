@@ -96,6 +96,7 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | `GET /server` | Version, profile, features. |
 | `GET /launches/{id}` | A browser-first `astrona run` before its lab exists: terms, setup progress, outcome. |
 | `POST /launches/{id}/terms` | Accept or decline the CLI terms for that run. |
+| `GET /labs` | Every lab on this computer, opened in the browser or not. |
 | `GET /runs` | Labs the workspace was opened for. |
 | `GET /runs/{lab}` | One run: identity, mode, status, clock, questions, targets, tabs. |
 | `GET /runs/{lab}/questions/{id}` | One question rendered to HTML. After **Start** only. |
@@ -157,7 +158,7 @@ command knows whether the tab is still open.
 | `terms` | Waiting for the terms. `terms` holds `revision`, `sha256` and `text`, exactly as the running CLI ships them. |
 | `checking` | Resolving the lab. The terminal may ask a question. |
 | `preparing` | Building the lab; `events` and `status` show progress. |
-| `ready` | `lab` names the run the page opens next (`GET /runs/{lab}`). |
+| `ready` | `lab` names the run the page opens next (`GET /runs/{lab}`), after **Begin this session**. |
 | `failed` | `error` says why. |
 | `declined` | The terms were declined; nothing was started. |
 | `ended` | The command stopped without a lab for this page; `message` says why. |
@@ -178,6 +179,30 @@ Response: `200 {"accepted": true}`.
 
 Errors: `404 launch_gone`; `409 not_asking` (not at `terms`, or the command
 exited); `409 terms_changed` (the digest does not match); `409 answered`.
+
+### `GET /labs`
+
+Every astrona lab on this computer: Kind clusters and QEMU VMs with this
+build's prefix, joined with their saved state. Linked clusters (a lab's second
+cluster) and test clusters are left out.
+
+```json
+{
+  "labs": [
+    { "lab": "astro-pod-basics", "name": "pod-basics", "title": "Pod basics",
+      "runtime": "kind", "state": "running", "uptime": "2h", "mode": "learning",
+      "playground": false, "workspace": true, "runId": "…", "runStatus": "ready" }
+  ],
+  "engine": "…"
+}
+```
+
+`state` is `running`, `stopped`, `degraded` (some VMs stopped) or `unknown`.
+`vms` counts a QEMU lab's VMs. `deadlineAt` is when a playground is deleted or
+an exam ends. `workspace` is true when the page has a current run for the lab
+(`GET /runs/{lab}`); `title`, `mode`, `runId` and `runStatus` come from that
+run. `engine` is set, with a message, when the container engine does not
+answer; Kind labs are then missing from the list.
 
 ### `GET /runs`
 

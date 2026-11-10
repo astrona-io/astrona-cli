@@ -20,13 +20,15 @@ var uiSubcommands = []string{"serve", "status", "stop"}
 func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ui [lab-name]",
-		Short: "Open a running lab in the browser workspace",
+		Short: "Open a running lab, or every lab on this computer, in the browser",
 		Long: "Open a running Kind lab in the browser workspace: astrona starts the local workspace server " +
 			"(or reuses a running one), prints a link with a fresh single-use code (valid for two minutes) and " +
 			"opens it in your browser. With no browser on this machine (no display), open the printed link yourself. " +
 			"Use it when a link has expired or the browser tab was closed; it never restarts the lab or its timer, " +
 			"and it uses the saved local files without checking GitHub.\n\n" +
-			"Without a lab name it opens the only running lab; when several are running it lists them. " +
+			"Without a lab name it opens the only running lab. With none or several it opens \"Labs on this computer\", " +
+			"a page listing every lab and playground that still runs here (labs keep running after astrona run returns), " +
+			"where you open or end them. " +
 			"A lab named status, stop or serve is opened by its full name (" + apphome.ClusterPrefix() + "status), " +
 			"since the short name is a subcommand.\n\n" +
 			"QEMU labs do not open in the browser yet: astrona status <lab> shows the astrona ssh command for each VM.\n\n" +
@@ -49,19 +51,19 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			slices.Sort(running)
 			var name string
 			if len(args) == 0 {
+				out := cmd.OutOrStdout()
 				switch len(running) {
 				case 0:
-					fmt.Fprintln(cmd.OutOrStdout(), "No lab is running. Start one with astrona run <lab>; it offers to open the browser workspace.")
-					return nil
+					fmt.Fprintln(out, "No lab is running. Start one with astrona run <lab>.")
+					return openWorkspaceHome(out)
 				case 1:
 					name = running[0]
 				default:
-					out := cmd.OutOrStdout()
-					fmt.Fprintln(out, "Several labs are running. Open one with astrona ui <lab>:")
+					fmt.Fprintln(out, "Several labs are running (astrona ui <lab> opens one):")
 					for _, n := range running {
 						fmt.Fprintf(out, "  %s\n", uiLabArg(n))
 					}
-					return nil
+					return openWorkspaceHome(out)
 				}
 			} else {
 				name = config.NormalizeClusterName(args[0])
