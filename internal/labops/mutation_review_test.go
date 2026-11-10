@@ -76,6 +76,10 @@ func TestSubmitKeepsRunLockedUntilResultDelivery(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\nif [ \"$1\" = ps ]; then printf '%s\\n' astro-review-control-plane; fi\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
+	// Every recorded submit deletes the lab: the delete succeeds here.
+	if err := os.WriteFile(filepath.Join(bin, "kind"), []byte("#!/bin/sh\nexit 0\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+"/usr/bin:/bin")
 	t.Setenv("KIND_EXPERIMENTAL_PROVIDER", "docker")
 	base := t.TempDir()
@@ -88,8 +92,9 @@ func TestSubmitKeepsRunLockedUntilResultDelivery(t *testing.T) {
 	res, err := Submit(context.Background(), SubmitRequest{
 		Config: &config.LabConfig{Metadata: config.MetadataConfig{Name: "review"},
 			Validation: config.ValidationConfig{Checks: []config.ValidationCheck{{Type: "command", Name: "pass", Command: "true"}}}},
-		BaseDir: base, Lab: lab, Keep: true, Status: io.Discard, Warn: io.Discard,
-		UI: ui.Options{Plain: true, Screen: io.Discard, Raw: io.Discard},
+		BaseDir: base, Lab: lab, Status: io.Discard, Warn: io.Discard,
+		Destroy: DestroyOptions{Out: io.Discard, ForgetWarn: io.Discard},
+		UI:      ui.Options{Plain: true, Screen: io.Discard, Raw: io.Discard},
 		Graded: func(_ *SubmitResult, _ *ui.Reporter) error {
 			graded = true
 			release, err := labstate.LockMutation("astro-review")

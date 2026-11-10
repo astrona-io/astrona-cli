@@ -28,7 +28,7 @@ import (
 // command's persistent flags.
 func newSubmitCmd(flags *rootFlags) *cobra.Command {
 	var junitPath, output string
-	var noHints, history, watch, keep bool
+	var noHints, history, watch bool
 	var watchInterval time.Duration
 
 	cmd := &cobra.Command{
@@ -36,8 +36,10 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 		Short: "Submit the lab to the Proctor for grading",
 		Long: "Submit the running lab to the Proctor for grading: every validation check and script " +
 			"runs, a failed one shows its hint (if the lab author wrote one), and you get a score. " +
-			"Every attempt is recorded — `astrona submit --history` lists them. `--watch` re-grades " +
-			"continuously while you work, without recording attempts.\n\n" +
+			"Every attempt is recorded — `astrona submit --history` lists them.\n\n" +
+			"A submit is final: it ends the attempt, pass or fail, and then deletes the lab. To check " +
+			"your work without ending the attempt, use `astrona submit --watch`: it re-grades " +
+			"continuously while you work and records, sends and deletes nothing.\n\n" +
 			"Saved runs use their local config and cached repository without checking GitHub or " +
 			"downloading again. Approval of the same source revision is reused.\n\n" +
 			"Passing means every check passes, or — when the lab sets validation.passPercent — " +
@@ -46,17 +48,17 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			"directory, the only running lab is submitted; with several running, it lists them and " +
 			"how to name each.\n\n" +
 			"A catalog lab started while signed in (`astrona run ATS…`) sends each result to its lab " +
-			"page on Astrona as well. Submit is the feedback loop: a FAIL is recorded, the lab and its " +
-			"timer keep going, and you fix it and submit again — every submit is a result on the same " +
-			"attempt. A PASS finishes the attempt and stops its timer, and once the server confirms it " +
-			"(or it is queued, below), submit automatically deletes the lab, exactly like `astrona destroy`, " +
-			"including in headless and JSON modes. Use --keep to keep it; teardown.keepCluster is also " +
-			"respected. A local-only run has nothing to send, so its saved PASS finishes it too.\n\n" +
+			"page on Astrona as well, with the time you spent. The result, PASS or FAIL, finishes the " +
+			"attempt and stops its timer, and once the server confirms it (or it is queued, below), " +
+			"submit automatically deletes the lab, exactly like `astrona destroy`, including in headless " +
+			"and JSON modes. The lab is never kept: teardown.keepCluster does not apply to a submit. A run " +
+			"with nothing to send (--local-only, a lab from your own files) is finished the same way once " +
+			"its result is saved here. Start a new attempt with `astrona run <lab>`.\n\n" +
 			"Each submit carries its own key. When Astrona can't be reached (or answers with a server " +
 			"error), the result is kept in the outbox on this machine and sent in the background with the " +
 			"same key, so a retry never records it twice; submit says it is queued. A result Astrona " +
-			"refuses (the attempt already passed, its time ran out, or it holds too many results) is not " +
-			"retried: start a new tracked attempt with `astrona reset`.\n\n" +
+			"refuses (the attempt has already ended, its time ran out, or it holds too many results) is not " +
+			"retried and the lab is left as it is: start a new tracked attempt with `astrona reset`.\n\n" +
 			"Ctrl+C (or SIGTERM) while grading stops before the next check and exits 1 without " +
 			"recording or sending anything; the lab is left as it is. Once grading is done, the " +
 			"result is recorded and sent regardless. A second Ctrl+C quits at once.\n\n" +
@@ -68,7 +70,7 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			if err := checkOutput(output); err != nil {
 				return err
 			}
-			if err := checkWatchFlags(watch, output, junitPath, history, keep); err != nil {
+			if err := checkWatchFlags(watch, output, junitPath, history); err != nil {
 				return err
 			}
 			// Status lines never go to stdout under -o json: it carries
@@ -115,32 +117,31 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 					return err
 				}
 				defer cleanup()
-				return submitLoadedLab(flags, cfg, baseDir, submitOptions{runID: labops.RunID(saved), junitPath: junitPath, output: output, noHints: noHints, history: history, watch: watch, keep: keep, watchInterval: watchInterval, interruptOf: cmd}, status)
+				return submitLoadedLab(flags, cfg, baseDir, submitOptions{runID: labops.RunID(saved), junitPath: junitPath, output: output, noHints: noHints, history: history, watch: watch, watchInterval: watchInterval, interruptOf: cmd}, status)
 			}
 			cfg, baseDir, configCleanup, err := LoadLabForCommand(flags)
 			if err != nil {
 				return err
 			}
 			defer configCleanup()
-			return submitLoadedLab(flags, cfg, baseDir, submitOptions{junitPath: junitPath, output: output, noHints: noHints, history: history, watch: watch, keep: keep, watchInterval: watchInterval, interruptOf: cmd}, status)
+			return submitLoadedLab(flags, cfg, baseDir, submitOptions{junitPath: junitPath, output: output, noHints: noHints, history: history, watch: watch, watchInterval: watchInterval, interruptOf: cmd}, status)
 		},
 	}
 
 	cmd.Flags().StringVar(&junitPath, "junit-xml", "", "Write a JUnit XML test report to this path, for CI systems to parse")
 	cmd.Flags().BoolVar(&noHints, "no-hints", false, "Don't show hints for failed checks (exam conditions)")
 	cmd.Flags().BoolVar(&history, "history", false, "List previous attempts for this lab instead of grading")
-	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Re-grade continuously while you work (Ctrl-C to stop; not recorded as attempts)")
+	cmd.Flags().BoolVarP(&watch, "watch", "w", false, "Re-grade continuously while you work, without ending the attempt (Ctrl-C to stop; not recorded, sent or deleted)")
 	cmd.Flags().DurationVar(&watchInterval, "interval", 5*time.Second, "How often --watch re-grades (minimum 2s)")
-	cmd.Flags().BoolVar(&keep, "keep", false, "Keep the lab after the result is sent to Astrona instead of automatically deleting it")
 	addOutputFlag(cmd, &output)
 	return cmd
 }
 
 type submitOptions struct {
-	runID                         string
-	junitPath, output             string
-	noHints, history, watch, keep bool
-	watchInterval                 time.Duration
+	runID                   string
+	junitPath, output       string
+	noHints, history, watch bool
+	watchInterval           time.Duration
 	// interruptOf, when set (the submit command), makes Ctrl+C stop the
 	// grading (interruptible).
 	interruptOf *cobra.Command
@@ -177,7 +178,6 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 		Out:     os.Stdout,
 		Status:  status,
 		Warn:    os.Stderr,
-		Keep:    options.keep,
 		Destroy: destroyOptions(),
 		Graded: func(res *labops.SubmitResult, rep *ui.Reporter) error {
 			if options.junitPath != "" {
@@ -222,7 +222,11 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 		return err
 	}
 	if !res.Passed {
-		fmt.Fprintln(status, "Submission complete: FAIL. The lab stays available; fix it and submit again.")
+		if res.Finished {
+			fmt.Fprintln(status, "Submission complete: FAIL. This attempt has ended; start a new one with `astrona run <lab>`.")
+		} else {
+			fmt.Fprintln(status, "Submission complete: FAIL.")
+		}
 		return notPassed("submission did not pass grading")
 	}
 	return nil
@@ -231,7 +235,7 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 // checkWatchFlags refuses flags that --watch would otherwise silently
 // ignore: a watch never records an attempt, so nothing is written, listed
 // or sent.
-func checkWatchFlags(watch bool, output, junitPath string, history, keep bool) error {
+func checkWatchFlags(watch bool, output, junitPath string, history bool) error {
 	if !watch {
 		return nil
 	}
@@ -242,8 +246,6 @@ func checkWatchFlags(watch bool, output, junitPath string, history, keep bool) e
 		return fmt.Errorf("--watch records nothing, so there is no --junit-xml report — run `astrona submit --junit-xml %s` without --watch", junitPath)
 	case history:
 		return fmt.Errorf("--watch and --history can't be combined: --history lists attempts, --watch re-grades")
-	case keep:
-		return fmt.Errorf("--keep only applies after a recorded submit; --watch never sends a result or deletes the lab")
 	}
 	return nil
 }

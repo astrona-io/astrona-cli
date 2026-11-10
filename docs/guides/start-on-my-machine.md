@@ -77,7 +77,7 @@ Only these commands, each for one catalog lab named like
 | --- | --- |
 | Start | `astrona run <lab> --yes --no-browser`, taking over the lab session the website created |
 | Status | `astrona status <lab>` |
-| Submit | `astrona submit <lab> --keep` |
+| Submit | `astrona submit <lab>`: it ends the attempt, pass or fail, and deletes the lab |
 | Reset | `astrona reset <lab> --yes` |
 | Destroy | `astrona destroy <lab>` |
 | Stop / Start | `astrona stop <lab>` / `astrona start <lab>` |

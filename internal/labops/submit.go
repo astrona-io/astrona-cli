@@ -265,8 +265,6 @@ type SubmitRequest struct {
 	// Status gets the sending and cleanup lines; Warn the sending
 	// warnings.
 	Status, Warn io.Writer
-	// Keep keeps the lab after a sent PASS (--keep).
-	Keep bool
 	// Destroy is how a finished attempt's lab is deleted.
 	Destroy DestroyOptions
 	// Progress, when set, follows each check while grading runs.
@@ -282,7 +280,7 @@ type SubmitRequest struct {
 	Graded func(res *SubmitResult, rep *ui.Reporter) error
 	// Completed runs once sending is done, before any cleanup.
 	Completed func(res *SubmitResult)
-	// BeforeCleanup runs just before a sent PASS deletes the lab (the UI
+	// BeforeCleanup runs just before a finished attempt deletes the lab (the UI
 	// closes its terminals); Deleted runs once the lab is gone.
 	BeforeCleanup, Deleted func()
 }
@@ -309,9 +307,10 @@ type SubmitResult struct {
 	Recorded    bool // saved in the local attempt history
 	Sent        bool // recorded on the lab page
 	Queued      bool // kept in the outbox; sent when Astrona is reachable
-	// Finished: the attempt is over — it passed, and the pass was sent (or
-	// queued), or a local-only run's pass was saved here. A failed result
-	// never finishes it: fix the lab and submit again.
+	// Finished: the attempt is over, pass or fail — the result was sent
+	// (or queued), or, for a run without a lab session (local-only, or a
+	// lab from your own files), saved here. A finished attempt's lab is
+	// deleted.
 	Finished bool
 }
 
@@ -393,8 +392,9 @@ func runStart(startedAt time.Time, before *labstate.State) time.Time {
 
 // Submit grades a loaded lab once (proctor.Evaluate, rendered on req.Out
 // with Proctor.Report), records the attempt, hands it to req.Graded, sends
-// it to the lab page (SendResult) and, once the attempt is finished,
-// deletes the lab unless req.Keep or teardown.keepCluster. An error means
+// it to the lab page (SendResult) and, once the attempt is finished (any
+// recorded result, pass or fail), deletes the lab — teardown.keepCluster
+// never keeps a submitted lab. An error means
 // the submission could not be graded, or its cleanup failed (the result
 // is then already recorded and sent). Cancelling ctx (Ctrl+C) while it
 // grades stops before the next check with ErrInterrupted, recording and
@@ -474,9 +474,9 @@ func Submit(ctx context.Context, req SubmitRequest) (*SubmitResult, error) {
 	if recordErr != nil {
 		rep.Warn("could not record this attempt: %s", recordErr)
 	}
-	// Only a pass ends the run: after a failed result the clock and usage
-	// keep going while the learner fixes the lab and submits again.
-	if pass && recordErr == nil && before != nil && before.StartedAt != "" && SameSource(before.Source, source) && !before.Session.IsPlayground() {
+	// Every recorded submit ends the run, pass or fail: the clock and usage
+	// stop here, and the lab is deleted below.
+	if recordErr == nil && before != nil && before.StartedAt != "" && SameSource(before.Source, source) && !before.Session.IsPlayground() {
 		if err := labstate.SaveSubmission(clusterName, before.StartedAt, pass, now); err != nil {
 			rep.Warn("could not mark this run submitted: %s", err)
 		}
@@ -508,15 +508,18 @@ func Submit(ctx context.Context, req SubmitRequest) (*SubmitResult, error) {
 	if req.Completed != nil {
 		req.Completed(res)
 	}
-	// A pass that reached the lab page (or waits in the outbox, which
-	// delivers it before the destroy's stop) finishes the attempt: the lab
-	// has no further tracked use, so it goes, as `astrona destroy` would. A
-	// local-only run (a UI restart, --local-only) has nothing to send: its
-	// pass, once saved here, is the final one. A FAIL keeps the lab for
-	// another submit.
-	localRun := before != nil && before.LocalOnly && res.Recorded
-	res.Finished = pass && (res.Sent || res.Queued || localRun)
-	if res.Finished && !req.Keep && !cfg.Teardown.KeepCluster {
+	// A result that reached the lab page (or waits in the outbox, which
+	// delivers it before the destroy's stop) finishes the attempt, pass or
+	// fail: the lab has no further tracked use, so it goes, as `astrona
+	// destroy` would. A run without a lab session (a UI restart,
+	// --local-only, a lab from your own files) has nothing to send: its
+	// result, once saved here, is the final one. Only a tracked result
+	// Astrona refused or that could not be kept (a session on another
+	// site, an expired one) leaves the lab, so it can be sent from there.
+	// `submit --watch` is how to check work without ending the attempt.
+	localRun := before != nil && res.Recorded && (before.LocalOnly || before.Session == nil)
+	res.Finished = res.Sent || res.Queued || localRun
+	if res.Finished {
 		name := clusterName
 		if req.Lab.Catalog != "" {
 			name = req.Lab.Catalog
@@ -535,7 +538,11 @@ func Submit(ctx context.Context, req SubmitRequest) (*SubmitResult, error) {
 				return err
 			}
 			defer drep.Close()
-			info := Teardown{ClusterName: cfg.Metadata.Name, RunID: RunID(before), Status: req.Status, Teardown: cfg.Teardown, Runtime: cfg.Runtime, Config: cfg}
+			// A submitted lab never stays: teardown.keepCluster is for
+			// `astrona destroy` of a lab from your own files.
+			teardown := cfg.Teardown
+			teardown.KeepCluster = false
+			info := Teardown{ClusterName: cfg.Metadata.Name, RunID: RunID(before), Status: req.Status, Teardown: teardown, Runtime: cfg.Runtime, Config: cfg}
 			if err := DestroyLab(info, req.BaseDir, drep, req.Destroy); err != nil {
 				return err
 			}

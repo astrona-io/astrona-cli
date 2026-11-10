@@ -398,7 +398,8 @@ func (c *client) track(cmd Command) {
 	switch {
 	case cmd.Command == "run" && cmd.Session != nil:
 		c.running = &Running{Lab: cmd.Lab, SessionID: cmd.Session.ID}
-	case cmd.Command == "destroy" && c.running != nil && c.running.Lab == cmd.Lab:
+	case (cmd.Command == "destroy" || cmd.Command == "submit") && c.running != nil && c.running.Lab == cmd.Lab:
+		// A submit ends the attempt and deletes the lab, like a destroy.
 		c.running = nil
 	}
 }

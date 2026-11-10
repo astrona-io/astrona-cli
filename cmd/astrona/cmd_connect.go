@@ -260,9 +260,8 @@ func connectArgs(c connect.Command) []string {
 		args = append(args, "--yes", "--no-browser", "--session", c.Session.ID)
 	case "reset":
 		args = append(args, "--yes")
-	case "submit":
-		args = append(args, "--keep") // the website decides when to destroy it
 	}
+	// A submit ends the attempt and deletes the lab, as at a terminal.
 	return append(args, "--update-check=false")
 }
 

@@ -127,10 +127,11 @@ func DeliverResult(ctx context.Context, w, warn io.Writer, clusterName string, s
 	case errors.Is(err, account.ErrSessionGone):
 		fmt.Fprintln(w, "This lab's session has expired or isn't yours — the result was not sent. Run the lab again to track a new attempt.")
 	case errors.Is(err, account.ErrAttemptFinished):
-		// A pass ends the attempt; a site before several submits per
-		// attempt ends it at the first result. Either way it is final.
-		fmt.Fprintf(w, "The result was not sent: %s\nStart a new tracked attempt with: astrona reset %s\n",
-			siteDetail(err, account.ErrAttemptFinished, "This lab attempt is already finished."), lab)
+		// Every submitted result ends the attempt, pass or fail (and a
+		// site may end it on its own). The lab still runs here: reset
+		// rebuilds it as a new tracked attempt.
+		fmt.Fprintf(w, "The result was not sent: %s\nThis attempt has ended; start a new one with: astrona reset %s\n",
+			siteDetail(err, account.ErrAttemptFinished, "This lab attempt has already ended."), lab)
 	case errors.Is(err, account.ErrSessionExpired):
 		fmt.Fprintf(w, "The result was not sent: %s\nStart a new attempt with: astrona reset %s   (or: astrona destroy %s, then astrona run %s)\n",
 			siteDetail(err, account.ErrSessionExpired, "This lab session has expired — run the lab again to start a new attempt."), lab, lab, lab)

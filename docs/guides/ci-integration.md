@@ -47,7 +47,7 @@ deprecated alias for existing scripts and prints a migration notice.
 | --- | --- |
 | `run`, `reset` | Set up Kind or QEMU without UI prompts or new account sessions. Replacing a run still requires `--yes`; soft and linked-cluster resets also require it. `run --local-only` also marks the run local only, so a later `submit` records its result on this machine and sends nothing. |
 | `test`, `validate`, `check`, `doctor`, `diagnose` | Run with explicit approvals and static progress output. `test` retains automatic grading and cleanup. |
-| `submit` | Grade and send results for an existing tracked session. A FAIL keeps the lab for another submit; a server-confirmed (or queued) PASS deletes it — use `--keep` to retain the lab. A local-only run (`--local-only`, a UI restart) has nothing to send, so its saved local PASS finishes it too. A result Astrona cannot be reached for is queued and sent later under the same key. |
+| `submit` | Grade and send results for an existing tracked session. Every recorded result, PASS or FAIL, ends the attempt; once it is server-confirmed (or queued) the lab is deleted, and there is no option to keep it. A run with nothing to send (`--local-only`, a UI restart, a lab from your own files) is finished the same way once its result is saved locally. A result Astrona cannot be reached for is queued and sent later under the same key. Use `submit --watch` to grade without ending the attempt. |
 | `start`, `stop`, `destroy`, `list`, `status`, `progress` | Use the normal command-line behavior and applicable approval rules. Lifecycle progress does not animate. |
 | `bundle` | Require saved trust or `--trust` before loading unapproved content. |
 | `res run` | Run a resource for external checks. QEMU uses SSH batch mode without allocating a terminal. |
@@ -71,7 +71,7 @@ their normal API behavior.
 
 ```sh
 astrona reset ./examples/k8s-basics-01 --headless --yes --accept-terms
-astrona submit ./examples/k8s-basics-01 --headless --accept-terms --keep -o json
+astrona submit ./examples/k8s-basics-01 --headless --accept-terms -o json   # ends the run and deletes the lab
 astrona test ./examples/k8s-basics-01 --headless --accept-terms --junit-xml=report.xml
 ```
 

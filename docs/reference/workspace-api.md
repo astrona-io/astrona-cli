@@ -45,7 +45,7 @@ See the [browser workspace guide](../guides/browser-workspace.md).
   | 409 | `no_grading` | `POST /submit` on a playground: it has no checks. End it with `POST /destroy`. |
   | 409 | `lab_busy` | Another astrona command holds the lab's lock. Nothing was graded or sent. |
   | 409 | `not_trusted` | The lab's scripts were never approved on this machine. Approve it with `astrona run` in a terminal. |
-  | 409 | `environment_kept` | `POST /destroy` on a lab with `teardown.keepCluster`. Nothing was removed. |
+  | 409 | `environment_kept` | `POST /destroy` on a lab from your own files with `teardown.keepCluster`. Nothing was removed. |
   | 404 | `no_submission` | `GET /submission` for a run that was never submitted. |
   | 421 | `unexpected_host` | `Host` is not `127.0.0.1:<port>` or `localhost:<port>`. |
   | 429 | `too_many_terminals` | The lab already has 12 open terminals. |
@@ -280,7 +280,6 @@ answer; Kind labs are then missing from the list.
   "canSubmit": true,
   "submit": {
     "tracking": "account",
-    "keepEnvironment": false,
     "grading": false,
     "submitted": false,
     "blocked": ""
@@ -306,7 +305,6 @@ answer; Kind labs are then missing from the list.
 | `tabs` | The right panel, as the lab declares it (lab config `tabs`). The first is always the focus tab: `name` `main`, a terminal on the lab's own cluster. The page shows exactly these and cannot add or close one. `kind` is `terminal` (`target` says where its shell runs), `browser` (`url` is a loopback port forward of the lab), or `docs`: either `url` (an `https` documentation page, shown in a frame) or `document: true` (Markdown shipped with the lab, fetched from `GET /tabs/{name}/doc`). A lab that declares no tabs gets only the focus tab. A QEMU lab cannot declare tabs: a single-VM lab gets the focus tab on its VM, a multi-VM lab gets the focus tab on its first VM (titled with the VM's name) and a terminal tab `vm-<name>` for each further VM. |
 | `canSubmit` | `true` when `POST /submit` would grade now: a lab or exam that was started and is still running (an expired exam can still be submitted). Never for a playground. |
 | `submit.tracking` | Where a result goes. `account`: the run has an Astrona lab session; the result is sent when astrona is signed in to that site. `local-only`: never sent. `none`: no lab session; the result stays on this machine. |
-| `submit.keepEnvironment` | The lab sets `teardown.keepCluster`: a submission never removes the environment, and `POST /destroy` refuses. |
 | `submit.grading` | A submission of this run is being graded now. |
 | `submit.checks` | Only while `grading`, once the checks start: each check and validation script in grading order, as `{"name", "state", "startedAt", "seconds"}`. `state` is `waiting`, `running`, `passed` or `failed`; `startedAt` is set once it runs, `seconds` (its duration) once it is done. Never its command or output. Poll `GET /runs/{lab}` for it while `POST /submit` waits. |
 | `submit.submitted` | This run has a saved result (`GET /submission`). |
@@ -389,11 +387,12 @@ It does what `astrona submit` does, through the same code
 2. The result is saved in this machine's attempt history.
 3. It is sent where the run is tracked (`submit.tracking`). A `local-only` run
    is never sent; a run without a lab session stays on this machine.
-4. When the attempt is finished (a pass that was sent or queued, or a
-   `local-only` run's pass saved) and the lab does not keep its environment,
-   the environment is removed: terminals are closed first, then the cluster is
-   deleted. A fail, or a result that is not sent, leaves the environment
-   running and the attempt open: submit again after fixing the lab.
+4. Every recorded result ends the attempt, pass or fail: one that was sent or
+   queued, or, for a run without a lab session (`local-only` or `none`), one
+   saved here. The environment is then removed: terminals are closed first,
+   then the cluster is deleted. `teardown.keepCluster` does not keep it. Only
+   a tracked result Astrona refuses, or one that cannot be sent or queued,
+   leaves the environment running (`finished` is `false`).
 
 Grading can take minutes; the response waits for it. The work does not depend
 on the request: if the connection drops, grading goes on and
@@ -436,7 +435,7 @@ Response: `200` with the submission:
 | `recorded` | Saved in this machine's attempt history. |
 | `sent` | Recorded on the Astrona lab page. |
 | `queued` | Not sent yet: kept in the outbox and sent once Astrona can be reached. |
-| `finished` | The attempt is over: a pass that was sent or queued, or a `local-only` run's pass saved. A fail never finishes it. |
+| `finished` | The attempt is over, pass or fail: the result was sent or queued, or saved here for a run without a lab session. The environment is then removed. |
 | `environmentRemoved` | The cluster was deleted after the submission. |
 | `messages` | What astrona said while sending and cleaning up, as sanitised plain text (at most 40 lines). |
 | `cleanupError` | Present when the result stands but removing the environment failed. |
@@ -471,8 +470,9 @@ Request: `{"runId": "<runId>"}`. No grading, nothing is submitted.
 - A **lab** is removed as `astrona destroy <lab>` does: teardown scripts run
   when the lab is trusted (skipped with a message otherwise), the cluster is
   deleted, the exam clock is cleared, and the Astrona lab page is told the lab
-  was removed. A lab with `teardown.keepCluster` answers
-  `409 environment_kept` and nothing is removed.
+  was removed. A lab from your own files with `teardown.keepCluster` answers
+  `409 environment_kept` and nothing is removed; a catalog or tracked lab is
+  always removed.
 
 Response: `200 {"environmentRemoved": true, "messages": ["…"]}`.
 
