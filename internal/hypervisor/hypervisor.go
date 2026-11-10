@@ -2082,13 +2082,21 @@ func sshRun(ctx context.Context, h *config.QEMUHandle, remoteCmd string) error {
 	return cmd.Run()
 }
 
-// pollUntil retries check until it succeeds or timeout elapses, returning
-// the last error on timeout. Every attempt gets a context that ends at the
-// deadline (or after perAttempt, when that is sooner and non-zero), so a
-// hanging attempt can't hold the poll past its deadline.
-func pollUntil(timeout, perAttempt time.Duration, check func(ctx context.Context) error) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+// cloudInitAttemptTimeout bounds one `cloud-init status --wait` attempt.
+// The command blocks until cloud-init is done, so without its own limit a
+// session that stops making progress would hold the gate until the overall
+// deadline; cut at this limit, the poll simply asks again.
+const cloudInitAttemptTimeout = 60 * time.Second
+
+// sshReadyTimeout is a new VM's whole readiness budget: SSH coming up and
+// cloud-init finishing share it.
+const sshReadyTimeout = 6 * time.Minute
+
+// pollUntil retries check until it succeeds or ctx ends, returning the last
+// error when ctx ends. Every attempt gets a context that ends with ctx (or
+// after perAttempt, when that is sooner and non-zero), so a hanging attempt
+// can't hold the poll past its deadline.
+func pollUntil(ctx context.Context, perAttempt time.Duration, check func(ctx context.Context) error) error {
 	var lastErr error
 
 	for {
@@ -2117,16 +2125,19 @@ func pollUntil(timeout, perAttempt time.Duration, check func(ctx context.Context
 // waitForSSHReady blocks until the VM accepts SSH connections and cloud-init
 // has finished provisioning it — the second gate requires the base image to
 // actually have cloud-init installed, standard on official cloud images.
-// Each gate has its own timeout, and it holds even when a connection hangs.
+// Both gates share one deadline, timeout from now, and every SSH attempt is
+// bounded on its own, so the wait ends on time even when a connection hangs
+// or cloud-init never finishes.
 func waitForSSHReady(h *config.QEMUHandle, timeout time.Duration) error {
-	if err := pollUntil(timeout, sshProbeTimeout, func(ctx context.Context) error { return sshRun(ctx, h, "true") }); err != nil {
-		return fmt.Errorf("timed out waiting for SSH to become available on %s:%d: %w", h.SSHHost, h.SSHPort, err)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if err := pollUntil(ctx, sshProbeTimeout, func(ctx context.Context) error { return sshRun(ctx, h, "true") }); err != nil {
+		return fmt.Errorf("timed out after %s waiting for SSH to become available on %s:%d: %w", timeout, h.SSHHost, h.SSHPort, err)
 	}
 
-	// `cloud-init status --wait` blocks until cloud-init is done, so an
-	// attempt is bounded only by the gate's own deadline.
-	if err := pollUntil(timeout, 0, func(ctx context.Context) error { return sshRun(ctx, h, "cloud-init status --wait") }); err != nil {
-		return fmt.Errorf("timed out waiting for cloud-init to finish on %s:%d: %w", h.SSHHost, h.SSHPort, err)
+	if err := pollUntil(ctx, cloudInitAttemptTimeout, func(ctx context.Context) error { return sshRun(ctx, h, "cloud-init status --wait") }); err != nil {
+		return fmt.Errorf("timed out after %s waiting for cloud-init to finish on %s:%d: %w", timeout, h.SSHHost, h.SSHPort, err)
 	}
 
 	return nil
@@ -2471,7 +2482,7 @@ func CreateQEMUVM(clusterName, labName, baseDir string, cfg *config.QEMUConfig, 
 	tLaunch.Done()
 
 	tWait := rep.Step("Wait for VM to become SSH-ready")
-	if err := waitForSSHReady(handle, 3*time.Minute); err != nil {
+	if err := waitForSSHReady(handle, sshReadyTimeout); err != nil {
 		// The console log goes with the state dir; keep its end in the
 		// run log so a VM that never booted can still be diagnosed.
 		writeConsoleTail(tWait.Output(), consolePath, 40)
