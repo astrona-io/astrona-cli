@@ -6,6 +6,11 @@
  * with the owner's approval, and are published here under the Apache License
  * 2.0 like the rest of this repository. Only the values the workspace needs
  * are copied. The light theme is derived for this workspace.
+ *
+ * The terminal stays dark in both themes: the tools a lab runs (kubectl, k9s,
+ * shell prompts, bootstrap output) colour their text for a dark terminal, and
+ * on a light one much of it is hard to read. The light theme therefore leaves
+ * the --term-* and --ansi-* values alone.
  */
 
 :root {
@@ -116,28 +121,5 @@
     --tint-amber: rgba(138, 90, 0, 0.08);
 
     --focus: 0 0 0 2px var(--bg), 0 0 0 4px #b04600;
-
-    --term-bg: #fdfcff;
-    --term-fg: #1c1328;
-    --term-cursor: #b04600;
-    --term-selection: rgba(122, 46, 200, 0.22);
-    --term-scrollbar: rgba(28, 19, 40, 0.2);
-    --term-scrollbar-hover: rgba(28, 19, 40, 0.35);
-    --ansi-0: #1c1328;
-    --ansi-1: #c4102a;
-    --ansi-2: #0b7a3b;
-    --ansi-3: #8a5a00;
-    --ansi-4: #1f5bc4;
-    --ansi-5: #7a2ec8;
-    --ansi-6: #086f80;
-    --ansi-7: #5b5070;
-    --ansi-8: #6b5c80;
-    --ansi-9: #e0283f;
-    --ansi-10: #12924a;
-    --ansi-11: #a66d00;
-    --ansi-12: #3a74db;
-    --ansi-13: #9440de;
-    --ansi-14: #0a8599;
-    --ansi-15: #2a1f38;
   }
 }

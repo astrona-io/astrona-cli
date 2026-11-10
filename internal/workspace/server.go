@@ -145,6 +145,7 @@ func (s *Server) Info() ServerInfo {
 		Port:      s.port,
 		StartedAt: s.startedAt.UTC(),
 		Version:   s.cfg.Version,
+		Build:     ThisBuild(),
 		Secret:    b64.EncodeToString(s.auth.secret),
 	}
 }
@@ -241,6 +242,8 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/exchange", s.handleExchange)
 	mux.HandleFunc("POST /api/v1/auth/ticket", s.requireToken(s.handleTicket))
 	mux.HandleFunc("GET /api/v1/server", s.requireToken(s.handleServer))
+	mux.HandleFunc("GET /api/v1/launches/{id}", s.requireToken(s.handleLaunch))
+	mux.HandleFunc("POST /api/v1/launches/{id}/terms", s.requireToken(s.handleLaunchTerms))
 	mux.HandleFunc("GET /api/v1/runs", s.requireToken(s.handleRuns))
 	mux.HandleFunc("GET /api/v1/runs/{lab}", s.requireToken(s.handleRun))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/questions/{id}", s.requireToken(s.handleQuestion))

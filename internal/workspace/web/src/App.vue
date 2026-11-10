@@ -23,12 +23,14 @@ import { apiReachable, apiUnreachable, connectionLost } from './connectivity'
 import { endSessionCopy, removeCopy, runAgainCommand, type EndCopy } from './endSession'
 import MessagePage from './components/MessagePage.vue'
 import IntroPage from './components/IntroPage.vue'
+import LaunchPage from './components/LaunchPage.vue'
 import WorkspacePage from './components/WorkspacePage.vue'
 import ResultsPage from './components/ResultsPage.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 
 type Screen =
   | { kind: 'loading' }
+  | { kind: 'launch'; id: string }
   | { kind: 'message'; title: string; body: string; command?: string }
   | { kind: 'intro' }
   | { kind: 'workspace' }
@@ -395,6 +397,10 @@ onMounted(async () => {
       }
       return
     }
+    if (!labId && launch.launchId) {
+      screen.value = { kind: 'launch', id: launch.launchId }
+      return
+    }
     labId ??= await chooseLab()
     if (!labId) return
     rememberLab(labId)
@@ -404,6 +410,27 @@ onMounted(async () => {
     showError(err)
   }
 })
+
+// The launch's lab is ready: open it in this tab, as a link with lab= would.
+async function onLaunchReady(lab: string): Promise<void> {
+  labId = lab
+  rememberLab(lab)
+  try {
+    await refresh()
+    if (screen.value.kind === 'intro' || screen.value.kind === 'workspace') schedule()
+  } catch (err) {
+    showError(err)
+  }
+}
+
+function onLaunchGone(): void {
+  screen.value = {
+    kind: 'message',
+    title: 'Nothing to show',
+    body: 'This page belonged to an astrona run that is over. Run astrona again, or open a running lab with:',
+    command: 'astrona ui',
+  }
+}
 
 onBeforeUnmount(() => {
   window.clearTimeout(poll)
@@ -420,6 +447,13 @@ watchEffect(() => {
     <p class="eyebrow eyebrow--page">Astrona workspace</p>
     <p class="muted">Opening the workspace…</p>
   </main>
+  <LaunchPage
+    v-else-if="screen.kind === 'launch'"
+    :id="screen.id"
+    @ready="onLaunchReady"
+    @unauthorized="showError(new ApiError(401, 'unauthorized'))"
+    @gone="onLaunchGone"
+  />
   <MessagePage
     v-else-if="screen.kind === 'message'"
     :title="screen.title"
@@ -436,6 +470,7 @@ watchEffect(() => {
   <WorkspacePage
     v-else-if="screen.kind === 'workspace' && run"
     :run="run"
+    :ending="dialogBusy"
     @unauthorized="onUnauthorized"
     @run-gone="onRunGone"
     @end="openDialog('end')"

@@ -95,6 +95,93 @@
   color: var(--amber);
 }
 
+/* ---------------------------------------------------------------- launch */
+
+.launch__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 46vh;
+  margin: 0;
+  padding: 12px 14px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  list-style: none;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+}
+
+.launch__section {
+  margin-top: 8px;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.launch__section:first-child {
+  margin-top: 0;
+}
+
+.launch__step {
+  display: grid;
+  grid-template-columns: 1.2em 1fr auto;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.launch__step--ok .launch__mark {
+  color: var(--green);
+}
+
+.launch__step--skip .launch__mark {
+  color: var(--amber);
+}
+
+.launch__step--fail,
+.launch__step--fail .launch__mark {
+  color: var(--red);
+}
+
+.launch__step--running {
+  color: var(--ink);
+}
+
+.launch__label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.launch__detail {
+  color: var(--dim);
+  font-size: 12px;
+}
+
+.terms {
+  width: min(760px, calc(100% - 32px));
+}
+
+.terms__text {
+  max-height: 50vh;
+  margin: 0;
+  padding: 14px 16px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.terms__digest {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 /* ---------------------------------------------------------------- workspace */
 
 .workspace {
@@ -278,6 +365,47 @@
   font-size: 22px;
 }
 
+.task__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.task-rail {
+  display: flex;
+  flex: 0 0 36px;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.task-rail__button {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.task-rail__button:hover,
+.task-rail__button:focus-visible {
+  background: var(--tint-orange);
+  color: var(--ink);
+}
+
+.task-rail__label {
+  writing-mode: vertical-rl;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .task__target code {
   color: var(--ink);
 }
@@ -317,7 +445,7 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--term-bg);
+  background: var(--bg);
 }
 
 .view__empty {
@@ -470,6 +598,7 @@
   min-height: 0;
   padding: 10px 0 0 12px;
   overflow: hidden;
+  background: var(--term-bg);
   /* xterm's layers (the WebGL canvases are z-indexed up to 11) stay below
      the notice and its buttons. */
   isolation: isolate;
@@ -664,6 +793,30 @@
 
 .dialog__body p {
   margin: 0;
+}
+
+.about a {
+  color: var(--orange-ink);
+}
+
+.about__links,
+.about__credits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.about__credits {
+  flex-direction: column;
+}
+
+.about__heading {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-size: 14px;
 }
 
 .dialog__busy {
@@ -922,5 +1075,21 @@
 
   .divider {
     display: none;
+  }
+
+  .task-rail {
+    flex: 0 0 auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .task-rail__button {
+    flex-direction: row;
+    justify-content: center;
+    padding: 8px 0;
+  }
+
+  .task-rail__label {
+    writing-mode: horizontal-tb;
   }
 }

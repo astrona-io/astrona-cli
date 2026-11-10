@@ -324,6 +324,56 @@ export async function getTicket(): Promise<string> {
   return res.ticket
 }
 
+/** What the workspace server says about itself; the About dialog shows its version. */
+export interface ServerInfo {
+  version: string
+  profile: string
+}
+
+export function getServer(): Promise<ServerInfo> {
+  return request<ServerInfo>('GET', '/server', undefined, true, { timeoutMs: QUICK_TIMEOUT_MS })
+}
+
+export type LaunchStage = 'terms' | 'checking' | 'preparing' | 'ready' | 'failed' | 'declined' | 'ended'
+
+export interface LaunchEvent {
+  at: string
+  kind: 'section' | 'step' | 'note' | 'ok' | 'skip' | 'fail' | 'warn'
+  label: string
+  detail?: string
+  seconds?: number
+}
+
+/** An `astrona run` that opened the page before its lab exists. */
+export interface Launch {
+  id: string
+  stage: LaunchStage
+  message?: string
+  terms?: { revision: string; sha256: string; text: string }
+  title?: string
+  lab?: string
+  events: LaunchEvent[]
+  status?: string
+  error?: string
+  logPath?: string
+  /** False once the command in the terminal has exited. */
+  alive: boolean
+  answered?: 'accepted' | 'declined'
+}
+
+export function isLaunchGone(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 404 && err.code === 'launch_gone'
+}
+
+export function getLaunch(id: string): Promise<Launch> {
+  return request<Launch>('GET', `/launches/${encodeURIComponent(id)}`, undefined, true, { timeoutMs: QUICK_TIMEOUT_MS })
+}
+
+/** Accepts or declines the terms shown by launch id; sha256 is the notice the page showed. */
+export function answerTerms(id: string, accept: boolean, sha256: string): Promise<{ accepted: boolean }> {
+  return request('POST', `/launches/${encodeURIComponent(id)}/terms`, { accept, sha256 }, true, { timeoutMs: QUICK_TIMEOUT_MS })
+}
+
 export async function listRuns(): Promise<RunListItem[]> {
   const res = await request<{ runs: RunListItem[] }>('GET', '/runs')
   return res.runs ?? []

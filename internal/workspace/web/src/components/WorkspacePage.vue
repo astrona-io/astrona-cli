@@ -9,7 +9,10 @@ import LabTabs from './LabTabs.vue'
 import TopBar from './TopBar.vue'
 import SplitDivider from './SplitDivider.vue'
 
-const props = defineProps<{ run: Run }>()
+// ending: the end, submit or remove dialog is working. Removing the
+// environment closes the terminals on purpose, so their drop is not a lost
+// connection and the "connection lost" dialog stays away.
+const props = defineProps<{ run: Run; ending?: boolean }>()
 const emit = defineEmits<{ unauthorized: []; runGone: []; end: [] }>()
 
 // ---------------------------------------------------------------- time up
@@ -87,12 +90,40 @@ function saveWidth(v: number): void {
 // CSSOM custom property, which CSP allows (unlike a style attribute in markup).
 const rowStyle = computed(() => ({ '--task-width': `${width.value}%` }))
 
+// The task panel can be collapsed to a thin rail, for more terminal. The
+// browser remembers the choice, like the width.
+const COLLAPSED_KEY = 'astrona.workspace.taskCollapsed'
+
+function storedCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+const collapsed = ref(storedCollapsed())
+const expandButton = ref<HTMLButtonElement>()
+
+async function setCollapsed(value: boolean): Promise<void> {
+  collapsed.value = value
+  try {
+    window.localStorage.setItem(COLLAPSED_KEY, value ? '1' : '0')
+  } catch {
+    // storage unavailable: the choice lasts until reload
+  }
+  await nextTick()
+  if (value) expandButton.value?.focus()
+  else task.value?.focus()
+}
+
 function focusView(): void {
   viewRef.value?.focus()
 }
 
 function focusTask(): void {
-  task.value?.focus()
+  if (collapsed.value) void setCollapsed(false)
+  else task.value?.focus()
 }
 
 // ---------------------------------------------------------------- connection
@@ -106,8 +137,14 @@ const announcement = ref('')
 let lostTimer: number | undefined
 let returnFocus: HTMLElement | null = null
 
-watch(connectionLost, async (lost) => {
+watch([connectionLost, () => !!props.ending], async ([lost, ending]) => {
   window.clearTimeout(lostTimer)
+  if (lost && ending) {
+    // Hide it if it was already up: the end dialog says what happens.
+    lostShown.value = false
+    announcement.value = ''
+    return
+  }
   if (lost) {
     lostTimer = window.setTimeout(() => {
       returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -162,8 +199,24 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <div class="workspace__row" :style="rowStyle">
+    <div class="workspace__row" :class="{ 'workspace__row--collapsed': collapsed }" :style="rowStyle">
+      <div v-if="collapsed" class="task-rail">
+        <button
+          ref="expandButton"
+          type="button"
+          class="task-rail__button"
+          aria-controls="task-panel"
+          aria-expanded="false"
+          title="Show the task"
+          @click="setCollapsed(false)"
+        >
+          <span aria-hidden="true">»</span>
+          <span class="task-rail__label">Task</span>
+          <span class="visually-hidden">Show the task</span>
+        </button>
+      </div>
       <section
+        v-show="!collapsed"
         id="task-panel"
         ref="task"
         class="task"
@@ -171,9 +224,21 @@ onBeforeUnmount(() => {
         aria-labelledby="task-heading"
       >
         <div class="task__head">
-          <p class="eyebrow">
-            Task<template v-if="question?.points"> · {{ question.points }} points</template>
-          </p>
+          <div class="task__bar">
+            <p class="eyebrow">
+              Task<template v-if="question?.points"> · {{ question.points }} points</template>
+            </p>
+            <button
+              type="button"
+              class="btn btn--ghost btn--sm task__collapse"
+              aria-controls="task-panel"
+              aria-expanded="true"
+              title="Hide the task for more room"
+              @click="setCollapsed(true)"
+            >
+              <span aria-hidden="true">«</span> Hide
+            </button>
+          </div>
           <h2 id="task-heading" class="task__title">{{ question?.title || run.title }}</h2>
           <p v-if="target" class="task__target small muted">
             Target: <code>{{ target.label || target.name }}</code>
@@ -185,7 +250,7 @@ onBeforeUnmount(() => {
         <article v-else class="prose" v-html="question.html" />
       </section>
 
-      <SplitDivider v-model="width" :min="MIN_WIDTH" :max="MAX_WIDTH" controls="task-panel" @commit="saveWidth" />
+      <SplitDivider v-if="!collapsed" v-model="width" :min="MIN_WIDTH" :max="MAX_WIDTH" controls="task-panel" @commit="saveWidth" />
 
       <section class="view" aria-label="Lab">
         <LabTabs

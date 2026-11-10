@@ -3,7 +3,11 @@
 The first operational command, including plain `astrona`, displays the CLI usage
 terms and data-loss risk notice on stderr. Answer `y` or `yes` to continue.
 Blank input, `no`, or EOF cancels the command before lab downloads, sign-in or
-setup. Read the notice without accepting it:
+setup. An interactive `astrona run` that opens the browser (the default; see
+[browser workspace](browser-workspace.md#open-a-lab-in-the-browser)) shows the
+notice in the browser tab instead: **Accept and continue** or **Decline and
+stop**. Declining, Ctrl+C in the terminal, or no answer within 30 minutes stops
+the command before anything starts. Read the notice without accepting it:
 
 ```sh
 astrona terms
@@ -17,7 +21,8 @@ astrona test --accept-terms -c ./labs/my-lab
 ```
 
 Acceptance is saved in `~/.astrona/terms.json` with the notice revision, SHA-256,
-UTC timestamp, CLI version and acceptance method. This is local state, not a
+UTC timestamp, CLI version and acceptance method (`browser` when accepted in
+the browser tab). This is local state, not a
 server-side audit or account record. A newer CLI asks again if its bundled
 notice changes, even if its revision was not bumped. Updating only the website
 does not change an installed CLI's notice. CLI updates with unchanged terms do

@@ -107,7 +107,7 @@ func (s Store) Accepted() (bool, error) {
 		return false, nil
 	}
 	return saved.Revision == Revision && saved.SHA256 == Digest() &&
-		!saved.AcceptedAt.IsZero() && (saved.Method == "prompt" || saved.Method == "flag"), nil
+		!saved.AcceptedAt.IsZero() && (saved.Method == "prompt" || saved.Method == "flag" || saved.Method == "browser"), nil
 }
 
 func regularReceipt(r *os.Root) (os.FileInfo, error) {
@@ -127,7 +127,7 @@ func regularReceipt(r *os.Root) (os.FileInfo, error) {
 // Accept atomically replaces the receipt. Concurrent acceptances can replace
 // each other, but readers always see a complete receipt for one exact notice.
 func (s Store) Accept(method, cliVersion string) error {
-	if method != "prompt" && method != "flag" {
+	if method != "prompt" && method != "flag" && method != "browser" {
 		return fmt.Errorf("invalid terms acceptance method %q", method)
 	}
 	if err := os.MkdirAll(s.Dir, 0o700); err != nil {

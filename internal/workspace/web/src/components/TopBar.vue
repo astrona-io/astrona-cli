@@ -4,6 +4,7 @@ import type { Run } from '../api'
 import { formatDuration, useCountdown } from '../clock'
 import type { ViewStatus } from '../views/types'
 import { endSessionCopy } from '../endSession'
+import AboutDialog from './AboutDialog.vue'
 import BrandMark from './BrandMark.vue'
 
 const props = defineProps<{ run: Run; status: ViewStatus }>()
@@ -18,6 +19,7 @@ const endBlocked = computed(() => {
   if (props.run.playground) return ''
   return props.run.canSubmit ? '' : props.run.submit.blocked || 'Submit is not available right now.'
 })
+const aboutOpen = ref(false)
 const showEnd = computed(() => props.run.status !== 'stopped' && props.run.status !== 'failed')
 
 // The timer shows only while a clock runs: the server sets deadlineAt for a
@@ -72,6 +74,7 @@ watch(left, (ms) => {
         <span class="timer__value" aria-hidden="true">{{ formatDuration(left) }}</span>
         <span class="visually-hidden">{{ Math.ceil(left / 60_000) }} minutes</span>
       </p>
+      <button type="button" class="btn btn--sm btn--ghost" aria-haspopup="dialog" @click="aboutOpen = true">About</button>
       <div v-if="showEnd" class="topbar__end">
         <p v-if="endBlocked" id="end-blocked" class="topbar__blocked small muted">{{ endBlocked }}</p>
         <button
@@ -87,6 +90,7 @@ watch(left, (ms) => {
         </button>
       </div>
     </div>
+    <AboutDialog v-if="aboutOpen" @close="aboutOpen = false" />
     <div class="visually-hidden" aria-live="polite">{{ politeAnnouncement }}</div>
     <div class="visually-hidden" aria-live="assertive">{{ assertiveAnnouncement }}</div>
   </header>

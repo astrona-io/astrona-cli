@@ -29,8 +29,11 @@ import (
 //   - only Kind labs open in the browser; --browser on another runtime fails;
 //   - --browser opens it without asking, even without a terminal;
 //   - without a terminal on stdin and stdout the answer is no;
-//   - the browser setting answers always or never in advance;
-//   - with no browser on this machine (no display) nothing is asked.
+//   - the browser setting answers always (the default) or never in
+//     advance, or asks;
+//   - with no browser on this machine (no display) nothing is asked, and
+//     the default does not open the workspace; a saved always still
+//     starts it and prints its link.
 //
 // The question goes to stderr; always and never are saved to the setting.
 func wantBrowser(flags *rootFlags, cfg *config.LabConfig, browser, noBrowser bool) (bool, error) {
@@ -57,13 +60,15 @@ func wantBrowser(flags *rootFlags, cfg *config.LabConfig, browser, noBrowser boo
 	if err != nil {
 		return false, err
 	}
-	switch values.Browser() {
+	pref, saved := values.Browser()
+	hasBrowser := browserCommand(goruntime.GOOS, os.Getenv, exec.LookPath, "http://127.0.0.1/") != nil
+	switch pref {
 	case settings.BrowserAlways:
-		return true, nil
+		return saved || hasBrowser, nil
 	case settings.BrowserNever:
 		return false, nil
 	}
-	if browserCommand(goruntime.GOOS, os.Getenv, exec.LookPath, "http://127.0.0.1/") == nil {
+	if !hasBrowser {
 		return false, nil
 	}
 	return askBrowser(os.Stdin, promptOut, path)
@@ -133,6 +138,14 @@ func openBrowserWorkspace(cfg *config.LabConfig, baseDir string, flags *rootFlag
 	}
 	if err := workspace.WriteRun(rec); err != nil {
 		return fmt.Errorf("the lab is running, but the browser workspace could not be prepared: %w", err)
+	}
+	if flags.launch != nil {
+		// The tab that followed the setup opens the lab itself.
+		flags.launch.Ready(rec.Lab)
+		if flags.launch.pageOpen() {
+			fmt.Printf("\nThe lab is open in your browser. Closed the tab? `astrona ui %s` opens it again.\n", uiLabArg(rec.Lab))
+			return nil
+		}
 	}
 	return launchBrowserWorkspace(rec.Lab)
 }
