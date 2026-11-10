@@ -20,7 +20,23 @@ var (
 	ErrAccessDenied = errors.New("sign-in was declined in the browser")
 	// ErrDeviceCodeExpired: the code wasn't authorized in time.
 	ErrDeviceCodeExpired = errors.New("the sign-in code expired before it was authorized")
+	// ErrDeviceLimit: the account already has as many computers signed in as
+	// it may. The site's own message (DeviceLimitError) says what to do.
+	ErrDeviceLimit = errors.New("this account already has the most computers signed in — sign one out under Settings → Devices on the website, then run astrona login again")
 )
+
+// DeviceLimitError carries the site's explanation of a refused sign-in; it
+// is ErrDeviceLimit for errors.Is.
+type DeviceLimitError struct{ Message string }
+
+func (e *DeviceLimitError) Error() string {
+	if e.Message == "" {
+		return ErrDeviceLimit.Error()
+	}
+	return e.Message
+}
+
+func (e *DeviceLimitError) Unwrap() error { return ErrDeviceLimit }
 
 // tokenPattern is what a bearer token may look like (RFC 6750 b64token) —
 // anything else is refused before it is stored or put in a header.
@@ -125,6 +141,9 @@ func resolveOnSite(site, ref string) (string, error) {
 type Device struct {
 	Name string `json:"device_name"`
 	OS   string `json:"os"`
+	// PreviousRefreshToken is this computer's current sign-in, if any: the
+	// site replaces that one instead of counting this as another computer.
+	PreviousRefreshToken string `json:"previous_refresh_token,omitempty"`
 }
 
 // DeviceName is the name sent for this computer: its hostname, printable
@@ -219,7 +238,7 @@ type refreshGrant struct {
 
 // PollToken polls the token endpoint until the student authorizes the
 // device in the browser, honouring interval and slow_down. It stops with
-// ErrAccessDenied, ErrDeviceCodeExpired, or ctx's error (Ctrl+C).
+// ErrAccessDenied, ErrDeviceCodeExpired, a *DeviceLimitError, or ctx's error (Ctrl+C).
 func (c *Client) PollToken(ctx context.Context, sc SiteConfig, dc DeviceCode) (Tokens, error) {
 	interval := min(time.Duration(dc.Interval)*time.Second, maxInterval)
 	deadline := c.Now().Add(min(time.Duration(dc.ExpiresIn)*time.Second, maxCodeLifetime))
@@ -258,6 +277,8 @@ func (c *Client) PollToken(ctx context.Context, sc SiteConfig, dc DeviceCode) (T
 			return Tokens{}, ErrAccessDenied
 		case "expired_token":
 			return Tokens{}, ErrDeviceCodeExpired
+		case "device_limit":
+			return Tokens{}, &DeviceLimitError{Message: he.Message}
 		default:
 			return Tokens{}, fmt.Errorf("the sign-in failed: %w", err)
 		}
