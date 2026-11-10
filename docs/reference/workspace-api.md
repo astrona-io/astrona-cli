@@ -602,8 +602,10 @@ separate window instead.
 | `~/.astrona/workspace/launches/<id>/launch.json` | `astrona run` | A browser-first run before its lab exists: stage, terms notice, setup progress. |
 | `~/.astrona/workspace/launches/<id>/answer.json` | server | The page's answer to the terms. |
 | `~/.astrona/workspace/runs/<lab>/run.json` | `astrona run` | What the page shows for that run: title, mode, rules, the account status, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs). Never the solution or the validation block. |
-| `~/.astrona/workspace/runs/<lab>/start.json` | Start | When Start was clicked, for which `runId`. |
+| `~/.astrona/workspace/runs/<lab>/start.json` | Start | When Start was clicked, for which `runId`. Removed when the lab is deleted (submit, destroy, reset, expiry). `astrona submit` uses it only while its `runId` is the lab's current run and it is not earlier than the lab became ready. |
 | `~/.astrona/workspace/runs/<lab>/submission.json` | Submit | The latest browser submission for that `runId`: the result as `GET /submission` shows it. |
+
+The whole `runs/<lab>/` folder is removed when the lab is started again, from a terminal or the browser, so a new run never inherits an earlier run's record, Start or result.
 | `~/.astrona/exams/<lab>.json` | Start (exam labs) | The exam clock, as before. |
 
 Other profiles use their own home (`~/.astrona-dev/…`).

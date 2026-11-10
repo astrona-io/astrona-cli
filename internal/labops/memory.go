@@ -180,6 +180,7 @@ func ForgetLab(w io.Writer, clusterName string, opts ForgetOptions) {
 	if err := labstate.Remove(clusterName); err != nil {
 		ui.Fwarnf(w, "%s", err)
 	}
+	clearWorkspaceStart(w, clusterName)
 	if !opts.KeepResources {
 		if err := resources.Remove(clusterName); err != nil {
 			ui.Fwarnf(w, "%s", err)

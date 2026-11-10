@@ -2,6 +2,7 @@
 package apphome
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -56,4 +57,14 @@ func ReposDir() (string, error) {
 		return "", err
 	}
 	return filepath.Join(cache, "astrona", "repos"), nil
+}
+
+// WorkspaceDir returns the browser workspace's state directory without
+// creating it: ~/.astrona/workspace, or the development profile's.
+func WorkspaceDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
+	}
+	return filepath.Join(home, Name(), "workspace"), nil
 }

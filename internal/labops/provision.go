@@ -232,6 +232,9 @@ func Provision(req ProvisionRequest, rep *ui.Reporter) (*ProvisionResult, error)
 	if err := labshell.Remove(context.Background(), clusterName); err != nil {
 		return nil, fmt.Errorf("clear the previous terminal workspace: %w", err)
 	}
+	if err := clearWorkspaceRun(clusterName); err != nil {
+		return nil, fmt.Errorf("clear the previous browser workspace run: %w", err)
+	}
 	resDir, err := resources.Snapshot(clusterName, baseDir, res)
 	if err != nil {
 		return nil, fmt.Errorf("could not copy the lab's resources: %w", err)

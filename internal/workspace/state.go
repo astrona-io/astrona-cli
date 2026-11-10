@@ -32,13 +32,7 @@ type ServerInfo struct {
 
 // StateDir returns ~/.astrona/workspace (or the development profile's),
 // without creating it.
-func StateDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve user home dir: %w", err)
-	}
-	return filepath.Join(home, apphome.Name(), "workspace"), nil
-}
+func StateDir() (string, error) { return apphome.WorkspaceDir() }
 
 // ServerInfoPath returns the path of server.json in StateDir.
 func ServerInfoPath() (string, error) {
