@@ -30,8 +30,18 @@ const (
 	StatusStopped = "stopped"
 )
 
+// Target kinds, see docs/reference/workspace-api.md.
+const (
+	// TargetKind is a Kind cluster: the lab's own or a linked one. Its
+	// terminal is labshell's tools container.
+	TargetKind = "kind"
+	// TargetVM is one VM of a QEMU lab. Its terminal is the student's ssh
+	// login into the VM (labops.WorkspaceSSHCommand).
+	TargetVM = "vm"
+)
+
 // Target is a place where the page can open terminals: the lab's own Kind
-// cluster or a linked one.
+// cluster or a linked one (TargetKind), or one VM of a QEMU lab (TargetVM).
 type Target struct {
 	Name  string   `json:"name"`
 	Label string   `json:"label"`
@@ -117,6 +127,9 @@ func WriteRun(rec RunRecord) error {
 	for _, t := range rec.Targets {
 		if err := config.ValidateName(t.Name); err != nil {
 			return fmt.Errorf("target name: %w", err)
+		}
+		if t.Kind != TargetKind && t.Kind != TargetVM {
+			return fmt.Errorf("target %s: unknown kind %q", t.Name, t.Kind)
 		}
 	}
 	if err := validateTabs(rec); err != nil {

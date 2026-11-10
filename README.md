@@ -16,8 +16,8 @@ Astrona spins up local Kubernetes labs with [kind](https://kind.sigs.k8s.io/), b
 
 ## Browser workspace
 
-`astrona run <lab> --browser` opens a Kind lab in your browser: the task on the
-left, a terminal on the lab on the right. An exam's timer starts when you click
+`astrona run <lab> --browser` opens a lab in your browser: the task on the
+left, a terminal on the lab (a Kind cluster, or each VM of a QEMU lab) on the right. An exam's timer starts when you click
 Start. The page is served by `astrona` on `127.0.0.1` only. See the
 [browser workspace guide](docs/guides/browser-workspace.md).
 
@@ -25,7 +25,7 @@ Start. The page is served by `astrona` on `127.0.0.1` only. See the
 
 ## Commands
 
-`astrona run <lab>` offers to open a Kind lab in the browser workspace, a local
+`astrona run <lab>` offers to open the lab in the browser workspace, a local
 page with the task and terminals into the lab; `astrona ui <lab>` opens a
 running lab there again. See the
 [browser workspace guide](docs/guides/browser-workspace.md).

@@ -253,3 +253,87 @@ func (s *SSHSession) Command() (*exec.Cmd, error) {
 	}
 	return sshCmd, nil
 }
+
+// workspaceSSHConnectTimeout bounds, in seconds, how long a workspace
+// terminal waits for its VM's sshd before it ends with an error.
+const workspaceSSHConnectTimeout = 10
+
+// WorkspaceSSHCommand is the browser workspace's terminal on one VM of qemu
+// lab lab: an interactive ssh login as the VM's student account, its shell
+// opened in the lab's workspace inside the VM, ready to start on a PTY.
+// vm is the VM's handle name (lab itself for a single-VM lab, <lab>-<vm>
+// for each VM of a multi-VM one) and must belong to lab.
+//
+// The client is isolated from the host like `astrona ssh`'s
+// (sshopts.Unattended: no user ssh config, escapes, forwarding or local
+// commands; only the lab's student key; never a password prompt; a connect
+// timeout and keepalives). On top of that it never asks the user's ssh
+// agent (IdentityAgent=none, SSH_AUTH_SOCK removed from its environment)
+// and trusts only the lab's own known_hosts. There is no fallback: when ssh
+// cannot log in, the terminal ends with ssh's error.
+//
+// prepare, when set, installs the lab's resources into the student's home
+// first (cmd's resource workspace), as a key-based `astrona ssh` does.
+func WorkspaceSSHCommand(ctx context.Context, lab, vm string, prepare func(ctx context.Context, lab string, h *config.QEMUHandle) error) (*exec.Cmd, error) {
+	if err := config.ValidateName(lab); err != nil {
+		return nil, err
+	}
+	if err := config.ValidateName(vm); err != nil {
+		return nil, err
+	}
+	handle, err := hypervisor.LoadQEMUHandle(vm)
+	if err != nil {
+		return nil, err
+	}
+	owner := handle.LabName
+	if owner == "" {
+		owner = handle.ClusterName
+	}
+	if owner != lab || handle.ClusterName != vm {
+		return nil, fmt.Errorf("VM %s does not belong to lab %s", vm, lab)
+	}
+	if handle.SSHUser == "" || handle.SSHKeyPath == "" || handle.KnownHosts == "" {
+		return nil, fmt.Errorf("VM %s has no student SSH identity", vm)
+	}
+	if prepare != nil {
+		if err := prepare(ctx, lab, handle); err != nil {
+			return nil, err
+		}
+	}
+	sshPath, err := exec.LookPath("ssh")
+	if err != nil {
+		return nil, fmt.Errorf("ssh not found in PATH: %w", err)
+	}
+	args := append(sshopts.Unattended(workspaceSSHConnectTimeout),
+		"-o", "IdentityAgent=none",
+		"-o", "GlobalKnownHostsFile=/dev/null",
+		"-o", "StrictHostKeyChecking=accept-new",
+		"-o", "UserKnownHostsFile="+handle.KnownHosts,
+		"-tt",
+		"-i", handle.SSHKeyPath,
+		"-p", strconv.Itoa(handle.SSHPort),
+		"-l", handle.SSHUser,
+		"--", handle.SSHHost, VMWorkspaceShell(lab, ""),
+	)
+	// The caller's PTY session ends the process (SIGHUP, then kill); ctx
+	// only bounds the preparation above.
+	cmd := exec.Command(sshPath, args...)
+	cmd.Env = workspaceSSHEnv(os.Environ())
+	return cmd, nil
+}
+
+// workspaceSSHEnv is the server's environment without anything that points
+// ssh at the user's agent or an askpass helper, with the terminal type the
+// page's xterm.js emulates.
+func workspaceSSHEnv(environ []string) []string {
+	env := make([]string, 0, len(environ)+1)
+	for _, kv := range environ {
+		name, _, _ := strings.Cut(kv, "=")
+		switch name {
+		case "SSH_AUTH_SOCK", "SSH_AGENT_PID", "SSH_ASKPASS", "SSH_ASKPASS_REQUIRE", "DISPLAY", "TERM", AskpassEnvVar:
+			continue
+		}
+		env = append(env, kv)
+	}
+	return append(env, "TERM=xterm-256color")
+}

@@ -52,14 +52,30 @@ func FocusTab(target string) Tab {
 	return Tab{Name: config.FocusTabName, Title: "Terminal", Kind: TabTerminal, Target: target}
 }
 
-// DefaultTabs are the tabs of a lab that declares none: only the focus tab.
-// A linked cluster gets a tab only when the lab lists it.
+// DefaultTabs are the tabs of a lab that declares none: the focus tab, and
+// for a multi-VM QEMU lab a terminal tab per further VM (vm-<name>, titled
+// with the VM's name, the focus tab too). A linked Kind cluster gets a tab
+// only when the lab lists it.
 func DefaultTabs(targets []Target) []Tab {
 	if len(targets) == 0 {
 		return nil
 	}
-	return []Tab{FocusTab(targets[0].Name)}
+	tabs := []Tab{FocusTab(targets[0].Name)}
+	if targets[0].Kind != TargetVM || len(targets) == 1 {
+		return tabs
+	}
+	tabs[0].Title = targets[0].Label
+	for _, t := range targets[1:] {
+		if t.Kind == TargetVM {
+			tabs = append(tabs, Tab{Name: VMTabName(t.Label), Title: t.Label, Kind: TabTerminal, Target: t.Name})
+		}
+	}
+	return tabs
 }
+
+// VMTabName is the terminal tab of a multi-VM lab's VM named vm (its name
+// in runtime.qemu); the first VM has the focus tab instead.
+func VMTabName(vm string) string { return "vm-" + vm }
 
 // tabs are the run's tabs; a record from before tabs gets DefaultTabs.
 func (r RunRecord) tabs() []Tab {
@@ -67,6 +83,15 @@ func (r RunRecord) tabs() []Tab {
 		return r.Tabs
 	}
 	return DefaultTabs(r.Targets)
+}
+
+func (r RunRecord) target(name string) (Target, bool) {
+	for _, t := range r.Targets {
+		if t.Name == name {
+			return t, true
+		}
+	}
+	return Target{}, false
 }
 
 func (r RunRecord) tab(name string) (Tab, bool) {

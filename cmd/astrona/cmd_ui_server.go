@@ -49,6 +49,7 @@ func serveWorkspace(parent context.Context, port int) error {
 	}
 	srv, err := workspace.New(workspace.Config{
 		Port: port, Version: Version, Profile: apphome.Name(), IdleTimeout: workspace.IdleTimeout,
+		PrepareVM: prepareVMResourceWorkspace,
 	})
 	if err != nil {
 		return err

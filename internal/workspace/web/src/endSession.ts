@@ -16,6 +16,18 @@ export interface EndCopy {
   busy: string
 }
 
+/** What the lab's environment is made of: its cluster, or its VM(s). */
+function environment(run: Run): string {
+  const vms = run.targets.filter((t) => t.kind === 'vm').length
+  if (vms === 0) return 'cluster'
+  return vms === 1 ? 'VM' : 'VMs'
+}
+
+/** What has to run for the checks: the container engine, or the VMs. */
+function engine(run: Run): string {
+  return run.targets.some((t) => t.kind === 'vm') ? 'a VM stopped' : 'the container engine stopped'
+}
+
 export function endSessionCopy(run: Run, expired: boolean): EndCopy {
   if (run.playground) return playgroundCopy(run)
   const exam = run.mode === 'exam'
@@ -50,7 +62,7 @@ export function endSessionCopy(run: Run, expired: boolean): EndCopy {
     )
   } else {
     p.push(
-      'When a pass finishes the attempt, the environment is removed: its cluster, terminals and everything you changed in it are deleted. After a fail, or a result that is not sent, the environment keeps running.',
+      `When a pass finishes the attempt, the environment is removed: its ${environment(run)}, terminals and everything you changed in it are deleted. After a fail, or a result that is not sent, the environment keeps running.`,
     )
   }
   if (exam) {
@@ -62,7 +74,7 @@ export function endSessionCopy(run: Run, expired: boolean): EndCopy {
   if (run.rules.strict && expired) {
     p.push('The time limit has passed. In this strict exam a submission after the deadline cannot pass.')
   }
-  p.push('If the checks cannot run, for example because the container engine stopped, nothing is recorded or sent and the lab keeps running.')
+  p.push(`If the checks cannot run, for example because ${engine(run)}, nothing is recorded or sent and the lab keeps running.`)
   return {
     button: exam ? 'Submit exam' : 'Submit lab',
     title: exam ? 'Submit your exam?' : 'Submit this lab?',
@@ -75,7 +87,7 @@ export function endSessionCopy(run: Run, expired: boolean): EndCopy {
 function playgroundCopy(run: Run): EndCopy {
   const p = [
     'A playground has no checks: nothing is graded or submitted.',
-    'Ending it deletes the environment now: its cluster, terminals and everything in it. This cannot be undone.',
+    `Ending it deletes the environment now: its ${environment(run)}, terminals and everything in it. This cannot be undone.`,
   ]
   if (run.submit.tracking === 'account') {
     p.push('Your Astrona account is told the playground ended, with the time and resources it used.')
@@ -94,7 +106,7 @@ function playgroundCopy(run: Run): EndCopy {
 /** Removing a lab's environment without grading (POST /destroy). */
 export function removeCopy(run: Run): EndCopy {
   const p = [
-    'This deletes the lab’s cluster, its terminals and everything you changed in it. This cannot be undone.',
+    `This deletes the lab’s ${environment(run)}, its terminals and everything you changed in it. This cannot be undone.`,
     'Nothing is graded or submitted. Results you already submitted stay as they are.',
   ]
   if (run.submit.tracking === 'account') {

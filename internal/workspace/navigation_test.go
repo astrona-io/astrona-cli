@@ -114,7 +114,7 @@ func TestNewDocumentIncludesNewRunFrameOrigins(t *testing.T) {
 	if err := labstate.Save("astro-demo", st); err != nil {
 		t.Fatal(err)
 	}
-	rec := RunRecord{Lab: "astro-demo", RunID: RunDigest(labops.RunID(st)), Targets: []Target{{Name: "astro-demo"}}, Tabs: []Tab{
+	rec := RunRecord{Lab: "astro-demo", RunID: RunDigest(labops.RunID(st)), Targets: []Target{{Name: "astro-demo", Kind: TargetKind}}, Tabs: []Tab{
 		FocusTab("astro-demo"),
 		{Name: "app", Kind: TabBrowser, URL: "http://127.0.0.1:8080/"},
 		{Name: "docs", Kind: TabDocs, URL: "https://docs.example/guide"},

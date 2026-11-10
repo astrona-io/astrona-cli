@@ -82,9 +82,9 @@ function ends(l: MachineLab): string {
   return l.playground ? `deleted automatically in ${text}` : `${text} left`
 }
 
-// The page opens a run the workspace has; another Kind lab needs
+// The page opens a run the workspace has, Kind or QEMU; another lab needs
 // `astrona ui <name>` once, which records it for the browser.
-const canOpen = (l: MachineLab) => l.workspace && l.runtime === 'kind' && l.state !== 'stopped'
+const canOpen = (l: MachineLab) => l.workspace && l.state !== 'stopped'
 </script>
 
 <template>
@@ -139,9 +139,7 @@ const canOpen = (l: MachineLab) => l.workspace && l.runtime === 'kind' && l.stat
                 </button>
               </template>
               <p v-else class="small muted home__cmd">
-                <template v-if="l.runtime === 'kind'">Open it here with <code>astrona ui {{ l.name }}</code>, or</template>
-                <template v-else>Connect with <code>astrona status {{ l.name }}</code>, or</template>
-                remove it with <code>astrona destroy {{ l.name }}</code>
+                Open it here with <code>astrona ui {{ l.name }}</code>, or remove it with <code>astrona destroy {{ l.name }}</code>
               </p>
             </div>
           </li>
