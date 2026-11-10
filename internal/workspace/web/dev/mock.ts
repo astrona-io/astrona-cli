@@ -166,6 +166,7 @@ function grade(): Record<string, unknown> {
       percent: earned * 10,
       passPercent: 66,
       overTime: false,
+      elapsedSeconds: state.startedAt ? Math.round((Date.now() - Date.parse(state.startedAt)) / 1000) : undefined,
       attempt: state.attempts,
       time: new Date().toISOString(),
       checks,

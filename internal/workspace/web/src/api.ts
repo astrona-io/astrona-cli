@@ -141,6 +141,8 @@ export interface Submission {
     passPercent?: number
     /** A strict exam submitted after the time limit: it cannot pass. */
     overTime: boolean
+    /** Time spent on the run until this submission, when known. */
+    elapsedSeconds?: number
     attempt: number
     time: string
     checks: SubmissionCheck[]

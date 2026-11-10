@@ -33,16 +33,19 @@ type SubmissionCheck struct {
 // Submission is a graded result: what `astrona submit -o json` prints and,
 // with its texts capped (CapCheckTexts), what is sent to the lab page.
 type Submission struct {
-	Lab         string            `json:"lab"`
-	Pass        bool              `json:"pass"`
-	Earned      int               `json:"earned"`
-	Max         int               `json:"max"`
-	Percent     float64           `json:"percent"`
-	PassPercent int               `json:"passPercent,omitempty"`
-	OverTime    bool              `json:"overTime,omitempty"`
-	Attempt     int               `json:"attempt"`
-	Time        time.Time         `json:"time"`
-	Checks      []SubmissionCheck `json:"checks"`
+	Lab         string  `json:"lab"`
+	Pass        bool    `json:"pass"`
+	Earned      int     `json:"earned"`
+	Max         int     `json:"max"`
+	Percent     float64 `json:"percent"`
+	PassPercent int     `json:"passPercent,omitempty"`
+	OverTime    bool    `json:"overTime,omitempty"`
+	// ElapsedSeconds is the time spent on the run until this submission,
+	// from its Start (an exam's clock, a lab's Start click or readiness).
+	ElapsedSeconds int64             `json:"elapsedSeconds,omitempty"`
+	Attempt        int               `json:"attempt"`
+	Time           time.Time         `json:"time"`
+	Checks         []SubmissionCheck `json:"checks"`
 }
 
 // NewSubmission builds the Submission for results. Hints are left out when
@@ -266,6 +269,10 @@ type SubmitRequest struct {
 	Destroy DestroyOptions
 	// Progress, when set, follows each check while grading runs.
 	Progress proctor.Progress
+	// StartedAt, when set, is when the learner started this run (the
+	// workspace's Start click). Zero falls back to when the lab became
+	// ready. An exam's own clock always wins.
+	StartedAt time.Time
 
 	// Graded runs once the attempt is recorded, before the result is sent:
 	// cmd writes the JUnit report and prints the result there. Its error
@@ -366,6 +373,22 @@ func PrepareSubmit(req SubmitRequest) (*SubmitSession, error) {
 	return &SubmitSession{ClusterName: clusterName, Before: before, Proctor: pr, Exam: examState, Reporter: rep}, nil
 }
 
+// runStart is when the submitted run's time started: the learner's Start,
+// else when the lab became ready. Zero for a playground or an unknown start.
+func runStart(startedAt time.Time, before *labstate.State) time.Time {
+	if before == nil || before.Session.IsPlayground() {
+		return time.Time{}
+	}
+	if !startedAt.IsZero() {
+		return startedAt
+	}
+	ready, err := time.Parse(time.RFC3339, before.StartedAt)
+	if err != nil {
+		return time.Time{}
+	}
+	return ready
+}
+
 // Submit grades a loaded lab once (proctor.Evaluate, rendered on req.Out
 // with Proctor.Report), records the attempt, hands it to req.Graded, sends
 // it to the lab page (SendResult) and, once the attempt is finished,
@@ -438,6 +461,12 @@ func Submit(ctx context.Context, req SubmitRequest) (*SubmitResult, error) {
 		attempt.Timed = true
 		attempt.ElapsedSeconds = int64(examState.Elapsed(now).Seconds())
 		attempt.OverTime = examState.Over(now)
+	} else if started := runStart(req.StartedAt, before); !started.IsZero() && !started.After(now) {
+		attempt.Timed = true
+		attempt.ElapsedSeconds = int64(now.Sub(started).Seconds())
+		if req.Out != nil {
+			fmt.Fprintf(req.Out, "Time spent: %s\n", exam.Round(time.Duration(attempt.ElapsedSeconds)*time.Second))
+		}
 	}
 	recordErr := proctor.RecordAttempt(clusterName, attempt)
 	if recordErr != nil {
@@ -459,6 +488,7 @@ func Submit(ctx context.Context, req SubmitRequest) (*SubmitResult, error) {
 		Passed:      pass,
 		Recorded:    recordErr == nil,
 	}
+	res.Result.ElapsedSeconds = attempt.ElapsedSeconds
 	if req.Graded != nil {
 		if err := req.Graded(res, rep); err != nil {
 			return nil, err

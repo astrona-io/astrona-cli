@@ -42,15 +42,17 @@ type submitCheck struct {
 }
 
 type submitResult struct {
-	Pass        bool          `json:"pass"`
-	Earned      int           `json:"earned"`
-	Max         int           `json:"max"`
-	Percent     float64       `json:"percent"`
-	PassPercent int           `json:"passPercent,omitempty"`
-	OverTime    bool          `json:"overTime"`
-	Attempt     int           `json:"attempt"`
-	Time        time.Time     `json:"time"`
-	Checks      []submitCheck `json:"checks"`
+	Pass        bool    `json:"pass"`
+	Earned      int     `json:"earned"`
+	Max         int     `json:"max"`
+	Percent     float64 `json:"percent"`
+	PassPercent int     `json:"passPercent,omitempty"`
+	OverTime    bool    `json:"overTime"`
+	// ElapsedSeconds is the time spent on the run until this submission.
+	ElapsedSeconds int64         `json:"elapsedSeconds,omitempty"`
+	Attempt        int           `json:"attempt"`
+	Time           time.Time     `json:"time"`
+	Checks         []submitCheck `json:"checks"`
 }
 
 // submission is what POST /submit and GET /submission return once a
@@ -275,7 +277,7 @@ func browserResult(s labops.Submission) submitResult {
 	s = labops.CapCheckTexts(s)
 	r := submitResult{
 		Pass: s.Pass, Earned: s.Earned, Max: s.Max, Percent: s.Percent, PassPercent: s.PassPercent,
-		OverTime: s.OverTime, Attempt: s.Attempt, Time: s.Time.UTC(), Checks: make([]submitCheck, 0, len(s.Checks)),
+		OverTime: s.OverTime, ElapsedSeconds: s.ElapsedSeconds, Attempt: s.Attempt, Time: s.Time.UTC(), Checks: make([]submitCheck, 0, len(s.Checks)),
 	}
 	for _, c := range s.Checks {
 		r.Checks = append(r.Checks, submitCheck{Name: c.Name, Pass: c.Pass, Points: c.Points, Hint: c.Hint})
@@ -430,6 +432,7 @@ func (s *Server) runSubmit(rec RunRecord, job *submitJob) {
 	}
 	defer loaded.Cleanup()
 
+	started, _ := StartedAt(rec.Lab)
 	logw := os.Stderr // the detached server's stderr is its log
 	status := &lineBuffer{log: logw}
 	removed := false
@@ -445,6 +448,7 @@ func (s *Server) runSubmit(rec RunRecord, job *submitJob) {
 		Status:    status,
 		Warn:      status,
 		Progress:  job.progress,
+		StartedAt: started,
 		Destroy: labops.DestroyOptions{
 			Out:        status,
 			ForgetWarn: status,

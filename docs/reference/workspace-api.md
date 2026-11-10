@@ -383,7 +383,7 @@ Response: `200` with the submission:
   "runId": "3f1c…",
   "result": {
     "pass": true, "earned": 10, "max": 10, "percent": 100, "passPercent": 66,
-    "overTime": false, "attempt": 2, "time": "2026-11-09T21:40:00Z",
+    "overTime": false, "elapsedSeconds": 754, "attempt": 2, "time": "2026-11-09T21:40:00Z",
     "checks": [
       { "name": "Pod web is running", "pass": true, "points": 6 },
       { "name": "Pod web uses nginx:1.27", "pass": true, "points": 4 }
@@ -402,6 +402,7 @@ Response: `200` with the submission:
 | --- | --- |
 | `result.checks` | Name, pass/fail and points per check. `hint` only for a failed check of a lab that shows hints. Never the check's command, output or expected value. |
 | `result.overTime` | A strict exam submitted after its deadline: it cannot pass. |
+| `result.elapsedSeconds` | Time spent on the run until this submission: an exam's clock, otherwise from Start (or from when the lab became ready when it was not started in the workspace). Left out when unknown. |
 | `recorded` | Saved in this machine's attempt history. |
 | `sent` | Recorded on the Astrona lab page. |
 | `queued` | Not sent yet: kept in the outbox and sent once Astrona can be reached. |

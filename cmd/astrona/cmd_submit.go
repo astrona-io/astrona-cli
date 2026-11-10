@@ -15,6 +15,7 @@ import (
 	"astrona/internal/labstate"
 	"astrona/internal/proctor"
 	"astrona/internal/ui"
+	"astrona/internal/workspace"
 
 	"github.com/spf13/cobra"
 )
@@ -191,6 +192,10 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 			fmt.Printf("\nPROCTOR: %s\n", ui.PassFail(os.Stdout, res.Passed, 0))
 			return nil
 		},
+	}
+	// A run started in the browser workspace counts its time from Start.
+	if started, ok := workspace.StartedAt(config.NormalizeClusterName(cfg.Metadata.Name)); ok {
+		req.StartedAt = started
 	}
 	if output == "json" {
 		req.UI.Raw = os.Stderr    // stdout is the JSON result

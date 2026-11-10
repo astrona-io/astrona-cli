@@ -164,7 +164,7 @@ PROCTOR: PASS
 
 - The clock lives in `~/.astrona/exams/<lab>.json`; `astrona reset` starts a fresh one, `astrona destroy` clears it. It keeps running while a lab is paused with `astrona stop`, like a real exam.
 - Without `strict`, an over-time submission is still graded normally — the time is just reported ("over time by 5m").
-- `astrona submit --history` adds a TIME USED column for exam attempts, marking over-time ones.
+- `astrona submit --history` adds a TIME USED column, marking over-time exam attempts. A learning lab's time counts from Start in the browser workspace, or from when the lab became ready; `astrona submit` prints it as `Time spent`.
 - `astrona test` (CI) ignores exam settings.
 
 ## JUnit XML for CI
