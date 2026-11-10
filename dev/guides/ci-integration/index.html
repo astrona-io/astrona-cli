@@ -5399,7 +5399,7 @@ their normal API behavior.</p>
 </tr>
 <tr>
 <td><code>astrona whoami -o json</code></td>
-<td><code>{signedIn, username, site}</code> — signed out it is <code>{signedIn: false, site}</code> and still exits 1</td>
+<td><code>{signedIn, username, site, keyId}</code> — <code>keyId</code> is the device key's fingerprint, empty until the sign-in has one; signed out it is <code>{signedIn: false, site}</code> and still exits 1</td>
 </tr>
 <tr>
 <td><code>astrona labs -o json</code></td>

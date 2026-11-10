@@ -5148,7 +5148,8 @@
 <p>Show which Astrona account this computer is signed in to</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Show the Astrona account and site this computer is signed in to, renewing the sign-in if it has expired. Exits 1 when signed out, with how to sign in.</p>
-<p>With -o json, stdout is one document {signedIn, username, site} — also when signed out (signedIn: false), which still exits 1.</p>
+<p>It also prints this computer's device key fingerprint: the same string the website shows for this computer under Settings → Devices, so you can tell which row is this one.</p>
+<p>With -o json, stdout is one document {signedIn, username, site, keyId} — also when signed out (signedIn: false), which still exits 1.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona whoami [flags]
 </code></pre></div>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
