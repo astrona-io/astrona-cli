@@ -124,6 +124,40 @@ func StartKindCluster(clusterName string, rep *ui.Reporter) error {
 	return nil
 }
 
+// PauseKindCluster freezes every running node container of clusterName
+// (`docker pause` / `podman pause`): the cgroup freezer stops every
+// process in them, memory stays allocated and nothing is lost. A lab exam's
+// break uses it. Containers already paused are left as they are.
+func PauseKindCluster(clusterName string) error {
+	return freezeKindCluster(clusterName, "pause", "running")
+}
+
+// UnpauseKindCluster thaws the node containers PauseKindCluster froze.
+func UnpauseKindCluster(clusterName string) error {
+	return freezeKindCluster(clusterName, "unpause", "paused")
+}
+
+func freezeKindCluster(clusterName, verb, from string) error {
+	cs, engine, err := KindNodeContainers(clusterName)
+	if err != nil {
+		return err
+	}
+	var todo []string
+	for _, c := range cs {
+		if c.State == from {
+			todo = append(todo, c.Name)
+		}
+	}
+	if len(todo) == 0 {
+		return nil
+	}
+	out, err := exec.Command(engine.Path, append([]string{verb}, todo...)...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s %s %s: %w: %s", engine.Name, verb, clusterName, err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 // Lookup reports whether kind cluster name exists (running or stopped): a
 // container with kind's cluster label named <name>-control-plane. With no
 // container engine installed, no kind cluster can exist: false, nil. An

@@ -89,6 +89,7 @@ nav:
   - Guides:
       - Browser Workspace: guides/browser-workspace.md
       - Start Labs from the Website: guides/start-on-my-machine.md
+      - Full Lab Exams: guides/lab-exams.md
       - CLI Settings: guides/settings.md
       - Local Data and Caches: guides/local-data.md
       - CLI Usage Terms: guides/cli-terms.md
@@ -134,6 +135,16 @@ nav:
               - reference/cli/astrona_resource_run.md
               - reference/cli/astrona_ssh.md
               - reference/cli/astrona_submit.md
+              - reference/cli/astrona_exam.md
+              - reference/cli/astrona_exam_start.md
+              - reference/cli/astrona_exam_status.md
+              - reference/cli/astrona_exam_task.md
+              - reference/cli/astrona_exam_next.md
+              - reference/cli/astrona_exam_prev.md
+              - reference/cli/astrona_exam_break.md
+              - reference/cli/astrona_exam_resume.md
+              - reference/cli/astrona_exam_submit.md
+              - reference/cli/astrona_exam_abandon.md
               - reference/cli/astrona_status.md
               - reference/cli/astrona_progress.md
               - reference/cli/astrona_reset.md
