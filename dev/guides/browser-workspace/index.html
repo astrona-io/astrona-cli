@@ -1255,6 +1255,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#labs-on-this-computer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Labs on this computer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#qemu-labs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4723,6 +4734,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#labs-on-this-computer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Labs on this computer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#qemu-labs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4900,11 +4922,13 @@ opens it in your default browser. You can follow everything from that tab:</p>
    changed, the tab shows them in a dialog. <strong>Accept and continue</strong> goes on;
    <strong>Decline and stop</strong> stops the command before anything is downloaded or
    started. Nothing else happens, and no time counts, until you answer.</li>
-<li><strong>Setup.</strong> The tab shows each step as the terminal does: what it is doing,
-   ✓ / – / ✗ with how long each step took, and what a long step is waiting on.
-   If setup fails, the tab shows the error and where the log is.</li>
-<li><strong>The lab.</strong> Once the lab is ready the same tab opens it, at the intro page.
-   An exam's clock still starts only when you click <strong>Start</strong>.</li>
+<li><strong>Setup.</strong> The tab shows each step in a terminal-style window, as the
+   terminal does: what it is doing, ✓ / – / ✗ with how long each step took,
+   and what a long step is waiting on. If setup fails, the tab shows the error
+   and where the log is.</li>
+<li><strong>The lab.</strong> Once the lab is ready the tab says so and waits for you:
+   <strong>Begin this session</strong> opens the intro page. Nothing counts yet; an exam's
+   clock still starts only when you click <strong>Start</strong> there.</li>
 </ol>
 <p>Some questions are still asked in the terminal: whether to start a running lab
 over, whether to log in, and whether to trust a lab's repository. The tab says
@@ -4945,7 +4969,7 @@ used, or is older than two minutes, shows <strong>Link expired</strong>: run
 <p><code>astrona ui &lt;lab&gt;</code> opens a running lab again, for a link that expired or a tab
 you closed:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>ui<span class="w"> </span>my-lab
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>astrona<span class="w"> </span>ui<span class="w">            </span><span class="c1"># the only running lab; with several, it lists them</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>astrona<span class="w"> </span>ui<span class="w">            </span><span class="c1"># the only running lab; with none or several, every lab on this computer</span>
 </code></pre></div>
 <p>It starts the workspace server if needed, prints a new link with a fresh code
 and opens it (or prints it when there is no browser). It never restarts the lab
@@ -4955,6 +4979,26 @@ repository; it does not check GitHub, update the checkout or rerun setup.</p>
 <p>A lab named <code>status</code>, <code>stop</code> or <code>serve</code> is opened by its full name, since the
 short name is a subcommand: <code>astrona ui astro-status</code> (<code>astrodev-status</code> for
 development builds). <code>astrona list</code> shows the full names.</p>
+<h2 id="labs-on-this-computer">Labs on this computer<a class="headerlink" href="#labs-on-this-computer" title="Permanent link">&para;</a></h2>
+<p>A lab keeps running in the background after <code>astrona run</code> returns, until you
+end it; a playground also ends when its time is up. Each one uses CPU and
+memory, so it is easy to leave several running without noticing.</p>
+<p><strong>Labs on this computer</strong> lists every lab and playground running here, whether
+or not it was opened in the browser: its title, Kind or QEMU, whether it is
+running, how long it has been up and, for a playground, when it is deleted.
+For a lab the workspace knows, <strong>Open</strong> opens it and <strong>End playground</strong> or
+<strong>Remove</strong> removes it after the same confirmation as in the workspace. Other
+labs show the command that opens or removes them. Labs that are stopped but not
+removed are listed on one line below.</p>
+<p>To get there:</p>
+<ul>
+<li><code>astrona ui</code> with no lab name, when no lab or several labs are running;</li>
+<li><strong>All labs</strong> in the workspace's top bar;</li>
+<li><strong>See all labs on this computer</strong> after a playground ended or a lab was
+  removed.</li>
+</ul>
+<p>The page refreshes every five seconds. When the container engine does not
+answer, it says so, since Kind labs cannot be listed without it.</p>
 <h2 id="qemu-labs">QEMU labs<a class="headerlink" href="#qemu-labs" title="Permanent link">&para;</a></h2>
 <p>QEMU (VM) labs do not open in the browser yet, and <code>--browser</code> on a QEMU lab is
 an error. Once a QEMU lab is ready, <code>astrona run</code> prints the <code>astrona ssh</code>

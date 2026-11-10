@@ -4747,10 +4747,10 @@
   <h1>Astrona ui</h1>
 
 <h2 id="astrona-ui">astrona ui<a class="headerlink" href="#astrona-ui" title="Permanent link">&para;</a></h2>
-<p>Open a running lab in the browser workspace</p>
+<p>Open a running lab, or every lab on this computer, in the browser</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Open a running Kind lab in the browser workspace: astrona starts the local workspace server (or reuses a running one), prints a link with a fresh single-use code (valid for two minutes) and opens it in your browser. With no browser on this machine (no display), open the printed link yourself. Use it when a link has expired or the browser tab was closed; it never restarts the lab or its timer, and it uses the saved local files without checking GitHub.</p>
-<p>Without a lab name it opens the only running lab; when several are running it lists them. A lab named status, stop or serve is opened by its full name (astro-status), since the short name is a subcommand.</p>
+<p>Without a lab name it opens the only running lab. With none or several it opens "Labs on this computer", a page listing every lab and playground that still runs here (labs keep running after astrona run returns), where you open or end them. A lab named status, stop or serve is opened by its full name (astro-status), since the short name is a subcommand.</p>
 <p>QEMU labs do not open in the browser yet: astrona status <lab> shows the astrona ssh command for each VM.</p>
 <p>astrona ui status shows the workspace server and a fresh link; astrona ui stop stops it (labs keep running).</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona ui [lab-name] [flags]
