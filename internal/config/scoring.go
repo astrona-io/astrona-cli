@@ -11,12 +11,21 @@ func EffectivePoints(points int) int {
 }
 
 // ValidateScoring checks hint/points/passPercent values across the lab's
-// validation blocks (the root one and each qemu VM's).
+// validation blocks (the root one and each qemu VM's). A VM's block has no
+// pass mark of its own: only the root validation.passPercent sets it.
 func ValidateScoring(cfg *LabConfig) error {
 	blocks := map[string]ValidationConfig{"validation": cfg.Validation}
-	for _, vm := range cfg.Runtime.QEMU {
+	for i, vm := range cfg.Runtime.QEMU {
 		if vm.Validation != nil {
-			blocks["runtime.qemu["+vm.Name+"].validation"] = *vm.Validation
+			id := vm.Name
+			if id == "" {
+				id = fmt.Sprint(i)
+			}
+			where := "runtime.qemu[" + id + "].validation"
+			if vm.Validation.PassPercent != 0 {
+				return fmt.Errorf("%s.passPercent is not supported: the lab has one pass mark, set it in the root validation.passPercent", where)
+			}
+			blocks[where] = *vm.Validation
 		}
 	}
 	for where, v := range blocks {

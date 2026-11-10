@@ -170,19 +170,25 @@ func HasBootstrapInit(cfg *config.LabConfig) bool {
 }
 
 // RunBootstrap runs a lab's bootstrap phase against env: config.Bootstrap.Init
-// once via env.Executor for a single-environment lab (kind, or qemu with no
-// multi-VM list), or — for a multi-VM qemu lab — once per VM (env.Executor
-// is nil precisely then, see LabEnvironment) via that VM's own executor,
-// followed by that VM's own nested QEMUVM.Bootstrap.Init if it has one. The
-// per-VM order (shared first, then that VM's own) means a VM-specific step
-// can assume whatever the shared setup already did.
+// once via env.Executor for a single-environment lab (kind, or a single-VM
+// qemu lab), or — for a multi-VM qemu lab — once per VM (env.Executor is nil
+// precisely then, see LabEnvironment) via that VM's own executor. Either way
+// a qemu VM's own nested QEMUVM.Bootstrap.Init (runVMBootstrap) runs on that
+// VM right after the shared root scripts, so a VM-specific step can assume
+// whatever the shared setup already did.
 func RunBootstrap(cfg *config.LabConfig, baseDir string, env *runtime.LabEnvironment, rep *ui.Reporter) error {
 	if env.Executor != nil {
 		var pulls *pullwatch.Watcher
 		if env.KubeContext != "" {
 			pulls = pullwatch.New(env.KubeContext, env.Kubeconfig, rep.Warn)
 		}
-		return runInitScripts(cfg.Bootstrap.Init, baseDir, env.Executor, rep, pulls)
+		if err := runInitScripts(cfg.Bootstrap.Init, baseDir, env.Executor, rep, pulls); err != nil {
+			return err
+		}
+		if vm := singleVM(cfg, env); vm != nil {
+			return runVMBootstrap(*vm, baseDir, env.Executor, rep)
+		}
+		return nil
 	}
 
 	for _, vm := range cfg.Runtime.QEMU {
@@ -197,13 +203,35 @@ func RunBootstrap(cfg *config.LabConfig, baseDir string, env *runtime.LabEnviron
 			return fmt.Errorf("vm '%s': %w", vm.Name, err)
 		}
 
-		if vm.Bootstrap != nil {
-			if err := RunInitScripts(vm.Bootstrap.Init, baseDir, exec, rep); err != nil {
-				return fmt.Errorf("vm '%s' bootstrap: %w", vm.Name, err)
-			}
+		if err := runVMBootstrap(vm, baseDir, exec, rep); err != nil {
+			return err
 		}
 	}
 
+	return nil
+}
+
+// singleVM is the one runtime.qemu entry of a single-VM qemu lab (run
+// through env.Executor), nil for any other lab.
+func singleVM(cfg *config.LabConfig, env *runtime.LabEnvironment) *config.QEMUVM {
+	if env.Type != runtime.RuntimeQEMU || len(cfg.Runtime.QEMU) != 1 {
+		return nil
+	}
+	return &cfg.Runtime.QEMU[0]
+}
+
+// runVMBootstrap runs a VM's own runtime.qemu[].bootstrap.init, if it has
+// one, through that VM's executor.
+func runVMBootstrap(vm config.QEMUVM, baseDir string, exec executor.ScriptExecutor, rep *ui.Reporter) error {
+	if vm.Bootstrap == nil {
+		return nil
+	}
+	if err := RunInitScripts(vm.Bootstrap.Init, baseDir, exec, rep); err != nil {
+		if vm.Name == "" {
+			return fmt.Errorf("vm bootstrap: %w", err)
+		}
+		return fmt.Errorf("vm '%s' bootstrap: %w", vm.Name, err)
+	}
 	return nil
 }
 

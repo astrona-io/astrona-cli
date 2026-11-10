@@ -45,6 +45,17 @@ var schemaPatterns = map[string]string{
 	"Tab.name":            dns1123Label.String(),
 }
 
+// schemaForbidden are keys a shared struct allows in general but not at
+// one place it is used, same keys as schemaEnums (the field holding it).
+// `astrona validate` rejects them there too.
+var schemaForbidden = map[string]struct {
+	keys []string
+	why  string
+}{
+	// A VM's own block has no pass mark: only the root one (ValidateScoring).
+	"QEMUVM.validation": {[]string{"passPercent"}, "A VM's own checks and scripts. passPercent is not allowed here: the pass mark is the root validation.passPercent."},
+}
+
 // Schema returns the JSON Schema (draft 2020-12) for config.yaml,
 // generated from the LabConfig structs — every object rejects unknown
 // keys, matching `astrona validate`.
@@ -63,6 +74,16 @@ func Schema() ([]byte, error) {
 		return nil, err
 	}
 	return append(out, '\n'), nil
+}
+
+// requiredEach is one {"required": [key]} schema per key: under "not" +
+// "anyOf", an object having any of them is rejected.
+func requiredEach(keys []string) []any {
+	out := make([]any, len(keys))
+	for i, k := range keys {
+		out[i] = map[string]any{"required": []string{k}}
+	}
+	return out
 }
 
 func schemaFor(t reflect.Type, defs map[string]any) map[string]any {
@@ -99,6 +120,10 @@ func schemaFor(t reflect.Type, defs map[string]any) map[string]any {
 				}
 				if pattern, ok := schemaPatterns[name+"."+key]; ok {
 					p["pattern"] = pattern
+				}
+				if f, ok := schemaForbidden[name+"."+key]; ok {
+					p["not"] = map[string]any{"anyOf": requiredEach(f.keys)}
+					p["description"] = f.why
 				}
 				if schemaDeprecated[name+"."+key] {
 					p["deprecated"] = true
