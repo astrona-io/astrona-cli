@@ -75,30 +75,37 @@ func do(client *http.Client, req *http.Request, out any) (int, error) {
 
 // doLimited is do with its own cap on the answer's size.
 func doLimited(client *http.Client, req *http.Request, out any, limit int64) (int, error) {
+	status, _, err := doHeaders(client, req, out, limit)
+	return status, err
+}
+
+// doHeaders is doLimited that also returns the answer's headers (nil when
+// there was no answer).
+func doHeaders(client *http.Client, req *http.Request, out any, limit int64) (int, http.Header, error) {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "astrona-cli")
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, fmt.Errorf("%s %s: %w", req.Method, req.URL.Redacted(), stripURLError(err))
+		return 0, nil, fmt.Errorf("%s %s: %w", req.Method, req.URL.Redacted(), stripURLError(err))
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if err != nil {
-		return resp.StatusCode, fmt.Errorf("%s %s: reading the answer: %w", req.Method, req.URL.Redacted(), err)
+		return resp.StatusCode, resp.Header, fmt.Errorf("%s %s: reading the answer: %w", req.Method, req.URL.Redacted(), err)
 	}
 	if int64(len(body)) > limit {
-		return resp.StatusCode, fmt.Errorf("%s %s: the answer is larger than %d bytes", req.Method, req.URL.Redacted(), limit)
+		return resp.StatusCode, resp.Header, fmt.Errorf("%s %s: the answer is larger than %d bytes", req.Method, req.URL.Redacted(), limit)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return resp.StatusCode, errorFromBody(resp.StatusCode, body)
+		return resp.StatusCode, resp.Header, errorFromBody(resp.StatusCode, body)
 	}
 	if out == nil {
-		return resp.StatusCode, nil
+		return resp.StatusCode, resp.Header, nil
 	}
 	if err := json.Unmarshal(body, out); err != nil {
-		return resp.StatusCode, fmt.Errorf("%s %s: the answer isn't the JSON expected: %w", req.Method, req.URL.Redacted(), err)
+		return resp.StatusCode, resp.Header, fmt.Errorf("%s %s: the answer isn't the JSON expected: %w", req.Method, req.URL.Redacted(), err)
 	}
-	return resp.StatusCode, nil
+	return resp.StatusCode, resp.Header, nil
 }
 
 // stripURLError drops *url.Error's own copy of the URL (already in the
@@ -166,14 +173,23 @@ func getJSON(ctx context.Context, client *http.Client, rawURL string, out any) e
 }
 
 func postJSON(ctx context.Context, client *http.Client, rawURL string, body, out any) (int, error) {
+	req, err := jsonRequest(ctx, http.MethodPost, rawURL, body)
+	if err != nil {
+		return 0, err
+	}
+	return do(client, req, out)
+}
+
+// jsonRequest is a request whose body is body as JSON.
+func jsonRequest(ctx context.Context, method, rawURL string, body any) (*http.Request, error) {
 	data, err := json.Marshal(body)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, method, rawURL, bytes.NewReader(data))
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	return do(client, req, out)
+	return req, nil
 }

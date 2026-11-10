@@ -83,11 +83,10 @@ func (c *Client) postUsage(ctx context.Context, cr *Credentials, sessionID strin
 		return 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+cr.AccessToken)
 	var out struct {
 		Accepted int `json:"accepted"`
 	}
-	if _, err := do(c.HTTP, req, &out); err != nil {
+	if _, err := c.send(req, cr, &out); err != nil {
 		return 0, err
 	}
 	return out.Accepted, nil
@@ -116,9 +115,8 @@ func (c *Client) PauseLabSession(ctx context.Context, s Store, cr *Credentials, 
 			return err
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+cr.AccessToken)
 		var out map[string]any
-		_, err = do(c.HTTP, req, &out)
+		_, err = c.send(req, cr, &out)
 		return err
 	}
 	err := post(cr)
@@ -150,9 +148,13 @@ var ErrUsageFull = errors.New("the lab session's usage history is full")
 
 // Permanent reports whether the site refused a request for good — a session it
 // no longer knows, a session whose usage history is full, a result for an
-// attempt that is over, out of time or full, or another 4xx answer than 401,
-// 408 or 429 — so sending it again would not help.
+// attempt that is over, out of time or full, this computer's key proof
+// (*ProofError), or another 4xx answer than 401, 408 or 429 — so sending it
+// again would not help.
 func Permanent(err error) bool {
+	if IsProofError(err) {
+		return true
+	}
 	for _, gone := range []error{ErrSessionGone, ErrUsageFull, ErrAttemptFinished, ErrSessionExpired, ErrTooManyResults} {
 		if errors.Is(err, gone) {
 			return true

@@ -19,7 +19,7 @@ Catalog labs run locally without a login, including `astrona run ATS000/section-
 
 ```sh
 astrona login      # opens astrona.io in your browser; click Authorize there
-astrona whoami     # who is signed in, and on which site (-o json: {signedIn, username, site})
+astrona whoami     # who is signed in, and on which site (-o json: {signedIn, username, site, keyId})
 astrona logout     # revoke the sign-in and forget it
 ```
 
@@ -34,6 +34,8 @@ Waiting for you to authorize this computer… (Ctrl+C cancels)
 If you're already signed in on astrona.io, check that the code matches and click **Authorize**; if not, sign in on astrona.io first and you're brought straight back to that page. The terminal waits and finishes by itself. No password is ever typed into the terminal, and it works from a machine without a browser (open the printed link on any device). The computer shows up on your account under its hostname. Declining in the browser, or letting the code expire, leaves you signed out — run `astrona login` again.
 
 The sign-in is kept in `~/.astrona/credentials.json` (mode 0600; astrona refuses to use it if other users can read it) and renewed automatically; `astrona logout` revokes it on astrona.io and deletes the file. Login and logout wait for any in-flight token renewal before replacing or deleting the saved sign-in, so a background reporter cannot restore the previous account. A revocation notice from an older website connection only removes the sign-in that connection used; it preserves a newer login. A credentials file from an older astrona (before website sign-in) no longer works: astrona treats you as signed out and asks you to run `astrona login` again.
+
+Each login also makes a new device key for this computer and keeps its private half in `~/.astrona/device-key.json` (mode 0600, refused like the credentials file if other users can read it). Only the public half is sent to astrona.io. astrona signs every call to Astrona and every `astrona connect` with it, so a copied `credentials.json` is of no use on another machine. `astrona whoami` and `astrona check` show the key's fingerprint, the same one Account → Devices shows on astrona.io. `astrona logout` deletes the key with the sign-in. A sign-in from an astrona without device keys gets one the next time its token is renewed. If Astrona answers that a call's proof is missing or wrong, or `astrona connect` stops with "This computer's key does not match its sign-in", run `astrona login` again. A proof refused for its time means this computer's clock is off; astrona corrects for a small difference itself.
 
 Updating the CLI keeps this login. Development builds made with `just build`
 use a separate login in `~/.astrona-dev/credentials.json`; rebuilding also keeps

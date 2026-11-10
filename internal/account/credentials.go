@@ -8,11 +8,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"time"
 
 	"astrona/internal/apphome"
 	"astrona/internal/filelock"
+	"astrona/internal/transport"
 )
 
 // expirySkew renews an access token this long before it expires, so it
@@ -30,13 +32,45 @@ type Credentials struct {
 	Username        string    `json:"username,omitempty"`
 	DeviceID        string    `json:"device_id,omitempty"`
 	DeviceName      string    `json:"device_name,omitempty"`
+	// KeyID is the fingerprint of this device's key (internal/transport),
+	// whose private halves are in the key file next to this one. Empty for
+	// a sign-in from before device keys, or from a site without them.
+	KeyID string `json:"key_id,omitempty"`
+	// KeyEnrolAfter is when a sign-in without a key may next try to enrol
+	// one (after the site refused or does not offer it).
+	KeyEnrolAfter time.Time `json:"key_enrol_after,omitzero"`
+
+	// key is the device key KeyID names, loaded from the key file; nil when
+	// there is none (no key, or its file was lost).
+	key *transport.Key
 }
 
 // NewCredentials builds the credentials for tokens site issued to device.
+// The device's key is kept only when the site registered it (its key_id is
+// the key's fingerprint): a site without device keys ignores them.
 func NewCredentials(site string, d Device, t Tokens, now time.Time) *Credentials {
 	cr := &Credentials{Site: site, DeviceName: d.Name}
 	cr.apply(t, now)
+	if d.key != nil && t.KeyID == d.key.ID {
+		cr.KeyID, cr.key = d.key.ID, d.key
+	}
 	return cr
+}
+
+// HasKey reports whether this sign-in has its device key at hand.
+func (cr *Credentials) HasKey() bool { return cr.key != nil }
+
+// KeyLost reports whether the sign-in has a key the key file no longer
+// holds: the site will refuse its calls until `astrona login`.
+func (cr *Credentials) KeyLost() bool { return cr.KeyID != "" && cr.key == nil }
+
+// ConnectProof answers `astrona connect`'s challenge with this sign-in's
+// key and access token (transport.Key.ConnectProof).
+func (cr *Credentials) ConnectProof(nonce, connectionID string) (string, error) {
+	if cr.key == nil {
+		return "", fmt.Errorf("this computer has no device key for its sign-in")
+	}
+	return cr.key.ConnectProof(nonce, connectionID, cr.AccessToken)
 }
 
 // apply stores tokens (the refresh token rotates on every renewal).
@@ -87,8 +121,14 @@ func (cr *Credentials) validate() error {
 	cr.Username = sanitize(cr.Username)
 	cr.DeviceID = sanitize(cr.DeviceID)
 	cr.DeviceName = sanitize(cr.DeviceName)
+	if !keyIDPattern.MatchString(cr.KeyID) {
+		cr.KeyID = ""
+	}
 	return nil
 }
+
+// keyIDPattern is a key fingerprint (transport.Fingerprint), or none.
+var keyIDPattern = regexp.MustCompile(`^([A-Z2-7]{1,4}(-[A-Z2-7]{1,4}){0,9})?$`)
 
 // errOldFormat is a credentials file written by an astrona that signed in
 // with Keycloak: its tokens aren't the site's, so it is a signed-out state.
@@ -115,6 +155,12 @@ func DefaultStore() (Store, error) {
 		return Store{}, fmt.Errorf("finding your home directory: %w", err)
 	}
 	return Store{Path: filepath.Join(home, apphome.Name(), "credentials.json")}, nil
+}
+
+// KeyFile is the device key file next to the credentials:
+// ~/.astrona/device-key.json.
+func (s Store) KeyFile() transport.KeyFile {
+	return transport.KeyFile{Path: filepath.Join(filepath.Dir(s.Path), "device-key.json")}
 }
 
 // Load reads the credentials; (nil, nil) when there are none. On Unix it
@@ -162,7 +208,34 @@ func (s Store) Load() (*Credentials, error) {
 	if err := cr.validate(); err != nil {
 		return nil, fmt.Errorf("%s can't be used (%w) — run `astrona logout`, then `astrona login`", s.Path, err)
 	}
+	if cr.KeyID != "" {
+		key, err := s.KeyFile().Load(cr.KeyID)
+		if err != nil {
+			return nil, err
+		}
+		cr.key = key // nil when the key file lost it: the site will say so
+	}
 	return &cr, nil
+}
+
+// SaveSignIn saves a new sign-in from `astrona login`: its device key
+// first, then the credentials, and only then drops the previous sign-in's
+// key, so an interrupted login leaves the computer signed in as before.
+// Callers hold Lock.
+func (s Store) SaveSignIn(cr *Credentials) error {
+	kf := s.KeyFile()
+	if cr.key != nil {
+		if err := kf.Add(cr.key, time.Now()); err != nil {
+			return err
+		}
+	}
+	if err := s.Save(cr); err != nil {
+		return err
+	}
+	// The old key belongs to the replaced sign-in; failing to drop it only
+	// leaves an unused key in a 0600 file.
+	_ = kf.Keep(cr.KeyID)
+	return nil
 }
 
 // Save writes cr atomically (a 0600 temp file in the same directory,
@@ -207,9 +280,13 @@ func (s Store) Save(cr *Credentials) (err error) {
 	return nil
 }
 
-// Delete removes the credentials file; false when there was none.
-// Callers must hold Lock through their read and deletion.
+// Delete removes the credentials file and the device key with it; false
+// when there was none. Callers must hold Lock through their read and
+// deletion.
 func (s Store) Delete() (bool, error) {
+	if err := s.KeyFile().Remove(); err != nil {
+		return false, err
+	}
 	err := os.Remove(s.Path)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
@@ -349,5 +426,5 @@ func (c *Client) Renew(ctx context.Context, s Store, cr *Credentials) (*Credenti
 	if err := s.Save(&next); err != nil {
 		return nil, fmt.Errorf("your sign-in was renewed but couldn't be saved, so it is lost — run `astrona login` again: %w", err)
 	}
-	return &next, nil
+	return c.enrolKey(ctx, s, &next)
 }

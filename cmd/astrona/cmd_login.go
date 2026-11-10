@@ -11,6 +11,7 @@ import (
 	"astrona/internal/account"
 	"astrona/internal/apphome"
 	"astrona/internal/labops"
+	"astrona/internal/transport"
 
 	"github.com/spf13/cobra"
 )
@@ -30,7 +31,9 @@ func newLoginCmd() *cobra.Command {
 			"The terminal waits and finishes by itself. No password is ever typed into the terminal. On a " +
 			"machine without a browser, open the printed link on any device. --headless prints the link without opening a browser.\n\n" +
 			"The sign-in is saved in ~/" + apphome.Name() + "/credentials.json (readable only by you) and renewed " +
-			"automatically. `astrona whoami` shows who is signed in, `astrona logout` signs out.\n\n" +
+			"automatically. Each sign-in also makes a device key for this computer, kept in ~/" + apphome.Name() +
+			"/device-key.json (readable only by you): the site gets only its public half and checks that every " +
+			"call comes from this computer. `astrona whoami` shows who is signed in, `astrona logout` signs out.\n\n" +
 			"The default site is " + defaultSite + " unless --site (or " + account.SiteEnv + ") names another, " +
 			"for example http://localhost:3000 for local development. The site is remembered with the " +
 			"sign-in, so whoami, logout and catalog labs use it without repeating it; " + account.SiteEnv +
@@ -97,6 +100,12 @@ func loginWithBrowser(ctx context.Context, client *account.Client, store account
 		// counting as another computer against the account's limit.
 		device.PreviousRefreshToken = previous.RefreshToken
 	}
+	// A new device key for every sign-in; the previous one is dropped once
+	// this sign-in is saved. Without one (no random source) the sign-in
+	// still works, as it did before device keys.
+	if key, err := transport.Generate(); err == nil {
+		device = device.WithKey(key)
+	}
 	dc, err := client.StartDeviceFlow(ctx, site, sc, device)
 	if err != nil {
 		return err
@@ -136,7 +145,7 @@ func loginWithBrowser(ctx context.Context, client *account.Client, store account
 	// A reporter may have renewed the old sign-in during authorization.
 	// Revoke the credentials being replaced, using their current token.
 	previous, _ = store.Load()
-	if err := store.Save(creds); err != nil {
+	if err := store.SaveSignIn(creds); err != nil {
 		return err
 	}
 	if previous != nil && previous.RefreshToken != creds.RefreshToken {
