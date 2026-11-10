@@ -1274,6 +1274,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#confirm-each-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Confirm each request
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#start-with-your-login-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start with your login session
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-the-website-can-ask-for" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4675,6 +4697,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#confirm-each-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Confirm each request
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#start-with-your-login-session" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Start with your login session
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-the-website-can-ask-for" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4737,9 +4781,20 @@ until you press Ctrl+C. If the network drops, it reconnects by itself: it
 retries after about a second, waits up to a minute between tries, and spreads
 the retries out at random. Each new connection tells the site how the previous
 one ended, so support can see drops.</p>
-<p>To have it start with your login session instead:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>connect<span class="w"> </span>--install<span class="w">     </span><span class="c1"># macOS LaunchAgent, or Linux systemd user service</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>astrona<span class="w"> </span>connect<span class="w"> </span>--uninstall
+<h2 id="confirm-each-request">Confirm each request<a class="headerlink" href="#confirm-each-request" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>connect<span class="w"> </span>--confirm
+</code></pre></div>
+<p>asks in the terminal before each request from the website runs, for example:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>The website asks to build and start ATS000/section-010/module-01/lab-01 on this computer. Allow? [y/N]
+</code></pre></div>
+<p>Type <code>y</code> to run it. Anything else, or no answer within two minutes, refuses
+it, and the lab page shows that the request was declined on this computer.
+Status requests run without asking because they change nothing. <code>--confirm</code>
+needs a terminal, so it can't be combined with <code>--install</code>.</p>
+<h2 id="start-with-your-login-session">Start with your login session<a class="headerlink" href="#start-with-your-login-session" title="Permanent link">&para;</a></h2>
+<p>To have it start with your login session:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>astrona<span class="w"> </span>connect<span class="w"> </span>--install<span class="w">     </span><span class="c1"># macOS LaunchAgent, or Linux systemd user service</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>astrona<span class="w"> </span>connect<span class="w"> </span>--uninstall
 </code></pre></div>
 <p>The installed service writes to <code>~/.astrona/logs/connect.log</code>. It uses the
 <code>PATH</code> of the shell you installed it from, so it finds Docker or Podman and
@@ -4790,7 +4845,7 @@ empty working directory, one at a time. Anything that would need an answer
 from you fails rather than waiting. Accept the <a href="../cli-terms/">CLI terms</a> once
 at a terminal first.</p>
 <h2 id="your-computers">Your computers<a class="headerlink" href="#your-computers" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>devices
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>astrona<span class="w"> </span>devices
 </code></pre></div>
 <p>lists every computer signed in to your account. This one is marked <code>*</code>, and
 <code>online</code> means it is running <code>astrona connect</code>. To rename a computer, choose

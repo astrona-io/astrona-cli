@@ -4820,13 +4820,15 @@
 <p>Keep this computer connected to the Astrona site, so "Start on my machine" on a lab page builds the lab here. Runs until Ctrl+C, reconnecting by itself after a drop.</p>
 <p>The website can only ask for run, status, submit, reset, destroy, stop and start, each for a catalog lab by name; astrona checks both before anything runs. Nothing else travels over the connection: no shell commands, files or URLs.</p>
 <p>--install starts it with your login session from now on (a LaunchAgent on macOS, a systemd user service on Linux); --uninstall removes that again. Its log is ~/.astrona/logs/connect.log.</p>
+<p>--confirm asks at this terminal before each request from the website runs (status needs no answer). A request you decline, or leave unanswered for two minutes, is refused, and the website says so.</p>
 <p>Signing this computer out on the website ends the connection and removes the sign-in here.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona connect [flags]
 </code></pre></div>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>  -h, --help        help for connect
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>      --install     Start astrona connect with your login session from now on
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>      --uninstall   Stop starting astrona connect with your login session
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>      --confirm     Ask at this terminal before each request from the website runs
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>  -h, --help        help for connect
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>      --install     Start astrona connect with your login session from now on
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>      --uninstall   Stop starting astrona connect with your login session
 </code></pre></div>
 <h3 id="options-inherited-from-parent-commands">Options inherited from parent commands<a class="headerlink" href="#options-inherited-from-parent-commands" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>      --accept-terms      Accept this CLI's usage terms and data-loss risk notice; required on each operational CI command (read: astrona terms)
