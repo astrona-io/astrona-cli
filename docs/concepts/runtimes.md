@@ -301,7 +301,7 @@ Key differences from `kind`:
 
 ### Single VM vs multi-VM
 
-`runtime.qemu` is always a list. A single-VM lab is a one-element list whose entry has no `name` — the original shape every qemu lab used. Add a second entry (each one now named) to make it a multi-VM lab:
+`runtime.qemu` is always a list. A single-VM lab is a one-element list whose entry has no `name` — the original shape every qemu lab used. Its entry may still carry its own `bootstrap`/`validation` block: it runs in the one VM right after the root one. Add a second entry (each one now named) to make it a multi-VM lab:
 
 ```yaml
 runtime:

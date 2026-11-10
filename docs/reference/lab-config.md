@@ -122,8 +122,8 @@ runtime:
 | `sshPort` | int | Host-side forwarded SSH port |
 | `sshPasswordAuth` | bool | Enable password auth in addition to key auth, for the `student` account only — the `astrona` automation account (see [Runtimes](../concepts/runtimes.md)) is always key-auth only |
 | `display` | bool | Show a QEMU display window |
-| `bootstrap` | BootstrapConfig | Runs only against this VM, after the shared root `bootstrap` (multi-VM only) |
-| `validation` | ValidationConfig | Graded only against this VM, after the shared root `validation`: its `command` checks and scripts run inside this VM, `http` checks from this machine. Results are suffixed `(name)` in a multi-VM lab. Its `passPercent` is ignored — the root one sets the pass mark |
+| `bootstrap` | BootstrapConfig | `init` scripts that run only against this VM, right after the shared root `bootstrap.init` on it (in a single-VM lab too) |
+| `validation` | ValidationConfig | Graded only against this VM, after the shared root `validation`: its `command` checks and scripts run inside this VM, `http` checks from this machine. Results are suffixed `(name)` in a multi-VM lab. `passPercent` is not allowed here (`astrona validate` fails): the root `validation.passPercent` is the lab's one pass mark |
 
 See [Runtimes](../concepts/runtimes.md) for single- vs multi-VM behavior.
 
@@ -298,7 +298,7 @@ While a gate's target doesn't exist yet (`NotFound`, no matching resources, kind
 | `checks` | list of [ValidationCheck](#validationcheck) | Declarative checks |
 | `script` | [ResourceItem](#resourceitem) | Single custom pass/fail script |
 | `scripts` | list of [ResourceItem](#resourceitem) | Additional scripts, run after `script`, in order |
-| `passPercent` | int | `1`–`100`: pass once the score reaches this percentage (e.g. `66`). Unset: every check and script must pass |
+| `passPercent` | int | `1`–`100`: pass once the score reaches this percentage (e.g. `66`). Unset: every check and script must pass. Root `validation` only — rejected in a `runtime.qemu[].validation` block |
 
 Validation scripts also take `hint` and `points` (see `ValidationCheck`). A lab needs at least one check or script to be graded — without any, `submit`/`test` exit 1 (`astrona validate` warns). On a qemu lab, a script's exit code `255` means SSH couldn't reach the VM and is a grading error, not a fail.
 

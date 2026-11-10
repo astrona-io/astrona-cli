@@ -532,7 +532,17 @@
           "type": "integer"
         },
         "validation": {
-          "$ref": "#/$defs/ValidationConfig"
+          "$ref": "#/$defs/ValidationConfig",
+          "description": "A VM's own checks and scripts. passPercent is not allowed here: the pass mark is the root validation.passPercent.",
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "passPercent"
+                ]
+              }
+            ]
+          }
         }
       },
       "type": "object"
