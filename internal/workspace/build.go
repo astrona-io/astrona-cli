@@ -57,8 +57,15 @@ func EnsureCurrentServer(ctx context.Context) (ServerInfo, bool, error) {
 		if err != nil {
 			return info, false, fmt.Errorf("check the running workspace server: %w", err)
 		}
-		if len(st.Terminals) > 0 || st.Clients > 0 {
-			return info, false, fmt.Errorf("%w (%d terminals, %d pages)", ErrOtherBuildInUse, len(st.Terminals), st.Clients)
+		// An ended terminal only keeps its tab for the page; it holds nothing.
+		running := 0
+		for _, t := range st.Terminals {
+			if t.Status != "ended" {
+				running++
+			}
+		}
+		if running > 0 || st.Clients > 0 {
+			return info, false, fmt.Errorf("%w (%d terminals, %d pages)", ErrOtherBuildInUse, running, st.Clients)
 		}
 		if err := info.Stop(ctx); err != nil {
 			return info, false, fmt.Errorf("stop the older workspace server: %w", err)

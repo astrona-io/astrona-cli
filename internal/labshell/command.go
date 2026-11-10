@@ -261,9 +261,9 @@ func Remove(ctx context.Context, lab string) error {
 		if engine != "docker" && engine != "podman" {
 			return fmt.Errorf("invalid terminal engine for %s", lab)
 		}
-		ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+		psCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
-		out, err := exec.CommandContext(ctx, engine, "ps", "--all", "--quiet", "--filter", "label="+terminalLabel+"="+apphome.Name()+":"+lab).Output()
+		out, err := exec.CommandContext(psCtx, engine, "ps", "--all", "--quiet", "--filter", "label="+terminalLabel+"="+apphome.Name()+":"+lab).Output()
 		if err != nil {
 			return fmt.Errorf("find lab terminals: %w", err)
 		}
@@ -274,7 +274,11 @@ func Remove(ctx context.Context, lab string) error {
 			}
 		}
 		if len(ids) > 0 {
-			if err := exec.CommandContext(ctx, engine, append([]string{"rm", "--force"}, ids...)...).Run(); err != nil {
+			// rm --force stops each container first (Podman waits up to 10 s
+			// per container), so it gets its own, longer budget than ps.
+			rmCtx, rmCancel := context.WithTimeout(ctx, time.Minute)
+			defer rmCancel()
+			if err := exec.CommandContext(rmCtx, engine, append([]string{"rm", "--force"}, ids...)...).Run(); err != nil {
 				return fmt.Errorf("close lab terminals: %w", err)
 			}
 		}
