@@ -32,8 +32,9 @@ func newConnectCmd() *cobra.Command {
 		Short: "Let the Astrona website start labs on this computer",
 		Long: "Keep this computer connected to the Astrona site, so \"Start on my machine\" on a lab page " +
 			"builds the lab here. Runs until Ctrl+C, reconnecting by itself after a drop.\n\n" +
-			"The website can only ask for run, status, submit, reset, destroy, stop and start, each for a " +
-			"catalog lab by name; astrona checks both before anything runs. Nothing else travels over the " +
+			"The website can only ask for run, status, submit, reset, destroy, stop, start and renew (a " +
+			"running playground's full time limit again), each for a catalog lab by name; astrona checks " +
+			"both before anything runs. Nothing else travels over the " +
 			"connection: no shell commands, files or URLs.\n\n" +
 			"--install starts it with your login session from now on (a LaunchAgent on macOS, a systemd " +
 			"user service on Linux); --uninstall removes that again. Its log is ~/.astrona/logs/connect.log.\n\n" +
@@ -169,14 +170,16 @@ func connectHello(ctx context.Context) connect.Hello {
 // confirmWait is how long --confirm waits for an answer before refusing.
 const confirmWait = 2 * time.Minute
 
-// confirmDoes says in a few words what each command will do on this computer.
+// confirmDoes says in a few words what each command will do on this
+// computer; %s is the lab.
 var confirmDoes = map[string]string{
-	"run":     "build and start",
-	"start":   "start",
-	"stop":    "stop",
-	"reset":   "reset (your changes in it are lost)",
-	"destroy": "delete",
-	"submit":  "grade and submit",
+	"run":     "build and start %s",
+	"start":   "start %s",
+	"stop":    "stop %s",
+	"reset":   "reset (your changes in it are lost) %s",
+	"destroy": "delete %s",
+	"submit":  "grade and submit %s",
+	"renew":   "give playground %s its full time limit again",
 }
 
 // confirmRunner asks on out before each command except status and runs it
@@ -216,7 +219,7 @@ func confirmRunner(next connect.Runner, in io.Reader, out io.Writer, wait time.D
 			return next(ctx, c)
 		}
 		asked := time.Now()
-		fmt.Fprintf(out, "The website asks to %s %s on this computer. Allow? [y/N] ", does, c.Lab)
+		fmt.Fprintf(out, "The website asks to "+does+" on this computer. Allow? [y/N] ", c.Lab)
 		timer := time.NewTimer(wait)
 		defer timer.Stop()
 		for {
@@ -251,6 +254,8 @@ func confirmRunner(next connect.Runner, in io.Reader, out io.Writer, wait time.D
 func connectArgs(c connect.Command) []string {
 	args := []string{c.Command, c.Lab}
 	switch c.Command {
+	case "renew":
+		args = []string{"run", "renew", c.Lab} // renew lives under run
 	case "run":
 		args = append(args, "--yes", "--no-browser", "--session", c.Session.ID)
 	case "reset":
