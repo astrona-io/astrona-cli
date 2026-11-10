@@ -251,7 +251,7 @@ func (c *client) ended(ctx context.Context, creds *account.Credentials, ws *webs
 	code := int(websocket.CloseStatus(err))
 	switch code {
 	case CloseRevoked:
-		if _, derr := c.o.Store.Delete(); derr != nil {
+		if _, derr := c.o.Store.DeleteIfCurrent(ctx, creds); derr != nil {
 			c.logf("Could not remove the saved sign-in: %v", derr)
 		}
 		return nil, ErrRevoked

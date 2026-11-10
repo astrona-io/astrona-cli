@@ -89,13 +89,27 @@ func LoadTeardown(finalPath string) (Teardown, func(), error) {
 //   - exactly one non-test lab running: destroy it (best-effort — no config
 //     means no teardown scripts to run, and keepCluster can't be honored).
 //   - any "astro-test-" leftovers (from a crashed/Ctrl-C'd `astrona test`)
-//     are always cleaned up best-effort alongside, regardless of count,
-//     since those are unconditionally disposable.
+//     are cleaned up best-effort alongside, regardless of count. An active
+//     test holds its mutation lock and is left alone.
 //   - zero non-test labs: nothing to destroy, not an error.
 //   - 2+ non-test labs: refuse to guess which one — that's a destructive
 //     choice this tool won't make silently — and tell the user to pick one
 //     with -c/--file/--git.
 func DestroyByDiscovery(rep *ui.Reporter, opts DestroyOptions) error {
+	// Capture run identities before querying runtimes. A run that appears or
+	// changes during discovery must not inherit an earlier cleanup decision.
+	names, err := labstate.Names()
+	if err != nil {
+		return err
+	}
+	runs := make(map[string]string, len(names))
+	for _, name := range names {
+		st, err := labstate.Load(name)
+		if err != nil {
+			return err
+		}
+		runs[name] = RunID(st)
+	}
 	qemuRows, _, err := CollectQEMURows()
 	if err != nil {
 		return fmt.Errorf("auto-discovery of running labs failed: %w", err)
@@ -110,7 +124,15 @@ func DestroyByDiscovery(rep *ui.Reporter, opts DestroyOptions) error {
 	// A linked cluster goes with its lab (DestroyByName), not on its own.
 	owners := LinkedClusterOwners()
 	var realLabs, test []LabRow
+	seen := map[string]bool{}
 	for _, r := range rows {
+		if r.Runtime == "qemu" && r.Lab != "" {
+			r.Name = r.Lab
+		}
+		if seen[r.Name] {
+			continue
+		}
+		seen[r.Name] = true
 		if _, linked := owners[r.Name]; linked {
 			continue
 		}
@@ -136,26 +158,35 @@ func DestroyByDiscovery(rep *ui.Reporter, opts DestroyOptions) error {
 
 	for _, r := range realLabs {
 		rep.Info("No lab config found — auto-detected the only running astrona lab: '%s' (%s runtime). Destroying it (teardown scripts skipped, config unknown).", r.Name, r.Runtime)
-		owned := lifecycle.OwnedClusters(r.Name, nil)
-		ReleaseLab(opts.Out, r.Name) // before the delete unsets the lab's context
-		err := runtime.DestroyEnvironment(r.Name, config.RuntimeConfig{Type: r.Runtime}, rep)
-		lifecycle.DestroyOwnedClusters(owned, rep) // even when the lab itself failed — never leak them
-		if err != nil {
+		if err := destroyDiscoveredLab(r.Name, runs[r.Name], rep, opts); err != nil {
 			return fmt.Errorf("failed to destroy '%s': %w", r.Name, err)
 		}
-		opts.forget(r.Name)
 	}
 	for _, r := range test {
 		rep.Info("Cleaning up leftover test lab '%s' (%s runtime).", r.Name, r.Runtime)
-		owned := lifecycle.OwnedClusters(r.Name, nil)
-		if err := runtime.DestroyEnvironment(r.Name, config.RuntimeConfig{Type: r.Runtime}, rep); err != nil {
+		if err := destroyDiscoveredLab(r.Name, runs[r.Name], rep, opts); err != nil {
 			rep.Warn("failed to destroy leftover test lab '%s': %s", r.Name, err)
 		}
-		lifecycle.DestroyOwnedClusters(owned, rep)
 	}
 
 	fmt.Fprintf(opts.Out, "Lab cluster cleaned up successfully.\n")
 	return nil
+}
+
+func destroyDiscoveredLab(name, runID string, rep *ui.Reporter, opts DestroyOptions) error {
+	release, err := labstate.LockMutation(name)
+	if err != nil {
+		return err
+	}
+	defer release()
+	st, err := labstate.Load(name)
+	if err != nil {
+		return err
+	}
+	if RunID(st) != runID {
+		return fmt.Errorf("lab %s changed during discovery; its current run was kept", name)
+	}
+	return DestroyByNameLocked(name, rep, opts)
 }
 
 // DestroyByName tears down exactly the named lab under its mutation lock,
@@ -234,7 +265,7 @@ func DestroyByNameLocked(name string, rep *ui.Reporter, opts DestroyOptions) err
 			errs = append(errs, fmt.Sprintf("kind: %s", err))
 		}
 	}
-	lifecycle.DestroyOwnedClusters(owned, rep)
+	lifecycle.DestroyOwnedClusters(name, owned, rep)
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to destroy '%s': %s", name, strings.Join(errs, "; "))
 	}
@@ -383,7 +414,7 @@ func TearDownLabEnvironment(clusterName string, info Teardown, baseDir string, h
 	portforward.StopForLab(clusterName, rep)
 	owned := lifecycle.OwnedClusters(clusterName, labs) // read before destroy removes the saved state
 	err := runtime.DestroyEnvironment(clusterName, info.Runtime, rep)
-	lifecycle.DestroyOwnedClusters(owned, rep) // even when the lab itself failed — never leak them
+	lifecycle.DestroyOwnedClusters(clusterName, owned, rep) // even when the lab itself failed — never leak them
 	if err != nil {
 		if hardFail {
 			return fmt.Errorf("lab teardown failed: %w", err)

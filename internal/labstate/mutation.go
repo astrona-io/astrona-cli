@@ -1,12 +1,34 @@
 package labstate
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"syscall"
+	"time"
 )
+
+// WaitMutation waits for a lab mutation to finish or ctx to be cancelled.
+// Detached cleanup must not abandon an expired run because renewal is busy.
+func WaitMutation(ctx context.Context, lab string) (func(), error) {
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		release, err := LockMutation(lab)
+		if !errors.Is(err, syscall.EWOULDBLOCK) {
+			return release, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(25 * time.Millisecond):
+		}
+	}
+}
 
 // LockMutation prevents another CLI from replacing a run while its identity is
 // being checked and acted on. Release it before entering an interactive shell.

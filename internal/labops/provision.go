@@ -172,7 +172,7 @@ func removeInterrupted(cfg *config.LabConfig, clusterName, baseDir string, rep *
 	// The lab's own environment may never have existed (TearDownLabEnvironment
 	// then stops early): its linked clusters and forwards still go.
 	portforward.StopForLab(clusterName, rep)
-	lifecycle.DestroyOwnedClusters(lifecycle.OwnedClusters(clusterName, cfg.KindClusters()), rep)
+	lifecycle.DestroyOwnedClusters(clusterName, lifecycle.OwnedClusters(clusterName, cfg.KindClusters()), rep)
 	if err := resources.Remove(clusterName); err != nil {
 		rep.Warn("could not remove the lab's resources copy: %s", err)
 	}
@@ -467,6 +467,9 @@ func PlanLinkedReset(cfg *config.LabConfig, clusterName, name string) (*LinkedRe
 	if !cluster.Exists(clusterName) {
 		return nil, fmt.Errorf("lab %s isn't running — `astrona run` creates it with all its clusters", clusterName)
 	}
+	if err := lifecycle.RequireLinkedOwnership(clusterName, states[idx].Cluster); err != nil {
+		return nil, err
+	}
 	return &LinkedResetPlan{Lab: clusterName, Target: states[idx].Cluster, cluster: order[idx], states: states}, nil
 }
 
@@ -478,7 +481,17 @@ func PlanLinkedReset(cfg *config.LabConfig, clusterName, name string) (*LinkedRe
 // the lab's other clusters stay — and returns ErrInterrupted.
 func ResetLinkedCluster(ctx context.Context, cfg *config.LabConfig, baseDir string, plan *LinkedResetPlan, rep *ui.Reporter) ([]portforward.Forward, error) {
 	clusterName, l, target := plan.Lab, plan.cluster, plan.Target
+	// Scripts take the child lock themselves. Recheck ownership after taking
+	// it again for deletion and recreation.
 	lifecycle.RunLinkedTeardown([]config.KindCluster{l}, clusterName, baseDir, rep)
+	release, err := labstate.LockMutation(target)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	if err := lifecycle.RequireLinkedOwnership(clusterName, target); err != nil {
+		return nil, err
+	}
 	if cluster.Exists(target) {
 		if err := lifecycle.DestroyKindCluster(target, rep); err != nil {
 			return nil, fmt.Errorf("could not remove linked cluster %s, nothing was recreated: %w", target, err)
@@ -497,7 +510,7 @@ func ResetLinkedCluster(ctx context.Context, cfg *config.LabConfig, baseDir stri
 		deps = append(deps, byName[d])
 	}
 	rep.Section("Linked cluster '%s'", l.Name)
-	_, _, err := lifecycle.Up(ctx, lifecycle.LinkedClusterConfig(cfg, l), baseDir, target, deps, false, rep)
+	_, _, err = lifecycle.Up(ctx, lifecycle.LinkedClusterConfig(cfg, l), baseDir, target, deps, false, rep)
 	if ctx.Err() != nil {
 		rep.Section("Interrupted — removing linked cluster %s", target)
 		if cluster.Exists(target) {

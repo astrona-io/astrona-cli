@@ -112,6 +112,9 @@ func (s *SiteSender) Usage(ctx context.Context, site, session string, samples []
 }
 
 func (s *SiteSender) Result(ctx context.Context, site, session, key string, result json.RawMessage, usage *account.UsageReport, at time.Time) error {
+	if !UsageSamplesAllowed() {
+		usage = nil
+	}
 	cr, err := s.Active(ctx, site)
 	if err != nil {
 		return err

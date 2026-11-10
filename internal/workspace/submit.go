@@ -357,7 +357,7 @@ func (s *Server) runSubmit(rec RunRecord, job *submitJob) {
 		BaseDir:   loaded.BaseDir,
 		Lab:       labSourceOf(st.Source),
 		RunID:     labops.RunID(st),
-		Trust:     labops.TrustOptions{Log: status},
+		Trust:     browserTrustOptions(status),
 		UI:        ui.Options{Plain: true, Screen: logw, Raw: logw},
 		Out:       logw,
 		ScriptOut: logw,
@@ -513,7 +513,7 @@ func (s *Server) destroyRun(rec RunRecord, opts labops.DestroyOptions, status io
 	if labops.HasTeardownScripts(info) {
 		// As astrona destroy: an unapproved lab is removed without its
 		// teardown scripts. There is nobody to ask here.
-		if err := labops.RequireTrust(labSourceOf(st.Source), cfg, loaded.BaseDir, labops.TrustOptions{Log: status}); err != nil {
+		if err := labops.RequireTrust(labSourceOf(st.Source), cfg, loaded.BaseDir, browserTrustOptions(status)); err != nil {
 			fmt.Fprintf(status, "Skipping the lab's teardown scripts (%s); removing it without them.\n", err)
 			info.SkipScripts = true
 		}
@@ -523,4 +523,8 @@ func (s *Server) destroyRun(rec RunRecord, opts labops.DestroyOptions, status io
 	}
 	s.terms.closeLab(rec.Lab)
 	return false, labops.DestroyLab(info, loaded.BaseDir, rep, opts)
+}
+
+func browserTrustOptions(log io.Writer) labops.TrustOptions {
+	return labops.TrustOptions{Log: log, Official: labops.AstronaPublishedPin}
 }

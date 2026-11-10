@@ -93,7 +93,13 @@ func DeliverResult(ctx context.Context, w, warn io.Writer, clusterName string, s
 		fmt.Fprintf(w, "This lab's session is on %s, but astrona is signed in to %s — the result was not sent.\n", sess.Site, site)
 		return ResultNotSent
 	}
+	post := account.ResultPost{Result: result, Usage: RunUsageReport(clusterName, st), Key: newResultKey(), At: gradedAt.UTC()}
 	creds, err := client.Active(ctx, store, site)
+	if err != nil && sess != nil {
+		// A remembered session is enough to retain its grade. Renewing an
+		// expired sign-in needs the network too, so it can fail while offline.
+		return queueResult(ctx, w, warn, sess, post, err)
+	}
 	if errors.Is(err, account.ErrSignedOut) {
 		fmt.Fprintln(w, SignInHint)
 		return ResultNotSent
@@ -108,7 +114,6 @@ func DeliverResult(ctx context.Context, w, warn io.Writer, clusterName string, s
 	}
 
 	NoticeOtherSite(warn, creds.Site, "your lab results")
-	post := account.ResultPost{Result: result, Usage: RunUsageReport(clusterName, st), Key: newResultKey(), At: gradedAt.UTC()}
 	if waiting, _ := outbox.PendingFor(sess.ID); waiting > 0 {
 		// Signals for this session wait in the outbox: the result goes
 		// behind them, so the site gets them in the order they happened.

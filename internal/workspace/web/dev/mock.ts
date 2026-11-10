@@ -230,6 +230,8 @@ function mockPlugin(): Plugin {
         }
         if (!authed(req)) return fail(res, 401, 'unauthorized', 'missing or invalid token')
 
+        if (m === 'POST' && p === '/auth/code') return send(res, 200, { code: randomUUID() })
+
         if (m === 'POST' && p === '/auth/ticket') {
           const ticket = randomUUID()
           state.tickets.add(ticket)

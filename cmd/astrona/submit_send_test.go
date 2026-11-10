@@ -111,7 +111,7 @@ func TestSendResult(t *testing.T) {
 		{"409", http.StatusConflict, false, true, "ATS/x", false, "The result was not sent: This lab attempt already has a result.", 1},
 		{"410", http.StatusGone, false, true, "ATS/x", false, "The result was not sent: This lab session expired after 60 minutes — run the lab again to start a new attempt\nStart a new attempt with: astrona reset ATS/x   (or: astrona destroy ATS/x, then astrona run ATS/x)", 1},
 		{"5xx", http.StatusBadGateway, false, true, "ATS/x", false, "", 1},
-		{"session, signed out", http.StatusCreated, true, true, "ATS/x", false, labops.SignInHint, 0},
+		{"session, signed out", http.StatusCreated, true, true, "ATS/x", false, "", 0},
 		{"catalog lab, no session, signed out", http.StatusCreated, true, false, "ATS/x", false, labops.SignInHint, 0},
 		{"catalog lab, no session, signed in", http.StatusCreated, false, false, "ATS/x", false, "wasn't started with a lab session", 0},
 		{"-c lab, no session", http.StatusCreated, false, false, "", false, "", 0},

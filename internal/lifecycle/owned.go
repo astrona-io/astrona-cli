@@ -6,42 +6,124 @@ import (
 	"astrona/internal/exam"
 	"astrona/internal/executor"
 	"astrona/internal/hypervisor"
+	"astrona/internal/labstate"
 	"astrona/internal/portforward"
 	"astrona/internal/runtime"
 	"astrona/internal/scripts"
 	"astrona/internal/ui"
+	"fmt"
 	"os"
 	"slices"
 )
 
+// checkOtherLinkedOwners includes stopped or failed parents: their saved links
+// still reserve names even when the child itself is temporarily absent.
+func checkOtherLinkedOwners(lab, child string) error {
+	dir, err := cluster.KindStateDir()
+	if err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Name() == lab {
+			continue
+		}
+		links, err := cluster.ReadLinks(entry.Name())
+		if err != nil {
+			return fmt.Errorf("read linked ownership for %s: %w", entry.Name(), err)
+		}
+		for _, link := range links {
+			if link.Cluster == child {
+				return fmt.Errorf("linked cluster %s is reserved by lab %s; choose another name or explicitly destroy that owning lab", child, entry.Name())
+			}
+		}
+	}
+	return nil
+}
+
+// HasLinkedOwnership checks saved links without requiring the child to exist,
+// so an interrupted linked reset can recreate its missing child. A standalone
+// run under the child name supersedes an older parent's ownership record.
+func HasLinkedOwnership(lab, child string) (bool, error) {
+	links, err := cluster.ReadLinks(lab)
+	if err != nil {
+		return false, err
+	}
+	st, err := labstate.Load(child)
+	if err != nil {
+		return false, err
+	}
+	if st != nil {
+		return false, nil
+	}
+	if err := checkOtherLinkedOwners(lab, child); err != nil {
+		return false, err
+	}
+	for _, link := range links {
+		if link.Cluster == child && child == config.LinkedClusterName(lab, link.Name) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// RequireLinkedOwnership rejects an inferred or superseded child name.
+func RequireLinkedOwnership(lab, child string) error {
+	owned, err := HasLinkedOwnership(lab, child)
+	if err != nil {
+		return fmt.Errorf("check linked cluster %s ownership: %w", child, err)
+	}
+	if !owned {
+		return fmt.Errorf("linked cluster %s has no saved ownership for %s; nothing was reset", child, lab)
+	}
+	return nil
+}
+
 // OwnedClusters lists the linked clusters (runtime.kind.clusters) of the lab
-// running as labCluster that exist: from its saved state and, when known,
-// its config — so a cluster is found even if the lab died before saving.
-// Never matched by name prefix: lab "app" must not claim lab "app-idp".
-func OwnedClusters(labCluster string, labs []config.KindCluster) []string {
+// running as labCluster that exist and have saved ownership. A config alone
+// cannot claim an existing cluster; setup saves links before creating any.
+func OwnedClusters(labCluster string, _ []config.KindCluster) []string {
 	var names []string
 	add := func(n string) {
-		if !slices.Contains(names, n) && cluster.Exists(n) {
+		owned, err := HasLinkedOwnership(labCluster, n)
+		if err == nil && owned && !slices.Contains(names, n) && cluster.Exists(n) {
 			names = append(names, n)
 		}
 	}
 	links, _ := cluster.ReadLinks(labCluster)
 	for _, l := range links {
-		add(l.Cluster)
-	}
-	for _, l := range labs {
-		add(config.LinkedClusterName(labCluster, l.Name))
+		if l.Cluster == config.LinkedClusterName(labCluster, l.Name) {
+			add(l.Cluster)
+		}
 	}
 	return names
 }
 
 // DestroyOwnedClusters destroys linked clusters found by OwnedClusters,
 // warning (not failing) on any it can't remove.
-func DestroyOwnedClusters(names []string, rep *ui.Reporter) {
+func DestroyOwnedClusters(lab string, names []string, rep *ui.Reporter) {
 	for _, n := range names {
+		release, err := labstate.LockMutation(n)
+		if err != nil {
+			rep.Warn("could not destroy linked cluster %s: %s", n, err)
+			continue
+		}
+		st, err := labstate.Load(n)
+		if err != nil || st != nil || checkOtherLinkedOwners(lab, n) != nil {
+			release()
+			rep.Warn("kept linked cluster %s: its saved state no longer identifies it as a linked cluster", n)
+			continue
+		}
 		if err := DestroyKindCluster(n, rep); err != nil {
 			rep.Warn("could not destroy linked cluster %s: %s", n, err)
 		}
+		release()
 	}
 }
 
@@ -49,6 +131,7 @@ func DestroyOwnedClusters(names []string, rep *ui.Reporter) {
 // start order, so a cluster tears down before the ones it depends on —
 // with KUBECONFIG pointing at it. Best effort: failures only warn.
 func RunLinkedTeardown(labs []config.KindCluster, labCluster, baseDir string, rep *ui.Reporter) {
+	owned := OwnedClusters(labCluster, nil)
 	order, err := config.KindClusterOrder(labs)
 	if err != nil {
 		order = labs
@@ -59,10 +142,26 @@ func RunLinkedTeardown(labs []config.KindCluster, labCluster, baseDir string, re
 			continue
 		}
 		name := config.LinkedClusterName(labCluster, l.Name)
+		if !slices.Contains(owned, name) {
+			rep.Info("linked cluster '%s' has no saved ownership — skipping its teardown scripts", l.Name)
+			continue
+		}
+		release, err := labstate.LockMutation(name)
+		if err != nil {
+			rep.Warn("skipping teardown scripts for linked cluster '%s': %s", l.Name, err)
+			continue
+		}
+		owned, err := HasLinkedOwnership(labCluster, name)
+		if err != nil || !owned {
+			release()
+			rep.Warn("skipping teardown scripts for linked cluster '%s': its saved state changed", l.Name)
+			continue
+		}
 		// Never fall back to the host's own kubectl context: a script meant
 		// for a cluster that's gone must not run against the user's.
 		if !cluster.Exists(name) {
 			rep.Info("linked cluster '%s' isn't running — skipping its teardown scripts", l.Name)
+			release()
 			continue
 		}
 		rep.Section("Teardown: cluster %s", l.Name)
@@ -70,6 +169,7 @@ func RunLinkedTeardown(labs []config.KindCluster, labCluster, baseDir string, re
 		if err := scripts.RunOnEveryVM(l.Teardown.Init, baseDir, env, nil, rep); err != nil {
 			rep.Warn("teardown scripts failed for linked cluster '%s': %s", l.Name, err)
 		}
+		release()
 	}
 }
 

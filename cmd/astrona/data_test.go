@@ -125,3 +125,44 @@ func TestConfirmedCleanRefusesConcurrentCommand(t *testing.T) {
 		t.Fatal("cleanup ignored running command")
 	}
 }
+
+func TestConnectReleasesMaintenanceLockAfterSetup(t *testing.T) {
+	s, provider := dataTestStore(t)
+	setup, ran := false, false
+	root := &cobra.Command{Use: "astrona", PersistentPreRunE: func(*cobra.Command, []string) error {
+		release, err := s.Lock(true)
+		if err == nil {
+			release()
+			t.Fatal("connect setup was not protected")
+		}
+		setup = true
+		return nil
+	}}
+	root.AddCommand(&cobra.Command{Use: "connect", RunE: func(*cobra.Command, []string) error {
+		release, err := s.Lock(true)
+		if err != nil {
+			t.Fatalf("idle connect blocked maintenance: %v", err)
+		}
+		release()
+		ran = true
+		// Commands started by connect still acquire the ordinary shared lock.
+		child := &cobra.Command{Use: "astrona"}
+		child.AddCommand(&cobra.Command{Use: "run", RunE: func(*cobra.Command, []string) error {
+			release, err := s.Lock(true)
+			if err == nil {
+				release()
+				t.Fatal("child lab command did not protect its data")
+			}
+			return nil
+		}})
+		child.SetArgs([]string{"run"})
+		return executeWithDataLock(child, provider)
+	}})
+	root.SetArgs([]string{"connect"})
+	if err := executeWithDataLock(root, provider); err != nil {
+		t.Fatal(err)
+	}
+	if !setup || !ran {
+		t.Fatal("connect did not execute setup and service body")
+	}
+}

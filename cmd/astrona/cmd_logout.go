@@ -41,6 +41,11 @@ func newLogoutCmd() *cobra.Command {
 }
 
 func logout(client *account.Client, store account.Store) error {
+	release, err := store.Lock(context.Background())
+	if err != nil {
+		return err
+	}
+	defer release()
 	creds, loadErr := store.Load()
 	if loadErr == nil && creds == nil {
 		fmt.Println("You're not signed in — nothing to do.")

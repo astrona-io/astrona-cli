@@ -2,8 +2,11 @@ package labops
 
 import (
 	"context"
+	"errors"
 	"io"
+	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -11,6 +14,7 @@ import (
 
 	"astrona/internal/config"
 	"astrona/internal/labstate"
+	"astrona/internal/ui"
 )
 
 func TestIsPlaygroundName(t *testing.T) {
@@ -163,5 +167,108 @@ func TestRunningPlaygroundsMatchesByClusterOrCatalogName(t *testing.T) {
 		if err != nil || len(got) != want {
 			t.Errorf("runningPlaygrounds(%q) = %v, %v; want %d", name, got, err, want)
 		}
+	}
+}
+
+func TestExpiredWatchdogRechecksRunAfterMaintenanceWait(t *testing.T) {
+	for _, change := range []string{"session", "deadline", "run", "local-only", "removed", "cancelled"} {
+		t.Run(change, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+			t.Setenv("PATH", t.TempDir())
+			name := "astro-play"
+			st := &labstate.State{StartedAt: "original", Session: &labstate.Session{
+				ID: "old", Kind: "playground", DeadlineAt: time.Now().Add(-time.Minute).Format(time.RFC3339),
+			}}
+			if err := labstate.Save(name, st); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			called := false
+			err := WatchPlayground(ctx, io.Discard, io.Discard, name, time.Millisecond,
+				func(ctx context.Context, lab string, expected PlaygroundDeadline) error {
+					called = true
+					if expected.RunID != RunID(st) || expected.SessionID != "old" || lab != name {
+						t.Fatal("watchdog lost the original run identity")
+					}
+					switch change {
+					case "session":
+						st.Session.ID = "renewed"
+					case "deadline":
+						st.Session.DeadlineAt = time.Now().Add(time.Hour).Format(time.RFC3339)
+					case "run":
+						st.StartedAt = "replacement"
+					case "local-only":
+						st.LocalOnly = true
+					case "cancelled":
+						cancel()
+					}
+					if change == "removed" {
+						path, err := labstate.Path(name)
+						if err != nil {
+							t.Fatal(err)
+						}
+						if err := os.Remove(path); err != nil {
+							t.Fatal(err)
+						}
+					} else if err := labstate.Save(name, st); err != nil {
+						t.Fatal(err)
+					}
+					// With no engine on PATH, any attempted deletion would return an error.
+					return ExpirePlayground(ctx, lab, expected, ui.Discard(), DestroyOptions{Out: io.Discard, ForgetWarn: io.Discard})
+				})
+			if err != nil || !called {
+				t.Fatalf("expire: called=%v, err=%v", called, err)
+			}
+			got, err := labstate.Load(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if change != "removed" && (got == nil || RunID(got) != RunID(st)) {
+				t.Fatal("new run was forgotten")
+			}
+		})
+	}
+}
+
+func TestPlaygroundExpiryAndRenewalRespectMutationLock(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	name := "astro-play"
+	st := &labstate.State{Session: &labstate.Session{ID: "old", Kind: "playground", DeadlineAt: time.Now().Add(-time.Minute).Format(time.RFC3339)}}
+	if err := labstate.Save(name, st); err != nil {
+		t.Fatal(err)
+	}
+	release, err := labstate.LockMutation(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	expected := PlaygroundDeadline{RunID: RunID(st), SessionID: st.Session.ID, DeadlineAt: st.Session.DeadlineAt}
+	opts := DestroyOptions{Out: io.Discard, ForgetWarn: io.Discard}
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	if err := ExpirePlayground(ctx, name, expected, ui.Discard(), opts); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expiry ignored mutation lock: %v", err)
+	}
+	if _, err := RenewPlayground(context.Background(), io.Discard, name); err == nil || !strings.Contains(err.Error(), "being changed") {
+		t.Fatalf("renewal ignored mutation lock: %v", err)
+	}
+	// A renewal can change the deadline while expiry waits on its lock.
+	ctx, cancelWait := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelWait()
+	done := make(chan error, 1)
+	go func() { done <- ExpirePlayground(ctx, name, expected, ui.Discard(), opts) }()
+	select {
+	case err := <-done:
+		t.Fatalf("expiry did not wait for the mutation: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	st.Session.DeadlineAt = time.Now().Add(time.Hour).Format(time.RFC3339)
+	if err := labstate.Save(name, st); err != nil {
+		t.Fatal(err)
+	}
+	release()
+	if err := <-done; err != nil {
+		t.Fatalf("expiry did not preserve the renewed run: %v", err)
 	}
 }

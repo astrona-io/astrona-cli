@@ -48,12 +48,12 @@ const watchdogLockWait = time.Minute
 // watchdog holds no data lock while it waits, but destroy may load the lab's
 // config from a cached checkout, so it takes the shared lock like any other
 // command for the destroy itself.
-func destroyPlayground(clusterName string) error {
+func destroyPlayground(ctx context.Context, clusterName string, expected labops.PlaygroundDeadline) error {
 	s, err := localdata.DefaultStore()
 	if err != nil {
 		return err
 	}
-	release, err := s.LockWait(context.Background(), false, watchdogLockWait, nil)
+	release, err := s.LockWait(ctx, false, watchdogLockWait, nil)
 	if err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func destroyPlayground(clusterName string) error {
 		return err
 	}
 	defer rep.Close()
-	return labops.DestroyByName(clusterName, rep, destroyOptions())
+	return labops.ExpirePlayground(ctx, clusterName, expected, rep, destroyOptions())
 }
 
 // endRunSession runs when a lab is forgotten (labops.EndRunSession).

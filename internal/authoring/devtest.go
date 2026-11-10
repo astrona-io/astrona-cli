@@ -7,7 +7,9 @@ import (
 	"io"
 	"time"
 
+	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/manifests"
 	"astrona/internal/proctor"
@@ -63,6 +65,15 @@ func RunTest(ctx context.Context, cfg *config.LabConfig, baseDir string, opts Te
 
 func runTest(ctx context.Context, cfg *config.LabConfig, baseDir string, opts TestOptions, rep *ui.Reporter) (results []proctor.CheckResult, pass bool, retErr error) {
 	clusterName := opts.ClusterName
+	release, err := labstate.LockMutation(clusterName)
+	if err != nil {
+		return nil, false, err
+	}
+	defer release()
+	previousLinks, err := cluster.ReadLinks(clusterName)
+	if err != nil {
+		return nil, false, fmt.Errorf("read test lab's linked ownership: %w", err)
+	}
 	// Best-effort clean slate: Ctrl-C/SIGTERM are caught by the caller
 	// so the deferred teardown below runs, but a SIGKILL or a crash
 	// still skips it and can leave clusterName's environment behind.
@@ -74,21 +85,32 @@ func runTest(ctx context.Context, cfg *config.LabConfig, baseDir string, opts Te
 	if err := runtime.DestroyEnvironment(clusterName, cfg.Runtime, rep); err != nil {
 		rep.Warn("could not clean up a previous '%s' test environment, proceeding anyway: %s", clusterName, err)
 	}
+	// Deleting the parent clears its runtime directory; retain evidence for
+	// linked clusters left behind by an interrupted earlier test.
+	if len(previousLinks) > 0 {
+		if err := cluster.WriteLinks(clusterName, previousLinks); err != nil {
+			return nil, false, err
+		}
+	}
 	if ctx.Err() != nil {
 		return nil, false, ErrTestInterrupted
 	}
 
 	// Linked clusters come up first; their teardown is deferred before this
 	// lab's, so it runs after it (LIFO) — even on failure.
+	var owned []string
 	defer func() {
 		if !cfg.Teardown.KeepCluster { // kept with the lab, like its own cluster
-			lifecycle.DestroyOwnedClusters(lifecycle.OwnedClusters(clusterName, cfg.KindClusters()), rep)
+			lifecycle.DestroyOwnedClusters(clusterName, owned, rep)
 		}
 	}()
 	if err := lifecycle.PrepareSharedCA(cfg, clusterName); err != nil {
 		return nil, false, err
 	}
 	links, err := lifecycle.StartLinkedClusters(ctx, cfg, baseDir, clusterName, true, opts.Parallel, rep)
+	// The main cluster's teardown removes links.json, so retain ownership
+	// before its deferred cleanup runs, including a partial linked setup.
+	owned = lifecycle.OwnedClusters(clusterName, nil)
 	if err != nil {
 		return nil, false, err
 	}

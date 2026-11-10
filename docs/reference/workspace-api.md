@@ -85,6 +85,16 @@ See the [browser workspace guide](../guides/browser-workspace.md).
 
    A ticket is single-use and valid for 30 seconds.
 
+5. Entering a run from setup or the lab list loads a fresh document so its
+   framing policy includes that run's page tabs:
+
+   `POST /api/v1/auth/code` (bearer token, no body) → `200 {"code": "<code>"}`
+
+   This code has the same two-minute lifetime and single-use rules as a CLI
+   launch code. The page reloads with it in the fragment and exchanges it as
+   above. This also works when browser storage is disabled and the current
+   bearer token exists only in memory; bearer tokens never go in URLs.
+
 ## Routes
 
 All paths are under `/api/v1` unless they start with `/ws/`.
@@ -92,6 +102,7 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | Method and path | Purpose |
 | --- | --- |
 | `POST /auth/exchange` | Launch code → session token. |
+| `POST /auth/code` | Authenticated page → single-use launch code for document navigation. |
 | `POST /auth/ticket` | Single-use WebSocket ticket. |
 | `GET /server` | Version, profile, features. |
 | `GET /launches/{id}` | A browser-first `astrona run` before its lab exists: terms, setup progress, outcome. |
@@ -523,8 +534,9 @@ reload.
 The page is served with the strict policy above plus a `frame-src` that names
 exactly the origins of the current runs' `browser` tabs and `docs` URL
 tabs, computed when the page is loaded. It never names the server's own
-origin. A lab started after the page was opened needs a reload before its page
-tabs can be framed. Frames are sandboxed (`allow-scripts allow-same-origin
+origin. Entering a run from setup or the lab list automatically reloads the
+document, so tabs for labs created after the page opened can be framed.
+Frames are sandboxed (`allow-scripts allow-same-origin
 allow-forms allow-popups allow-downloads`); nothing is proxied through the
 server. A site that refuses to be framed (`X-Frame-Options` or CSP
 `frame-ancestors`) stays blank; the tab's **Open in new window** shows it in a

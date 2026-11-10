@@ -115,6 +115,9 @@ Cleanup or reset therefore fails while a lab command such as `astrona run` is
 still in progress; finish it first. The background helpers that only report
 usage, send saved results or keep port forwards running do not take the lock; a
 playground's time-limit watcher takes it only while it destroys the playground.
+`astrona connect` releases its shared lock after setup, so an idle connection
+does not block cleanup or reset. Lab commands started by the connection take
+their own maintenance locks.
 The browser workspace server (`astrona ui serve`, started by `astrona run`)
 holds the shared lock while it runs and stops by itself only after 15 minutes
 idle, so confirmed cleanup or reset stops it first, the same way `astrona ui stop`

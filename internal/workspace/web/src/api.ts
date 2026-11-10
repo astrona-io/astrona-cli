@@ -318,6 +318,12 @@ export async function exchangeCode(code: string): Promise<void> {
   setToken(res.token)
 }
 
+/** A fresh single-use code for entering a run with an updated document policy. */
+export async function getNavigationCode(): Promise<string> {
+  const res = await request<{ code: string }>('POST', '/auth/code', undefined, true, { timeoutMs: QUICK_TIMEOUT_MS })
+  return res.code
+}
+
 /** A single-use WebSocket ticket, valid for 30 seconds. */
 export async function getTicket(): Promise<string> {
   const res = await request<{ ticket: string; expiresAt: string }>('POST', '/auth/ticket', undefined, true, { timeoutMs: QUICK_TIMEOUT_MS })

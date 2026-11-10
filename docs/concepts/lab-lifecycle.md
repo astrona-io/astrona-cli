@@ -51,6 +51,12 @@ Not a "run" stage — it's what the [Proctor](grading.md) executes when you run 
 
 Runs on `astrona destroy`, and always (even on failure) at the end of `astrona test`.
 
+An explicit config, Git source, catalog lab, or saved selection must resolve
+successfully before `astrona destroy` proceeds. If it cannot be loaded, nothing
+is destroyed. Discovery of the sole running lab is only a fallback when no
+source was selected. Discovery also rechecks the run under its mutation lock;
+a lab restarted during discovery is kept.
+
 ```yaml
 teardown:
   init:

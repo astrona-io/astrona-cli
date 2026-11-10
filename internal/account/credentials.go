@@ -61,6 +61,18 @@ func (cr *Credentials) fresh(now time.Time) bool {
 	return cr.AccessToken != "" && now.Add(expirySkew).Before(cr.AccessExpiresAt)
 }
 
+// sameSignIn distinguishes token rotation from a replacement login. Older
+// files without a device ID can only be matched by their unchanged token.
+func (cr *Credentials) sameSignIn(other *Credentials) bool {
+	if cr == nil || other == nil || cr.Site != other.Site {
+		return false
+	}
+	if cr.DeviceID != "" && other.DeviceID != "" {
+		return cr.DeviceID == other.DeviceID
+	}
+	return cr.RefreshToken != "" && cr.RefreshToken == other.RefreshToken
+}
+
 // validate rejects a credentials file that was edited into something that
 // would send its tokens elsewhere, and makes its display fields safe to
 // print.
@@ -155,6 +167,7 @@ func (s Store) Load() (*Credentials, error) {
 
 // Save writes cr atomically (a 0600 temp file in the same directory,
 // renamed over the old one), creating the directory 0700 if needed.
+// Callers replacing a sign-in must hold Lock through their read and write.
 func (s Store) Save(cr *Credentials) (err error) {
 	dir := filepath.Dir(s.Path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -195,6 +208,7 @@ func (s Store) Save(cr *Credentials) (err error) {
 }
 
 // Delete removes the credentials file; false when there was none.
+// Callers must hold Lock through their read and deletion.
 func (s Store) Delete() (bool, error) {
 	err := os.Remove(s.Path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -206,6 +220,21 @@ func (s Store) Delete() (bool, error) {
 	return true, nil
 }
 
+// DeleteIfCurrent removes the sign-in expected belongs to, including any
+// renewed tokens for the same device. A replacement login is preserved.
+func (s Store) DeleteIfCurrent(ctx context.Context, expected *Credentials) (bool, error) {
+	release, err := s.Lock(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer release()
+	saved, err := s.Load()
+	if err != nil || !expected.sameSignIn(saved) {
+		return false, err
+	}
+	return s.Delete()
+}
+
 // Active returns credentials for site that hold a fresh access token,
 // renewing (and saving) them when the access token has expired. It wraps
 // ErrSignedOut when there is no usable sign-in for site: none saved, saved
@@ -214,8 +243,16 @@ func (s Store) Delete() (bool, error) {
 func (c *Client) Active(ctx context.Context, s Store, site string) (*Credentials, error) {
 	cr, err := s.Load()
 	if errors.Is(err, errOldFormat) {
-		_, _ = s.Delete()
-		return nil, err
+		release, lockErr := s.Lock(ctx)
+		if lockErr != nil {
+			return nil, lockErr
+		}
+		// Login may have replaced the old format while we waited.
+		cr, err = s.Load()
+		if errors.Is(err, errOldFormat) {
+			_, _ = s.Delete()
+		}
+		release()
 	}
 	if err != nil {
 		return nil, err
@@ -236,8 +273,23 @@ func (c *Client) Active(ctx context.Context, s Store, site string) (*Credentials
 // (two requests of at most requestTimeout each) before giving up.
 const renewLockWait = 3 * requestTimeout
 
-// lockPath is the lock file that serializes renewals across processes.
+// lockPath is the lock file that serializes sign-in changes across processes.
 func (s Store) lockPath() string { return s.Path + ".lock" }
+
+// Lock serializes login, logout and token renewal. The returned function
+// releases it. Browser authorization must finish before taking this lock.
+func (s Store) Lock(ctx context.Context) (func(), error) {
+	if err := os.MkdirAll(filepath.Dir(s.Path), 0o700); err != nil {
+		return nil, fmt.Errorf("could not lock your sign-in: %w", err)
+	}
+	lockCtx, cancel := context.WithTimeout(ctx, renewLockWait)
+	defer cancel()
+	release, err := filelock.Wait(lockCtx, s.lockPath())
+	if err != nil {
+		return nil, fmt.Errorf("could not lock your sign-in (another astrona may be updating it — try again): %w", err)
+	}
+	return release, nil
+}
 
 // Renew refreshes cr's access token now and saves the result before
 // returning it: the refresh token rotates, so the new one must be on disk
@@ -248,14 +300,9 @@ func (s Store) lockPath() string { return s.Path + ".lock" }
 // refresh token, which the site no longer accepts. A rejected refresh
 // token removes the credentials and wraps ErrSignedOut.
 func (c *Client) Renew(ctx context.Context, s Store, cr *Credentials) (*Credentials, error) {
-	if err := os.MkdirAll(filepath.Dir(s.Path), 0o700); err != nil {
-		return nil, fmt.Errorf("could not renew your sign-in: %w", err)
-	}
-	lockCtx, cancel := context.WithTimeout(ctx, renewLockWait)
-	release, err := filelock.Wait(lockCtx, s.lockPath())
-	cancel()
+	release, err := s.Lock(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not renew your sign-in (another astrona may be renewing it — try again): %w", err)
+		return nil, fmt.Errorf("could not renew your sign-in: %w", err)
 	}
 	defer release()
 
@@ -270,6 +317,8 @@ func (c *Client) Renew(ctx context.Context, s Store, cr *Credentials) (*Credenti
 		return nil, ErrSignedOut // signed out (or rejected) by another astrona meanwhile
 	case saved.Site != cr.Site:
 		return nil, fmt.Errorf("you're signed in to %s, not %s: %w", saved.Site, cr.Site, ErrSignedOut)
+	case !cr.sameSignIn(saved):
+		return nil, fmt.Errorf("your saved sign-in changed; retry the command: %w", ErrSignedOut)
 	case saved.RefreshToken != cr.RefreshToken:
 		// Another astrona renewed it while this one waited.
 		if saved.fresh(c.Now()) {
@@ -283,7 +332,9 @@ func (c *Client) Renew(ctx context.Context, s Store, cr *Credentials) (*Credenti
 		if errors.Is(err, ErrSignedOut) {
 			// An astrona that renews without the lock (an older version) may
 			// still have rotated it: keep its sign-in rather than delete it.
-			if now, lerr := s.Load(); lerr == nil && now != nil && now.Site == cr.Site && now.RefreshToken != cr.RefreshToken {
+			if now, lerr := s.Load(); lerr == nil && now != nil && !cr.sameSignIn(now) {
+				return nil, fmt.Errorf("your saved sign-in changed; retry the command: %w", ErrSignedOut)
+			} else if lerr == nil && now != nil && now.RefreshToken != cr.RefreshToken {
 				if now.fresh(c.Now()) {
 					return now, nil
 				}

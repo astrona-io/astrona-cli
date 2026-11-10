@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch, watchEffect } from 'vue'
 import { launch, rememberHome, rememberLab } from './boot'
+import { enterRun } from './navigation'
 import {
   ApiError,
   clearToken,
   destroyRun,
   exchangeCode,
   getRun,
+  getNavigationCode,
   getSubmission,
   getToken,
   isRunGone,
@@ -178,13 +180,8 @@ function showHome(): void {
 }
 
 async function openFromHome(lab: string): Promise<void> {
-  labId = lab
-  rememberLab(lab)
-  screen.value = { kind: 'loading' }
   try {
-    await refresh()
-    const now = screen.value as Screen
-    if (now.kind === 'intro' || now.kind === 'workspace') schedule()
+    await enterRun(lab, getNavigationCode)
   } catch (err) {
     showError(err)
   }
@@ -448,11 +445,8 @@ onMounted(async () => {
 
 // The launch's lab is ready: open it in this tab, as a link with lab= would.
 async function onLaunchReady(lab: string): Promise<void> {
-  labId = lab
-  rememberLab(lab)
   try {
-    await refresh()
-    if (screen.value.kind === 'intro' || screen.value.kind === 'workspace') schedule()
+    await enterRun(lab, getNavigationCode)
   } catch (err) {
     showError(err)
   }
