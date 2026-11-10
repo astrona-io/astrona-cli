@@ -22,9 +22,10 @@ func newSettingsCmd(flags *rootFlags) *cobra.Command {
 			"credentials or approve remote code. Viewing settings does not create a file.\n\n" +
 			"Use view for a detailed overview, review to approve settings changes, " +
 			"set to save a value, unset to restore one default, reset to restore all of them, and path to locate the file. " +
-			"Boolean settings use yes/no; true/false are also accepted.",
+			"Boolean settings use yes/no; true/false and on/off are also accepted.",
 		Example: `  astrona settings
   astrona settings set keep-context yes
+  astrona settings set usage-samples off   # send no lab CPU/memory samples
   astrona settings set parallel 2
   astrona settings set cache-retention-days 30
   astrona settings set cache-max-size-gb 50
@@ -139,7 +140,7 @@ func completeSetting(cmd *cobra.Command, args []string, toComplete string) ([]st
 		}
 	} else if len(args) == 1 && cmd.Name() == "set" {
 		switch args[0] {
-		case "verbose", "keep-context", "update-check":
+		case "verbose", "keep-context", "update-check", "login-reminder", "usage-samples":
 			values = []string{"yes", "no"}
 		case "browser":
 			values = []string{settings.BrowserAsk, settings.BrowserAlways, settings.BrowserNever}

@@ -137,7 +137,12 @@ export interface Submission {
   recorded: boolean
   /** Recorded on the Astrona lab page. */
   sent: boolean
-  /** The attempt is over: sent, or a local-only run's result saved. */
+  /** Saved to send once Astrona is reachable again. */
+  queued: boolean
+  /**
+   * The attempt is over: a pass that was sent (or queued), or a local-only
+   * run's pass saved here. A failed result never finishes it.
+   */
   finished: boolean
   environmentRemoved: boolean
   /** What astrona reported while sending and cleaning up, as plain text. */

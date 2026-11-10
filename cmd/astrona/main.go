@@ -11,7 +11,6 @@ import (
 
 	"astrona/internal/apphome"
 	"astrona/internal/labops"
-	"astrona/internal/localdata"
 	"astrona/internal/ui"
 	"astrona/internal/version"
 )
@@ -260,7 +259,7 @@ func main() {
 	installTermsGate(rootCmd, flags, checkTerms)
 	installHeadlessGate(rootCmd)
 
-	if err := executeWithDataLock(rootCmd, localdata.DefaultStore); err != nil {
+	if err := executeWithDataLock(rootCmd, defaultDataStore); err != nil {
 		if exitCodeFor(err) != exitNotPassed {
 			ui.PrintError(err)
 		}

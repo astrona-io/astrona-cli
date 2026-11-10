@@ -177,12 +177,14 @@ It always opens a dialog first that says what is about to happen for this run:
 
 - The checks run and the result is saved on this machine as a new attempt.
 - Where the result goes. A run linked to your Astrona account is sent to your
-  lab page when astrona is signed in to the same site, and that attempt is
-  then finished. A local-only run is never sent, and its attempt is finished
-  once saved. A run without a lab session keeps the result on this machine,
-  and you can submit again.
-- Whether the environment stays. When the attempt is finished, the cluster and
-  its terminals are removed, unless the lab sets `teardown.keepCluster`.
+  lab page when astrona is signed in to the same site (or saved to send once
+  Astrona can be reached). A local-only run is never sent. A run without a lab
+  session keeps the result on this machine.
+- What ends the attempt. A pass that is sent (or saved to send), or a pass of
+  a local-only run, finishes it. A fail keeps the attempt open: fix the lab
+  and submit again.
+- Whether the environment stays. When a pass finishes the attempt, the cluster
+  and its terminals are removed, unless the lab sets `teardown.keepCluster`.
 - If the checks cannot run (for example, the container engine stopped),
   nothing is recorded or sent and the lab keeps running.
 

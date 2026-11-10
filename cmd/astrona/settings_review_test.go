@@ -232,7 +232,7 @@ func TestReviewInvalidChoiceRetriesKeepEarlierAnswers(t *testing.T) {
 				t.Fatalf("did not retry only the current question: %s", out.String())
 			}
 			_, updatePrompts, _ := strings.Cut(out.String(), "update-check (new setting)")
-			updatePrompts, _, _ = strings.Cut(updatePrompts, "verbose (new setting)")
+			updatePrompts, _, _ = strings.Cut(updatePrompts, "usage-samples (new setting)")
 			if strings.Count(updatePrompts, "Value [yes] (yes/no, enter to keep, q to cancel):") != strings.Count(tc.answer, "\n") {
 				t.Fatalf("unexpected number of prompts: %s", out.String())
 			}

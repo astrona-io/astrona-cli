@@ -19,7 +19,20 @@ import (
 type Store struct {
 	Data  string
 	Repos string
+	// VMProcessAlive reports whether a qemu process for a VM state dir's name
+	// is running. Without it, VM state dirs from older versions (no
+	// handle.json) are kept like any saved lab state.
+	VMProcessAlive func(vm string) (bool, error)
 }
+
+// LegacyVMMinAge is how long a VM state dir without handle.json must have
+// been untouched before cleanup treats it as left by an older version
+// rather than a run that is still starting.
+const LegacyVMMinAge = 24 * time.Hour
+
+// KindLegacyVM marks a plan item that is a VM state dir without
+// handle.json: disks and keys of a VM no current command can reach.
+const KindLegacyVM = "legacy-vm"
 
 func DefaultStore() (Store, error) {
 	home, err := os.UserHomeDir()
@@ -127,6 +140,7 @@ func measure(ctx context.Context, r *os.Root, name, path string) (Usage, error) 
 
 type Item struct {
 	Usage
+	Kind     string `json:"kind,omitempty"`
 	base     string
 	name     string
 	info     os.FileInfo
@@ -141,7 +155,9 @@ type Plan struct {
 }
 
 // PlanClean keeps every cache when a saved lab may still depend on it. This
-// includes stopped VMs whose disks can reference cached backing images.
+// includes stopped VMs whose disks can reference cached backing images. VM
+// state dirs left by older versions (no handle.json, see addLegacyVMs) are
+// planned for removal and no longer count as saved state.
 func (s Store) PlanClean(ctx context.Context, tempOnly bool, now time.Time) (Plan, error) {
 	p := Plan{Items: []Item{}, Skipped: []string{}}
 	r, err := openDir(s.Data)
@@ -150,6 +166,9 @@ func (s Store) PlanClean(ctx context.Context, tempOnly bool, now time.Time) (Pla
 	}
 	if r != nil {
 		defer r.Close()
+		// Every state dir is checked, so VM state from older versions is
+		// listed even when other saved state keeps the caches.
+		blocked := ""
 		for _, name := range []string{"labs", "kind", "qemu", "portforward", "exams"} {
 			info, err := r.Lstat(name)
 			if errors.Is(err, os.ErrNotExist) {
@@ -165,10 +184,19 @@ func (s Store) PlanClean(ctx context.Context, tempOnly bool, now time.Time) (Pla
 			if err != nil {
 				return p, err
 			}
-			if len(entries) > 0 {
-				p.Skipped = append(p.Skipped, "Caches kept: saved lab state exists in "+filepath.Join(s.Data, name)+". Use astrona list and destroy labs you no longer need; stopped labs still need their files.")
-				return p, nil
+			if name == "qemu" && !tempOnly {
+				entries, err = s.addLegacyVMs(ctx, &p, r, entries, now)
+				if err != nil {
+					return p, err
+				}
 			}
+			if len(entries) > 0 && blocked == "" {
+				blocked = name
+			}
+		}
+		if blocked != "" {
+			p.Skipped = append(p.Skipped, "Caches kept: saved lab state exists in "+filepath.Join(s.Data, blocked)+". Use astrona list and destroy labs you no longer need; stopped labs still need their files.")
+			return p, nil
 		}
 	}
 	for _, rel := range []string{"cache/addons", "cache/images"} {
@@ -218,6 +246,64 @@ func (s Store) PlanClean(ctx context.Context, tempOnly bool, now time.Time) (Pla
 		}
 	}
 	return p, nil
+}
+
+// addLegacyVMs plans removal of VM state dirs that have no handle.json, were
+// untouched for LegacyVMMinAge and have no running qemu process, and returns
+// the qemu entries that remain saved lab state. Symlinks, files and anything
+// that cannot be checked stay.
+func (s Store) addLegacyVMs(ctx context.Context, p *Plan, r *os.Root, entries []fs.DirEntry, now time.Time) ([]fs.DirEntry, error) {
+	base := filepath.Join(s.Data, "qemu")
+	qemu, err := openChild(r, "qemu")
+	if err != nil {
+		return nil, err
+	}
+	defer qemu.Close()
+	baseInfo, err := qemu.Stat(".")
+	if err != nil {
+		return nil, err
+	}
+	var kept []fs.DirEntry
+	for _, entry := range entries {
+		name := entry.Name()
+		path := filepath.Join(base, name)
+		info, err := qemu.Lstat(name)
+		if err != nil {
+			return nil, err
+		}
+		if !info.IsDir() { // a symlink is never followed
+			kept = append(kept, entry)
+			continue
+		}
+		if _, err := qemu.Lstat(filepath.Join(name, "handle.json")); !errors.Is(err, os.ErrNotExist) {
+			if err != nil {
+				return nil, err
+			}
+			kept = append(kept, entry)
+			continue
+		}
+		u, err := measure(ctx, qemu, name, path)
+		if err != nil {
+			return nil, err
+		}
+		if now.Sub(u.modified) < LegacyVMMinAge || s.VMProcessAlive == nil {
+			kept = append(kept, entry)
+			continue
+		}
+		alive, err := s.VMProcessAlive(name)
+		if err != nil {
+			p.Skipped = append(p.Skipped, fmt.Sprintf("VM state kept: %s (could not check for its qemu process: %v)", path, err))
+			kept = append(kept, entry)
+			continue
+		}
+		if alive {
+			p.Skipped = append(p.Skipped, fmt.Sprintf("VM state kept: %s (its qemu process astrona-%s is still running; stop it and clean again)", path, name))
+			kept = append(kept, entry)
+			continue
+		}
+		p.Items = append(p.Items, Item{Usage: u, Kind: KindLegacyVM, base: base, name: name, info: info, baseInfo: baseInfo})
+	}
+	return kept, nil
 }
 
 func (p *Plan) addChildren(ctx context.Context, r *os.Root, base string, tempOnly bool, now time.Time) error {

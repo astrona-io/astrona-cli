@@ -149,11 +149,14 @@ func (c *Client) PauseLabSession(ctx context.Context, s Store, cr *Credentials, 
 var ErrUsageFull = errors.New("the lab session's usage history is full")
 
 // Permanent reports whether the site refused a request for good — a session it
-// no longer knows, a session whose usage history is full, or another 4xx
-// answer than 401, 408 or 429 — so sending it again would not help.
+// no longer knows, a session whose usage history is full, a result for an
+// attempt that is over, out of time or full, or another 4xx answer than 401,
+// 408 or 429 — so sending it again would not help.
 func Permanent(err error) bool {
-	if errors.Is(err, ErrSessionGone) || errors.Is(err, ErrUsageFull) {
-		return true
+	for _, gone := range []error{ErrSessionGone, ErrUsageFull, ErrAttemptFinished, ErrSessionExpired, ErrTooManyResults} {
+		if errors.Is(err, gone) {
+			return true
+		}
 	}
 	var he *httpError
 	if !errors.As(err, &he) {

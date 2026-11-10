@@ -135,7 +135,7 @@ PROCTOR: PASS
 - `astrona submit --no-hints` grades without showing hints (exam conditions).
 - Every `astrona submit` is recorded in `~/.astrona/results/<lab>.jsonl`; each submission shows the change since the previous one, and `astrona submit --history` lists all attempts with the best score. `astrona test` (CI) doesn't record attempts.
 - `astrona submit` with no lab named — no argument, nothing picked with `astrona use`, no lab config in the current directory — grades the only running lab (`Submitting astro-my-lab (the only running lab).`), found again through what `astrona run` remembered. With several running it lists them, each with the command that names it.
-- A [catalog lab](../guides/lab-catalog.md#your-astrona-account) started while signed in also sends each result to its lab page; after a pass that was sent, submit offers to delete the lab (`--keep` to skip). Sending never changes the exit code.
+- A [catalog lab](../guides/lab-catalog.md#your-astrona-account) started while signed in also sends each result to its lab page. A FAIL keeps the lab and its timer for another submit; after a pass that was sent (or queued because Astrona couldn't be reached — it goes out later under the same key, never twice), submit deletes the lab (`--keep` to skip). Sending never changes the exit code.
 
 ## Live grading while you work
 

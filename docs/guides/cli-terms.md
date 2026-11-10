@@ -29,6 +29,11 @@ operational command, even with a saved receipt. The flag accepts the terms in
 the binary being run, so review them when upgrading a pipeline's pinned CLI.
 `--yes`, `--trust`, and saved settings never imply terms acceptance.
 
+The notice also says what astrona sends while a signed-in lab runs (its CPU and
+memory use, see [Resource usage](lab-catalog.md#resource-usage)) and how to
+turn that off. Revision 2026-11-10 added that paragraph, so a receipt for an
+earlier revision asks again.
+
 Help, version output, completions and `astrona terms` remain available without
 acceptance. So do `settings`, `data`, `logout`, `stop`, `destroy`, and
 `port-forward stop`, so declining cannot prevent cleanup or preference repair.

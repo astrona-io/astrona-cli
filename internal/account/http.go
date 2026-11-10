@@ -70,6 +70,11 @@ func IsNotFound(err error) bool {
 // do sends req and decodes a 2xx JSON answer into out (when out is non-nil).
 // Other statuses come back as *httpError.
 func do(client *http.Client, req *http.Request, out any) (int, error) {
+	return doLimited(client, req, out, maxResponse)
+}
+
+// doLimited is do with its own cap on the answer's size.
+func doLimited(client *http.Client, req *http.Request, out any, limit int64) (int, error) {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "astrona-cli")
 	resp, err := client.Do(req)
@@ -77,12 +82,12 @@ func do(client *http.Client, req *http.Request, out any) (int, error) {
 		return 0, fmt.Errorf("%s %s: %w", req.Method, req.URL.Redacted(), stripURLError(err))
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponse+1))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
 	if err != nil {
 		return resp.StatusCode, fmt.Errorf("%s %s: reading the answer: %w", req.Method, req.URL.Redacted(), err)
 	}
-	if len(body) > maxResponse {
-		return resp.StatusCode, fmt.Errorf("%s %s: the answer is larger than %d bytes", req.Method, req.URL.Redacted(), maxResponse)
+	if int64(len(body)) > limit {
+		return resp.StatusCode, fmt.Errorf("%s %s: the answer is larger than %d bytes", req.Method, req.URL.Redacted(), limit)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return resp.StatusCode, errorFromBody(resp.StatusCode, body)

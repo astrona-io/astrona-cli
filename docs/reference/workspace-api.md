@@ -267,10 +267,11 @@ It does what `astrona submit` does, through the same code
 2. The result is saved in this machine's attempt history.
 3. It is sent where the run is tracked (`submit.tracking`). A `local-only` run
    is never sent; a run without a lab session stays on this machine.
-4. When the attempt is finished (sent, or a `local-only` result saved) and the
-   lab does not keep its environment, the environment is removed: terminals
-   are closed first, then the cluster is deleted. A result that is not sent
-   leaves the environment running and the attempt open.
+4. When the attempt is finished (a pass that was sent or queued, or a
+   `local-only` run's pass saved) and the lab does not keep its environment,
+   the environment is removed: terminals are closed first, then the cluster is
+   deleted. A fail, or a result that is not sent, leaves the environment
+   running and the attempt open: submit again after fixing the lab.
 
 Grading can take minutes; the response waits for it. The work does not depend
 on the request: if the connection drops, grading goes on and
@@ -289,15 +290,16 @@ Response: `200` with the submission:
   "lab": "pod-basics",
   "runId": "3f1c…",
   "result": {
-    "pass": false, "earned": 6, "max": 10, "percent": 60, "passPercent": 66,
+    "pass": true, "earned": 10, "max": 10, "percent": 100, "passPercent": 66,
     "overTime": false, "attempt": 2, "time": "2026-11-09T21:40:00Z",
     "checks": [
       { "name": "Pod web is running", "pass": true, "points": 6 },
-      { "name": "Pod web uses nginx:1.27", "pass": false, "points": 4, "hint": "…" }
+      { "name": "Pod web uses nginx:1.27", "pass": true, "points": 4 }
     ]
   },
   "recorded": true,
   "sent": true,
+  "queued": false,
   "finished": true,
   "environmentRemoved": true,
   "messages": ["Sent to your lab page (attempt 2): https://…", "Lab pod-basics deleted."]
@@ -310,7 +312,8 @@ Response: `200` with the submission:
 | `result.overTime` | A strict exam submitted after its deadline: it cannot pass. |
 | `recorded` | Saved in this machine's attempt history. |
 | `sent` | Recorded on the Astrona lab page. |
-| `finished` | The attempt is over: sent, or a `local-only` result saved. |
+| `queued` | Not sent yet: kept in the outbox and sent once Astrona can be reached. |
+| `finished` | The attempt is over: a pass that was sent or queued, or a `local-only` run's pass saved. A fail never finishes it. |
 | `environmentRemoved` | The cluster was deleted after the submission. |
 | `messages` | What astrona said while sending and cleaning up, as sanitised plain text (at most 40 lines). |
 | `cleanupError` | Present when the result stands but removing the environment failed. |

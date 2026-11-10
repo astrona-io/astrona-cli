@@ -4,6 +4,13 @@ set -euo pipefail
 format="${1:?usage: test-linux-package.sh <deb|rpm|snap> <package> <tag>}"
 package="$(realpath "${2:?missing package}")"
 tag="${3:?missing version}"
+if [[ "$format" == rpm ]]; then
+  # dnf's default minrate (1000 B/s) keeps a crawling mirror from the
+  # mirrorlist for as long as it trickles data: a 40 MB AppStream index at
+  # ~80 kB/s hung CI for 20 minutes. Drop a mirror below 1 MB/s after 15 s
+  # so dnf moves to the next one. This edits only the disposable container.
+  printf '%s\n' minrate=1M timeout=15 retries=5 >> /etc/dnf/dnf.conf
+fi
 install_package() {
   case "$format" in
     deb) apt-get update; apt-get install -y "$package";;
@@ -12,7 +19,17 @@ install_package() {
     *) echo 'Unsupported package format' >&2; exit 1;;
   esac
 }
-install_package
+# Bounded retry so one stalled mirror or index fetch fails over instead of
+# using the whole job budget. Each attempt is capped at two minutes.
+for attempt in 1 2 3; do
+  if timeout 120 bash -c "$(declare -p format package); $(declare -f install_package); install_package" </dev/null; then
+    break
+  fi
+  if [[ "$attempt" == 3 ]]; then
+    echo 'Package installation failed after 3 attempts' >&2; exit 1
+  fi
+  echo "Package installation attempt $attempt failed or timed out; retrying" >&2
+done
 export ASTRONA_NO_UPDATE_CHECK=1
 if [[ "$format" == snap ]]; then
   astrona=/snap/bin/astrona

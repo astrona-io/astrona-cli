@@ -190,9 +190,12 @@ func DestroyByNameLocked(name string, rep *ui.Reporter, opts DestroyOptions) err
 
 	foundQemu := hypervisor.StateExists(name)
 	vms := hypervisor.MultiVMs(name) // a multi-VM qemu lab's VMs: <name>-<vm>
+	// A VM state dir without handle.json, left by an older astrona: its
+	// disks would otherwise stay forever.
+	legacyQemu := !foundQemu && hypervisor.LegacyStateExists(name)
 	foundKind, err := cluster.Lookup(name)
 	if err != nil {
-		if !foundQemu && len(vms) == 0 {
+		if !foundQemu && !legacyQemu && len(vms) == 0 {
 			// Unknown is not absent: keep everything for the retry.
 			return EngineUnreachable(name, err)
 		}
@@ -203,7 +206,7 @@ func DestroyByNameLocked(name string, rep *ui.Reporter, opts DestroyOptions) err
 	// Supervisors are local processes: stop them whatever runtime is found.
 	portforward.StopForLab(name, rep)
 
-	if !foundQemu && len(vms) == 0 && !foundKind && len(owned) == 0 {
+	if !foundQemu && !legacyQemu && len(vms) == 0 && !foundKind && len(owned) == 0 {
 		// Confirmed absent: whatever was remembered about it is stale.
 		clearExamClock(name, rep)
 		opts.forget(name)
@@ -213,7 +216,7 @@ func DestroyByNameLocked(name string, rep *ui.Reporter, opts DestroyOptions) err
 	ReleaseLab(opts.Out, name) // before the delete unsets the lab's context
 
 	var errs []string
-	if foundQemu {
+	if foundQemu || legacyQemu {
 		if err := hypervisor.DestroyQEMUVM(name, rep); err != nil {
 			errs = append(errs, fmt.Sprintf("qemu: %s", err))
 		}

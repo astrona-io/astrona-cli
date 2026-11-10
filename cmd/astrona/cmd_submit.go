@@ -45,12 +45,17 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			"directory, the only running lab is submitted; with several running, it lists them and " +
 			"how to name each.\n\n" +
 			"A catalog lab started while signed in (`astrona run ATS…`) sends each result to its lab " +
-			"page on Astrona as well. A submit is final: PASS and FAIL both finish the attempt and stop " +
-			"its timer, and once the server confirms the result, submit automatically deletes the lab, " +
-			"exactly like `astrona destroy`, including in headless and JSON modes. Use --keep to keep it; " +
-			"teardown.keepCluster is also respected. A local-only run has nothing to send, so its saved result finishes it too. " +
-			"An unsent result of a tracked run keeps the environment. Start a new run " +
-			"for another tracked attempt.\n\n" +
+			"page on Astrona as well. Submit is the feedback loop: a FAIL is recorded, the lab and its " +
+			"timer keep going, and you fix it and submit again — every submit is a result on the same " +
+			"attempt. A PASS finishes the attempt and stops its timer, and once the server confirms it " +
+			"(or it is queued, below), submit automatically deletes the lab, exactly like `astrona destroy`, " +
+			"including in headless and JSON modes. Use --keep to keep it; teardown.keepCluster is also " +
+			"respected. A local-only run has nothing to send, so its saved PASS finishes it too.\n\n" +
+			"Each submit carries its own key. When Astrona can't be reached (or answers with a server " +
+			"error), the result is kept in the outbox on this machine and sent in the background with the " +
+			"same key, so a retry never records it twice; submit says it is queued. A result Astrona " +
+			"refuses (the attempt already passed, its time ran out, or it holds too many results) is not " +
+			"retried: start a new tracked attempt with `astrona reset`.\n\n" +
 			"Ctrl+C (or SIGTERM) while grading stops before the next check and exits 1 without " +
 			"recording or sending anything; the lab is left as it is. Once grading is done, the " +
 			"result is recorded and sent regardless. A second Ctrl+C quits at once.\n\n" +
@@ -210,11 +215,7 @@ func submitLoadedLab(flags *rootFlags, cfg *config.LabConfig, baseDir string, op
 		return err
 	}
 	if !res.Passed {
-		if res.Finished {
-			fmt.Fprintln(status, "Submission complete: FAIL. This attempt is finished; start a new run for another try.")
-		} else {
-			fmt.Fprintln(status, "Submission complete: FAIL. The lab stays available; start a new run for another tracked attempt.")
-		}
+		fmt.Fprintln(status, "Submission complete: FAIL. The lab stays available; fix it and submit again.")
 		return notPassed("submission did not pass grading")
 	}
 	return nil

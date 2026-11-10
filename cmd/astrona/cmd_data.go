@@ -7,13 +7,22 @@ import (
 	"time"
 
 	"astrona/internal/apphome"
+	"astrona/internal/hypervisor"
 	"astrona/internal/localdata"
 	"astrona/internal/settings"
 	"github.com/spf13/cobra"
 )
 
 func newDataCmd() *cobra.Command {
-	return dataCommand(localdata.DefaultStore)
+	return dataCommand(defaultDataStore)
+}
+
+// defaultDataStore is localdata.DefaultStore with the qemu process check that
+// lets cleanup remove VM state left by older versions (no handle.json).
+func defaultDataStore() (localdata.Store, error) {
+	s, err := localdata.DefaultStore()
+	s.VMProcessAlive = hypervisor.VMProcessAlive
+	return s, err
 }
 
 func dataCommand(store func() (localdata.Store, error)) *cobra.Command {
@@ -74,6 +83,7 @@ func dataChangeCommand(store func() (localdata.Store, error), reset bool) *cobra
 			"With --policy, select only entries exceeding cache-retention-days or cache-max-size-gb. " +
 			"Use --yes to delete; --dry-run always previews, even with --yes. " +
 			"Saved lab state blocks cleanup, including stopped VMs. Destroy unwanted labs through astrona destroy first. " +
+			"VM state dirs left by older versions (no handle.json, untouched for 24h, no qemu process) are removed and do not block cleanup. " +
 			"Credentials, results, resources, bundles, logs and installed tools are kept. " +
 			"Downloads will be needed again, so offline use may be affected. Finish commands running in older CLI versions before cleanup. " +
 			"Applying stops a running browser workspace server first (as astrona ui stop does); labs keep running.",
@@ -128,7 +138,11 @@ func dataChangeCommand(store func() (localdata.Store, error), reset bool) *cobra
 				return writeJSON(cmd.OutOrStdout(), p)
 			}
 			for _, item := range p.Items {
-				fmt.Fprintf(cmd.OutOrStdout(), "%s\t%q\n", formatBytes(item.Bytes), item.Path)
+				note := ""
+				if item.Kind == localdata.KindLegacyVM {
+					note = "\tVM state from an older Astrona (no handle.json, no qemu process)"
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "%s\t%q%s\n", formatBytes(item.Bytes), item.Path, note)
 			}
 			for _, note := range p.Skipped {
 				fmt.Fprintln(cmd.OutOrStdout(), note)
