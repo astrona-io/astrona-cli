@@ -5971,6 +5971,10 @@ answer; Kind labs are then missing from the list.</p>
 <td>A submission of this run is being graded now.</td>
 </tr>
 <tr>
+<td><code>submit.checks</code></td>
+<td>Only while <code>grading</code>, once the checks start: each check and validation script in grading order, as <code>{"name", "state", "startedAt", "seconds"}</code>. <code>state</code> is <code>waiting</code>, <code>running</code>, <code>passed</code> or <code>failed</code>; <code>startedAt</code> is set once it runs, <code>seconds</code> (its duration) once it is done. Never its command or output. Poll <code>GET /runs/{lab}</code> for it while <code>POST /submit</code> waits.</td>
+</tr>
+<tr>
 <td><code>submit.submitted</code></td>
 <td>This run has a saved result (<code>GET /submission</code>).</td>
 </tr>
