@@ -446,12 +446,24 @@ func TearDownLabEnvironment(clusterName string, info Teardown, baseDir string, h
 	return nil
 }
 
+// KeepsCluster reports whether teardown.keepCluster keeps the lab whose
+// saved run is st when it is destroyed. keepCluster is for authoring a lab
+// from your own files: a catalog lab or a run with a lab session is always
+// removed. (Submit and reset never keep a lab, whatever the config says.)
+func KeepsCluster(td config.TeardownConfig, st *labstate.State) bool {
+	if !td.KeepCluster {
+		return false
+	}
+	return st == nil || (st.Session == nil && (st.Source == nil || st.Source.Catalog == ""))
+}
+
 // DestroyLab is `astrona destroy` for a lab whose config is loaded, under
 // the lab's mutation lock: the user's kubectl context is put back,
 // teardown scripts run (unless info.SkipScripts), the lab and any leftover
 // `astrona test` copy are destroyed, and what was remembered about the lab
-// is forgotten. A lab with teardown.keepCluster stays — and so do its
-// context and memory.
+// is forgotten. A lab from your own files with teardown.keepCluster stays —
+// and so do its context and memory; a catalog or tracked lab never does
+// (KeepsCluster).
 func DestroyLab(info Teardown, baseDir string, rep *ui.Reporter, opts DestroyOptions) error {
 	release, err := labstate.LockMutation(config.NormalizeClusterName(info.ClusterName))
 	if err != nil {
@@ -459,14 +471,16 @@ func DestroyLab(info Teardown, baseDir string, rep *ui.Reporter, opts DestroyOpt
 	}
 	defer release()
 	clusterName := config.NormalizeClusterName(info.ClusterName)
-	if info.RunID != "" {
-		current, err := labstate.Load(clusterName)
-		if err != nil {
-			return err
-		}
-		if RunID(current) != info.RunID {
-			return fmt.Errorf("lab stopped or restarted during submission; the current run was not deleted")
-		}
+	current, err := labstate.Load(clusterName)
+	if err != nil {
+		return err
+	}
+	if info.RunID != "" && RunID(current) != info.RunID {
+		return fmt.Errorf("lab stopped or restarted during submission; the current run was not deleted")
+	}
+	if info.Teardown.KeepCluster && !KeepsCluster(info.Teardown, current) {
+		rep.Info("keepCluster is ignored for a catalog or tracked lab; deleting '%s'.", clusterName)
+		info.Teardown.KeepCluster = false
 	}
 	if info.Runtime.Type != string(runtime.RuntimeQEMU) {
 		// A stopped engine hides the cluster: don't run teardown scripts

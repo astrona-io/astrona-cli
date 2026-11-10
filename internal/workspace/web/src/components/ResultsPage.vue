@@ -16,7 +16,7 @@ onMounted(() => heading.value?.focus())
 const r = computed(() => props.submission.result)
 const passedCount = computed(() => r.value.checks.filter((c) => c.pass).length)
 const environmentRunning = computed(() => !props.submission.environmentRemoved && props.run?.status !== 'stopped')
-const canRemove = computed(() => environmentRunning.value && !!props.run && !props.run.submit.keepEnvironment)
+const canRemove = computed(() => environmentRunning.value && !!props.run)
 
 const savedLine = computed(() =>
   props.submission.recorded
@@ -28,18 +28,16 @@ const sentLine = computed(() => {
   let line = 'Not sent to your Astrona account.'
   if (s.sent) line = 'Sent to your Astrona lab page.'
   else if (s.queued) line = 'Saved to send to your Astrona lab page once Astrona can be reached.'
-  else if (s.finished) line = 'Not sent: this run is local only.'
-  if (s.finished) return `${line} This attempt is finished.`
-  if (!s.result.pass) return `${line} A failed result keeps the attempt open: fix the lab and submit again.`
-  return `${line} The attempt stays open.`
+  else if (props.run?.submit.tracking === 'local-only') line = 'Not sent: this run is local only.'
+  else if (props.run?.submit.tracking === 'none') line = 'Not sent: this run is not linked to an Astrona account.'
+  if (s.finished) return `${line} This attempt has ended.`
+  return `${line} This attempt was not finished.`
 })
 const environmentLine = computed(() => {
   if (props.submission.environmentRemoved) return 'The environment was removed.'
   if (props.submission.cleanupError) return 'The environment could not be removed.'
   if (props.run?.status === 'stopped') return 'The environment is no longer running.'
-  if (props.run?.submit.keepEnvironment)
-    return `The environment keeps running (teardown.keepCluster). Remove it with astrona destroy ${props.lab}.`
-  return 'The environment is still running: you can keep working and submit again, or remove it.'
+  return 'The environment is still running because the result was not finished. Remove it when you are done.'
 })
 const timeSpent = computed(() => (r.value.elapsedSeconds ? formatDuration(r.value.elapsedSeconds * 1000) : ''))
 const time = computed(() => {

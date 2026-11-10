@@ -514,8 +514,9 @@ func (s *Server) handleSubmission(w http.ResponseWriter, r *http.Request) {
 
 // handleDestroy removes the run's environment without grading, as astrona
 // destroy does: a tracked lab's attempt is closed without a result, a
-// playground's clock stops. A lab with teardown.keepCluster keeps its
-// cluster.
+// playground's clock stops. A lab from your own files with
+// teardown.keepCluster keeps its cluster (labops.KeepsCluster); a catalog
+// or tracked lab is always removed.
 func (s *Server) handleDestroy(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		RunID string `json:"runId"`
@@ -558,8 +559,9 @@ func (s *Server) handleDestroy(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"environmentRemoved": true, "messages": status.lines()})
 }
 
-// destroyRun removes rec's environment. A lab with teardown.keepCluster is
-// left alone (kept is true): nothing is run or removed.
+// destroyRun removes rec's environment. A lab from your own files with
+// teardown.keepCluster is left alone (kept is true): nothing is run or
+// removed.
 func (s *Server) destroyRun(rec RunRecord, opts labops.DestroyOptions, status io.Writer) (kept bool, err error) {
 	rep, err := ui.New("destroy", rec.Lab, ui.Options{Plain: true, Screen: os.Stderr, Raw: os.Stderr})
 	if err != nil {
@@ -604,7 +606,7 @@ func (s *Server) destroyRun(rec RunRecord, opts labops.DestroyOptions, status io
 			info.SkipScripts = true
 		}
 	}
-	if cfg.Teardown.KeepCluster {
+	if labops.KeepsCluster(cfg.Teardown, st) {
 		return true, nil
 	}
 	s.terms.closeLab(rec.Lab)

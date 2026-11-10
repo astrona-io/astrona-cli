@@ -273,7 +273,7 @@ Linked clusters belong to the lab:
 | `astrona stop` / `start` | Stops/starts them with the lab (`start` brings them up first) |
 | `astrona reset --soft` | Keeps every cluster; puts each back to its just-bootstrapped state (lab namespaces deleted, bootstrap re-run, linked clusters first) — seconds instead of minutes. `--soft --cluster idp` does only that one |
 | `astrona reset --cluster idp` | Rebuilds only that linked cluster of the running lab: its teardown, destroy, then create + bootstrap again (with the addresses of what it dependsOn). The lab and its other clusters are left alone; port forwards into it are restarted. Same name, so the lab's `ASTRONA_CLUSTER_*`/`astrona-clusters` stay valid |
-| `astrona reset` / `destroy` | Runs the lab's teardown, then each linked cluster's `teardown.init` (reverse start order, `KUBECONFIG` pointing at it), then removes everything. `teardown.keepCluster` keeps them all |
+| `astrona reset` / `destroy` | Runs the lab's teardown, then each linked cluster's `teardown.init` (reverse start order, `KUBECONFIG` pointing at it), then removes everything. On `destroy` of a lab from your own files, `teardown.keepCluster` keeps them all |
 | `astrona test` | Creates test copies of every cluster, applies each linked cluster's `testing`, then the lab's, grades, and tears everything down — even on failure |
 | `astrona check` | Counts their memory in the lab's estimate |
 | `astrona diagnose` / `test --diagnostics` | Collects every linked cluster too, under `clusters/<cluster>/` in the bundle |

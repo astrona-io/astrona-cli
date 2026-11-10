@@ -119,8 +119,6 @@ export type Tracking = 'account' | 'local-only' | 'none'
 
 export interface SubmitInfo {
   tracking: Tracking
-  /** teardown.keepCluster: a finished submission leaves the environment. */
-  keepEnvironment: boolean
   /** A submission of this run is being graded now. */
   grading: boolean
   /** While grading: each check's progress in grading order; absent until the checks start. */

@@ -66,19 +66,17 @@ func TestCheckWatchFlags(t *testing.T) {
 		output  string
 		junit   string
 		history bool
-		keep    bool
 		wantErr string
 	}{
 		{name: "watch alone", watch: true},
-		{name: "no watch, everything else", output: "json", junit: "r.xml", history: true, keep: true},
+		{name: "no watch, everything else", output: "json", junit: "r.xml", history: true},
 		{name: "json", watch: true, output: "json", wantErr: "-o json"},
 		{name: "junit", watch: true, junit: "r.xml", wantErr: "--junit-xml"},
 		{name: "history", watch: true, history: true, wantErr: "--history"},
-		{name: "keep", watch: true, keep: true, wantErr: "--keep"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := checkWatchFlags(tt.watch, tt.output, tt.junit, tt.history, tt.keep)
+			err := checkWatchFlags(tt.watch, tt.output, tt.junit, tt.history)
 			if tt.wantErr == "" {
 				if err != nil {
 					t.Fatalf("unexpected error: %v", err)

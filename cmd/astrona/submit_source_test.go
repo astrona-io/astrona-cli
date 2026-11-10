@@ -19,18 +19,19 @@ import (
 
 func TestSubmitCleansUpAfterConfirmedResult(t *testing.T) {
 	for _, tc := range []struct {
-		name                                                 string
-		pass, keep, keepCluster, json, deleteFails, replaced bool
-		status                                               int
-		calls                                                int32 // result posts; 0 means 1
-		deleted, wantError                                   bool
+		name                                           string
+		pass, keepCluster, json, deleteFails, replaced bool
+		status                                         int
+		calls                                          int32 // result posts; 0 means 1
+		deleted, wantError                             bool
 	}{
 		{name: "uploaded pass", pass: true, status: 201, deleted: true},
 		{name: "JSON uploaded pass", pass: true, json: true, status: 201, deleted: true},
-		{name: "keep", pass: true, keep: true, status: 201},
-		{name: "keepCluster", pass: true, keepCluster: true, status: 201},
-		{name: "uploaded failure", status: 201, wantError: true}, // a FAIL keeps the lab for another submit
-		{name: "unsent failure", status: 502, wantError: true},
+		// A submitted catalog lab never stays: keepCluster is for labs from your own files.
+		{name: "keepCluster", pass: true, keepCluster: true, status: 201, deleted: true},
+		// A FAIL ends the attempt too: the lab goes once the result is sent (or queued).
+		{name: "uploaded failure", status: 201, deleted: true, wantError: true},
+		{name: "unsent failure", status: 502, deleted: true, calls: 2, wantError: true},
 		// Queued in the outbox: the pass finishes, and the destroy retries it before its stop.
 		{name: "server error", pass: true, status: 502, deleted: true, calls: 2},
 		{name: "expired session", pass: true, status: 410},
@@ -84,7 +85,7 @@ func TestSubmitCleansUpAfterConfirmedResult(t *testing.T) {
 				Teardown:   config.TeardownConfig{KeepCluster: tc.keepCluster},
 				Validation: config.ValidationConfig{Checks: []config.ValidationCheck{{Name: "result", Type: "command", Command: "grade"}}},
 			}
-			options := submitOptions{keep: tc.keep}
+			options := submitOptions{}
 			if tc.json {
 				options.output = "json"
 			}
@@ -132,6 +133,7 @@ func TestSubmitSavedCatalogWithoutRefetchOrApproval(t *testing.T) {
 				"git":     "if [ \"$3\" = rev-parse ] && [ \"$4\" = HEAD ]; then echo abc123; elif [ \"$3\" = config ]; then echo https://github.com/astrona-io/ATS014.git; else exit 99; fi",
 				"docker":  "if [ \"$1\" = ps ]; then echo astro-offline-control-plane; fi",
 				"kubectl": "exit 98",
+				"kind":    "exit 0", // every recorded submit deletes the lab
 				"grade":   fmt.Sprintf("exit %d", map[bool]int{true: 0, false: 1}[pass]),
 			} {
 				if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\n"+script+"\n"), 0700); err != nil {
@@ -167,7 +169,7 @@ func TestSubmitSavedCatalogWithoutRefetchOrApproval(t *testing.T) {
 				t.Fatal(err)
 			}
 			root := newRootCmd(&rootFlags{})
-			root.SetArgs([]string{"submit", "astrona-io/" + src.Catalog, "--headless", "--keep"})
+			root.SetArgs([]string{"submit", "astrona-io/" + src.Catalog, "--headless"})
 			out := captureStdout(t, func() {
 				err = root.Execute()
 			})
@@ -183,9 +185,9 @@ func TestSubmitSavedCatalogWithoutRefetchOrApproval(t *testing.T) {
 			if err != nil || len(attempts) != 1 || attempts[0].Pass != pass {
 				t.Fatalf("attempts=%v err=%v", attempts, err)
 			}
-			// Only a pass finishes the run; after a FAIL it keeps going.
+			// Every recorded submit finishes the run, pass or fail.
 			finished, err := labstate.ReadSubmission("astro-offline", st.StartedAt)
-			if err != nil || (finished != nil) != pass || (finished != nil && !finished.Pass) {
+			if err != nil || finished == nil || finished.Pass != pass {
 				t.Fatalf("completion=%v err=%v", finished, err)
 			}
 		})

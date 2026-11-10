@@ -339,7 +339,7 @@ See [Grading → Exam mode](../concepts/grading.md#exam-mode).
 | Field | Type | Description |
 |---|---|---|
 | `init` | list of [ResourceItem](#resourceitem) | Best-effort scripts run before the environment is destroyed |
-| `keepCluster` | bool | Skip destroying the environment (linked clusters included) after teardown scripts run |
+| `keepCluster` | bool | For a lab from your own files: `astrona destroy` skips destroying the environment (linked clusters included) after teardown scripts run. Ignored for a catalog lab or a run with a lab session, and by `astrona submit` and `astrona reset`, which always remove it |
 
 ## `resources`
 

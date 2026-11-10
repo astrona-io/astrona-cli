@@ -290,16 +290,20 @@ longer running.
 
 It always opens a dialog first that says what is about to happen for this run:
 
-- The checks run and the result is saved on this machine as a new attempt.
+- The checks run and the result, pass or fail, is saved on this machine as a
+  new attempt, with the time you spent.
 - Where the result goes. A run linked to your Astrona account is sent to your
   lab page when astrona is signed in to the same site (or saved to send once
   Astrona can be reached). A local-only run is never sent. A run without a lab
   session keeps the result on this machine.
-- What ends the attempt. A pass that is sent (or saved to send), or a pass of
-  a local-only run, finishes it. A fail keeps the attempt open: fix the lab
-  and submit again.
-- Whether the environment stays. When a pass finishes the attempt, the cluster
-  (or the VMs) and its terminals are removed, unless the lab sets `teardown.keepCluster`.
+- That submitting is final. Every submit ends the attempt, pass or fail: there
+  is no fixing the lab and submitting again. Check your work first with
+  `astrona submit --watch` in a terminal, which grades without ending anything.
+- That the environment is removed afterwards. Once the result is sent (or
+  saved to send), or saved here for a run without a lab session, the cluster
+  (or the VMs) and its terminals are removed. There is no option to keep them;
+  `teardown.keepCluster` does not apply to a submit. Only a result Astrona
+  refuses, or one that cannot be sent or saved, leaves the environment running.
 - If the checks cannot run (for example, the container engine or a VM stopped),
   nothing is recorded or sent and the lab keeps running.
 

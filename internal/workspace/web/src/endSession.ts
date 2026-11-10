@@ -31,45 +31,29 @@ function engine(run: Run): string {
 export function endSessionCopy(run: Run, expired: boolean): EndCopy {
   if (run.playground) return playgroundCopy(run)
   const exam = run.mode === 'exam'
-  const { tracking, keepEnvironment } = run.submit
+  const { tracking } = run.submit
   const p: string[] = []
   p.push(
-    'The lab’s checks run now against your environment. The result is saved on this machine as a new attempt, and you see your score and each check here.',
+    'The lab’s checks run now against your environment. The result, pass or fail, is saved on this machine with the time you spent, and you see your score and each check here.',
   )
+  p.push('Submitting is final: it ends this attempt whether it passes or fails. There is no submitting again.')
   switch (tracking) {
     case 'account':
       p.push(
-        'This run is linked to your Astrona account. If astrona is signed in to the same site, the result is sent to your lab page (or saved to send once Astrona can be reached). A pass finishes this attempt. A fail keeps it open: fix the lab and submit again.',
+        'This run is linked to your Astrona account. If astrona is signed in to the same site, the result is sent to your lab page (or saved to send once Astrona can be reached).',
       )
       break
     case 'local-only':
-      p.push(
-        'This run is local only: nothing is sent to your Astrona account. A pass saved here finishes this attempt; a fail keeps it open, so you can fix the lab and submit again.',
-      )
+      p.push('This run is local only: nothing is sent to your Astrona account.')
       break
     default:
-      p.push(
-        'This run is not linked to an Astrona account, so the result stays on this machine. The attempt stays open: you can keep working and submit again.',
-      )
+      p.push('This run is not linked to an Astrona account, so the result stays on this machine.')
   }
-  if (keepEnvironment) {
-    p.push(
-      `This lab keeps its environment after a submission (teardown.keepCluster). Remove it yourself later with astrona destroy ${run.lab}.`,
-    )
-  } else if (tracking === 'none') {
-    p.push(
-      `The environment keeps running after you submit. Remove it from the results page, or with astrona destroy ${run.lab}.`,
-    )
-  } else {
-    p.push(
-      `When a pass finishes the attempt, the environment is removed: its ${environment(run)}, terminals and everything you changed in it are deleted. After a fail, or a result that is not sent, the environment keeps running.`,
-    )
-  }
+  p.push(
+    `Then the environment is removed: its ${environment(run)}, terminals and everything you changed in it are deleted. If Astrona refuses the result, or it cannot be sent or saved, the environment is left running.`,
+  )
   if (exam) {
-    let line = 'Your exam time is recorded at the moment you submit.'
-    if (!keepEnvironment && tracking !== 'none') line += ' A pass stops the timer when the environment is removed; after a fail it keeps running.'
-    else line += ' The timer keeps running until the environment is removed.'
-    p.push(line)
+    p.push('Your exam time is recorded at the moment you submit, and the timer stops.')
   }
   if (run.rules.strict && expired) {
     p.push('The time limit has passed. In this strict exam a submission after the deadline cannot pass.')

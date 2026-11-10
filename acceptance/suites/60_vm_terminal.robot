@@ -1,6 +1,8 @@
 *** Settings ***
 Documentation       A learner's path through a VM lab with a terminal: run a QEMU VM, inspect
-...                 it, fail a submission, solve it over `astrona ssh`, pass and destroy.
+...                 it and destroy it; then run again and fail a submission, and run once
+...                 more, solve it over `astrona ssh` and pass.
+...                 Every submit ends the attempt and deletes the VM, pass or fail.
 ...                 Needs qemu with hardware acceleration (KVM or HVF) and downloads a
 ...                 Debian cloud image once. Test cases depend on the ones before them,
 ...                 so the rest are skipped after the first failure.
@@ -29,16 +31,6 @@ Status Reports The VM
     ${status}=    Run Astrona Json    status    ${VM_LAB}
     Log    ${status}
 
-Submit Before Solving Is Graded As Not Passed
-    [Documentation]    Exit code 2 means "graded, didn't pass"; anything else is a CLI error.
-    Run Astrona    submit    -c    ${VM_LAB_DIR}    --headless    --keep    rc=2
-
-Submit After Solving Passes
-    [Documentation]    The learner types the answer into the VM's terminal.
-    Run Astrona    ssh    ${VM_LAB}    stdin=echo solved > /tmp/astrona-lab/answer.txt\nexit\n
-    Run Astrona    submit    -c    ${VM_LAB_DIR}    --headless    --keep
-    ...    --junit-xml    ${OAT_OUTPUT}/junit-submit-${VM_LAB}.xml
-
 Stop Is Refused And Keeps The VM Running
     [Documentation]    stop/start pause kind labs only; a VM lab must be left as it is.
     ${result}=    Run Astrona    stop    ${VM_LAB}    rc=1
@@ -47,6 +39,22 @@ Stop Is Refused And Keeps The VM Running
 
 Destroy Removes The VM
     Run Astrona    destroy    ${VM_LAB}    --headless    timeout=${SLOW_TIMEOUT}
+    VM Should Be Gone    ${VM_LAB}
+
+Submit Before Solving Is Graded As Not Passed And Ends The Attempt
+    [Documentation]    Exit code 2 means "graded, didn't pass"; anything else is a CLI error.
+    ...    A failed submit is final too: the VM is deleted.
+    Run Astrona    run    -c    ${VM_LAB_DIR}    --headless    timeout=${SLOW_TIMEOUT}
+    VM Should Be Running    ${VM_LAB}
+    Run Astrona    submit    -c    ${VM_LAB_DIR}    --headless    rc=2    timeout=${SLOW_TIMEOUT}
+    VM Should Be Gone    ${VM_LAB}
+
+Submit After Solving Passes And Ends The Attempt
+    [Documentation]    The learner types the answer into the VM's terminal.
+    Run Astrona    run    -c    ${VM_LAB_DIR}    --headless    timeout=${SLOW_TIMEOUT}
+    Run Astrona    ssh    ${VM_LAB}    stdin=echo solved > /tmp/astrona-lab/answer.txt\nexit\n
+    Run Astrona    submit    -c    ${VM_LAB_DIR}    --headless
+    ...    --junit-xml    ${OAT_OUTPUT}/junit-submit-${VM_LAB}.xml    timeout=${SLOW_TIMEOUT}
     VM Should Be Gone    ${VM_LAB}
 
 

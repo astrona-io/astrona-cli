@@ -72,9 +72,6 @@ type RunRecord struct {
 	// Tabs are the right panel's tabs, the focus tab first; empty in a
 	// record from before tabs (DefaultTabs then).
 	Tabs []Tab `json:"tabs,omitempty"`
-	// KeepEnvironment is teardown.keepCluster: a finished submission
-	// leaves the environment running.
-	KeepEnvironment bool `json:"keepEnvironment,omitempty"`
 	// RunAgain is the command that starts this lab again ("" when the
 	// source is not known).
 	RunAgain string `json:"runAgain,omitempty"`
@@ -319,8 +316,6 @@ type runView struct {
 type submitView struct {
 	// Tracking is where a result goes: account, local-only or none.
 	Tracking string `json:"tracking"`
-	// KeepEnvironment: a finished submission leaves the environment.
-	KeepEnvironment bool `json:"keepEnvironment"`
 	// Grading: a submission of this run is being graded now.
 	Grading bool `json:"grading"`
 	// Checks: while Grading, each check's progress in grading order
@@ -365,7 +360,7 @@ func buildView(rec RunRecord, now time.Time) (v runView, err error) {
 		Questions: []questionView{{ID: "q1", Title: rec.QuestionTitle}},
 		Targets:   rec.Targets,
 		Tabs:      tabViews(rec.tabs()),
-		Submit:    submitView{Tracking: TrackingNone, KeepEnvironment: rec.KeepEnvironment},
+		Submit:    submitView{Tracking: TrackingNone},
 		RunAgain:  rec.RunAgain,
 		Account:   rec.Account,
 	}

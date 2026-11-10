@@ -1,7 +1,7 @@
 *** Settings ***
 Documentation       A signed-in learner: sign in through the device flow in a browser, run a
-...                 catalog lab under a lab session, submit it, read progress, destroy it and
-...                 sign out. Self-contained: Keycloak runs in a container (podman or docker)
+...                 catalog lab under a lab session, submit it (which ends the attempt and
+...                 deletes the lab), read progress and sign out. Self-contained: Keycloak runs in a container (podman or docker)
 ...                 with a throwaway user, and a fake Astrona site stands in for astrona.io
 ...                 and records what the CLI sends it. No account or secret needed.
 Resource            ../resources/astrona.resource
@@ -45,23 +45,19 @@ Signed In Run Starts A Lab Session
     Kind Cluster Should Exist    ${CATALOG_NAME}
     Site Should Have Received    /api/cli/lab-sessions    account=${USERNAME}    lab=${CATALOG_LAB}
 
-Submit Before Solving Is Graded As Not Passed
+Submit Before Solving Is Graded As Not Passed And Ends The Attempt
     [Documentation]    The first lab ships with a broken image; exit code 2 means graded, not passed.
-    ...    --keep: a tracked submit would otherwise delete the lab.
+    ...    The site has the failed result, and the lab is deleted: a submit is final.
     [Tags]    kind    network
-    Run Astrona    submit    ${CATALOG_LAB}    --headless    --keep    rc=2    timeout=${SLOW_TIMEOUT}
+    Run Astrona    submit    ${CATALOG_LAB}    --headless    rc=2    timeout=${SLOW_TIMEOUT}
     Site Should Have Received    /api/cli/lab-sessions/{id}/results
     ...    account=${USERNAME}    lab=${CATALOG_LAB}    passed=${False}
+    Kind Cluster Should Not Exist    ${CATALOG_NAME}
 
 Progress Lists The Submitted Lab
     [Tags]    kind
     ${progress}=    Run Astrona Json    progress
     Lab Should Have Progress    ${progress}    ${CATALOG_NAME}
-
-Destroy Removes The Catalog Lab
-    [Tags]    kind    network
-    Run Astrona    destroy    ${CATALOG_NAME}    --headless    timeout=${SLOW_TIMEOUT}
-    Kind Cluster Should Not Exist    ${CATALOG_NAME}
 
 Logout Signs This Computer Out
     ${result}=    Run Astrona    logout

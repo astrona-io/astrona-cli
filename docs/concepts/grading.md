@@ -135,7 +135,8 @@ PROCTOR: PASS
 - `astrona submit --no-hints` grades without showing hints (exam conditions).
 - Every `astrona submit` is recorded in `~/.astrona/results/<lab>.jsonl`; each submission shows the change since the previous one, and `astrona submit --history` lists all attempts with the best score. `astrona test` (CI) doesn't record attempts.
 - `astrona submit` with no lab named — no argument, nothing picked with `astrona use`, no lab config in the current directory — grades the only running lab (`Submitting astro-my-lab (the only running lab).`), found again through what `astrona run` remembered. With several running it lists them, each with the command that names it.
-- A [catalog lab](../guides/lab-catalog.md#your-astrona-account) started while signed in also sends each result to its lab page. A FAIL keeps the lab and its timer for another submit; after a pass that was sent (or queued because Astrona couldn't be reached — it goes out later under the same key, never twice), submit deletes the lab (`--keep` to skip). Sending never changes the exit code.
+- A [catalog lab](../guides/lab-catalog.md#your-astrona-account) started while signed in also sends each result to its lab page. Sending never changes the exit code.
+- **A submit is final.** Every recorded result, PASS or FAIL, ends the attempt and stops its timer, and then submit deletes the lab, as `astrona destroy` does: once the result was sent (or queued because Astrona couldn't be reached — it goes out later under the same key, never twice), or, for a run without a lab session (local-only, a lab from your own files), once it is saved here. There is no option to keep the lab; `teardown.keepCluster` does not apply. Only a tracked result Astrona refuses, or one that can't be sent or queued, leaves the lab. Use `astrona submit --watch` to check your work without ending the attempt.
 
 ## Live grading while you work
 
@@ -143,7 +144,7 @@ PROCTOR: PASS
 astrona submit --watch            # re-grade every 5s (--interval to change, min 2s)
 ```
 
-Redraws a compact board — ✓/✗ per check, hints, score, exam time — every few seconds until Ctrl-C, so you see a check flip to ✓ the moment your fix lands. Watch runs are **not recorded** as attempts; run a plain `astrona submit` when you're done. In watch mode validation scripts' output is hidden and `podReady` checks give up after 2s instead of waiting a minute. When the output isn't a terminal, a new board is printed only when a result changes. With `exam.strict`, once the time limit has passed the board shows "Over the time limit — a submit now would not count as a pass" instead of "Passing", the same rule a plain submit applies. Because nothing is recorded, `--watch` refuses `-o json`, `--junit-xml`, `--history` and `--keep` with an error rather than ignoring them.
+Redraws a compact board — ✓/✗ per check, hints, score, exam time — every few seconds until Ctrl-C, so you see a check flip to ✓ the moment your fix lands. Watch runs are **not recorded** as attempts and end nothing: this is how to check your work while the attempt stays open. Run a plain `astrona submit` only when you're done — it ends the attempt and deletes the lab. In watch mode validation scripts' output is hidden and `podReady` checks give up after 2s instead of waiting a minute. When the output isn't a terminal, a new board is printed only when a result changes. With `exam.strict`, once the time limit has passed the board shows "Over the time limit — a submit now would not count as a pass" instead of "Passing", the same rule a plain submit applies. Because nothing is recorded, `--watch` refuses `-o json`, `--junit-xml` and `--history` with an error rather than ignoring them.
 
 ## Exam mode
 

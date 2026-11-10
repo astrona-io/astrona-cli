@@ -171,7 +171,6 @@ function run() {
     canSubmit: submitBlocked() === '',
     submit: {
       tracking,
-      keepEnvironment: false,
       grading: state.grading,
       ...(state.grading && state.checks.length ? { checks: state.checks } : {}),
       submitted: state.submission !== null,
@@ -206,7 +205,8 @@ async function gradeSlowly(): Promise<void> {
 }
 
 // A sample graded result: names, pass/fail, points and an allowed hint only.
-// The first attempt fails (the attempt stays open); later ones pass.
+// The first attempt fails, later ones pass; every recorded result ends the
+// attempt and removes the environment, pass or fail.
 function grade(): Record<string, unknown> {
   state.attempts++
   const checks = [
@@ -217,7 +217,7 @@ function grade(): Record<string, unknown> {
   const earned = checks.filter((c) => c.pass).reduce((n, c) => n + c.points, 0)
   const pass = checks.every((c) => c.pass)
   const sent = tracking === 'account'
-  const finished = pass && (sent || tracking === 'local-only')
+  const finished = true
   const messages: string[] = []
   if (sent) messages.push(`Sent to your lab page (attempt ${state.attempts}): https://astrona.io/labs/demo`)
   if (tracking === 'local-only') messages.push('This run is local only; the result was not sent to your account.')

@@ -11,7 +11,8 @@ Astrona spins up local Kubernetes labs with [kind](https://kind.sigs.k8s.io/), b
 - **Bootstrap** — run init scripts (local file or downloaded from a URL) and apply Kubernetes manifests when the lab starts.
 - **Testing stage** — a CI-only stage that applies a reference solution (scripts and/or manifests) to drive the cluster into the "lab completed" state, so validation has something to check.
 - **Proctor grading** — a student never grades their own work: `astrona submit` hands the cluster to the Proctor, which runs declarative checks (`resourceExists`, `podReady`, `command`) and/or one or more custom pass/fail scripts (`script`/`scripts`) and returns a PASS/FAIL verdict — the same component `astrona test` uses in CI to prove a lab's reference solution actually passes. Output is pytest/robot-style: a PASS/FAIL line with timing per check, then a summary line. `--junit-xml=<path>` on `submit`/`test` additionally writes a JUnit XML report for CI systems (GitHub Actions, GitLab CI, Jenkins) to render natively.
-- **Teardown** — cleanup scripts run before the cluster is deleted, with an optional `keepCluster` flag to leave the cluster running for debugging.
+- **Teardown** — cleanup scripts run before the cluster is deleted, with an optional `keepCluster` flag that makes `astrona destroy` leave the cluster of a lab from your own files running for debugging (a submit always deletes the lab).
+- **Submit is final** — `astrona submit` ends the attempt, PASS or FAIL, sends the result with the time spent (when signed in), and deletes the lab. `astrona submit --watch` re-grades while you work without ending anything.
 - **Doc references** — `metadata.docs` points at prerequisites, a formal exam-style question, a softer case-study version, and a step-by-step answer guide, so a marketplace listing or the browser workspace always knows which file is canonical instead of guessing.
 
 ## Browser workspace
