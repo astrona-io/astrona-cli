@@ -470,7 +470,7 @@ function newShell(tab: string, target: string) {
     this.buffer = ''
     this.line = ''
     const where = qemu ? `the ${this.target.replace(/^demo-/, '')} VM (ssh as student)` : this.target
-    this.out(`\x1b[32mMock terminal on ${where}.\x1b[0m Try: stty size, ls /, echo hi, exit\r\n` + this.prompt())
+    this.out(`\x1b[32mMock terminal on ${where}.\x1b[0m Try: stty size, ls /, echo hi, seq 200, exit\r\n` + this.prompt())
   },
 
   forget() {
@@ -568,7 +568,10 @@ function newShell(tab: string, target: string) {
     }
     if (cmd) {
       const echo = cmd.startsWith('echo ') ? cmd.slice(5) : undefined
-      this.out((outputs[cmd] ?? echo ?? `${cmd.split(' ')[0]}: command not found (mock)`) + '\r\n')
+      // seq N: more output than one screen, to check scrolling and the last row.
+      const n = /^seq (\d{1,5})$/.exec(cmd)?.[1]
+      const seq = n ? Array.from({ length: Number(n) }, (_, i) => i + 1).join('\r\n') : undefined
+      this.out((outputs[cmd] ?? echo ?? seq ?? `${cmd.split(' ')[0]}: command not found (mock)`) + '\r\n')
     }
     this.out(this.prompt())
   },

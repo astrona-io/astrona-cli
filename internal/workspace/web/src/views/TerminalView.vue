@@ -23,6 +23,9 @@ const host = ref<HTMLDivElement>()
 const link = ref<LinkState>({ kind: 'connecting' })
 const problem = ref<string | null>(null)
 const opening = ref(false)
+// True once output has scrolled off the top: the scrollbar then stays shown
+// (xterm only shows it while the pointer is over the terminal).
+const hasScrollback = ref(false)
 const term = shallowRef<Terminal>()
 let fit: FitAddon | undefined
 let conn: TerminalConnection | undefined
@@ -102,6 +105,11 @@ function scheduleFit(): void {
   if (frame) return
   frame = window.requestAnimationFrame(() => {
     frame = 0
+    // A tab that is not shown (v-show) has no size. Fitting it then would
+    // shrink the terminal, and the shell, to the minimum of 2x1 and rewrap
+    // the scrollback; keep the last size until the tab is shown again.
+    const el = host.value
+    if (!el || el.clientWidth === 0 || el.clientHeight === 0) return
     try {
       fit?.fit()
     } catch {
@@ -189,6 +197,11 @@ function useWebgl(t: Terminal): void {
   }
 }
 
+function updateScrollback(): void {
+  const t = term.value
+  if (t) hasScrollback.value = t.buffer.active.baseY > 0
+}
+
 function applyTheme(): void {
   if (term.value) term.value.options.theme = readTheme()
 }
@@ -223,7 +236,12 @@ onMounted(async () => {
   useWebgl(t)
   t.onData((data) => conn?.sendInput(data))
   t.onBinary((data) => conn?.sendBinary(Uint8Array.from(data, (c) => c.charCodeAt(0) & 0xff)))
-  t.onResize(({ cols, rows }) => conn?.resize(cols, rows))
+  t.onResize(({ cols, rows }) => {
+    conn?.resize(cols, rows)
+    updateScrollback()
+  })
+  t.onScroll(updateScrollback)
+  t.onWriteParsed(updateScrollback)
   resizeObserver = new ResizeObserver(scheduleFit)
   resizeObserver.observe(host.value)
   schemeQuery = window.matchMedia('(prefers-color-scheme: dark)')
@@ -250,7 +268,18 @@ defineExpose({
 
 <template>
   <div class="term">
-    <div ref="host" class="term__host" aria-label="Terminal" />
+    <!-- The fit addon sizes the terminal to its parent's computed height,
+         which counts the parent's padding (border-box). The padding is on
+         .term__host and xterm opens in .term__screen, which has none, so the
+         rows it proposes always fit above the hint bar. -->
+    <div class="term__host">
+      <div
+        ref="host"
+        class="term__screen"
+        :class="{ 'term__screen--scrollback': hasScrollback }"
+        aria-label="Terminal"
+      />
+    </div>
     <div v-if="notice" class="term__notice" role="status">
       <span>{{ notice.text }}</span>
       <button v-if="notice.action" type="button" class="btn btn--sm btn--primary" @click="act">
