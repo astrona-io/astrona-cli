@@ -294,6 +294,46 @@ func TestStopRemovesStateAndSparesForeignPID(t *testing.T) {
 	}
 }
 
+func TestStopChecksLegacySupervisorIdentity(t *testing.T) {
+	for _, tc := range []struct {
+		name, lab        string
+		supervisor, stop bool
+	}{
+		{name: "foreign group leader"},
+		{name: "legacy supervisor", lab: testLab, supervisor: true, stop: true},
+		{name: "another lab supervisor", lab: "astro-other", supervisor: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			isolateHome(t)
+			child := exec.Command("sleep", "30")
+			if tc.supervisor {
+				child = exec.Command("sh", "-c", "trap 'exit 0' TERM; while :; do sleep 0.1; done", "port-forward", "supervise", tc.lab, testForward().Name)
+			}
+			child.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+			if err := child.Start(); err != nil {
+				t.Fatal(err)
+			}
+			exited := make(chan struct{})
+			go func() { _ = child.Wait(); close(exited) }()
+			t.Cleanup(func() { _ = syscall.Kill(-child.Process.Pid, syscall.SIGKILL); <-exited })
+			writeForwardState(t, testSpec(), child.Process.Pid, nil)
+			if _, err := Stop(testLab); err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case <-exited:
+				if !tc.stop {
+					t.Fatal("stopped an unrelated process group")
+				}
+			case <-time.After(300 * time.Millisecond):
+				if tc.stop {
+					t.Fatal("legacy supervisor was not stopped")
+				}
+			}
+		})
+	}
+}
+
 func TestPortFree(t *testing.T) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

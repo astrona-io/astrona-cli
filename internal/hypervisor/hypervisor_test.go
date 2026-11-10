@@ -490,6 +490,7 @@ func TestResolveInterVMTrust(t *testing.T) {
 }
 
 func TestDestroyQEMUVMNoStateIsNoop(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	const name = "astrona-test-nonexistent-cluster-xyz"
 
 	// qemuStateDir always MkdirAlls, so clean up the empty dir it leaves
@@ -514,6 +515,7 @@ func TestDestroyQEMUVMNoStateIsNoop(t *testing.T) {
 // so the test never needs a real qemu binary — CreateQEMUVM's guard must
 // fire before anything qemu-specific runs.
 func TestCreateQEMUVMRefusesDuplicate(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	const name = "astrona-test-duplicate-vm-xyz"
 
 	stateDir, err := qemuStateDir(name)

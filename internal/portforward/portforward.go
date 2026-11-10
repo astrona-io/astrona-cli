@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -271,14 +272,19 @@ func StopAll() ([]string, error) {
 
 // terminateSupervisor SIGTERMs pid's process group (supervisor + its
 // kubectl), escalating to SIGKILL after 5s. Only acts when pid is still
-// alive *and* still leads its own process group — the supervisor always
-// does (Setsid), so a recycled pid now owned by some unrelated process is
-// left alone — as is one whose start time no longer matches the recorded
-// one (dir's supervisor.start, when present).
+// alive and leads its own process group. The saved start time identifies
+// the process; legacy records must match this lab's supervisor command.
 func terminateSupervisor(dir string) {
 	pid, start := readPID(dir), readPIDStart(dir)
 	if pid <= 0 || !hypervisor.SameProcess(pid, start) {
 		return
+	}
+	if start == "" {
+		var err error
+		start, err = hypervisor.ProcessStartTime(pid)
+		if err != nil || start == "" || !legacySupervisor(pid, dir) || !hypervisor.SameProcess(pid, start) {
+			return
+		}
 	}
 	if pgid, err := syscall.Getpgid(pid); err != nil || pgid != pid {
 		return
@@ -292,6 +298,22 @@ func terminateSupervisor(dir string) {
 		time.Sleep(100 * time.Millisecond)
 	}
 	_ = syscall.Kill(-pid, syscall.SIGKILL)
+}
+
+// Legacy PID files have no start timestamp. A process group alone does not
+// identify the supervisor: shells and unrelated services lead groups too.
+func legacySupervisor(pid int, dir string) bool {
+	out, err := exec.Command("ps", "-ww", "-o", "command=", "-p", strconv.Itoa(pid)).Output()
+	if err != nil {
+		return false
+	}
+	args := strings.Fields(string(out))
+	if len(args) < 5 {
+		return false
+	}
+	args = args[len(args)-4:]
+	return args[0] == "port-forward" && args[1] == "supervise" &&
+		args[2] == filepath.Base(filepath.Dir(dir)) && args[3] == filepath.Base(dir)
 }
 
 // StopForLab is Stop wrapped as a reporter step, for teardown paths: a
