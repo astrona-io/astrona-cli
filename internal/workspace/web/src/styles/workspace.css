@@ -97,25 +97,104 @@
 
 /* ---------------------------------------------------------------- launch */
 
+.launch {
+  width: min(1040px, 100%);
+}
+
+/* The setup log is drawn as a terminal window: dark in both themes, like
+   the lab terminal itself. */
+.launch__term {
+  overflow: hidden;
+  border: 1px solid rgba(236, 231, 245, 0.12);
+  border-radius: var(--radius-sm);
+  background: var(--term-bg);
+  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.6);
+}
+
+.launch__bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(236, 231, 245, 0.08);
+  background: rgba(236, 231, 245, 0.04);
+}
+
+.launch__light {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #ff5f57;
+}
+
+.launch__light:nth-child(2) {
+  background: #febc2e;
+}
+
+.launch__light:nth-child(3) {
+  background: #28c840;
+}
+
+.launch__cmd {
+  flex: 1;
+  margin-right: 40px;
+  color: rgba(236, 231, 245, 0.55);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+  text-align: center;
+}
+
 .launch__steps {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 46vh;
+  max-height: 52vh;
+  min-height: 220px;
   margin: 0;
-  padding: 12px 14px;
+  padding: 14px 16px;
   overflow-y: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--panel-2);
+  color: var(--term-fg);
   list-style: none;
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 13px;
+  line-height: 1.55;
+  scrollbar-color: var(--term-scrollbar) transparent;
+}
+
+.launch__steps ::selection {
+  background: var(--term-selection);
+}
+
+.launch__cursor span {
+  color: var(--term-cursor);
+  animation: launch-blink 1.1s steps(1) infinite;
+}
+
+@keyframes launch-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launch__cursor span {
+    animation: none;
+  }
+}
+
+.launch__done {
+  margin-top: 8px;
+  font-weight: 700;
+}
+
+.launch__begin {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .launch__section {
   margin-top: 8px;
-  color: var(--ink);
+  color: var(--ansi-6);
   font-weight: 700;
 }
 
@@ -127,24 +206,24 @@
   display: grid;
   grid-template-columns: 1.2em 1fr auto;
   gap: 8px;
-  color: var(--muted);
+  color: rgba(236, 231, 245, 0.72);
 }
 
 .launch__step--ok .launch__mark {
-  color: var(--green);
+  color: var(--ansi-2);
 }
 
 .launch__step--skip .launch__mark {
-  color: var(--amber);
+  color: var(--ansi-3);
 }
 
 .launch__step--fail,
 .launch__step--fail .launch__mark {
-  color: var(--red);
+  color: var(--ansi-1);
 }
 
 .launch__step--running {
-  color: var(--ink);
+  color: var(--term-fg);
 }
 
 .launch__label {
@@ -155,7 +234,7 @@
 }
 
 .launch__detail {
-  color: var(--dim);
+  color: rgba(236, 231, 245, 0.45);
   font-size: 12px;
 }
 
@@ -1092,4 +1171,105 @@
   .task-rail__label {
     writing-mode: horizontal-tb;
   }
+}
+
+.launch__time {
+  color: rgba(236, 231, 245, 0.45) !important;
+}
+
+/* ---------------------------------------------------------------- home */
+
+.home {
+  width: min(880px, 100%);
+}
+
+.home__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home__empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.home__empty p {
+  margin: 0;
+}
+
+.home__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home__lab {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+}
+
+.home__main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.home__kind,
+.home__title,
+.home__meta {
+  margin: 0;
+}
+
+.home__title {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.home__state .dot {
+  margin-right: 6px;
+}
+
+.home__state--running .dot {
+  background: var(--green);
+}
+
+.home__state--degraded .dot {
+  background: var(--amber);
+}
+
+.home__state--unknown .dot {
+  background: var(--dim);
+}
+
+.home__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.home__cmd {
+  max-width: 360px;
+  margin: 0;
+}
+
+.message__actions {
+  margin: 0;
 }

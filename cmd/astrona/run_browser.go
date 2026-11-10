@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -143,11 +145,23 @@ func openBrowserWorkspace(cfg *config.LabConfig, baseDir string, flags *rootFlag
 		// The tab that followed the setup opens the lab itself.
 		flags.launch.Ready(rec.Lab)
 		if flags.launch.pageOpen() {
-			fmt.Printf("\nThe lab is open in your browser. Closed the tab? `astrona ui %s` opens it again.\n", uiLabArg(rec.Lab))
+			fmt.Printf("\nThe lab is ready in your browser: click Begin this session. Closed the tab? `astrona ui %s` opens it again.\n", uiLabArg(rec.Lab))
+			printRunsInBackground(rec.Lab)
 			return nil
 		}
 	}
-	return launchBrowserWorkspace(rec.Lab)
+	if err := launchBrowserWorkspace(rec.Lab); err != nil {
+		return err
+	}
+	printRunsInBackground(rec.Lab)
+	return nil
+}
+
+// printRunsInBackground says that the lab outlives this command, so a
+// learner does not leave labs running without knowing it.
+func printRunsInBackground(lab string) {
+	fmt.Printf("It keeps running in the background until you end it (astrona destroy %s). "+
+		"`astrona ui` shows every lab running on this computer.\n", uiLabArg(lab))
 }
 
 // reopenBrowserWorkspace is astrona ui <lab>: it keeps the run's record
@@ -196,6 +210,35 @@ func launchBrowserWorkspace(lab string) error {
 		fmt.Println("No browser to open here: open the link above in a browser on this machine.")
 	case !browserOpener(link):
 		fmt.Println("Could not open your browser: open the link above.")
+	}
+	return nil
+}
+
+// openWorkspaceHome opens "Labs on this computer" in the browser workspace:
+// every lab and playground still running here, with open and end actions.
+func openWorkspaceHome(out io.Writer) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	info, _, err := workspace.EnsureCurrentServer(ctx)
+	cancel()
+	if errors.Is(err, workspace.ErrOtherBuildInUse) {
+		// An older server with a page open still serves its own page.
+		info, _, err = workspace.EnsureServer()
+	}
+	if err != nil {
+		return fmt.Errorf("the browser workspace did not start: %w", err)
+	}
+	base, err := info.LaunchURL(workspace.DefaultCodeTTL)
+	if err != nil {
+		return err
+	}
+	link := base
+	fmt.Fprintf(out, "\nLabs on this computer: %s\n", link)
+	fmt.Fprintf(out, "The link works once and for %s; astrona ui opens a new one.\n", workspace.DefaultCodeTTL)
+	switch {
+	case browserCommand(goruntime.GOOS, os.Getenv, exec.LookPath, link) == nil:
+		fmt.Fprintln(out, "No browser to open here: open the link above in a browser on this machine.")
+	case !browserOpener(link):
+		fmt.Fprintln(out, "Could not open your browser: open the link above.")
 	}
 	return nil
 }
