@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -405,6 +406,27 @@ func (env *LabEnvironment) AddEnv(kv ...string) {
 		return
 	}
 	env.ExtraEnv = append(env.ExtraEnv, kv...)
+	env.Executor = executor.LocalExecutor{Kubeconfig: env.Kubeconfig, ExtraEnv: env.ExtraEnv}
+}
+
+// UseScriptContext points host scripts and command checks at kubeconfig,
+// whose current-context must be context, and sets ASTRONA_KUBE_CONTEXT to
+// context in place of kind-<name>: an exam cluster's context is exam-<n>.
+// env.KubeContext, which astrona's own kubectl calls pin, is unchanged, so
+// kubeconfig must hold it too. kind only.
+func (env *LabEnvironment) UseScriptContext(context, kubeconfig string) {
+	if env.Type != RuntimeKind {
+		return
+	}
+	const key = "ASTRONA_KUBE_CONTEXT="
+	extra := make([]string, 0, len(env.ExtraEnv)+1)
+	for _, kv := range env.ExtraEnv {
+		if !strings.HasPrefix(kv, key) {
+			extra = append(extra, kv)
+		}
+	}
+	env.ExtraEnv = append(extra, key+context)
+	env.Kubeconfig = kubeconfig
 	env.Executor = executor.LocalExecutor{Kubeconfig: env.Kubeconfig, ExtraEnv: env.ExtraEnv}
 }
 

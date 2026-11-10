@@ -68,14 +68,21 @@ func buildStep(e ui.Event) string {
 // and 60 a minute; one every five minutes stays far inside both.
 type stepQueue struct {
 	mu     sync.Mutex
-	steps  chan string
+	steps  chan progressStep
 	done   chan struct{}
 	closed bool
-	send   func(string)
+	send   func(progressStep)
 
 	lastMu   sync.Mutex
-	last     string
+	last     progressStep
 	lastSent time.Time
+}
+
+// progressStep is one line for the page. Task, when set, is the exam task
+// whose setup the line reports as applied.
+type progressStep struct {
+	Message string
+	Task    int
 }
 
 const (
@@ -91,15 +98,15 @@ const (
 var ProgressKeepalive = 5 * time.Minute
 
 // newStepQueue starts a queue that hands each step to send.
-func newStepQueue(send func(string)) *stepQueue {
-	q := &stepQueue{steps: make(chan string, stepQueueSize), done: make(chan struct{}), send: send}
+func newStepQueue(send func(progressStep)) *stepQueue {
+	q := &stepQueue{steps: make(chan progressStep, stepQueueSize), done: make(chan struct{}), send: send}
 	go q.run()
 	go q.keepAlive()
 	return q
 }
 
 // add queues step, unless the queue is full or closed.
-func (q *stepQueue) add(step string) {
+func (q *stepQueue) add(step progressStep) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if q.closed {
@@ -138,7 +145,7 @@ func (q *stepQueue) keepAlive() {
 			q.lastMu.Lock()
 			last, idle := q.last, time.Since(q.lastSent)
 			q.lastMu.Unlock()
-			if last != "" && idle >= ProgressKeepalive {
+			if last.Message != "" && idle >= ProgressKeepalive {
 				q.add(last)
 			}
 		}
@@ -170,11 +177,11 @@ func (ls *LabStart) Observe(e ui.Event) {
 	}
 	ls.stepsMu.Lock()
 	if ls.queue == nil {
-		ls.queue = newStepQueue(func(step string) { ls.Progress("preparing", step) })
+		ls.queue = newStepQueue(func(step progressStep) { ls.Progress("preparing", step.Message) })
 	}
 	q := ls.queue
 	ls.stepsMu.Unlock()
-	q.add(step)
+	q.add(progressStep{Message: step})
 }
 
 // flushSteps stops taking steps and waits, briefly, for the queued ones.

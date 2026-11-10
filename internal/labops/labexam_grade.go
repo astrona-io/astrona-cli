@@ -11,7 +11,6 @@ import (
 	"astrona/internal/account"
 	"astrona/internal/lifecycle"
 	"astrona/internal/proctor"
-	"astrona/internal/runtime"
 	"astrona/internal/ui"
 )
 
@@ -36,11 +35,10 @@ func GradeExamTask(ctx context.Context, st *ExamState, task ExamTaskRef, load Ex
 	if err := lifecycle.Validate(cfg); err != nil {
 		return Submission{}, err
 	}
-	env, err := runtime.LoadEnvironment(name, examRuntime(profile))
+	env, err := examEnvironment(task.Cluster, name, examRuntime(profile))
 	if err != nil {
 		return Submission{}, fmt.Errorf("cluster %d is not reachable: %w", task.Cluster, err)
 	}
-	env.AddEnv(lifecycle.CAEnv(name)...)
 	pr := proctor.NewProctor(baseDir, env)
 	pr.Quiet()
 	pr.HideHints()
