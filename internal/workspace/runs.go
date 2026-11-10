@@ -62,8 +62,11 @@ type RunRecord struct {
 	Tabs []Tab `json:"tabs,omitempty"`
 	// KeepEnvironment is teardown.keepCluster: a finished submission
 	// leaves the environment running.
-	KeepEnvironment bool      `json:"keepEnvironment,omitempty"`
-	CreatedAt       time.Time `json:"createdAt"`
+	KeepEnvironment bool `json:"keepEnvironment,omitempty"`
+	// RunAgain is the command that starts this lab again ("" when the
+	// source is not known).
+	RunAgain  string    `json:"runAgain,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // startMarker records the Start click for one run.
@@ -246,6 +249,7 @@ type runView struct {
 	Tabs             []tabView      `json:"tabs"`
 	CanSubmit        bool           `json:"canSubmit"`
 	Submit           submitView     `json:"submit"`
+	RunAgain         string         `json:"runAgain"`
 }
 
 // submitView is what ending the run does, for the page to explain before
@@ -297,6 +301,7 @@ func buildView(rec RunRecord, now time.Time) (v runView, err error) {
 		Targets:   rec.Targets,
 		Tabs:      tabViews(rec.tabs()),
 		Submit:    submitView{Tracking: TrackingNone, KeepEnvironment: rec.KeepEnvironment},
+		RunAgain:  rec.RunAgain,
 	}
 	if sub, err := readSubmission(rec); err == nil && sub != nil {
 		v.Submit.Submitted = true

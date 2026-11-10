@@ -210,6 +210,9 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 		KeepEnvironment: cfg.Teardown.KeepCluster,
 		Targets:         []workspace.Target{{Name: name, Label: "main", Kind: "kind", Views: []string{"terminal"}}},
 	}
+	if st.Source != nil {
+		rec.RunAgain = labops.SourceCommand("run", st.Source)
+	}
 	if rec.Exam {
 		rec.TimeLimitSeconds = int64(cfg.Exam.Limit() / time.Second)
 	}

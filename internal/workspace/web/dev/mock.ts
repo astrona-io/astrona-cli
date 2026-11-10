@@ -108,6 +108,7 @@ function run() {
       submitted: state.submission !== null,
       blocked: submitBlocked(),
     },
+    runAgain: 'astrona run astrona.io/ATS014/section-010/module-01/lab-02',
   }
 }
 
