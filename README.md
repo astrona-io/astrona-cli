@@ -14,6 +14,15 @@ Astrona spins up local Kubernetes labs with [kind](https://kind.sigs.k8s.io/), b
 - **Teardown** — cleanup scripts run before the cluster is deleted, with an optional `keepCluster` flag to leave the cluster running for debugging.
 - **Doc references** — `metadata.docs` points at prerequisites, a formal exam-style question, a softer case-study version, and a step-by-step answer guide, so a marketplace listing or the browser workspace always knows which file is canonical instead of guessing.
 
+## Browser workspace
+
+`astrona run <lab> --browser` opens a Kind lab in your browser: the task on the
+left, a terminal on the lab on the right. An exam's timer starts when you click
+Start. The page is served by `astrona` on `127.0.0.1` only. See the
+[browser workspace guide](docs/guides/browser-workspace.md).
+
+![The browser workspace: the task next to a terminal on the lab](docs/assets/browser-workspace.png)
+
 ## Commands
 
 `astrona run <lab>` offers to open a Kind lab in the browser workspace, a local

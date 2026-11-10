@@ -5,7 +5,7 @@ import { ref } from 'vue'
 // The value is the task panel's width as a percentage of the row.
 
 const props = withDefaults(defineProps<{ min?: number; max?: number; controls: string }>(), {
-  min: 20,
+  min: 15,
   max: 70,
 })
 const model = defineModel<number>({ required: true })
