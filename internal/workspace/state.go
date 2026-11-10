@@ -82,6 +82,16 @@ func (i ServerInfo) LaunchURL(ttl time.Duration) (string, error) {
 // the directory with mode 0700, tightens an existing one to 0700, and
 // refuses a directory that is a symlink or (on Unix) owned by another user.
 func WriteServerInfo(path string, info ServerInfo) error {
+	data, err := json.MarshalIndent(info, "", "  ") //nolint:gosec // G117: server.json exists to hand the secret to the CLI; it is written 0600
+	if err != nil {
+		return fmt.Errorf("failed to marshal server.json: %w", err)
+	}
+	return writePrivateFile(path, data)
+}
+
+// writePrivateFile atomically writes data to path with mode 0600, creating
+// and checking its directory as WriteServerInfo describes.
+func writePrivateFile(path string, data []byte) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("failed to create %s: %w", dir, err)
@@ -89,11 +99,7 @@ func WriteServerInfo(path string, info ServerInfo) error {
 	if err := privateDir(dir); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(info, "", "  ") //nolint:gosec // G117: server.json exists to hand the secret to the CLI; it is written 0600
-	if err != nil {
-		return fmt.Errorf("failed to marshal server.json: %w", err)
-	}
-	tmp, err := os.CreateTemp(dir, ".server.json.*") // mode 0600
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*") // mode 0600
 	if err != nil {
 		return fmt.Errorf("failed to create temp file in %s: %w", dir, err)
 	}
@@ -147,29 +153,7 @@ func privateDir(dir string) error {
 // returned as is; check Alive before using it.
 func ReadServerInfo(path string) (ServerInfo, error) {
 	var info ServerInfo
-	if dfi, err := os.Lstat(filepath.Dir(path)); err != nil {
-		return info, err
-	} else if !dfi.IsDir() {
-		return info, fmt.Errorf("%s is not a directory (a symlink is refused)", filepath.Dir(path))
-	} else if err := checkPrivate(filepath.Dir(path), dfi); err != nil {
-		return info, err
-	}
-	f, err := os.OpenFile(path, os.O_RDONLY|openNoFollow, 0)
-	if err != nil {
-		return info, err
-	}
-	defer f.Close()
-	fi, err := f.Stat()
-	if err != nil {
-		return info, err
-	}
-	if !fi.Mode().IsRegular() {
-		return info, fmt.Errorf("%s is not a regular file", path)
-	}
-	if err := checkPrivate(path, fi); err != nil {
-		return info, err
-	}
-	data, err := io.ReadAll(io.LimitReader(f, 64<<10))
+	data, err := readPrivateFile(path, 64<<10)
 	if err != nil {
 		return info, err
 	}
@@ -180,6 +164,42 @@ func ReadServerInfo(path string) (ServerInfo, error) {
 		return info, fmt.Errorf("%s has unsupported schema %d", path, info.Schema)
 	}
 	return info, nil
+}
+
+// readPrivateFile reads at most limit bytes of path with the checks
+// ReadServerInfo describes: a private directory, no symlink, a regular file
+// that only the user can access.
+func readPrivateFile(path string, limit int64) ([]byte, error) {
+	if dfi, err := os.Lstat(filepath.Dir(path)); err != nil {
+		return nil, err
+	} else if !dfi.IsDir() {
+		return nil, fmt.Errorf("%s is not a directory (a symlink is refused)", filepath.Dir(path))
+	} else if err := checkPrivate(filepath.Dir(path), dfi); err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(path, os.O_RDONLY|openNoFollow, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !fi.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s is not a regular file", path)
+	}
+	if err := checkPrivate(path, fi); err != nil {
+		return nil, err
+	}
+	data, err := io.ReadAll(io.LimitReader(f, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("%s is larger than %d bytes", path, limit)
+	}
+	return data, nil
 }
 
 // RemoveServerInfo deletes server.json if it still describes the process

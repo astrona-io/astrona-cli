@@ -30,3 +30,47 @@ go test ./...
 Plain `go build -o astrona ./cmd/astrona` also produces a development build.
 Release packaging sets `-X main.Version=vX.Y.Z` and uses release state. There is
 no Justfile install recipe; never move local test binaries onto the user's PATH.
+
+## Browser workspace frontend
+
+The page served by the browser workspace lives in `internal/workspace/web`
+(Vite + Vue 3 + TypeScript, xterm.js for the terminal). It builds into
+`internal/workspace/web/dist`, which `go:embed` puts into the binary.
+
+- Node: the version in `internal/workspace/web/.nvmrc`. `just build` runs
+  `just web` (`npm ci` + `npm run build`) before `go build`, then restores the
+  committed placeholder page so git stays clean. `just web` alone leaves the
+  built page in `dist/`.
+- Go never needs Node: `dist/` holds a committed placeholder `index.html`, so
+  `go build` and `go test` work on a fresh checkout; that binary serves a page
+  saying it was built without the workspace assets. Only the placeholder is tracked; never commit build output.
+  Releases and Linux packages run `.github/scripts/build-workspace-web.sh`, and
+  `check-workspace-web.sh` fails the build if the placeholder would ship.
+- `just web-dev` (`npm run dev`) serves the page with a mock workspace server
+  from `dev/mock.ts` at `http://127.0.0.1:5173/#code=dev&lab=demo`.
+  `MOCK_KIND=playground` mocks a playground; code `expired` shows the 401 page.
+  `ASTRONA_WORKSPACE=http://127.0.0.1:<port>` proxies to a real workspace
+  server instead. `dev/` is never part of `dist/`.
+- `npm run build && npm run preview` serves the built page with the mock under
+  the exact Content Security Policy from `internal/workspace/guard.go`. Use it
+  to check a change in the browser console before release.
+- CSP is `default-src 'self'`: no inline `<script>`, no `style` attributes or
+  inline `<style>` in our templates (use classes), no `data:` URIs, no CDN and
+  no remote fonts. Fonts are self-hosted from `@fontsource`. While a terminal is
+  mounted, `document.createElement('style')` returns an inert element whose text
+  is mirrored into constructed stylesheets (`src/terminal/cspStyles.ts`), so
+  xterm's runtime `<style>` rules apply without a CSP violation. The terminal
+  draws with `@xterm/addon-webgl` (truecolor without `style` attributes); the
+  DOM renderer is only the fallback. Check for violations with a
+  `ReportingObserver` (`buffered: true`): the console does not always show them.
+- The HTTP and WebSocket contract is `docs/reference/workspace-api.md`. All
+  calls go through `src/api.ts`; components never call `fetch` directly.
+  Question HTML from the server is rendered as HTML, never evaluated.
+- The right-hand panel shows the lab's tabs (`src/components/LabTabs.vue`);
+  each tab kind has a view (`src/views/types.ts`). A new kind (for example a
+  desktop) is a new view component and tab kind, not a change to the workspace
+  page. Tabs come only from the run; the page never creates one.
+- Runtime dependencies must use a licence on the allowlist in
+  `build/notices.ts` (MIT, ISC, BSD, Apache-2.0, OFL-1.1); the build fails
+  otherwise and writes `dist/THIRD_PARTY_NOTICES.txt`, which release archives
+  and Linux packages ship. Keep `npm audit --omit=dev` clean.

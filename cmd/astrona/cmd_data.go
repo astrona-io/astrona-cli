@@ -85,7 +85,8 @@ func dataChangeCommand(store func() (localdata.Store, error), reset bool) *cobra
 			"Saved lab state blocks cleanup, including stopped VMs. Destroy unwanted labs through astrona destroy first. " +
 			"VM state dirs left by older versions (no handle.json, untouched for 24h, no qemu process) are removed and do not block cleanup. " +
 			"Credentials, results, resources, bundles, logs and installed tools are kept. " +
-			"Downloads will be needed again, so offline use may be affected. Finish commands running in older CLI versions before cleanup.",
+			"Downloads will be needed again, so offline use may be affected. Finish commands running in older CLI versions before cleanup. " +
+			"Applying stops a running browser workspace server first (as astrona ui stop does); labs keep running.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := checkOutput(output); err != nil {
@@ -97,6 +98,9 @@ func dataChangeCommand(store func() (localdata.Store, error), reset bool) *cobra
 			}
 			apply := yes && !dryRun
 			if apply {
+				if err := stopWorkspaceForMaintenance(cmd); err != nil {
+					return err
+				}
 				release, err := lockLocalData(cmd, s, true)
 				if err != nil {
 					return err
@@ -157,7 +161,8 @@ func dataChangeCommand(store func() (localdata.Store, error), reset bool) *cobra
 		cmd.Long = "Remove settings.json, settings-review.json, current.json, update-check.json and catalog.json under ~/" + apphome.Name() + ". " +
 			"Use --yes to apply; --dry-run always previews. This restores preference defaults and forgets the selected lab. " +
 			"It does not reset a lab, sign you out, revoke trust, change catalog sources, or delete results or student files. " +
-			"For sign-out use astrona logout. Finish commands running in older CLI versions before resetting."
+			"For sign-out use astrona logout. Finish commands running in older CLI versions before resetting. " +
+			"Applying stops a running browser workspace server first (as astrona ui stop does); labs keep running."
 	} else {
 		cmd.Flags().BoolVar(&tempOnly, "temp-only", false, "Only remove partial image/addon downloads older than 24h; never scan the system temp directory")
 		cmd.Flags().BoolVar(&policyOnly, "policy", false, "Only remove entries that exceed saved cache age or combined size limits")

@@ -115,6 +115,12 @@ Cleanup or reset therefore fails while a lab command such as `astrona run` is
 still in progress; finish it first. The background helpers that only report
 usage, send saved results or keep port forwards running do not take the lock; a
 playground's time-limit watcher takes it only while it destroys the playground.
+The browser workspace server (`astrona ui serve`, started by `astrona run`)
+holds the shared lock while it runs and stops by itself only after 15 minutes
+idle, so confirmed cleanup or reset stops it first, the same way `astrona ui stop`
+does, and says so in one line on stderr. Its browser terminals close; labs keep
+running. If the server cannot be stopped, the command fails and asks you to run
+`astrona ui stop`.
 Older CLI releases do not take this lock. Finish those commands before applying
 maintenance. The `.maintenance.lock` and `settings.json.lock` files stay in place;
 their presence does not mean a process is running. Never delete them to unlock

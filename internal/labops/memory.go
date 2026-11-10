@@ -47,23 +47,46 @@ func RememberedSource(src LabSource) *labstate.Source {
 
 // SourceHint is how to name a remembered lab on the command line.
 func SourceHint(src *labstate.Source) string {
-	switch {
-	case src == nil:
+	if src == nil {
 		return "(started by an older astrona — name its config with -c)"
+	}
+	return SourceCommand("submit", src)
+}
+
+// SourceCommand is `astrona <verb>` for the lab src names, e.g. the run
+// command that starts it again. Arguments are quoted only when a shell
+// would split or expand them.
+func SourceCommand(verb string, src *labstate.Source) string {
+	s := "astrona " + verb
+	switch {
 	case src.Catalog != "":
-		return "astrona submit " + src.Catalog
+		return s + " " + quoteArg(src.Catalog)
 	case src.Git != "":
-		s := "astrona submit --git " + src.Git
+		s += " --git " + quoteArg(src.Git)
 		if src.Config != "" && src.Config != "." {
-			s += " -c " + src.Config
+			s += " -c " + quoteArg(src.Config)
 		}
 		if src.GitRef != "" {
-			s += " --git-ref " + src.GitRef
+			s += " --git-ref " + quoteArg(src.GitRef)
 		}
-		return s
 	default:
-		return "astrona submit -c " + src.Config
+		s += " -c " + quoteArg(src.Config)
 	}
+	if src.File != "" {
+		s += " -f " + quoteArg(src.File)
+	}
+	return s
+}
+
+// quoteArg leaves plain paths, URLs and lab IDs as they are.
+func quoteArg(s string) string {
+	plain := func(r rune) bool {
+		return r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("/._-:@+=,", r)
+	}
+	if s == "" || strings.IndexFunc(s, func(r rune) bool { return !plain(r) }) >= 0 {
+		return ShellQuote(s)
+	}
+	return s
 }
 
 // RememberLab records, once a lab is up, where its config came from and

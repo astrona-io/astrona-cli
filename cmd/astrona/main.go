@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -38,7 +36,6 @@ type rootFlags struct {
 	trust       bool
 	updateCheck bool
 	acceptTerms bool
-	uiRestart   *uiRunRestart
 	localOnly   bool
 	headless    bool
 	// settingsFile is an optional path override for isolated command tests.
@@ -65,6 +62,10 @@ type rootFlags struct {
 	// keepContext is --keep-context on run and reset: leave the user's
 	// kubectl current-context alone instead of switching to the lab.
 	keepContext bool
+	// browserRun: astrona run opens the lab in the browser workspace, so
+	// an exam's clock waits for Start there instead of starting when the
+	// lab is ready.
+	browserRun bool
 	// cmdPath is the running command below the root ("run", "res list"),
 	// so a hand-over can ask the other version which flags it takes.
 	cmdPath []string
@@ -216,7 +217,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&flags.gitRef, "git-ref", "", "Git branch, tag, or commit to check out (used with --git; default: the repo's default branch)")
 	// No -v shorthand: Cobra reserves it for the auto-generated --version flag.
 	rootCmd.PersistentFlags().BoolVar(&flags.installVersion, "install-version", false, "If the lab needs another astrona release (astronaVersion) that isn't installed, install it without asking — for CI. Never switches to an older release than this one: that is always asked at a terminal")
-	rootCmd.PersistentFlags().BoolVar(&flags.headless, "headless", false, "Disable the terminal UI and CLI prompts; run/reset skip login reminders and new account sessions")
+	rootCmd.PersistentFlags().BoolVar(&flags.headless, "headless", false, "Disable the browser workspace and CLI prompts; run/reset skip login reminders and new account sessions")
 	rootCmd.PersistentFlags().BoolVar(&flags.trust, "trust", false, "Approve running a remote (--git / URL) lab without asking — for CI; review the lab first")
 	rootCmd.PersistentFlags().BoolVar(&flags.acceptTerms, "accept-terms", false, "Accept this CLI's usage terms and data-loss risk notice; required on each operational CI command (read: astrona terms)")
 	rootCmd.PersistentFlags().BoolVar(&flags.verbose, "verbose", false, "Stream the full output of every underlying command instead of the compact step view")
@@ -252,34 +253,13 @@ func main() {
 		os.Exit(0)
 	}
 	args := os.Args[1:]
-	if os.Getenv(uiPaneEnv) != "1" {
-		var err error
-		args, err = offerRunUI(args, os.Stdin, os.Stdout, requireWorkspaceTerminal() == nil)
-		if err != nil {
-			ui.PrintError(err)
-			os.Exit(1)
-		}
-	}
-	if os.Getenv(uiPaneEnv) != "1" && wantsUIPane(args) {
-		code, err := runUIPane(context.Background(), args)
-		if err != nil {
-			ui.PrintError(err)
-			os.Exit(1)
-		}
-		os.Exit(code)
-	}
-
 	flags := &rootFlags{}
 	rootCmd := newRootCmd(flags)
 	rootCmd.SetArgs(args)
 	installTermsGate(rootCmd, flags, checkTerms)
-	installUIRunGate(rootCmd, flags, confirmUIRun)
+	installHeadlessGate(rootCmd)
 
 	if err := executeWithDataLock(rootCmd, defaultDataStore); err != nil {
-		if errors.Is(err, errUIRunDeclined) {
-			fmt.Fprintln(os.Stdout, "Lab startup cancelled. No lab was started or changed.")
-			os.Exit(uiRunDeclinedExitCode)
-		}
 		if exitCodeFor(err) != exitNotPassed {
 			ui.PrintError(err)
 		}

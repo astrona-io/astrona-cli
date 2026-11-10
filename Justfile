@@ -7,9 +7,19 @@ default:
     @just --list
 
 # Build ./astrona for local testing (state: ~/.astrona-dev; nothing installed)
-build:
+build: web
     go build -ldflags "-X main.Version=developer" -o {{bin}} ./cmd/astrona
+    @# Embedded now; put the committed placeholder page back so git stays clean.
+    @git checkout -- internal/workspace/web/dist/index.html 2>/dev/null || true
     @echo "Built ./{{bin}}. Run: ./{{bin}} --help (or just run --help)" >&2
+
+# Build the browser workspace frontend into internal/workspace/web/dist (needs Node, see .nvmrc)
+web:
+    cd internal/workspace/web && npm ci --no-audit --no-fund && npm run build
+
+# Serve the workspace frontend with a mock server on http://127.0.0.1:5173/#code=dev&lab=demo
+web-dev:
+    cd internal/workspace/web && npm run dev
 
 # Build and run the local development binary, forwarding CLI arguments
 [positional-arguments]

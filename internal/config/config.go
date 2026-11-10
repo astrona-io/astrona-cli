@@ -343,6 +343,9 @@ type LabConfig struct {
 	// student shows, copies or runs with `astrona resource` — see
 	// LabResource (resources.go).
 	Resources []LabResource `yaml:"resources"`
+	// Tabs are the extra tabs of the browser workspace, after the lab's
+	// main terminal — see Tab (tabs.go).
+	Tabs []Tab `yaml:"tabs"`
 
 	// UnknownFields are keys no field reads (typos) — found by
 	// LoadLabConfig, not part of the YAML. Lifecycle commands warn about

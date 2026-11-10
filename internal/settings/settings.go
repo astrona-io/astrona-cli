@@ -36,13 +36,39 @@ func Definitions() []Definition {
 		{"verbose", "false", "Stream full command output"},
 		{"keep-context", "false", "Leave your kubectl current-context unchanged"},
 		{"parallel", "1", "Maximum linked clusters to start at once"},
-		{"ui-task-width", "30", "Task pane width as a percentage of the lab view (20–60)"},
 		{"login-reminder", "true", "Ask guests to log in before starting a lab; disabling this allows guest runs without reminders"},
 		{"usage-samples", "true", "While signed in, send a running lab's CPU and memory use to its Astrona lab session; no stops it"},
 		{"update-check", "true", "Check for new CLI releases and show update notices"},
 		{"cache-retention-days", strconv.Itoa(localdata.DefaultRetentionDays), "Maximum disposable-cache age in days (1–36500)"},
 		{"cache-max-size-gb", strconv.Itoa(localdata.DefaultMaxSizeGB), "Combined disposable-cache size in GB; 0 means unlimited"},
+		{"browser", `"ask"`, "Open a Kind lab in the browser workspace after `astrona run`: ask, always or never"},
 	}
+}
+
+// withdrawn are settings an earlier release had that changed only how the
+// CLI looked. A saved value is ignored and dropped on the next write, and a
+// settings review does not ask about them: nothing about a run depends on
+// them. ui-task-width sized the terminal UI's task pane, which is gone.
+var withdrawn = map[string]bool{"ui-task-width": true}
+
+// Browser preferences: the saved answer to "Open this lab in your browser?".
+const (
+	BrowserAsk    = "ask"
+	BrowserAlways = "always"
+	BrowserNever  = "never"
+)
+
+// Browser returns the saved browser preference (BrowserAsk by default).
+func (s Values) Browser() string {
+	value, err := s.Value("browser")
+	if err != nil {
+		return BrowserAsk
+	}
+	var text string
+	if json.Unmarshal(value, &text) != nil {
+		return BrowserAsk
+	}
+	return text
 }
 
 // Values contains only saved overrides; omitted keys use CLI defaults.
@@ -82,12 +108,6 @@ func Parse(key, value string) (json.RawMessage, error) {
 		default:
 			return nil, fmt.Errorf("%s must be yes or no", key)
 		}
-	case "ui-task-width":
-		n, err := strconv.Atoi(value)
-		if err != nil || n < 20 || n > 60 {
-			return nil, fmt.Errorf("ui-task-width must be a whole percentage between 20 and 60")
-		}
-		value = strconv.Itoa(n)
 	case "parallel":
 		n, err := strconv.Atoi(value)
 		if err != nil {
@@ -107,6 +127,18 @@ func Parse(key, value string) (json.RawMessage, error) {
 			return nil, fmt.Errorf("%s must be a whole number between %d and %d", key, minValue, maxValue)
 		}
 		value = strconv.FormatInt(n, 10)
+	case "browser":
+		// Stored as a JSON string. Accept the typed word or its stored form.
+		text := strings.ToLower(strings.TrimSpace(value))
+		if unquoted, err := strconv.Unquote(text); err == nil {
+			text = unquoted
+		}
+		switch text {
+		case BrowserAsk, BrowserAlways, BrowserNever:
+			value = strconv.Quote(text)
+		default:
+			return nil, fmt.Errorf("browser must be ask, always or never")
+		}
 	default:
 		return nil, fmt.Errorf("unknown setting %q; run `astrona settings` to list supported settings", key)
 	}
@@ -126,7 +158,7 @@ func UsageSamples(path string) bool {
 }
 
 // ValueText shows a stored or typed value the way users answer: yes/no for
-// booleans, anything else unchanged.
+// booleans, words without their JSON quotes, anything else unchanged.
 func ValueText(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "true", "yes", "y":
@@ -134,6 +166,11 @@ func ValueText(value string) string {
 	case "false", "no", "n":
 		return "no"
 	default:
+		if strings.HasPrefix(value, `"`) {
+			if text, err := strconv.Unquote(value); err == nil {
+				return text
+			}
+		}
 		return value
 	}
 }
@@ -192,6 +229,10 @@ func loadWithRetired(path string, retired map[string]bool) (Values, error) {
 		return nil, fmt.Errorf("settings %s must contain a JSON object", path)
 	}
 	for key, value := range saved {
+		if withdrawn[key] {
+			delete(saved, key)
+			continue
+		}
 		if retired[key] {
 			continue
 		}

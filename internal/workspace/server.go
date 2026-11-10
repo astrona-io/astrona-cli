@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -62,6 +63,16 @@ type Server struct {
 
 	lastActive atomic.Int64 // unix nanoseconds
 	held       atomic.Int64 // long-lived connections, see Hold
+
+	// life is the server's lifetime. Terminals run under it, not under a
+	// request context, and it ends after they are closed.
+	life       context.Context
+	lifeCancel context.CancelFunc
+	runMu      sync.Mutex // serialises Start
+	terms      *terminals
+	subs       submits
+	stop       chan struct{}
+	stopOnce   sync.Once
 }
 
 // New binds 127.0.0.1 and prepares the server. Nothing is served until Serve.
@@ -93,7 +104,11 @@ func New(cfg Config) (*Server, error) {
 		origins:   newOrigins(port),
 		assets:    assets,
 		startedAt: time.Now(),
+		terms:     newTerminals(),
+		subs:      submits{jobs: map[string]*submitJob{}},
+		stop:      make(chan struct{}),
 	}
+	s.life, s.lifeCancel = context.WithCancel(context.Background())
 	s.touch()
 	s.srv = &http.Server{
 		Handler:           s.guard(s.routes()),
@@ -162,12 +177,18 @@ func (s *Server) idle(now time.Time) bool {
 	if now.Sub(time.Unix(0, s.lastActive.Load())) < s.cfg.IdleTimeout {
 		return false
 	}
+	if s.terms.running() || runsBusy() {
+		return false
+	}
 	return s.cfg.Busy == nil || !s.cfg.Busy()
 }
 
-// Serve serves until ctx is done (returning nil), the server goes idle
-// (returning ErrIdle) or the listener fails.
+// Serve serves until ctx is done or Stop is called (returning nil), the
+// server goes idle (returning ErrIdle) or the listener fails. Every terminal
+// is closed before it returns; labs keep running.
 func (s *Server) Serve(ctx context.Context) error {
+	defer s.lifeCancel()
+	defer s.terms.closeAll()
 	errc := make(chan error, 1)
 	go func() { errc <- s.srv.Serve(s.ln) }()
 
@@ -188,6 +209,8 @@ loop:
 			return fmt.Errorf("workspace server: %w", err)
 		case <-ctx.Done():
 			break loop
+		case <-s.stop:
+			break loop
 		case now := <-tick:
 			if s.idle(now) {
 				result = ErrIdle
@@ -195,6 +218,9 @@ loop:
 			}
 		}
 	}
+	// WebSockets are hijacked, so Shutdown does not wait for them: close the
+	// terminals first, which closes their views with 1001.
+	s.terms.closeAll()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	if err := s.srv.Shutdown(shutdownCtx); err != nil {
@@ -203,19 +229,38 @@ loop:
 	return result
 }
 
-// Close stops the server immediately.
-func (s *Server) Close() error { return s.srv.Close() }
+// Close stops the server immediately and closes every terminal.
+func (s *Server) Close() error {
+	s.terms.closeAll()
+	s.lifeCancel()
+	return s.srv.Close()
+}
 
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/auth/exchange", s.handleExchange)
 	mux.HandleFunc("POST /api/v1/auth/ticket", s.requireToken(s.handleTicket))
 	mux.HandleFunc("GET /api/v1/server", s.requireToken(s.handleServer))
+	mux.HandleFunc("GET /api/v1/runs", s.requireToken(s.handleRuns))
+	mux.HandleFunc("GET /api/v1/runs/{lab}", s.requireToken(s.handleRun))
+	mux.HandleFunc("GET /api/v1/runs/{lab}/questions/{id}", s.requireToken(s.handleQuestion))
+	mux.HandleFunc("POST /api/v1/runs/{lab}/start", s.requireToken(s.handleStart))
+	mux.HandleFunc("GET /api/v1/runs/{lab}/tabs/{name}/doc", s.requireToken(s.handleTabDoc))
+	mux.HandleFunc("POST /api/v1/runs/{lab}/submit", s.requireToken(s.handleSubmit))
+	mux.HandleFunc("GET /api/v1/runs/{lab}/submission", s.requireToken(s.handleSubmission))
+	mux.HandleFunc("POST /api/v1/runs/{lab}/destroy", s.requireToken(s.handleDestroy))
+	mux.HandleFunc("GET /api/v1/runs/{lab}/terminals", s.requireToken(s.handleTerminals))
+	mux.HandleFunc("POST /api/v1/runs/{lab}/terminals", s.requireToken(s.handleOpenTerminal))
 	mux.HandleFunc("/api/", s.requireToken(func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "not found")
 	}))
 	mux.HandleFunc("GET /ws/v1/terminals/{id}", s.handleTerminal)
 	mux.HandleFunc("/ws/", func(w http.ResponseWriter, _ *http.Request) {
+		writeError(w, http.StatusNotFound, "not found")
+	})
+	mux.HandleFunc("GET /control/v1/status", s.requireControl(s.handleControlStatus))
+	mux.HandleFunc("POST /control/v1/stop", s.requireControl(s.handleControlStop))
+	mux.HandleFunc("/control/", func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "not found")
 	})
 	mux.HandleFunc("/", s.handleStatic)
@@ -257,7 +302,7 @@ func (s *Server) handleServer(w http.ResponseWriter, _ *http.Request) {
 		"profile":   s.cfg.Profile,
 		"startedAt": s.startedAt.UTC(),
 		"serverNow": time.Now().UTC(),
-		"features":  []string{},
+		"features":  []string{"runs", "terminals", "tabs", "submit"},
 		"assets":    s.assetsKind(),
 	})
 }
@@ -267,21 +312,6 @@ func (s *Server) assetsKind() string {
 		return "placeholder"
 	}
 	return "built"
-}
-
-// handleTerminal is the terminal attach route. The guard has already
-// required an allowed Origin for the upgrade; the ticket proves the token.
-// The bridge itself is not built yet.
-func (s *Server) handleTerminal(w http.ResponseWriter, r *http.Request) {
-	if !isUpgrade(r) {
-		writeError(w, http.StatusBadRequest, "websocket upgrade required")
-		return
-	}
-	if !s.auth.useTicket(r.URL.Query().Get("ticket")) {
-		writeError(w, http.StatusUnauthorized, "missing or invalid ticket")
-		return
-	}
-	writeError(w, http.StatusNotImplemented, "terminals are not available yet")
 }
 
 // handleStatic serves regular files from the frontend, index.html for "/".
@@ -309,6 +339,10 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not found")
 		return
 	}
+	if name == "index.html" {
+		// The page's own policy names the frames its lab tabs show.
+		w.Header().Set("Content-Security-Policy", s.pagePolicy())
+	}
 	http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(data))
 }
 
@@ -330,6 +364,36 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+// writeError writes {"error": msg, "code": …} with the code that goes with
+// status (see docs/reference/workspace-api.md).
 func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
+	writeErrorCode(w, status, statusCode(status), msg)
+}
+
+// writeErrorCode writes an error with a specific code, such as not_started.
+func writeErrorCode(w http.ResponseWriter, status int, code, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg, "code": code})
+}
+
+func statusCode(status int) string {
+	switch status {
+	case http.StatusBadRequest:
+		return "bad_request"
+	case http.StatusUnauthorized:
+		return "unauthorized"
+	case http.StatusForbidden:
+		return "forbidden"
+	case http.StatusNotFound:
+		return "not_found"
+	case http.StatusMethodNotAllowed:
+		return "method_not_allowed"
+	case http.StatusMisdirectedRequest:
+		return "unexpected_host"
+	case http.StatusNotImplemented:
+		return "unsupported"
+	case http.StatusServiceUnavailable:
+		return "unavailable"
+	default:
+		return "internal"
+	}
 }

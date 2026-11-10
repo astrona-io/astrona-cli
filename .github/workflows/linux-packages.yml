@@ -5,6 +5,7 @@ on:
     paths:
       - 'packaging/**'
       - '.github/scripts/*linux-package*'
+      - '.github/scripts/*workspace-web*'
       - '.github/workflows/linux-packages.yml'
       - '.github/workflows/release.yml'
       - 'cmd/**'
@@ -42,6 +43,14 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: internal/workspace/web/.nvmrc
+          cache: npm
+          cache-dependency-path: internal/workspace/web/package-lock.json
+      # Embedded into astrona; build-linux-package.sh refuses the placeholder.
+      - name: Build workspace frontend
+        run: .github/scripts/build-workspace-web.sh
       - name: Install pinned package builder
         run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.47.0
       - name: Build package
@@ -105,6 +114,14 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: internal/workspace/web/.nvmrc
+          cache: npm
+          cache-dependency-path: internal/workspace/web/package-lock.json
+      # Embedded into astrona; build-linux-package.sh refuses the placeholder.
+      - name: Build workspace frontend
+        run: .github/scripts/build-workspace-web.sh
       - name: Install Snapcraft
         run: sudo snap install snapcraft --classic
       # Snapcraft runs as the runner user, so it can't refresh apt's package

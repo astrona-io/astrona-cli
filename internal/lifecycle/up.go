@@ -57,6 +57,9 @@ func Validate(cfg *config.LabConfig) error {
 	if err := config.ValidatePortForwards(cfg.Runtime); err != nil {
 		return err
 	}
+	if err := config.ValidateTabs(cfg); err != nil {
+		return err
+	}
 	return nil
 }
 

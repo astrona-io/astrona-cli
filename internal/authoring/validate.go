@@ -124,6 +124,28 @@ func CheckConfig(cfg *config.LabConfig, baseDir string) []preflight.Result {
 			res = append(res, preflight.Result{Status: preflight.Warn, Name: where, Detail: fmt.Sprintf("'%s' not found", path)})
 		}
 	}
+	// A docs tab's file is shown in the browser workspace; a missing or
+	// oversized one would fail `astrona run`, so it fails here.
+	for i, t := range cfg.Tabs {
+		if t.Type != config.TabDocs || t.File == "" {
+			continue
+		}
+		where := fmt.Sprintf("tabs[%d].file", i)
+		full, err := config.JoinWithinBaseDir(baseDir, t.File)
+		if err != nil {
+			fail(where, err.Error())
+			continue
+		}
+		info, err := os.Stat(full)
+		switch {
+		case err != nil:
+			fail(where, fmt.Sprintf("'%s' not found", t.File))
+		case !info.Mode().IsRegular():
+			fail(where, fmt.Sprintf("'%s' is not a file", t.File))
+		case info.Size() > config.MaxTabDocBytes:
+			fail(where, fmt.Sprintf("'%s' is larger than %d KiB", t.File, config.MaxTabDocBytes>>10))
+		}
+	}
 
 	if len(res) == 0 {
 		res = append(res, preflight.Result{Name: "lab config", Detail: "valid"})

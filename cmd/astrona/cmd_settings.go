@@ -142,6 +142,8 @@ func completeSetting(cmd *cobra.Command, args []string, toComplete string) ([]st
 		switch args[0] {
 		case "verbose", "keep-context", "update-check", "login-reminder", "usage-samples":
 			values = []string{"yes", "no"}
+		case "browser":
+			values = []string{settings.BrowserAsk, settings.BrowserAlways, settings.BrowserNever}
 		}
 	}
 	return values, cobra.ShellCompDirectiveNoFileComp
@@ -159,6 +161,11 @@ func applyUserSettings(cmd *cobra.Command, flags *rootFlags) error {
 	flags.settingsArgs = nil
 	for _, def := range settings.Definitions() {
 		value, ok := saved[def.Key]
+		// The browser preference is read by run itself: its --browser flag
+		// is a one-run answer, not the saved ask/always/never.
+		if def.Key == "browser" {
+			continue
+		}
 		flag := cmd.Flags().Lookup(def.Key)
 		if !ok || flag == nil || flag.Changed {
 			continue

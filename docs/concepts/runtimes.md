@@ -167,17 +167,17 @@ Inside `astrona shell`, `$ASTRONA_LAB` holds the lab name (e.g. add it to your p
 
 ### Terminal workspaces
 
-Kind terminals in the UI and `astrona shell` run in a dedicated container.
+Kind terminals in the browser workspace and `astrona shell` run in a dedicated container.
 `/workspace` is both the starting directory and `$HOME`, backed by
 `~/.astrona/runtime/<lab>/work` on your machine (`~/.astrona-dev` for development
-builds). New tabs and reopened terminals share this directory. To bring in a
+builds). New and reopened terminals share this directory. To bring in a
 file, copy it into that directory from your normal host terminal.
 
 The first opening builds a tools image with Bash, kubectl, Helm, k9s, Git,
 Python, Vim and Nano. Later openings reuse it. This requires a running Docker
 or Podman engine and internet access for the first build. Host binaries and
 shell startup files are not available inside the terminal. Run Astrona commands,
-including `astrona resource`, from your normal host terminal or use the UI controls.
+including `astrona resource`, from your normal host terminal.
 
 The container receives only this lab's Kubernetes credentials, including its
 linked clusters. It has a read-only system filesystem, no added Linux capabilities,
@@ -194,7 +194,7 @@ SSH local-command escapes, user SSH configuration and agent forwarding are disab
 The CLI's own SSH connections that run lab scripts as the `astrona` account use the
 same isolation, plus key-only, non-interactive login with a connect timeout.
 
-Closing a tab, returning to Home or reopening the UI preserves workspace files.
+Closing a terminal or reopening the browser workspace preserves workspace files.
 Deleting the lab or playground and a full reset discard them. A soft reset keeps
 Kind workspace files. Copy anything you want to keep out before deleting a run.
 

@@ -3,88 +3,45 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
-	"strings"
 
 	"astrona/internal/account"
 	"astrona/internal/labops"
 	"astrona/internal/settings"
-	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
 
 type guestRunChoice struct{ accepted, login, never bool }
-type guestRunModel struct {
-	width, height, focus int
-	choice               guestRunChoice
-	local                bool
-}
 
-func (m guestRunModel) Init() tea.Cmd { return nil }
-func (m guestRunModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.width, m.height = msg.Width, msg.Height
-	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "esc", "q", "ctrl+c":
-			return m, tea.Quit
-		case "tab", "right", "down":
-			m.focus = (m.focus + 1) % 3
-		case "shift+tab", "left", "up":
-			m.focus = (m.focus + 2) % 3
-		case "space":
-			if m.focus == 2 {
-				m.choice.never = !m.choice.never
-			}
-		case "enter":
-			if m.width < 48 || m.height < 14 {
-				return m, nil
-			}
-			if m.focus == 2 {
-				m.choice.never = !m.choice.never
-				return m, nil
-			}
-			m.choice.accepted, m.choice.login = true, m.focus == 0
-			return m, tea.Quit
-		}
-	}
-	return m, nil
-}
-func (m guestRunModel) View() tea.View {
-	v := tea.NewView(m.render())
-	v.AltScreen = true
-	return v
-}
-
-func (m guestRunModel) render() string {
-	if m.width < 48 || m.height < 14 {
-		return workspaceFit("Resize to 48 × 14. Esc cancels startup.", m.width, m.height)
-	}
+// askGuestRun asks a signed-out user in a terminal whether to log in before
+// the lab starts: yes logs in, no continues as a guest, never continues as a
+// guest and saves login-reminder=no. The question goes to out (stderr).
+func askGuestRun(in io.Reader, out io.Writer, local bool) (guestRunChoice, error) {
 	text := "You're not logged in. Log in to track your lab progress and results on Astrona."
-	if m.local {
+	if local {
 		text = "You're not logged in. Log in to track progress on catalog labs. This local lab will stay local."
 	}
-	buttons := []string{"Log in", "Continue as guest"}
-	for i := range buttons {
-		if i == m.focus {
-			buttons[i] = "[ " + buttons[i] + " ]"
+	fmt.Fprintln(out, text)
+	for {
+		fmt.Fprint(out, "Log in now? (yes = log in, no = continue as guest, never = continue as guest and stop asking): ")
+		answer, err := readAnswerLine(in)
+		if err != nil {
+			return guestRunChoice{}, fmt.Errorf("login question interrupted; no lab was started: %w", err)
+		}
+		switch answer {
+		case "yes", "y":
+			return guestRunChoice{accepted: true, login: true}, nil
+		case "no", "n":
+			return guestRunChoice{accepted: true}, nil
+		case "never":
+			return guestRunChoice{accepted: true, never: true}, nil
+		default:
+			fmt.Fprintln(out, "Please enter yes, no or never.")
 		}
 	}
-	check := "[ ] Never ask again"
-	if m.choice.never {
-		check = "[x] Never ask again"
-	}
-	if m.focus == 2 {
-		check = "> " + check
-	}
-	width := min(68, m.width-4)
-	body := workspacePage(text, width-4, 4, 0) + "\n\n" + strings.Join(buttons, "    ") + "\n\n" + check + "\n\nTab/arrows choose · Space checks · Enter accepts\nEsc cancels this run"
-	box := workspacePanel("TRACK YOUR PROGRESS", body, width, 14, workspaceFocus)
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
 }
 
 func guestReminderEnabled(flags *rootFlags) (bool, error) {
@@ -139,13 +96,10 @@ func confirmGuestLabRun(cmd *cobra.Command, flags *rootFlags, acct *labops.Accou
 			return acct, true, nil
 		}
 	}
-	uiPaneTitle("TRACK YOUR PROGRESS")
-	defer uiPaneTitle("SETUP")
-	result, err := runUIProgram(guestRunModel{local: flags.catalogLab == ""}, tea.WithContext(cmd.Context()), tea.WithInput(cmd.InOrStdin()), tea.WithOutput(cmd.OutOrStdout()))
+	choice, err := askGuestRun(cmd.InOrStdin(), promptOut, flags.catalogLab == "")
 	if err != nil {
-		return nil, false, fmt.Errorf("login reminder: %w", err)
+		return nil, false, err
 	}
-	choice := result.(guestRunModel).choice
 	if err := saveGuestChoice(flags, choice); err != nil {
 		return nil, false, err
 	}
@@ -156,7 +110,6 @@ func confirmGuestLabRun(cmd *cobra.Command, flags *rootFlags, acct *labops.Accou
 	if err != nil {
 		return nil, false, err
 	}
-	uiPaneTitle("SETUP / SIGN IN")
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)
 	defer stop()
 	return loginForRun(ctx, flags, client, store, site)

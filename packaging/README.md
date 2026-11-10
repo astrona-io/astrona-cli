@@ -11,9 +11,12 @@ private tool lookup, Git/HTTPS access, package-owned upgrade protection, reinsta
 without deleting user data. Actual Kubernetes lab lifecycle tests remain in
 the Kind integration workflows.
 
-Build a native package:
+Build a native package. The browser workspace frontend is embedded into the
+binary, so build it first (needs Node, see `internal/workspace/web/.nvmrc`);
+the package script refuses the placeholder page:
 
 ```sh
+.github/scripts/build-workspace-web.sh
 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.47.0
 bash .github/scripts/build-linux-package.sh deb v0.3.0 amd64 dist
 bash .github/scripts/build-linux-package.sh rpm v0.3.0 arm64 dist
@@ -33,7 +36,9 @@ machine, since Snapcraft can install build dependencies on the host.
 Tool versions are pinned in `tools.env`; downloads are verified against the
 upstream release checksums before packaging. Update these pins deliberately,
 review the upstream release notes and run the package and Kind integration
-workflows. Kind/kubectl/ORAS binaries and their Apache licenses are included.
+workflows. Kind/kubectl/ORAS binaries and their Apache licenses are included,
+and so are the licenses of the workspace page's bundled packages
+(`THIRD_PARTY_NOTICES-workspace.txt`).
 The CLI uses sibling `tools/` inside packages and never installs or replaces
 host binaries named `kind`, `kubectl` or `oras`.
 

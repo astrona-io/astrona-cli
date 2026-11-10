@@ -66,7 +66,7 @@ func changedSettings(previous, current map[string]ReviewedSetting) []string {
 		}
 	}
 	for key := range previous {
-		if _, ok := current[key]; !ok {
+		if _, ok := current[key]; !ok && !withdrawn[key] {
 			keys = append(keys, key)
 		}
 	}

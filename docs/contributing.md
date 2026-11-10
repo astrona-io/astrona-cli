@@ -30,7 +30,7 @@ Run `just` with no arguments to list every recipe.
 just build
 ./astrona --help
 ./astrona settings path
-./astrona run ./examples/k8s-basics-01 --ui
+./astrona run ./examples/k8s-basics-01 --browser
 ```
 
 Or build and run in one step:
@@ -38,7 +38,7 @@ Or build and run in one step:
 ```sh
 just run --help
 just run settings path
-just run run ./examples/k8s-basics-01 --ui
+just run run ./examples/k8s-basics-01 --browser
 ```
 
 `./cmd/astrona` is the Go source directory, not the executable. Running it

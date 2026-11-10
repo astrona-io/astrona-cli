@@ -29,7 +29,7 @@ func termsExempt(cmd *cobra.Command) bool {
 	// usage-reporter, outbox-flush) are only started by a command that
 	// already passed this gate; --accept-terms is not passed down to them.
 	switch path {
-	case "help", "docgen", "schema", "__complete", "__completeNoDesc", "playground-watchdog", "port-forward supervise", "usage-reporter", "outbox-flush", "stop", "destroy", "logout", "port-forward stop":
+	case "help", "docgen", "schema", "__complete", "__completeNoDesc", "playground-watchdog", "port-forward supervise", "usage-reporter", "outbox-flush", "stop", "destroy", "logout", "port-forward stop", "ui serve", "ui stop", "ui status":
 		return true
 	}
 	for _, name := range []string{"completion", "settings", "data"} {
