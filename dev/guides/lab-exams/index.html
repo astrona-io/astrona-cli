@@ -5157,7 +5157,10 @@ exam needs and stops. Nothing is counted.</p>
 <p>If they fit, the tasks are drawn and astrona:</p>
 <ol>
 <li>builds every cluster in parallel (<code>--parallel</code> sets how many at once);</li>
-<li>applies each task's setup to the cluster it is assigned to;</li>
+<li>applies each task's setup to the cluster it is assigned to, with the
+   lab's own CA first when the lab has one (<code>sharedCA</code>). The setup scripts
+   and later the grading run with that cluster's <code>exam-&lt;n&gt;</code> context (see
+   <a href="../../concepts/runtimes/#kind-default">runtimes</a>);</li>
 <li>adds a kubectl context for each cluster: <code>exam-1</code>, <code>exam-2</code>, and so on;</li>
 <li>opens the exam page (<code>--no-browser</code> prints its address instead).</li>
 </ol>
