@@ -5574,7 +5574,7 @@ See the <a href="../../guides/browser-workspace/">browser workspace guide</a>.</
 <tr>
 <td>409</td>
 <td><code>environment_kept</code></td>
-<td><code>POST /destroy</code> on a lab with <code>teardown.keepCluster</code>. Nothing was removed.</td>
+<td><code>POST /destroy</code> on a lab from your own files with <code>teardown.keepCluster</code>. Nothing was removed.</td>
 </tr>
 <tr>
 <td>404</td>
@@ -5926,14 +5926,13 @@ answer; Kind labs are then missing from the list.</p>
 <a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a><span class="w">  </span><span class="nt">"canSubmit"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 <a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a><span class="w">  </span><span class="nt">"submit"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a><span class="w">    </span><span class="nt">"tracking"</span><span class="p">:</span><span class="w"> </span><span class="s2">"account"</span><span class="p">,</span>
-<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a><span class="w">    </span><span class="nt">"keepEnvironment"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a><span class="w">    </span><span class="nt">"grading"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a><span class="w">    </span><span class="nt">"submitted"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a><span class="w">    </span><span class="nt">"blocked"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
-<a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a><span class="w">  </span><span class="nt">"account"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"signed-in"</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ada"</span><span class="p">,</span><span class="w"> </span><span class="nt">"site"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://astrona.io"</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a><span class="w">  </span><span class="nt">"runAgain"</span><span class="p">:</span><span class="w"> </span><span class="s2">"astrona run astrona.io/ATS014/section-010/module-01/lab-02"</span>
-<a id="__codelineno-6-40" name="__codelineno-6-40" href="#__codelineno-6-40"></a><span class="p">}</span>
+<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a><span class="w">    </span><span class="nt">"grading"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a><span class="w">    </span><span class="nt">"submitted"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a><span class="w">    </span><span class="nt">"blocked"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
+<a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a><span class="w">  </span><span class="nt">"account"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"signed-in"</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ada"</span><span class="p">,</span><span class="w"> </span><span class="nt">"site"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://astrona.io"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a><span class="w">  </span><span class="nt">"runAgain"</span><span class="p">:</span><span class="w"> </span><span class="s2">"astrona run astrona.io/ATS014/section-010/module-01/lab-02"</span>
+<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a><span class="p">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -5998,10 +5997,6 @@ answer; Kind labs are then missing from the list.</p>
 <tr>
 <td><code>submit.tracking</code></td>
 <td>Where a result goes. <code>account</code>: the run has an Astrona lab session; the result is sent when astrona is signed in to that site. <code>local-only</code>: never sent. <code>none</code>: no lab session; the result stays on this machine.</td>
-</tr>
-<tr>
-<td><code>submit.keepEnvironment</code></td>
-<td>The lab sets <code>teardown.keepCluster</code>: a submission never removes the environment, and <code>POST /destroy</code> refuses.</td>
 </tr>
 <tr>
 <td><code>submit.grading</code></td>
@@ -6086,11 +6081,12 @@ confirmed submission).</p>
 <li>The result is saved in this machine's attempt history.</li>
 <li>It is sent where the run is tracked (<code>submit.tracking</code>). A <code>local-only</code> run
    is never sent; a run without a lab session stays on this machine.</li>
-<li>When the attempt is finished (a pass that was sent or queued, or a
-   <code>local-only</code> run's pass saved) and the lab does not keep its environment,
-   the environment is removed: terminals are closed first, then the cluster is
-   deleted. A fail, or a result that is not sent, leaves the environment
-   running and the attempt open: submit again after fixing the lab.</li>
+<li>Every recorded result ends the attempt, pass or fail: one that was sent or
+   queued, or, for a run without a lab session (<code>local-only</code> or <code>none</code>), one
+   saved here. The environment is then removed: terminals are closed first,
+   then the cluster is deleted. <code>teardown.keepCluster</code> does not keep it. Only
+   a tracked result Astrona refuses, or one that cannot be sent or queued,
+   leaves the environment running (<code>finished</code> is <code>false</code>).</li>
 </ol>
 <p>Grading can take minutes; the response waits for it. The work does not depend
 on the request: if the connection drops, grading goes on and
@@ -6154,7 +6150,7 @@ nothing is recorded or sent and the lab keeps running.</p>
 </tr>
 <tr>
 <td><code>finished</code></td>
-<td>The attempt is over: a pass that was sent or queued, or a <code>local-only</code> run's pass saved. A fail never finishes it.</td>
+<td>The attempt is over, pass or fail: the result was sent or queued, or saved here for a run without a lab session. The environment is then removed.</td>
 </tr>
 <tr>
 <td><code>environmentRemoved</code></td>
@@ -6193,8 +6189,9 @@ was never submitted. Read-only.</p>
 <li>A <strong>lab</strong> is removed as <code>astrona destroy &lt;lab&gt;</code> does: teardown scripts run
   when the lab is trusted (skipped with a message otherwise), the cluster is
   deleted, the exam clock is cleared, and the Astrona lab page is told the lab
-  was removed. A lab with <code>teardown.keepCluster</code> answers
-  <code>409 environment_kept</code> and nothing is removed.</li>
+  was removed. A lab from your own files with <code>teardown.keepCluster</code> answers
+  <code>409 environment_kept</code> and nothing is removed; a catalog or tracked lab is
+  always removed.</li>
 </ul>
 <p>Response: <code>200 {"environmentRemoved": true, "messages": ["…"]}</code>.</p>
 <p>Errors: <code>409 run_changed</code>, <code>409 submit_in_progress</code>, <code>409 environment_kept</code>,

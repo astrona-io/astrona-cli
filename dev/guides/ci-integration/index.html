@@ -5187,7 +5187,7 @@ deprecated alias for existing scripts and prints a migration notice.</p>
 </tr>
 <tr>
 <td><code>submit</code></td>
-<td>Grade and send results for an existing tracked session. A FAIL keeps the lab for another submit; a server-confirmed (or queued) PASS deletes it — use <code>--keep</code> to retain the lab. A local-only run (<code>--local-only</code>, a UI restart) has nothing to send, so its saved local PASS finishes it too. A result Astrona cannot be reached for is queued and sent later under the same key.</td>
+<td>Grade and send results for an existing tracked session. Every recorded result, PASS or FAIL, ends the attempt; once it is server-confirmed (or queued) the lab is deleted, and there is no option to keep it. A run with nothing to send (<code>--local-only</code>, a UI restart, a lab from your own files) is finished the same way once its result is saved locally. A result Astrona cannot be reached for is queued and sent later under the same key. Use <code>submit --watch</code> to grade without ending the attempt.</td>
 </tr>
 <tr>
 <td><code>start</code>, <code>stop</code>, <code>destroy</code>, <code>list</code>, <code>status</code>, <code>progress</code></td>
@@ -5227,7 +5227,7 @@ mean offline. It suppresses automatic release checks. Explicit account commands,
 submissions for an existing tracked session, and cleanup of that session retain
 their normal API behavior.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>astrona<span class="w"> </span>reset<span class="w"> </span>./examples/k8s-basics-01<span class="w"> </span>--headless<span class="w"> </span>--yes<span class="w"> </span>--accept-terms
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>astrona<span class="w"> </span>submit<span class="w"> </span>./examples/k8s-basics-01<span class="w"> </span>--headless<span class="w"> </span>--accept-terms<span class="w"> </span>--keep<span class="w"> </span>-o<span class="w"> </span>json
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>astrona<span class="w"> </span>submit<span class="w"> </span>./examples/k8s-basics-01<span class="w"> </span>--headless<span class="w"> </span>--accept-terms<span class="w"> </span>-o<span class="w"> </span>json<span class="w">   </span><span class="c1"># ends the run and deletes the lab</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./examples/k8s-basics-01<span class="w"> </span>--headless<span class="w"> </span>--accept-terms<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
 </code></pre></div>
 <h2 id="minimal-github-actions-job">Minimal GitHub Actions job<a class="headerlink" href="#minimal-github-actions-job" title="Permanent link">&para;</a></h2>

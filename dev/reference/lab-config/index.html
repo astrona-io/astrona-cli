@@ -6379,7 +6379,7 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <tr>
 <td><code>keepCluster</code></td>
 <td>bool</td>
-<td>Skip destroying the environment (linked clusters included) after teardown scripts run</td>
+<td>For a lab from your own files: <code>astrona destroy</code> skips destroying the environment (linked clusters included) after teardown scripts run. Ignored for a catalog lab or a run with a lab session, and by <code>astrona submit</code> and <code>astrona reset</code>, which always remove it</td>
 </tr>
 </tbody>
 </table>
