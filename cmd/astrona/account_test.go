@@ -210,7 +210,7 @@ func TestLoginWhoamiLogout(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-	if strings.TrimSpace(out) != "Signed in as student1 on "+srv.URL {
+	if !strings.HasPrefix(out, "Signed in as student1 on "+srv.URL+"\nDevice key: ") {
 		t.Errorf("whoami = %q", out)
 	}
 	out = captureStdout(t, func() {

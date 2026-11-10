@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"astrona/internal/config"
+	"astrona/internal/labops"
 	"astrona/internal/preflight"
 
 	"github.com/spf13/cobra"
@@ -119,6 +120,7 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 				envRes = append(envRes, preflight.CheckInotify("/proc")...)
 			}
 			envFailed := printCheckResults("Container engine", envRes)
+			printCheckResults("Sign-in", []preflight.Result{deviceKeyCheck()})
 
 			explicit := cmd.Flags().Changed("config") || cmd.Flags().Changed("file") || cmd.Flags().Changed("git")
 			cfg, baseDir, cleanup, err := loadLabForCheck(flags, explicit)
@@ -146,6 +148,31 @@ func newCheckCmd(flags *rootFlags) *cobra.Command {
 	return cmd
 }
 
+// deviceKeyCheck is check's line on this computer's device key and where it
+// is kept. It reads the saved sign-in only; nothing is sent.
+func deviceKeyCheck() preflight.Result {
+	r := preflight.Result{Name: "Device key"}
+	_, store, _, err := labops.AccountDeps()
+	if err != nil {
+		r.Status, r.Detail = preflight.Warn, err.Error()
+		return r
+	}
+	creds, err := store.Load()
+	switch {
+	case err != nil:
+		r.Status, r.Detail, r.Hint = preflight.Warn, err.Error(), "astrona login"
+	case creds == nil:
+		r.Detail = "not signed in (astrona login makes one)"
+	case creds.KeyLost():
+		r.Status, r.Detail, r.Hint = preflight.Warn, deviceKeyLine(creds), "astrona login"
+	case creds.HasKey():
+		r.Detail = creds.KeyID + " in " + store.KeyFile().Path
+	default:
+		r.Detail = deviceKeyLine(creds)
+	}
+	return r
+}
+
 // checkAsJSON is `astrona check -o json`: the same checks as one document.
 func checkAsJSON(cmd *cobra.Command, flags *rootFlags) error {
 	rep := &report{json: true}
@@ -167,6 +194,7 @@ func checkAsJSON(cmd *cobra.Command, flags *rootFlags) error {
 		envRes = append(envRes, preflight.CheckInotify("/proc")...)
 	}
 	rep.section("Container engine", envRes)
+	rep.section("Sign-in", []preflight.Result{deviceKeyCheck()})
 	explicit := cmd.Flags().Changed("config") || cmd.Flags().Changed("file") || cmd.Flags().Changed("git")
 	cfg, baseDir, cleanup, err := loadLabForCheck(flags, explicit)
 	defer cleanup()

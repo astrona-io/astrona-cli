@@ -26,6 +26,12 @@ var (
 	ErrRevoked = errors.New("this computer was signed out from the website")
 	// ErrReplaced: another `astrona connect` for this computer took over.
 	ErrReplaced = errors.New("another astrona connect on this computer took over the connection")
+	// ErrHandshakeFailed: the site refused this computer's key proof (close
+	// 4007). Retrying would not help; `astrona login` makes a new key.
+	ErrHandshakeFailed = errors.New("this computer's key does not match its sign-in. Run `astrona login`")
+	// ErrTransportRequired: the site needs a device key this sign-in lacks
+	// (close 4006).
+	ErrTransportRequired = errors.New("the site needs a device key for this computer. Update the CLI and run `astrona login`")
 	// ErrRejected marks a Runner error as a refusal (the command was not
 	// run at all) rather than a failure.
 	ErrRejected = errors.New("refused")
@@ -89,8 +95,9 @@ type client struct {
 }
 
 // Run keeps this computer connected until ctx is done (nil), the site
-// revokes it (ErrRevoked) or replaces it (ErrReplaced), or the sign-in is
-// gone (wrapping account.ErrSignedOut). Drops reconnect with backoff, 1 s
+// revokes it (ErrRevoked) or replaces it (ErrReplaced), refuses its key
+// (ErrHandshakeFailed, ErrTransportRequired, *account.ProofError), or the
+// sign-in is gone (wrapping account.ErrSignedOut). Drops reconnect with backoff, 1 s
 // doubling to 60 s with jitter. It returns only once a command that was
 // running has returned too, so the command can clean up after itself.
 func Run(ctx context.Context, o Options) error {
@@ -172,7 +179,7 @@ func (c *client) connectOnce(ctx context.Context, last *Disconnect, attempts int
 		return d
 	}
 	creds, err := c.o.Client.Active(ctx, c.o.Store, c.o.Site)
-	if errors.Is(err, account.ErrSignedOut) {
+	if errors.Is(err, account.ErrSignedOut) || account.IsProofError(err) {
 		return nil, err
 	}
 	if err != nil {
@@ -198,6 +205,21 @@ func (c *client) connectOnce(ctx context.Context, last *Disconnect, attempts int
 
 	hello := c.o.Hello(ctx)
 	hello.Type = "hello"
+	if creds.HasKey() {
+		// The site speaks first: a challenge to sign with this computer's key.
+		challenge, err := readFrame(ctx, ws, welcomeTimeout)
+		if err != nil {
+			return c.ended(ctx, creds, ws, err, lost)
+		}
+		if challenge.Type != "challenge" {
+			ws.Close(CloseProtocolError, "expected challenge")
+			return lost("protocol", fmt.Errorf("expected challenge, got %q", clean(challenge.Type, 32)), CloseProtocolError), nil
+		}
+		if hello.Proof, err = creds.ConnectProof(challenge.Nonce, challenge.ConnectionID); err != nil {
+			ws.Close(CloseProtocolError, "bad challenge")
+			return lost("protocol", err, CloseProtocolError), nil
+		}
+	}
 	c.mu.Lock()
 	hello.Running = c.running
 	c.mu.Unlock()
@@ -211,6 +233,11 @@ func (c *client) connectOnce(ctx context.Context, last *Disconnect, attempts int
 		return c.ended(ctx, creds, ws, err, lost)
 	}
 	welcome, err := readFrame(ctx, ws, welcomeTimeout)
+	if err == nil && welcome.Type == "challenge" && hello.Proof == "" {
+		// A sign-in whose key is lost: the site decides (4007, or welcome
+		// while it does not check keys).
+		welcome, err = readFrame(ctx, ws, welcomeTimeout)
+	}
 	if err != nil {
 		return c.ended(ctx, creds, ws, err, lost)
 	}
@@ -266,6 +293,10 @@ func (c *client) ended(ctx context.Context, creds *account.Credentials, ws *webs
 		return nil, ErrRevoked
 	case CloseReplaced:
 		return nil, ErrReplaced
+	case CloseHandshakeFailed:
+		return nil, ErrHandshakeFailed
+	case CloseTransportRequired:
+		return nil, ErrTransportRequired
 	case CloseUnauthorized:
 		return c.unauthorized(ctx, creds, lost("unauthorized", nil, code))
 	case CloseHeartbeatTimeout:
@@ -293,7 +324,7 @@ func (c *client) unauthorized(ctx context.Context, creds *account.Credentials, d
 		_, err = c.o.Client.Active(ctx, c.o.Store, c.o.Site)
 	}
 	if err != nil {
-		if errors.Is(err, account.ErrSignedOut) {
+		if errors.Is(err, account.ErrSignedOut) || account.IsProofError(err) {
 			return nil, err
 		}
 		d.Error = clean(err.Error(), 240)

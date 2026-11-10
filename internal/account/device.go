@@ -8,7 +8,10 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
+
+	"astrona/internal/transport"
 )
 
 var (
@@ -57,6 +60,10 @@ type Client struct {
 	Now  func() time.Time
 	// Sleep waits d or until ctx is done (overridden in tests).
 	Sleep func(ctx context.Context, d time.Duration) error
+
+	// skew is how far (seconds) the site's clock is ahead of this one, from
+	// its answers' Date header; request proofs are timed by the site's clock.
+	skew atomic.Int64
 }
 
 // NewClient returns a Client with the package's HTTP defaults.
@@ -144,6 +151,19 @@ type Device struct {
 	// PreviousRefreshToken is this computer's current sign-in, if any: the
 	// site replaces that one instead of counting this as another computer.
 	PreviousRefreshToken string `json:"previous_refresh_token,omitempty"`
+	// Registration is this computer's new device key (signing_key, dh_key,
+	// key_proof); none for a computer that could not make one.
+	*transport.Registration
+
+	key *transport.Key
+}
+
+// WithKey returns d registering key: the sign-in then proves every call
+// with it.
+func (d Device) WithKey(key *transport.Key) Device {
+	reg := key.Register(nil)
+	d.Registration, d.key = &reg, key
+	return d
 }
 
 // DeviceName is the name sent for this computer: its hostname, printable
@@ -209,6 +229,10 @@ type Tokens struct {
 	RefreshToken string `json:"refresh_token"`
 	Username     string `json:"username"`
 	DeviceID     string `json:"device_id"`
+	// KeyID is the fingerprint of the device key the site holds for this
+	// sign-in (null from a site without device keys, or for a device
+	// without one).
+	KeyID string `json:"key_id"`
 }
 
 func (t *Tokens) check() error {
@@ -223,6 +247,7 @@ func (t *Tokens) check() error {
 	}
 	t.Username = sanitize(t.Username)
 	t.DeviceID = sanitize(t.DeviceID)
+	t.KeyID = sanitize(t.KeyID)
 	return nil
 }
 
@@ -286,8 +311,9 @@ func (c *Client) PollToken(ctx context.Context, sc SiteConfig, dc DeviceCode) (T
 }
 
 // refresh exchanges cr's refresh token for new tokens (the refresh token
-// rotates: the old one stops working). An invalid_grant (expired, revoked,
-// or already used) is ErrSignedOut.
+// rotates: the old one stops working). A device with a key proves it over
+// the refresh token. An invalid_grant (expired, revoked, or already used)
+// is ErrSignedOut; a refused proof is a *ProofError.
 func (c *Client) refresh(ctx context.Context, cr *Credentials) (Tokens, error) {
 	var t Tokens
 	sc, err := c.FetchSiteConfig(ctx, cr.Site)
@@ -295,7 +321,15 @@ func (c *Client) refresh(ctx context.Context, cr *Credentials) (Tokens, error) {
 		return t, fmt.Errorf("could not renew your sign-in: %w", err)
 	}
 	grant := refreshGrant{GrantType: "refresh_token", RefreshToken: cr.RefreshToken}
-	if _, err := postJSON(ctx, c.HTTP, sc.TokenEndpoint, grant, &t); err != nil {
+	req, err := jsonRequest(ctx, http.MethodPost, sc.TokenEndpoint, grant)
+	if err != nil {
+		return t, err
+	}
+	if _, err := c.signed(req, cr.key, cr.RefreshToken, &t, maxResponse); err != nil {
+		var pe *ProofError
+		if errors.As(err, &pe) {
+			return t, err
+		}
 		var he *httpError
 		if errors.As(err, &he) && (he.Code == "invalid_grant" || he.Code == "invalid_token") {
 			return t, fmt.Errorf("your sign-in has expired or was revoked: %w", ErrSignedOut)

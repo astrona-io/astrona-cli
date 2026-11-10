@@ -19,7 +19,9 @@ func newWhoamiCmd() *cobra.Command {
 		Short: "Show which Astrona account this computer is signed in to",
 		Long: "Show the Astrona account and site this computer is signed in to, renewing the sign-in " +
 			"if it has expired. Exits 1 when signed out, with how to sign in.\n\n" +
-			"With -o json, stdout is one document {signedIn, username, site} — also when signed " +
+			"It also prints this computer's device key fingerprint: the same string the website shows " +
+			"for this computer under Settings → Devices, so you can tell which row is this one.\n\n" +
+			"With -o json, stdout is one document {signedIn, username, site, keyId} — also when signed " +
 			"out (signedIn: false), which still exits 1.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,6 +44,7 @@ type whoamiJSON struct {
 	SignedIn bool   `json:"signedIn"`
 	Username string `json:"username,omitempty"`
 	Site     string `json:"site"`
+	KeyID    string `json:"keyId,omitempty"`
 }
 
 func whoami(ctx context.Context, client *account.Client, store account.Store, site string, asJSON bool) error {
@@ -62,12 +65,25 @@ func whoami(ctx context.Context, client *account.Client, store account.Store, si
 		return err
 	}
 	if asJSON {
-		return printJSON(whoamiJSON{SignedIn: true, Username: creds.Username, Site: creds.Site})
+		return printJSON(whoamiJSON{SignedIn: true, Username: creds.Username, Site: creds.Site, KeyID: creds.KeyID})
 	}
 	if creds.Username != "" {
 		fmt.Printf("Signed in as %s on %s\n", creds.Username, creds.Site)
 	} else {
 		fmt.Printf("Signed in on %s\n", creds.Site)
 	}
+	fmt.Printf("Device key: %s\n", deviceKeyLine(creds))
 	return nil
+}
+
+// deviceKeyLine describes this sign-in's device key for whoami and check.
+func deviceKeyLine(creds *account.Credentials) string {
+	switch {
+	case creds.KeyLost():
+		return creds.KeyID + " — missing from this computer, so the site refuses its calls; run astrona login"
+	case creds.HasKey():
+		return creds.KeyID
+	default:
+		return "none yet (made when the sign-in next renews, or by astrona login)"
+	}
 }

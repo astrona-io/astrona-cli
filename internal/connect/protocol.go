@@ -5,7 +5,12 @@
 // The protocol is JSON text frames:
 //
 //	CLI → site   hello (first frame), pong, ack, result
-//	site → CLI   welcome, ping, command
+//	site → CLI   challenge (first, to a computer with a device key),
+//	             welcome, ping, command
+//
+// A computer with a device key waits for the challenge and signs it in its
+// hello's proof (account.Credentials.ConnectProof); the site checks it
+// against the key it registered and closes with 4007 when it does not match.
 //
 // Only the fixed Commands travel down the socket, each naming a catalog lab.
 // The package checks both before anything runs and never accepts a shell
@@ -27,6 +32,12 @@ const (
 	CloseRevoked          = 4003 // signed out from the website: drop the sign-in, do not reconnect
 	CloseProtocolError    = 4004
 	CloseHelloTimeout     = 4005
+	// CloseTransportRequired: the site no longer accepts a computer without
+	// a device key. Stop; the student updates astrona and signs in again.
+	CloseTransportRequired = 4006
+	// CloseHandshakeFailed: the hello's proof does not match this computer's
+	// key. Stop; it does not heal on its own, `astrona login` fixes it.
+	CloseHandshakeFailed = 4007
 )
 
 // Commands is everything the site may ask for, each for one catalog lab.
@@ -73,6 +84,8 @@ type Hello struct {
 	Capacity       *Capacity   `json:"capacity,omitempty"`
 	Running        *Running    `json:"running,omitempty"`
 	LastDisconnect *Disconnect `json:"last_disconnect,omitempty"`
+	// Proof answers the site's challenge, from a computer with a device key.
+	Proof string `json:"proof,omitempty"`
 }
 
 // SessionRef names the lab session a `run` is for. The CLI takes it over
@@ -99,6 +112,7 @@ type frame struct {
 	Lab              string          `json:"lab"`
 	Session          *SessionRef     `json:"session"`
 	ConnectionID     string          `json:"connection_id"`
+	Nonce            string          `json:"nonce"`
 	DeviceID         string          `json:"device_id"`
 	HeartbeatSeconds int             `json:"heartbeat_seconds"`
 }

@@ -119,9 +119,8 @@ func (c *Client) postLabSession(ctx context.Context, cr *Credentials, lab string
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+cr.AccessToken)
 	var ls LabSession
-	if _, err := do(c.HTTP, req, &ls); err != nil {
+	if _, err := c.send(req, cr, &ls); err != nil {
 		return nil, err
 	}
 	if ls.URL == "" {
@@ -141,9 +140,8 @@ func (c *Client) adoptLabSession(ctx context.Context, cr *Credentials, lab, id s
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+cr.AccessToken)
 	var ls LabSession
-	if _, err := do(c.HTTP, req, &ls); err != nil {
+	if _, err := c.send(req, cr, &ls); err != nil {
 		var he *httpError
 		if errors.As(err, &he) && he.Status == http.StatusNotFound {
 			return nil, withMessage(ErrSessionGone, he.Message)
@@ -273,9 +271,8 @@ func (c *Client) postLabResult(ctx context.Context, cr *Credentials, sessionID s
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+cr.AccessToken)
 	var lr LabResult
-	if _, err := do(c.HTTP, req, &lr); err != nil {
+	if _, err := c.send(req, cr, &lr); err != nil {
 		return nil, err
 	}
 	lr.URL = sanitize(lr.URL)
@@ -298,8 +295,7 @@ func (c *Client) UpdateLabSessionProgress(ctx context.Context, cr *Credentials, 
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+cr.AccessToken)
-	if _, err := do(c.HTTP, req, nil); err != nil {
+	if _, err := c.send(req, cr, nil); err != nil {
 		return err
 	}
 	return nil
@@ -359,9 +355,8 @@ func (c *Client) postStop(ctx context.Context, cr *Credentials, sessionID, reaso
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+cr.AccessToken)
 	var out map[string]any
-	_, err = do(c.HTTP, req, &out)
+	_, err = c.send(req, cr, &out)
 	return err
 }
 
@@ -424,9 +419,8 @@ func (c *Client) postRenew(ctx context.Context, cr *Credentials, sessionID strin
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+cr.AccessToken)
 	var out RenewedSession
-	if _, err := do(c.HTTP, req, &out); err != nil {
+	if _, err := c.send(req, cr, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

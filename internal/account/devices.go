@@ -59,9 +59,8 @@ func (c *Client) getDevices(ctx context.Context, cr *Credentials) ([]DeviceInfo,
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+cr.AccessToken)
 	var list []DeviceInfo
-	if _, err := do(c.HTTP, req, &list); err != nil {
+	if _, err := c.send(req, cr, &list); err != nil {
 		return nil, err
 	}
 	return list, nil
