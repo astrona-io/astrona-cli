@@ -133,7 +133,9 @@ finished setting up.
 
 An exam's timer starts when you click **Start**, not when the lab is ready. From
 then on it keeps running if you close the page or lose the connection; the top
-bar counts down to the deadline.
+bar counts down to the deadline. A lab in learning mode has no time limit, so
+after **Start** the top bar counts up instead and shows how long you have spent
+on it.
 
 ## The workspace
 

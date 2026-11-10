@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, toRef, watch } from 'vue'
 import type { Run } from '../api'
-import { formatDuration, useCountdown } from '../clock'
+import { formatDuration, useCountdown, useElapsed } from '../clock'
 import type { ViewStatus } from '../views/types'
 import { endSessionCopy } from '../endSession'
 import AboutDialog from './AboutDialog.vue'
@@ -23,10 +23,16 @@ const aboutOpen = ref(false)
 const showEnd = computed(() => props.run.status !== 'stopped' && props.run.status !== 'failed')
 
 // The timer shows only while a clock runs: the server sets deadlineAt for a
-// started exam and for a playground session with a deadline, never otherwise.
+// started exam and for a playground session with a deadline. A started lab
+// without one shows the time since Start instead.
 const deadline = toRef(() => props.run.deadlineAt)
 const left = useCountdown(deadline)
 const lowTime = computed(() => left.value !== null && left.value <= 5 * 60_000)
+// A started lab without a deadline (learning mode) counts up from Start instead.
+const startedAt = toRef(() =>
+  !props.run.playground && !props.run.deadlineAt && props.run.status === 'running' ? props.run.startedAt : null,
+)
+const elapsed = useElapsed(startedAt)
 
 // Screen readers hear the time at a few milestones only, never every second.
 const politeAnnouncement = ref('')
@@ -73,6 +79,11 @@ watch(left, (ms) => {
         <span class="visually-hidden">Time left: </span>
         <span class="timer__value" aria-hidden="true">{{ formatDuration(left) }}</span>
         <span class="visually-hidden">{{ Math.ceil(left / 60_000) }} minutes</span>
+      </p>
+      <p v-else-if="elapsed !== null" class="timer timer--elapsed" title="Time since you clicked Start; learning labs have no time limit">
+        <span class="visually-hidden">Time spent: </span>
+        <span class="timer__value" aria-hidden="true">{{ formatDuration(elapsed) }}</span>
+        <span class="visually-hidden">{{ Math.floor(elapsed / 60_000) }} minutes</span>
       </p>
       <button type="button" class="btn btn--sm btn--ghost" title="Every lab running on this computer" @click="emit('home')">
         All labs
