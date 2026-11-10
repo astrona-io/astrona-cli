@@ -6026,6 +6026,14 @@ playground Start is accepted and changes nothing.</p>
 <p>Only now does the exam clock start (<code>astrona status</code> and <code>astrona submit</code> see
 it). A run that declined the browser keeps the old behaviour: the clock starts
 when the lab is ready.</p>
+<p>For a run linked to an Astrona lab session, the first Start also tells the site,
+after <code>start.json</code> is written: <code>POST {site}/api/cli/lab-sessions/{id}/start</code>
+with <code>{"at": "&lt;startedAt&gt;"}</code>, through the outbox like the other clock signals.
+It runs in the background and never changes this answer; offline it waits in the
+outbox, and a failure is a warning in the server log. The site keeps the first
+start. <code>astrona ui &lt;lab&gt;</code> for an exam whose clock already started at readiness
+sends the same signal with that time. A local-only or untracked run sends
+nothing.</p>
 <h3 id="post-runslabsubmit"><code>POST /runs/{lab}/submit</code><a class="headerlink" href="#post-runslabsubmit" title="Permanent link">&para;</a></h3>
 <p>Request: <code>{"runId": "&lt;runId&gt;"}</code> with an <code>Idempotency-Key: &lt;key&gt;</code> header (8 to
 128 letters, digits, <code>-</code> or <code>_</code>; the page makes 32 random hex characters per
