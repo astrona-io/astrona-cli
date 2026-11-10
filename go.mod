@@ -3,7 +3,7 @@ module astrona
 go 1.26.5
 
 require (
-	github.com/coder/websocket v1.8.13
+	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
 	github.com/mattn/go-isatty v0.0.24
 	github.com/spf13/cobra v1.10.2
