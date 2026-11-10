@@ -94,6 +94,8 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | `POST /auth/exchange` | Launch code → session token. |
 | `POST /auth/ticket` | Single-use WebSocket ticket. |
 | `GET /server` | Version, profile, features. |
+| `GET /launches/{id}` | A browser-first `astrona run` before its lab exists: terms, setup progress, outcome. |
+| `POST /launches/{id}/terms` | Accept or decline the CLI terms for that run. |
 | `GET /runs` | Labs the workspace was opened for. |
 | `GET /runs/{lab}` | One run: identity, mode, status, clock, questions, targets, tabs. |
 | `GET /runs/{lab}/questions/{id}` | One question rendered to HTML. After **Start** only. |
@@ -123,6 +125,59 @@ GET routes never change saved state, so polling them is safe.
 ```
 
 `assets` is `"placeholder"` when the binary was built without the frontend.
+
+### `GET /launches/{id}`
+
+A launch is one interactive `astrona run` that opened the browser before its
+lab exists. The page finds it from `&launch=<id>` in the link (it rewrites the
+address to `#/launches/<id>`) and polls this route. `astrona run` writes the
+launch; the server only reads it, and notes when the page last asked so the
+command knows whether the tab is still open.
+
+```json
+{
+  "schema": 1,
+  "id": "3f9c…",
+  "pid": 41234,
+  "stage": "preparing",
+  "title": "Kubernetes playground",
+  "events": [
+    {"at": "…", "kind": "section", "label": "Cluster"},
+    {"at": "…", "kind": "step", "label": "Create kind cluster"},
+    {"at": "…", "kind": "ok", "label": "Create kind cluster", "seconds": 41.2}
+  ],
+  "status": "waiting for CoreDNS · 12s",
+  "logPath": "~/.astrona/logs/…",
+  "alive": true
+}
+```
+
+| `stage` | Meaning |
+| --- | --- |
+| `terms` | Waiting for the terms. `terms` holds `revision`, `sha256` and `text`, exactly as the running CLI ships them. |
+| `checking` | Resolving the lab. The terminal may ask a question. |
+| `preparing` | Building the lab; `events` and `status` show progress. |
+| `ready` | `lab` names the run the page opens next (`GET /runs/{lab}`). |
+| `failed` | `error` says why. |
+| `declined` | The terms were declined; nothing was started. |
+| `ended` | The command stopped without a lab for this page; `message` says why. |
+
+`alive` is false once the `astrona run` process has exited; with a stage that
+is not final, the command was stopped. `answered` (`accepted` or `declined`)
+appears once the terms were answered. At most 200 events are kept. Launches
+older than a day are removed.
+
+Errors: `404 launch_gone` (removed, or never existed).
+
+### `POST /launches/{id}/terms`
+
+Request: `{"accept": true, "sha256": "<terms.sha256>"}`. Writes the answer
+for the waiting command, which saves the receipt (method `browser`) or stops.
+
+Response: `200 {"accepted": true}`.
+
+Errors: `404 launch_gone`; `409 not_asking` (not at `terms`, or the command
+exited); `409 terms_changed` (the digest does not match); `409 answered`.
 
 ### `GET /runs`
 
@@ -466,6 +521,8 @@ separate window instead.
 | --- | --- | --- |
 | `~/.astrona/workspace/server.json` | server | PID, port, start time, version, per-start secret. |
 | `~/.astrona/workspace/server.log` | server | Its log. |
+| `~/.astrona/workspace/launches/<id>/launch.json` | `astrona run` | A browser-first run before its lab exists: stage, terms notice, setup progress. |
+| `~/.astrona/workspace/launches/<id>/answer.json` | server | The page's answer to the terms. |
 | `~/.astrona/workspace/runs/<lab>/run.json` | `astrona run` | What the page shows for that run: title, mode, rules, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs). Never the solution or the validation block. |
 | `~/.astrona/workspace/runs/<lab>/start.json` | Start | When Start was clicked, for which `runId`. |
 | `~/.astrona/workspace/runs/<lab>/submission.json` | Submit | The latest browser submission for that `runId`: the result as `GET /submission` shows it. |

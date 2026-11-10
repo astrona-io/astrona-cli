@@ -249,7 +249,7 @@ func (s Store) PlanClean(ctx context.Context, tempOnly bool, now time.Time) (Pla
 }
 
 // addLegacyVMs plans removal of VM state dirs that have no handle.json, were
-// untouched for LegacyVMMinAge and have no running qemu process, and returns
+// untouched for LegacyVMMinAge and are empty or have no running qemu process, and returns
 // the qemu entries that remain saved lab state. Symlinks, files and anything
 // that cannot be checked stay.
 func (s Store) addLegacyVMs(ctx context.Context, p *Plan, r *os.Root, entries []fs.DirEntry, now time.Time) ([]fs.DirEntry, error) {
@@ -288,6 +288,13 @@ func (s Store) addLegacyVMs(ctx context.Context, p *Plan, r *os.Root, entries []
 		}
 		if now.Sub(u.modified) < LegacyVMMinAge || s.VMProcessAlive == nil {
 			kept = append(kept, entry)
+			continue
+		}
+		// An empty dir holds no VM disk, so no qemu process can be using it.
+		// Older releases named some of them in a way the process check
+		// refuses (user1@lab); without this they would be kept forever.
+		if u.Files == 0 && u.Symlinks == 0 {
+			p.Items = append(p.Items, Item{Usage: u, Kind: KindLegacyVM, base: base, name: name, info: info, baseInfo: baseInfo})
 			continue
 		}
 		alive, err := s.VMProcessAlive(name)

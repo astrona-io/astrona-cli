@@ -40,10 +40,21 @@ func termsExempt(cmd *cobra.Command) bool {
 	return false
 }
 
-func checkTerms(cmd *cobra.Command, explicit bool) error {
+func checkTerms(cmd *cobra.Command, explicit bool, flags *rootFlags) error {
 	s, err := terms.DefaultStore()
 	if err != nil {
 		return err
+	}
+	// A run that opens the browser asks there, in the tab that then shows
+	// the lab being set up.
+	if !explicit && !terms.InCI(os.Getenv) && browserFirst(cmd, flags) {
+		accepted, err := s.Accepted()
+		if err != nil {
+			return err
+		}
+		if !accepted {
+			return browserTerms(cmd, flags, s)
+		}
 	}
 	in, inOK := cmd.InOrStdin().(*os.File)
 	out, outOK := cmd.ErrOrStderr().(*os.File)

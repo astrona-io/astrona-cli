@@ -41,7 +41,7 @@ func Definitions() []Definition {
 		{"update-check", "true", "Check for new CLI releases and show update notices"},
 		{"cache-retention-days", strconv.Itoa(localdata.DefaultRetentionDays), "Maximum disposable-cache age in days (1–36500)"},
 		{"cache-max-size-gb", strconv.Itoa(localdata.DefaultMaxSizeGB), "Combined disposable-cache size in GB; 0 means unlimited"},
-		{"browser", `"ask"`, "Open a Kind lab in the browser workspace after `astrona run`: ask, always or never"},
+		{"browser", `"always"`, "Open a Kind lab in the browser workspace after `astrona run`: always, ask or never"},
 	}
 }
 
@@ -58,17 +58,22 @@ const (
 	BrowserNever  = "never"
 )
 
-// Browser returns the saved browser preference (BrowserAsk by default).
-func (s Values) Browser() string {
-	value, err := s.Value("browser")
-	if err != nil {
-		return BrowserAsk
+// Browser returns the browser preference: the saved one, else BrowserAlways.
+// saved is false when the value is the default.
+func (s Values) Browser() (pref string, saved bool) {
+	value, ok := s["browser"]
+	if !ok {
+		return BrowserAlways, false
 	}
 	var text string
 	if json.Unmarshal(value, &text) != nil {
-		return BrowserAsk
+		return BrowserAlways, false
 	}
-	return text
+	switch text {
+	case BrowserAsk, BrowserAlways, BrowserNever:
+		return text, true
+	}
+	return BrowserAlways, false
 }
 
 // Values contains only saved overrides; omitted keys use CLI defaults.

@@ -38,6 +38,9 @@ type rootFlags struct {
 	acceptTerms bool
 	localOnly   bool
 	headless    bool
+	// launch is the browser tab `astrona run` opened before the lab exists
+	// (browserFirst); nil when it opens the browser only once the lab is ready.
+	launch *browserLaunch
 	// settingsFile is an optional path override for isolated command tests.
 	settingsFile string
 	settingsArgs []string
@@ -256,7 +259,7 @@ func main() {
 	flags := &rootFlags{}
 	rootCmd := newRootCmd(flags)
 	rootCmd.SetArgs(args)
-	installTermsGate(rootCmd, flags, checkTerms)
+	installTermsGate(rootCmd, flags, func(c *cobra.Command, explicit bool) error { return checkTerms(c, explicit, flags) })
 	installHeadlessGate(rootCmd)
 
 	if err := executeWithDataLock(rootCmd, defaultDataStore); err != nil {

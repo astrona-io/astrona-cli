@@ -9,41 +9,65 @@ replaces the earlier terminal UI: `astrona ui` now opens this page.
 
 ## Open a lab in the browser
 
-Once the trust prompt (if any) is settled, an interactive `astrona run` of a
-Kind lab asks:
+An interactive `astrona run` opens your browser as soon as it starts: it
+starts the local workspace server (or reuses a running one), prints a link and
+opens it in your default browser. You can follow everything from that tab:
 
-```text
-Open this lab in your browser? (yes/no/always/never):
-```
+1. **Terms.** When the [CLI terms](cli-terms.md) are not accepted yet, or have
+   changed, the tab shows them in a dialog. **Accept and continue** goes on;
+   **Decline and stop** stops the command before anything is downloaded or
+   started. Nothing else happens, and no time counts, until you answer.
+2. **Setup.** The tab shows each step as the terminal does: what it is doing,
+   ✓ / – / ✗ with how long each step took, and what a long step is waiting on.
+   If setup fails, the tab shows the error and where the log is.
+3. **The lab.** Once the lab is ready the same tab opens it, at the intro page.
+   An exam's clock still starts only when you click **Start**.
 
-- `yes` sets the lab up as usual, then starts the local workspace server (or
-  reuses a running one), prints a link and opens it in your default browser.
-- `no` keeps the command-line flow.
-- `always` and `never` answer the same way and save the answer as the
-  [`browser` setting](settings.md), so later runs do not ask
-  (`astrona settings set browser ask` asks again).
+Some questions are still asked in the terminal: whether to start a running lab
+over, whether to log in, and whether to trust a lab's repository. The tab says
+so while it waits. If you stop the command (Ctrl+C), the tab says that astrona
+stopped. A QEMU lab ends the page and carries on in the terminal (see
+[QEMU labs](#qemu-labs)).
 
-Answer in advance with a flag:
+The [`browser` setting](settings.md) changes this:
+
+- `always` (the default) opens the browser first, as above.
+- `never` keeps the command-line flow.
+- `ask` sets the lab up in the terminal and then asks:
+
+  ```text
+  Open this lab in your browser? (yes/no/always/never):
+  ```
+
+  `yes` and `no` decide this run; `always` and `never` decide it and save the
+  answer as the setting.
+
+Decide one run with a flag:
 
 ```sh
-astrona run ./labs/my-lab --browser      # open it without asking
-astrona run ./labs/my-lab --no-browser   # never open it, never ask
+astrona run ./labs/my-lab --browser      # open it, whatever the setting
+astrona run ./labs/my-lab --no-browser   # keep the command-line flow
 ```
 
-The question is only asked when stdin and stdout are a terminal; otherwise the
-answer is no (unless you pass `--browser`). On a machine without a browser
-(no display) nothing is asked; with `--browser` the link is printed and nothing
-is opened. `--headless` never opens the browser.
+Without a terminal on stdin and stdout, the workspace is not opened unless you
+pass `--browser`. On a machine without a browser (no display) the default and
+`ask` keep the command-line flow; `--browser` or a saved `always` prints the
+link and opens nothing. `--headless` never opens the browser.
 
-The link is printed on every yes, so you can open it yourself:
+The link is printed every time the workspace opens, so you can open it yourself:
 
 ```text
+Continue in your browser: http://127.0.0.1:47300/#code=…&launch=…
 Browser workspace: http://127.0.0.1:47300/#code=…&lab=my-lab
 ```
 
+The first form is the browser-first run; the second is printed by
+`astrona ui` and by the `ask` flow.
+
 The `#code=` part is a single-use launch code that expires after two minutes.
 It stays in the fragment, so it never reaches the server log or a referrer, and
-the page removes it from the address bar after loading. A link that was already
+the page removes it from the address bar after loading. If the tab you opened
+first is closed by the time the lab is ready, astrona opens a new one. A link that was already
 used, or is older than two minutes, shows **Link expired**: run
 `astrona ui <lab>` (or `astrona ui status`) for a fresh one.
 
@@ -96,6 +120,9 @@ bar counts down to the deadline.
   bigger steps, <kbd>Home</kbd> / <kbd>End</kbd> for the limits). The task
   panel starts at 25% of the width and can take 15% to 70%; it never gets
   narrower than 280 pixels. The browser remembers the width you chose.
+- **Hide**: the button next to **Task** collapses the task panel to a thin
+  rail, so the terminal gets the whole width. Click the rail (or use **Skip to
+  task**) to show the task again. The browser remembers this choice too.
 
 When you are done, use **Submit** in the top bar (see
 [Submit or end from the browser](#submit-or-end-from-the-browser));
@@ -230,6 +257,12 @@ astrona ui status -o json
 astrona ui stop              # stop the server and its terminals; labs keep running
 ```
 
+After you update astrona, a browser-first `astrona run` replaces a server from
+the earlier build when nothing uses it, since the older page cannot show setup
+progress. If that server still has terminals or pages open, it is left alone,
+setup is shown in the terminal only, and the run says so: `astrona ui stop`
+ends it (labs keep running), and the next run starts the new one.
+
 `astrona ui status` prints a new link with a fresh code each time.
 `astrona ui stop` ends every browser terminal but leaves the labs running; an
 open workspace then shows the connection-lost dialog. `astrona run` or
@@ -237,7 +270,8 @@ open workspace then shows the connection-lost dialog. `astrona run` or
 
 ## Theme
 
-The page follows your system's light or dark appearance.
+The page follows your system's light or dark appearance. The terminal stays
+dark in both: the tools a lab runs colour their output for a dark terminal.
 
 ## Security
 

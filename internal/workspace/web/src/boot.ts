@@ -4,29 +4,38 @@
 // so it never lingers where a screenshot, a bookmark or another script could
 // pick it up.
 //
-// The fragment the CLI prints is "#code=<code>", optionally with "&lab=<id>".
-// After this module the address bar shows "#/runs/<lab>" or nothing.
+// The fragment the CLI prints is "#code=<code>", optionally with "&lab=<id>"
+// or "&launch=<id>" (an `astrona run` whose lab is not ready yet). After this
+// module the address bar shows "#/runs/<lab>", "#/launches/<id>" or nothing.
 
 export interface Launch {
   /** Single-use launch code, or null when the page was not opened from the CLI. */
   code: string | null
   /** Lab to open, from the launch URL or the in-page route. */
   lab: string | null
+  /** An `astrona run` still starting: terms, then setup, then its lab. */
+  launchId: string | null
 }
 
 function readLaunch(): Launch {
   const hash = window.location.hash.replace(/^#/, '')
   if (hash.startsWith('/runs/')) {
-    return { code: null, lab: decodeURIComponent(hash.slice('/runs/'.length)) || null }
+    return { code: null, lab: decodeURIComponent(hash.slice('/runs/'.length)) || null, launchId: null }
+  }
+  if (hash.startsWith('/launches/')) {
+    return { code: null, lab: null, launchId: decodeURIComponent(hash.slice('/launches/'.length)) || null }
   }
   const params = new URLSearchParams(hash)
   const code = params.get('code')
   const lab = params.get('lab')
-  if (code !== null || lab !== null) {
-    const clean = window.location.pathname + window.location.search + (lab ? `#/runs/${encodeURIComponent(lab)}` : '')
-    window.history.replaceState(null, '', clean)
+  const launchId = params.get('launch')
+  if (code !== null || lab !== null || launchId !== null) {
+    let route = ''
+    if (lab) route = `#/runs/${encodeURIComponent(lab)}`
+    else if (launchId) route = `#/launches/${encodeURIComponent(launchId)}`
+    window.history.replaceState(null, '', window.location.pathname + window.location.search + route)
   }
-  return { code: code || null, lab: lab || null }
+  return { code: code || null, lab: lab || null, launchId: launchId || null }
 }
 
 export const launch: Launch = readLaunch()

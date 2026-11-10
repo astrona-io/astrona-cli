@@ -18,6 +18,7 @@ import (
 	"astrona/internal/runtime"
 	"astrona/internal/settings"
 	"astrona/internal/ui"
+	"astrona/internal/workspace"
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
@@ -66,13 +67,17 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"it is); --yes starts over without asking and is required when not in a terminal. If other " +
 			"labs are running, it also offers to destroy them first — only when asked in a terminal; " +
 			"--yes never touches other labs.\n\n" +
-			"Once trust is settled, an interactive run of a Kind lab asks \"Open this lab in your browser?\" (yes/no/always/never). " +
-			"On yes, the lab is set up as usual, then astrona starts the local browser workspace (or reuses a running one), prints its link " +
-			"and opens it. The link has a single-use code that expires after 2 minutes; `astrona ui <lab>` opens a fresh one and " +
+			"An interactive run with the browser setting at always (the default) or --browser opens the browser first: astrona " +
+			"starts the local browser workspace (or reuses a running one), prints its link and opens it. The tab shows the CLI " +
+			"terms when they still need accepting (declining stops the command), then the lab being set up, then the lab. " +
+			"Questions the terminal asks (start over?, log in?, trust?) are answered there. A QEMU lab ends the page and " +
+			"continues in the terminal. " +
+			"The link has a single-use code that expires after 2 minutes; `astrona ui <lab>` opens a fresh one and " +
 			"`astrona ui stop` stops the workspace (labs keep running). An exam's timer starts when you click Start in the browser, not when " +
-			"the lab is ready. always and never are saved as the browser setting (`astrona settings set browser ask` asks again). " +
-			"--browser and --no-browser answer in advance. Without a terminal on stdin and stdout the answer is no; with no browser on " +
-			"the machine (no display) nothing is asked. --headless never opens the browser.\n\n" +
+			"the lab is ready. With `astrona settings set browser ask` the lab is set up in the terminal first, which then asks \"Open this lab in your browser?\" " +
+			"(yes/no/always/never) each run, and never keeps runs in the terminal. --browser and --no-browser decide for one run. " +
+			"Without a terminal on stdin and stdout, or with no browser on the machine (no display), the workspace is not opened " +
+			"unless --browser or a saved always asks for it. --headless never opens the browser.\n\n" +
 			"QEMU (VM) labs do not open in the browser yet: once ready, run prints the astrona ssh command for each VM; " +
 			"astrona status <lab> shows them.\n\n" +
 			"--headless keeps Kind and QEMU setup headless. It skips the browser workspace, login reminder and new account sessions, " +
@@ -86,12 +91,22 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
   astrona run --git https://github.com/org/labs -c labs/net-01
   astrona run renew                                  # a running playground: its full time limit again`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			defer func() { flags.launch.finish(err) }()
 			if err := configureHeadless(cmd); err != nil {
 				return err
 			}
 			if err := checkBrowserFlags(browser, flags.headless); err != nil {
 				return err
+			}
+			// Open the browser now, so the learner follows the setup there.
+			// The terms gate may have opened it already.
+			if flags.launch == nil && browserFirst(cmd, flags) {
+				if l, err := startBrowserLaunch(workspace.LaunchChecking, "", nil); err != nil {
+					fmt.Fprintf(os.Stderr, "Could not open the browser workspace yet (%v); it opens once the lab is ready.\n", err)
+				} else {
+					flags.launch = l
+				}
 			}
 			if err := labArg(args, flags); err != nil { // a lab given as the argument wins over `astrona use`
 				return err
@@ -104,6 +119,14 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer configCleanup()
+			if flags.launch != nil {
+				if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" {
+					flags.launch.End(workspace.LaunchEnded, "This lab runs on "+cfg.Runtime.Type+" virtual machines, which do not open in the browser yet. Continue in your terminal.")
+					flags.launch = nil
+				} else {
+					flags.launch.SetTitle(labops.SanitizeLine(cfg.Metadata.Name))
+				}
+			}
 
 			// Resolve restart consent before account access or runtime changes.
 			clusterName := config.NormalizeClusterName(cfg.Metadata.Name)
@@ -127,6 +150,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			if choice.keep {
 				fmt.Printf("Kept the running lab %s — nothing changed.\n", clusterName)
+				flags.launch.End(workspace.LaunchEnded, "The lab was already running and was kept as it is. Open it with: astrona ui "+uiLabArg(clusterName))
 				return nil
 			}
 
@@ -146,6 +170,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			if !approved {
 				fmt.Println("Cancelled — sign in with `astrona login` to track your progress, then try again.")
+				flags.launch.End(workspace.LaunchEnded, "Cancelled in the terminal: sign in with astrona login, then run the lab again.")
 				return nil
 			}
 
@@ -158,8 +183,9 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if err := settings.ValidateParallel(flags.parallel); err != nil {
 				return err
 			}
-			flags.browserRun, err = wantBrowser(flags, cfg, browser, noBrowser)
-			if err != nil {
+			if flags.launch != nil {
+				flags.browserRun = true // decided by browserFirst, and the tab is open
+			} else if flags.browserRun, err = wantBrowser(flags, cfg, browser, noBrowser); err != nil {
 				return err
 			}
 
@@ -182,6 +208,11 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer rep.Close()
+			if flags.launch != nil {
+				rep.SetObserver(flags.launch.Observe)
+				flags.launch.SetLog(rep.LogPath())
+				flags.launch.Stage(workspace.LaunchPreparing, "")
+			}
 
 			for _, other := range choice.stopOthers {
 				rep.Section("Destroy %s", other)

@@ -77,6 +77,28 @@ type Reporter struct {
 
 	spin   *yacspin.Spinner // nil in verbose mode
 	active *Task
+
+	observe func(Event) // nil unless SetObserver was called
+}
+
+// Event is one progress line, for a second display such as the browser
+// workspace. Kind is section, step, status, note, ok, skip, fail or warn.
+type Event struct {
+	Kind    string
+	Label   string
+	Detail  string
+	Elapsed time.Duration
+}
+
+// SetObserver makes r call fn with every section, step, status, result and
+// warning it shows. fn must be safe to call from the goroutine that sets a
+// step's status.
+func (r *Reporter) SetObserver(fn func(Event)) { r.observe = fn }
+
+func (r *Reporter) emit(e Event) {
+	if r.observe != nil {
+		r.observe(e)
+	}
 }
 
 // Discard returns a Reporter that renders nothing and keeps no log — for
@@ -217,6 +239,7 @@ func (r *Reporter) Close() error {
 // Section prints a group header ("Bootstrap", "Machine: router").
 func (r *Reporter) Section(format string, a ...any) {
 	line := fmt.Sprintf(format, a...)
+	r.emit(Event{Kind: "section", Label: line})
 	fmt.Fprintf(r.logW, "\n=== %s ===\n", line)
 	r.pauseSpinner()
 	if r.verbose {
@@ -241,6 +264,7 @@ func (r *Reporter) Info(format string, a ...any) {
 // line) and written to the log.
 func (r *Reporter) Warn(format string, a ...any) {
 	line := fmt.Sprintf(format, a...)
+	r.emit(Event{Kind: "warn", Label: line})
 	fmt.Fprintf(r.logW, "[WARN] %s\n", line)
 	r.pauseSpinner()
 	fmt.Fprintf(r.screen, "%s %s\n", r.yellow("[WARN]"), line)
@@ -259,6 +283,11 @@ func (r *Reporter) Result(ok bool, took time.Duration, format string, a ...any) 
 	} else {
 		r.failN++
 		mark, word = r.red("✗"), "FAIL"
+	}
+	if ok {
+		r.emit(Event{Kind: "ok", Label: label, Elapsed: took})
+	} else {
+		r.emit(Event{Kind: "fail", Label: label, Elapsed: took})
 	}
 	fmt.Fprintf(r.logW, "--- %s: %s (%s) ---\n", strings.ToLower(word), label, elapsed)
 	if r.verbose {
@@ -279,6 +308,7 @@ func (r *Reporter) Step(format string, a ...any) *Task {
 	}
 
 	fmt.Fprintf(r.logW, "\n--- %s ---\n", label)
+	r.emit(Event{Kind: "step", Label: label})
 
 	t := &Task{r: r, label: label, start: time.Now()}
 	switch {
@@ -344,6 +374,7 @@ func (t *Task) Status(text string) {
 	if t.done {
 		return
 	}
+	t.r.emit(Event{Kind: "status", Label: t.label, Detail: text})
 	switch {
 	case t.r.spin != nil && !t.r.plain && !t.r.verbose:
 		if text == "" {
@@ -368,6 +399,7 @@ func (t *Task) Note(format string, a ...any) {
 		return
 	}
 	line := fmt.Sprintf(format, a...)
+	t.r.emit(Event{Kind: "note", Label: t.label, Detail: line})
 	fmt.Fprintf(t.r.logW, "%s\n", line)
 	t.r.pauseSpinner()
 	fmt.Fprintf(t.r.screen, "    %s\n", t.r.dim(line))
@@ -391,7 +423,9 @@ func (t *Task) Done() {
 	t.done = true
 	t.r.active = nil
 	t.r.okN++
-	elapsed := formatElapsed(time.Since(t.start))
+	took := time.Since(t.start)
+	elapsed := formatElapsed(took)
+	t.r.emit(Event{Kind: "ok", Label: t.label, Elapsed: took})
 	fmt.Fprintf(t.r.logW, "--- ok: %s (%s) ---\n", t.label, elapsed)
 	switch {
 	case t.r.verbose:
@@ -413,6 +447,7 @@ func (t *Task) Skip(format string, a ...any) {
 	t.r.active = nil
 	t.r.skipN++
 	reason := fmt.Sprintf(format, a...)
+	t.r.emit(Event{Kind: "skip", Label: t.label, Detail: reason})
 	fmt.Fprintf(t.r.logW, "--- skip: %s (%s) ---\n", t.label, reason)
 	switch {
 	case t.r.verbose:
@@ -441,7 +476,9 @@ func (t *Task) Fail(err error) error {
 	t.done = true
 	t.r.active = nil
 	t.r.failN++
-	elapsed := formatElapsed(time.Since(t.start))
+	took := time.Since(t.start)
+	elapsed := formatElapsed(took)
+	t.r.emit(Event{Kind: "fail", Label: t.label, Detail: err.Error(), Elapsed: took})
 	fmt.Fprintf(t.r.logW, "--- FAIL: %s (%s): %v ---\n", t.label, elapsed, err)
 
 	switch {

@@ -1,7 +1,8 @@
 import type { ITheme } from '@xterm/xterm'
 
-// The terminal's colours come from the same CSS custom properties as the
-// rest of the page (styles/tokens.css), so light and dark stay in step.
+// The terminal's colours come from the --term-* and --ansi-* properties in
+// styles/tokens.css. They are the dark theme's in both themes: the tools a
+// lab runs colour their output for a dark terminal.
 
 const ansiNames = [
   'black',

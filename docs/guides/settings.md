@@ -31,10 +31,11 @@ astrona settings -o json
 | `update-check` | `yes` | Check for new CLI releases and show update notices |
 | `cache-retention-days` | `30` | Maximum disposable-cache age; whole days from 1 to 36500 |
 | `cache-max-size-gb` | `50` | Combined disposable-cache limit in decimal GB; `0` means unlimited size |
-| `browser` | `ask` | After `astrona run` of a Kind lab: `ask` whether to open the [browser workspace](browser-workspace.md), or open it `always` or `never` |
+| `browser` | `always` | After `astrona run` of a Kind lab: open the [browser workspace](browser-workspace.md) `always`, `ask` each time, or `never` |
 
-Answering `always` or `never` to "Open this lab in your browser?" saves that
-answer here; `astrona settings set browser ask` brings the question back.
+With `ask`, answering `always` or `never` to "Open this lab in your browser?"
+saves that answer here. On a machine with no browser (no display) the default
+keeps the run in the terminal; a saved `always` still prints the workspace link.
 `--browser` and `--no-browser` on `astrona run` override the setting for one run.
 
 ## Reset to the defaults

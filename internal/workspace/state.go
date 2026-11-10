@@ -25,7 +25,9 @@ type ServerInfo struct {
 	Port      int       `json:"port"`
 	StartedAt time.Time `json:"startedAt"`
 	Version   string    `json:"version,omitempty"`
-	Secret    string    `json:"secret"`
+	// Build identifies the executable (see ThisBuild).
+	Build  string `json:"build,omitempty"`
+	Secret string `json:"secret"`
 }
 
 // StateDir returns ~/.astrona/workspace (or the development profile's),

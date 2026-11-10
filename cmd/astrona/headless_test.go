@@ -49,10 +49,10 @@ func TestHeadlessRequiresApprovalsOnTerminal(t *testing.T) {
 			if settingsInteractive(cmd) {
 				t.Fatal("headless mode allows interactive settings")
 			}
-			if err := checkTerms(cmd, false); err == nil || !strings.Contains(err.Error(), "--accept-terms") {
+			if err := checkTerms(cmd, false, flags); err == nil || !strings.Contains(err.Error(), "--accept-terms") {
 				t.Fatalf("terms approval bypassed: %v", err)
 			}
-			if err := checkTerms(cmd, true); err != nil {
+			if err := checkTerms(cmd, true, flags); err != nil {
 				t.Fatal(err)
 			}
 			cfg := &config.LabConfig{SourcePath: "https://example.invalid/config.yaml", SourceSHA256: "abc"}
