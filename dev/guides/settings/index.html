@@ -4679,13 +4679,14 @@ separate from credentials, lab state, and remote-code approvals.</p>
 </tr>
 <tr>
 <td><code>browser</code></td>
-<td><code>ask</code></td>
-<td>After <code>astrona run</code> of a Kind lab: <code>ask</code> whether to open the <a href="../browser-workspace/">browser workspace</a>, or open it <code>always</code> or <code>never</code></td>
+<td><code>always</code></td>
+<td>After <code>astrona run</code> of a Kind lab: open the <a href="../browser-workspace/">browser workspace</a> <code>always</code>, <code>ask</code> each time, or <code>never</code></td>
 </tr>
 </tbody>
 </table>
-<p>Answering <code>always</code> or <code>never</code> to "Open this lab in your browser?" saves that
-answer here; <code>astrona settings set browser ask</code> brings the question back.
+<p>With <code>ask</code>, answering <code>always</code> or <code>never</code> to "Open this lab in your browser?"
+saves that answer here. On a machine with no browser (no display) the default
+keeps the run in the terminal; a saved <code>always</code> still prints the workspace link.
 <code>--browser</code> and <code>--no-browser</code> on <code>astrona run</code> override the setting for one run.</p>
 <h2 id="reset-to-the-defaults">Reset to the defaults<a class="headerlink" href="#reset-to-the-defaults" title="Permanent link">&para;</a></h2>
 <p><code>astrona settings unset &lt;key&gt;</code> restores one setting. <code>astrona settings reset</code>

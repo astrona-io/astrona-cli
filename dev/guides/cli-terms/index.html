@@ -4524,7 +4524,11 @@
 <p>The first operational command, including plain <code>astrona</code>, displays the CLI usage
 terms and data-loss risk notice on stderr. Answer <code>y</code> or <code>yes</code> to continue.
 Blank input, <code>no</code>, or EOF cancels the command before lab downloads, sign-in or
-setup. Read the notice without accepting it:</p>
+setup. An interactive <code>astrona run</code> that opens the browser (the default; see
+<a href="../browser-workspace/#open-a-lab-in-the-browser">browser workspace</a>) shows the
+notice in the browser tab instead: <strong>Accept and continue</strong> or <strong>Decline and
+stop</strong>. Declining, Ctrl+C in the terminal, or no answer within 30 minutes stops
+the command before anything starts. Read the notice without accepting it:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona<span class="w"> </span>terms
 </code></pre></div>
 <p>To accept explicitly, including in automation:</p>
@@ -4532,7 +4536,8 @@ setup. Read the notice without accepting it:</p>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--accept-terms<span class="w"> </span>-c<span class="w"> </span>./labs/my-lab
 </code></pre></div>
 <p>Acceptance is saved in <code>~/.astrona/terms.json</code> with the notice revision, SHA-256,
-UTC timestamp, CLI version and acceptance method. This is local state, not a
+UTC timestamp, CLI version and acceptance method (<code>browser</code> when accepted in
+the browser tab). This is local state, not a
 server-side audit or account record. A newer CLI asks again if its bundled
 notice changes, even if its revision was not bumped. Updating only the website
 does not change an installed CLI's notice. CLI updates with unchanged terms do

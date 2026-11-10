@@ -4892,32 +4892,53 @@ serves the page itself, on <code>127.0.0.1</code> only; nothing leaves your mach
 replaces the earlier terminal UI: <code>astrona ui</code> now opens this page.</p>
 <p><img alt="The browser workspace: the task on the left, a terminal on the lab on the right" src="../../assets/browser-workspace.png" /></p>
 <h2 id="open-a-lab-in-the-browser">Open a lab in the browser<a class="headerlink" href="#open-a-lab-in-the-browser" title="Permanent link">&para;</a></h2>
-<p>Once the trust prompt (if any) is settled, an interactive <code>astrona run</code> of a
-Kind lab asks:</p>
+<p>An interactive <code>astrona run</code> opens your browser as soon as it starts: it
+starts the local workspace server (or reuses a running one), prints a link and
+opens it in your default browser. You can follow everything from that tab:</p>
+<ol>
+<li><strong>Terms.</strong> When the <a href="../cli-terms/">CLI terms</a> are not accepted yet, or have
+   changed, the tab shows them in a dialog. <strong>Accept and continue</strong> goes on;
+   <strong>Decline and stop</strong> stops the command before anything is downloaded or
+   started. Nothing else happens, and no time counts, until you answer.</li>
+<li><strong>Setup.</strong> The tab shows each step as the terminal does: what it is doing,
+   ✓ / – / ✗ with how long each step took, and what a long step is waiting on.
+   If setup fails, the tab shows the error and where the log is.</li>
+<li><strong>The lab.</strong> Once the lab is ready the same tab opens it, at the intro page.
+   An exam's clock still starts only when you click <strong>Start</strong>.</li>
+</ol>
+<p>Some questions are still asked in the terminal: whether to start a running lab
+over, whether to log in, and whether to trust a lab's repository. The tab says
+so while it waits. If you stop the command (Ctrl+C), the tab says that astrona
+stopped. A QEMU lab ends the page and carries on in the terminal (see
+<a href="#qemu-labs">QEMU labs</a>).</p>
+<p>The <a href="../settings/"><code>browser</code> setting</a> changes this:</p>
+<ul>
+<li><code>always</code> (the default) opens the browser first, as above.</li>
+<li><code>never</code> keeps the command-line flow.</li>
+<li><code>ask</code> sets the lab up in the terminal and then asks:</li>
+</ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Open this lab in your browser? (yes/no/always/never):
 </code></pre></div>
-<ul>
-<li><code>yes</code> sets the lab up as usual, then starts the local workspace server (or
-  reuses a running one), prints a link and opens it in your default browser.</li>
-<li><code>no</code> keeps the command-line flow.</li>
-<li><code>always</code> and <code>never</code> answer the same way and save the answer as the
-  <a href="../settings/"><code>browser</code> setting</a>, so later runs do not ask
-  (<code>astrona settings set browser ask</code> asks again).</li>
-</ul>
-<p>Answer in advance with a flag:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>run<span class="w"> </span>./labs/my-lab<span class="w"> </span>--browser<span class="w">      </span><span class="c1"># open it without asking</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>astrona<span class="w"> </span>run<span class="w"> </span>./labs/my-lab<span class="w"> </span>--no-browser<span class="w">   </span><span class="c1"># never open it, never ask</span>
+<p><code>yes</code> and <code>no</code> decide this run; <code>always</code> and <code>never</code> decide it and save the
+  answer as the setting.</p>
+<p>Decide one run with a flag:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>astrona<span class="w"> </span>run<span class="w"> </span>./labs/my-lab<span class="w"> </span>--browser<span class="w">      </span><span class="c1"># open it, whatever the setting</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>astrona<span class="w"> </span>run<span class="w"> </span>./labs/my-lab<span class="w"> </span>--no-browser<span class="w">   </span><span class="c1"># keep the command-line flow</span>
 </code></pre></div>
-<p>The question is only asked when stdin and stdout are a terminal; otherwise the
-answer is no (unless you pass <code>--browser</code>). On a machine without a browser
-(no display) nothing is asked; with <code>--browser</code> the link is printed and nothing
-is opened. <code>--headless</code> never opens the browser.</p>
-<p>The link is printed on every yes, so you can open it yourself:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Browser workspace: http://127.0.0.1:47300/#code=…&amp;lab=my-lab
+<p>Without a terminal on stdin and stdout, the workspace is not opened unless you
+pass <code>--browser</code>. On a machine without a browser (no display) the default and
+<code>ask</code> keep the command-line flow; <code>--browser</code> or a saved <code>always</code> prints the
+link and opens nothing. <code>--headless</code> never opens the browser.</p>
+<p>The link is printed every time the workspace opens, so you can open it yourself:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Continue in your browser: http://127.0.0.1:47300/#code=…&amp;launch=…
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Browser workspace: http://127.0.0.1:47300/#code=…&amp;lab=my-lab
 </code></pre></div>
+<p>The first form is the browser-first run; the second is printed by
+<code>astrona ui</code> and by the <code>ask</code> flow.</p>
 <p>The <code>#code=</code> part is a single-use launch code that expires after two minutes.
 It stays in the fragment, so it never reaches the server log or a referrer, and
-the page removes it from the address bar after loading. A link that was already
+the page removes it from the address bar after loading. If the tab you opened
+first is closed by the time the lab is ready, astrona opens a new one. A link that was already
 used, or is older than two minutes, shows <strong>Link expired</strong>: run
 <code>astrona ui &lt;lab&gt;</code> (or <code>astrona ui status</code>) for a fresh one.</p>
 <h2 id="reopen-a-running-lab">Reopen a running lab<a class="headerlink" href="#reopen-a-running-lab" title="Permanent link">&para;</a></h2>
@@ -4957,6 +4978,9 @@ bar counts down to the deadline.</p>
   bigger steps, <kbd>Home</kbd> / <kbd>End</kbd> for the limits). The task
   panel starts at 25% of the width and can take 15% to 70%; it never gets
   narrower than 280 pixels. The browser remembers the width you chose.</li>
+<li><strong>Hide</strong>: the button next to <strong>Task</strong> collapses the task panel to a thin
+  rail, so the terminal gets the whole width. Click the rail (or use <strong>Skip to
+  task</strong>) to show the task again. The browser remembers this choice too.</li>
 </ul>
 <p>When you are done, use <strong>Submit</strong> in the top bar (see
 <a href="#submit-or-end-from-the-browser">Submit or end from the browser</a>);
@@ -5087,12 +5111,18 @@ for file access and the protection boundary. The server stops by itself after
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>astrona<span class="w"> </span>ui<span class="w"> </span>status<span class="w"> </span>-o<span class="w"> </span>json
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>astrona<span class="w"> </span>ui<span class="w"> </span>stop<span class="w">              </span><span class="c1"># stop the server and its terminals; labs keep running</span>
 </code></pre></div>
+<p>After you update astrona, a browser-first <code>astrona run</code> replaces a server from
+the earlier build when nothing uses it, since the older page cannot show setup
+progress. If that server still has terminals or pages open, it is left alone,
+setup is shown in the terminal only, and the run says so: <code>astrona ui stop</code>
+ends it (labs keep running), and the next run starts the new one.</p>
 <p><code>astrona ui status</code> prints a new link with a fresh code each time.
 <code>astrona ui stop</code> ends every browser terminal but leaves the labs running; an
 open workspace then shows the connection-lost dialog. <code>astrona run</code> or
 <code>astrona ui &lt;lab&gt;</code> starts the server again.</p>
 <h2 id="theme">Theme<a class="headerlink" href="#theme" title="Permanent link">&para;</a></h2>
-<p>The page follows your system's light or dark appearance.</p>
+<p>The page follows your system's light or dark appearance. The terminal stays
+dark in both: the tools a lab runs colour their output for a dark terminal.</p>
 <h2 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
 <p>The server only answers on <code>127.0.0.1</code>, refuses other <code>Host</code> and <code>Origin</code>
 headers, and sends a Content Security Policy that allows no inline scripts or
