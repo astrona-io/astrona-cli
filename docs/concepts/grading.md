@@ -74,7 +74,7 @@ A failed check says what it found: `{.spec.replicas} is "2" — want exactly "3"
 
 `resourceExists`, `podReady`, `jsonpath` and `count` run `kubectl` on your machine, and only ever against the lab's own isolated kubeconfig and context (or a [linked cluster's](../guides/linked-labs.md)) — never your own `~/.kube/config`. So they need a `kind` lab: `astrona validate` rejects them in a `qemu` lab, which has no cluster for kubectl (use a validation script, which runs inside the VM), and grading stops with an error (exit 1) if a running lab has no kubeconfig of its own (a kind lab started by an older astrona — `astrona reset` fixes it). `resource` may only carry the flags `-n`/`--namespace`, `-l`/`--selector`, `--field-selector` and `-A`/`--all-namespaces`; any other flag (`--kubeconfig`, `--server`, `-o`, …) or a value starting with `-` is rejected. Before the first of these checks, the Proctor makes sure the cluster answers: an unreachable cluster is a grading error (exit 1, nothing recorded or sent), not a failed check.
 
-On a kind lab, `command` checks (and every script) run with `KUBECONFIG` set to the lab's own kubeconfig, so a plain `kubectl ...` grades the lab's cluster regardless of the student's current-context.
+On a kind lab, `command` checks (and every script) run with `KUBECONFIG` set to the lab's own kubeconfig, so a plain `kubectl ...` grades the lab's cluster regardless of the student's current-context. They also get `ASTRONA_KUBE_CONTEXT`, `ASTRONA_KIND_CLUSTER` and `ASTRONA_CONTAINER_ENGINE`, so a check can reach the lab's node containers without hardcoding the lab name (see [runtimes](runtimes.md#kind-default)).
 
 ### Script checks (`validation.script` / `validation.scripts`)
 
