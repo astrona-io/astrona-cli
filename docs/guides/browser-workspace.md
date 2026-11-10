@@ -137,6 +137,12 @@ bar counts down to the deadline. A lab in learning mode has no time limit, so
 after **Start** the top bar counts up instead and shows how long you have spent
 on it.
 
+When the run is linked to your Astrona account, **Start** also starts the lab
+session's time on astrona.io, with the moment you clicked, so you don't need to
+open the lab page on the website. Offline, the start is saved on this computer
+and sent once Astrona can be reached; it never holds up **Start**. A local-only
+run sends nothing.
+
 ## The workspace
 
 - **Task** (left): the question text, rendered from the lab's docs.

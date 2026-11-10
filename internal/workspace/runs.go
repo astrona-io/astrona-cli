@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -16,6 +17,7 @@ import (
 	"astrona/internal/exam"
 	"astrona/internal/labops"
 	"astrona/internal/labstate"
+	"astrona/internal/ui"
 )
 
 const runRecordSchema = 1
@@ -209,6 +211,34 @@ func MarkStarted(lab string, startedAt time.Time) error {
 		return err
 	}
 	return writePrivateFile(filepath.Join(dir, "start.json"), data)
+}
+
+// ReportStart tells Astrona, in the background, that lab's clock started at
+// at outside the website lab page, which is what starts a lab session's
+// clock on the site otherwise. A local-only or untracked run sends nothing.
+// It never blocks or fails the caller: offline the start waits in the outbox
+// (labops.SignalStart); a failure is a warning in the log (the detached
+// server's stderr).
+func ReportStart(lab string, at time.Time) {
+	sess, err := labops.StartTarget(lab)
+	if err != nil {
+		ui.Fwarnf(os.Stderr, "the start of %s was not sent to Astrona: %s", lab, err)
+		return
+	}
+	if sess == nil {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*labops.SignalTimeout)
+		defer cancel()
+		outcome, status, err := labops.SignalStart(ctx, sess, at)
+		switch {
+		case err != nil:
+			ui.Fwarnf(os.Stderr, "the start of %s was not sent to %s: %s", lab, sess.Site, err)
+		case outcome == labops.ClockWaiting:
+			ui.Fwarnf(os.Stderr, "the start of %s couldn't reach %s (%s) — it is saved on this machine and sent when Astrona is reachable", lab, sess.Site, status.State)
+		}
+	}()
 }
 
 // StartedAt is when the learner pressed Start on lab's current run in the
@@ -558,6 +588,7 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	ReportStart(lab, marker.StartedAt)
 	v, err = buildView(rec, now)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

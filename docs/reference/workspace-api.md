@@ -346,6 +346,15 @@ Only now does the exam clock start (`astrona status` and `astrona submit` see
 it). A run that declined the browser keeps the old behaviour: the clock starts
 when the lab is ready.
 
+For a run linked to an Astrona lab session, the first Start also tells the site,
+after `start.json` is written: `POST {site}/api/cli/lab-sessions/{id}/start`
+with `{"at": "<startedAt>"}`, through the outbox like the other clock signals.
+It runs in the background and never changes this answer; offline it waits in the
+outbox, and a failure is a warning in the server log. The site keeps the first
+start. `astrona ui <lab>` for an exam whose clock already started at readiness
+sends the same signal with that time. A local-only or untracked run sends
+nothing.
+
 ### `POST /runs/{lab}/submit`
 
 Request: `{"runId": "<runId>"}` with an `Idempotency-Key: <key>` header (8 to

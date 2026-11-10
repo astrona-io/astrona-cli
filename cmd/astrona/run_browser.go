@@ -19,6 +19,7 @@ import (
 	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/settings"
+	"astrona/internal/ui"
 	"astrona/internal/workspace"
 
 	"github.com/mattn/go-isatty"
@@ -185,9 +186,31 @@ func reopenBrowserWorkspace(cfg *config.LabConfig, baseDir string, flags *rootFl
 			if err := workspace.MarkStarted(rec.Lab, clock.StartedAt); err != nil {
 				return fmt.Errorf("the browser workspace could not be prepared: %w", err)
 			}
+			reportClockStarted(rec.Lab, clock.StartedAt)
 		}
 	}
 	return launchBrowserWorkspace(rec.Lab)
+}
+
+// reportClockStarted tells Astrona that lab's clock started at at (at
+// readiness, outside the browser), as the workspace's Start does: the site
+// keeps the first start, so one the lab page already set stays. It waits a
+// few seconds at most; offline the start stays in the outbox and a detached
+// flusher sends it. A local-only or untracked run sends nothing.
+func reportClockStarted(lab string, at time.Time) {
+	sess, err := labops.StartTarget(lab)
+	if err != nil || sess == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	outcome, _, err := labops.SignalStart(ctx, sess, at)
+	switch {
+	case err != nil:
+		ui.Warnf("the lab's start was not sent to %s: %s", sess.Site, err)
+	case outcome == labops.ClockWaiting:
+		ui.Warnf("the lab's start couldn't reach %s — it is saved on this machine and sent when Astrona is reachable", sess.Site)
+	}
 }
 
 // launchBrowserWorkspace starts the workspace server (or reuses a running
