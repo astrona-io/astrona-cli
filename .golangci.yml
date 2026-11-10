@@ -138,6 +138,7 @@ linters:
             - "**/internal/pullwatch/**"
             - "**/internal/resources/**"
             - "**/internal/settings/**"
+            - "**/internal/connect/**"
           deny:
             - pkg: "astrona/internal/lifecycle"
               desc: "foundation must not depend on orchestration"
