@@ -92,6 +92,11 @@ func loginWithBrowser(ctx context.Context, client *account.Client, store account
 		return err
 	}
 	labops.NoticeOtherSite(os.Stderr, site, "your sign-in (this device's name)")
+	if previous != nil && previous.Site == site {
+		// Signing this computer in again replaces its sign-in rather than
+		// counting as another computer against the account's limit.
+		device.PreviousRefreshToken = previous.RefreshToken
+	}
 	dc, err := client.StartDeviceFlow(ctx, site, sc, device)
 	if err != nil {
 		return err
@@ -116,6 +121,8 @@ func loginWithBrowser(ctx context.Context, client *account.Client, store account
 		return fmt.Errorf("Sign-in was declined in the browser.") //nolint:staticcheck // ST1005: shown to the student as is
 	case errors.Is(err, account.ErrDeviceCodeExpired):
 		return fmt.Errorf("The code expired — run astrona login again.") //nolint:staticcheck // ST1005: shown to the student as is
+	case errors.Is(err, account.ErrDeviceLimit):
+		return err // the site's own message: which computers to sign out, and where
 	case err != nil:
 		return err
 	}
