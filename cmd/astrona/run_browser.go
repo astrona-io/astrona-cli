@@ -29,7 +29,6 @@ import (
 // workspace. It is asked after trust, before anything is built:
 //
 //   - --no-browser and --headless never open it;
-//   - only Kind labs open in the browser; --browser on another runtime fails;
 //   - --browser opens it without asking, even without a terminal;
 //   - without a terminal on stdin and stdout the answer is no;
 //   - the browser setting answers always (the default) or never in
@@ -39,14 +38,8 @@ import (
 //     starts it and prints its link.
 //
 // The question goes to stderr; always and never are saved to the setting.
-func wantBrowser(flags *rootFlags, cfg *config.LabConfig, browser, noBrowser bool) (bool, error) {
+func wantBrowser(flags *rootFlags, browser, noBrowser bool) (bool, error) {
 	if noBrowser || flags.headless {
-		return false, nil
-	}
-	if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" {
-		if browser {
-			return false, fmt.Errorf("--browser opens Kind labs only; this lab runs on %s. Reach its VMs with astrona ssh", cfg.Runtime.Type)
-		}
 		return false, nil
 	}
 	if browser {
@@ -287,7 +280,7 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 		Strict:          cfg.Exam.Strict,
 		HintsHidden:     cfg.Exam.HideHints,
 		KeepEnvironment: cfg.Teardown.KeepCluster,
-		Targets:         []workspace.Target{{Name: name, Label: "main", Kind: "kind", Views: []string{"terminal"}}},
+		Targets:         browserTargets(cfg, name),
 	}
 	if st.Source != nil {
 		rec.RunAgain = labops.SourceCommand("run", st.Source)
@@ -295,9 +288,12 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 	if rec.Exam {
 		rec.TimeLimitSeconds = int64(cfg.Exam.Limit() / time.Second)
 	}
-	links, _ := lifecycle.Links(name)
+	var links []cluster.LinkState
+	if !isQEMULab(cfg) {
+		links, _ = lifecycle.Links(name)
+	}
 	for _, link := range links {
-		rec.Targets = append(rec.Targets, workspace.Target{Name: link.Cluster, Label: link.Name, Kind: "kind", Views: []string{"terminal"}})
+		rec.Targets = append(rec.Targets, workspace.Target{Name: link.Cluster, Label: link.Name, Kind: workspace.TargetKind, Views: []string{"terminal"}})
 	}
 	tabs, err := browserTabs(cfg, rec.Targets, links, baseDir, flags)
 	if err != nil {
@@ -331,6 +327,27 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 		_, rec.Prerequisites = docFrontMatter(labops.SanitizeTerminalText(text))
 	}
 	return rec, nil
+}
+
+// isQEMULab reports whether cfg runs on QEMU VMs rather than Kind.
+func isQEMULab(cfg *config.LabConfig) bool { return cfg.Runtime.Type == "qemu" }
+
+// browserTargets are the places the page opens terminals on, the lab's own
+// first: its Kind cluster, or each of its VMs by the name astrona ssh takes
+// (the lab itself for a single VM, <lab>-<vm> for each VM of a multi-VM
+// lab, labelled with the VM's name). Linked clusters are added by the caller.
+func browserTargets(cfg *config.LabConfig, name string) []workspace.Target {
+	if !isQEMULab(cfg) {
+		return []workspace.Target{{Name: name, Label: "main", Kind: workspace.TargetKind, Views: []string{"terminal"}}}
+	}
+	if !config.IsMultiVM(cfg.Runtime.QEMU) {
+		return []workspace.Target{{Name: name, Label: "main", Kind: workspace.TargetVM, Views: []string{"terminal"}}}
+	}
+	targets := make([]workspace.Target, 0, len(cfg.Runtime.QEMU))
+	for _, vm := range cfg.Runtime.QEMU {
+		targets = append(targets, workspace.Target{Name: name + "-" + vm.Name, Label: vm.Name, Kind: workspace.TargetVM, Views: []string{"terminal"}})
+	}
+	return targets
 }
 
 // readLabDocument reads one of the lab's docs (a path from metadata.docs),

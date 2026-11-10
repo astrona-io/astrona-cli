@@ -3,6 +3,7 @@
 //
 //   npm run dev                       mock server (exam lab)
 //   MOCK_KIND=playground npm run dev  mock playground
+//   MOCK_KIND=qemu npm run dev        mock QEMU lab with two VMs (exam)
 //   open http://127.0.0.1:5173/#code=dev&lab=demo   (code "expired" shows the 401 page)
 //
 // To develop against a real workspace server instead, set
@@ -43,11 +44,21 @@ function proxyPlugin(target: string): Plugin {
 // ---------------------------------------------------------------- mock
 
 const playground = process.env.MOCK_KIND === 'playground'
+// A QEMU lab: a terminal tab per VM, each the student's ssh login.
+const qemu = process.env.MOCK_KIND === 'qemu'
 
 // Shapes follow docs/reference/workspace-api.md.
 const TIME_LIMIT_SECONDS = 45 * 60
-const TARGET = 'demo'
-const LINKED = 'demo-edge'
+const QUESTION_TITLE = qemu ? 'Harden SSH on two hosts' : 'Restrict ingress to the API'
+const QEMU_QUESTION = `
+<p>Two VMs, <code>control</code> and <code>worker</code>, accept SSH password logins today.</p>
+<h2>Requirements</h2>
+<ul>
+<li>On both VMs, set <code>PasswordAuthentication no</code> in <code>/etc/ssh/sshd_config</code>.</li>
+<li>Reload <code>sshd</code> so the change takes effect.</li>
+</ul>`
+const TARGET = qemu ? 'demo-control' : 'demo'
+const LINKED = qemu ? 'demo-worker' : 'demo-edge'
 
 // A stand-in for a page the lab serves on a port forward. It runs on its own
 // port: the workspace never frames its own origin.
@@ -83,7 +94,7 @@ function run() {
   return {
     lab: 'demo',
     runId: 'f'.repeat(64),
-    title: playground ? 'Kubernetes playground' : 'Restrict ingress to the API',
+    title: playground ? 'Kubernetes playground' : QUESTION_TITLE,
     mode: playground ? 'learning' : 'exam',
     playground,
     status: status(),
@@ -96,11 +107,16 @@ function run() {
       prerequisitesHtml: playground ? '' : '<p>Know how NetworkPolicy <code>podSelector</code> and <code>from</code> rules combine.</p>\n',
       estimatedDuration: playground ? '' : '30m',
     },
-    questions: [{ id: 'q1', title: 'Restrict ingress to the API', points: null }],
-    targets: [
-      { name: TARGET, label: 'main', kind: 'kind', views: ['terminal'] },
-      { name: LINKED, label: 'edge', kind: 'kind', views: ['terminal'] },
-    ],
+    questions: [{ id: 'q1', title: QUESTION_TITLE, points: null }],
+    targets: qemu
+      ? [
+          { name: TARGET, label: 'control', kind: 'vm', views: ['terminal'] },
+          { name: LINKED, label: 'worker', kind: 'vm', views: ['terminal'] },
+        ]
+      : [
+          { name: TARGET, label: 'main', kind: 'kind', views: ['terminal'] },
+          { name: LINKED, label: 'edge', kind: 'kind', views: ['terminal'] },
+        ],
     tabs: TABS,
     canSubmit: submitBlocked() === '',
     submit: {
@@ -180,7 +196,13 @@ function grade(): Record<string, unknown> {
   }
 }
 
-const TABS = [
+// A QEMU lab declares no tabs: one terminal tab per VM (docs/reference/workspace-api.md).
+const QEMU_TABS = [
+  { name: 'main', title: 'control', kind: 'terminal', focus: true, target: TARGET },
+  { name: 'vm-worker', title: 'worker', kind: 'terminal', focus: false, target: LINKED },
+]
+
+const TABS = qemu ? QEMU_TABS : [
   { name: 'main', title: 'Terminal', kind: 'terminal', focus: true, target: TARGET },
   { name: 'cluster-edge', title: 'edge', kind: 'terminal', focus: false, target: LINKED },
   { name: 'shop', title: 'Shop', kind: 'browser', focus: false, url: `${MOCK_APP_ORIGIN}/` },
@@ -282,7 +304,7 @@ function mockPlugin(): Plugin {
         }
         if (m === 'GET' && p === '/runs/demo/questions/q1') {
           if (!started()) return fail(res, 409, 'not_started', 'click Start first')
-          return send(res, 200, { id: 'q1', title: 'Restrict ingress to the API', html: questionHTML, points: null, target: TARGET, hints: [] })
+          return send(res, 200, { id: 'q1', title: QUESTION_TITLE, html: qemu ? QEMU_QUESTION : questionHTML, points: null, target: TARGET, hints: [] })
         }
         if (m === 'GET' && p === '/runs/demo/tabs/notes/doc') {
           if (!started()) return fail(res, 409, 'not_started', 'click Start first')
@@ -401,7 +423,9 @@ function startMockApp(): void {
 
 // ---------------------------------------------------------------- fake shell
 
-const PROMPT = '\x1b[38;5;208mastrona-cli\x1b[0m > '
+const KIND_PROMPT = '\x1b[38;5;208mastrona-cli\x1b[0m > '
+// The VM's own prompt: the student's login shell in the lab's workspace.
+const vmPrompt = (target: string) => `student@${target.replace(/^demo-/, '')}:~/.astrona/runtime/demo$ `
 
 const shells = new Map<string, Shell>()
 const starting = new Set<string>()
@@ -445,7 +469,8 @@ function newShell(tab: string, target: string) {
     this.createdAt = new Date().toISOString()
     this.buffer = ''
     this.line = ''
-    this.out(`\x1b[32mMock terminal on ${this.target}.\x1b[0m Try: stty size, ls /, echo hi, exit\r\n` + PROMPT)
+    const where = qemu ? `the ${this.target.replace(/^demo-/, '')} VM (ssh as student)` : this.target
+    this.out(`\x1b[32mMock terminal on ${where}.\x1b[0m Try: stty size, ls /, echo hi, exit\r\n` + this.prompt())
   },
 
   forget() {
@@ -453,6 +478,10 @@ function newShell(tab: string, target: string) {
     this.socket = null
     this.id = ''
     this.alive = false
+  },
+
+  prompt() {
+    return qemu ? vmPrompt(this.target) : KIND_PROMPT
   },
 
   out(text: string) {
@@ -534,13 +563,14 @@ function newShell(tab: string, target: string) {
     const outputs: Record<string, string> = {
       'stty size': `${this.rows} ${this.cols}`,
       'ls /': 'bin  etc  home  lib  proc  root  tmp  usr  var  workspace',
-      'echo $HOME': '/workspace',
+      'echo $HOME': qemu ? '/home/student' : '/workspace',
+      hostname: this.target.replace(/^demo-/, ''),
     }
     if (cmd) {
       const echo = cmd.startsWith('echo ') ? cmd.slice(5) : undefined
       this.out((outputs[cmd] ?? echo ?? `${cmd.split(' ')[0]}: command not found (mock)`) + '\r\n')
     }
-    this.out(PROMPT)
+    this.out(this.prompt())
   },
   }
   sh.reset()

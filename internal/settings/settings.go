@@ -41,7 +41,7 @@ func Definitions() []Definition {
 		{"update-check", "true", "Check for new CLI releases and show update notices"},
 		{"cache-retention-days", strconv.Itoa(localdata.DefaultRetentionDays), "Maximum disposable-cache age in days (1–36500)"},
 		{"cache-max-size-gb", strconv.Itoa(localdata.DefaultMaxSizeGB), "Combined disposable-cache size in GB; 0 means unlimited"},
-		{"browser", `"always"`, "Open a Kind lab in the browser workspace after `astrona run`: always, ask or never"},
+		{"browser", `"always"`, "Open the lab in the browser workspace after `astrona run`: always, ask or never"},
 	}
 }
 

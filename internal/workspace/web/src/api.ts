@@ -15,8 +15,9 @@ export type ViewKind = 'terminal' | 'desktop'
 export interface Target {
   /** What POST /terminals takes. */
   name: string
-  /** Display name: "main", or a linked lab's name. */
+  /** Display name: "main", a linked lab's name, or a VM's name. */
   label: string
+  /** "kind" (a Kind cluster) or "vm" (one VM of a QEMU lab). */
   kind: string
   views: ViewKind[]
 }

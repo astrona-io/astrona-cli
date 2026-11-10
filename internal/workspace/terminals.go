@@ -3,12 +3,14 @@ package workspace
 import (
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"net/http"
 	"os/exec"
 	"sort"
 	"sync"
 	"time"
 
+	"astrona/internal/labops"
 	"astrona/internal/labshell"
 	"astrona/internal/termbridge"
 )
@@ -17,8 +19,9 @@ import (
 // has at most config.MaxTabs+1 terminal tabs and one terminal per tab.
 const maxTerminalsPerLab = 12
 
-// terminal is one shell the page opened for a terminal tab: a hardened
-// container from labshell.Command on a PTY from termbridge.
+// terminal is one shell the page opened for a terminal tab on a PTY from
+// termbridge: a hardened container from labshell.Command on a Kind target,
+// the student's isolated ssh login (labops.WorkspaceSSHCommand) on a VM.
 type terminal struct {
 	id        string
 	lab       string
@@ -86,7 +89,8 @@ func (t *terminal) isGone() bool {
 	}
 }
 
-// close ends the shell and removes its container. Safe to call twice.
+// close ends the shell and removes its container (a VM's ssh login just
+// ends). Safe to call twice.
 func (t *terminal) close() {
 	t.goneOnce.Do(func() { close(t.gone) })
 	_ = t.session.Close()
@@ -314,7 +318,13 @@ func (s *Server) handleOpenTerminal(w http.ResponseWriter, r *http.Request) {
 		writeErrorCode(w, http.StatusTooManyRequests, "too_many_terminals", "too many terminals are open")
 		return
 	}
-	t, err := s.startTerminal(rec.Lab, tab.Name, tab.Target)
+	target, found := rec.target(tab.Target)
+	if !found {
+		s.terms.unreserve(rec.Lab, tab.Name)
+		writeErrorCode(w, http.StatusBadRequest, "unknown_tab", "this tab's target is not part of the run")
+		return
+	}
+	t, err := s.startTerminal(rec.Lab, tab.Name, target)
 	if err != nil {
 		s.terms.unreserve(rec.Lab, tab.Name)
 		if errors.Is(err, termbridge.ErrUnsupported) {
@@ -332,11 +342,21 @@ func (s *Server) handleOpenTerminal(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, t.view())
 }
 
-// startTerminal runs labshell's isolated terminal for target. Its context
-// is the server's: a request context would kill the shell when the POST
-// returns. There is no fallback to a host shell.
-func (s *Server) startTerminal(lab, tab, target string) (*terminal, error) {
-	cmd, err := labshell.Command(s.life, lab, target, nil, true)
+// startTerminal runs the isolated terminal for target: labshell's tools
+// container for a Kind cluster, the student's ssh login for a QEMU VM. Its
+// context is the server's: a request context would kill the shell when the
+// POST returns. There is no fallback to a host shell.
+func (s *Server) startTerminal(lab, tab string, target Target) (*terminal, error) {
+	var cmd *exec.Cmd
+	var err error
+	switch target.Kind {
+	case TargetKind:
+		cmd, err = labshell.Command(s.life, lab, target.Name, nil, true)
+	case TargetVM:
+		cmd, err = labops.WorkspaceSSHCommand(s.life, lab, target.Name, s.cfg.PrepareVM)
+	default:
+		err = fmt.Errorf("target %s has an unknown kind %q", target.Name, target.Kind)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +372,7 @@ func (s *Server) startTerminal(lab, tab, target string) (*terminal, error) {
 		_ = session.Close()
 		return nil, err
 	}
-	return &terminal{id: id, lab: lab, tab: tab, target: target, createdAt: time.Now(), cmd: cmd, session: session, gone: make(chan struct{})}, nil
+	return &terminal{id: id, lab: lab, tab: tab, target: target.Name, createdAt: time.Now(), cmd: cmd, session: session, gone: make(chan struct{})}, nil
 }
 
 func newTerminalID() (string, error) {

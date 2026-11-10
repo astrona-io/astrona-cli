@@ -282,8 +282,8 @@ answer; Kind labs are then missing from the list.
 | `rules` | `strict`: a submission after the deadline cannot pass. `hintsHidden`: hints are never shown. |
 | `intro` | For the intro page. `prerequisitesHtml` is `""` when the lab has none; `estimatedDuration` is `""` when its task does not say. |
 | `questions` | Summaries only, never the text. Today every lab has exactly one question, `q1`, built from `metadata.docs.question`. `points` is `null` until per-question points exist. |
-| `targets` | Where terminals run. `label` is the display name (`main`, or a linked cluster's name). `views` lists what the target offers: `["terminal"]` today; a desktop will add `"desktop"`. |
-| `tabs` | The right panel, as the lab declares it (lab config `tabs`). The first is always the focus tab: `name` `main`, a terminal on the lab's own cluster. The page shows exactly these and cannot add or close one. `kind` is `terminal` (`target` says where its shell runs), `browser` (`url` is a loopback port forward of the lab), or `docs`: either `url` (an `https` documentation page, shown in a frame) or `document: true` (Markdown shipped with the lab, fetched from `GET /tabs/{name}/doc`). A lab that declares no tabs gets only the focus tab. |
+| `targets` | Where terminals run. `kind` is `kind` (a Kind cluster) or `vm` (one VM of a QEMU lab; `name` is the VM's handle, the lab name for a single-VM lab or `<lab>-<vm>`). `label` is the display name (`main`, a linked cluster's name, or the VM's name in a multi-VM lab). `views` lists what the target offers: `["terminal"]` today; a desktop will add `"desktop"`. |
+| `tabs` | The right panel, as the lab declares it (lab config `tabs`). The first is always the focus tab: `name` `main`, a terminal on the lab's own cluster. The page shows exactly these and cannot add or close one. `kind` is `terminal` (`target` says where its shell runs), `browser` (`url` is a loopback port forward of the lab), or `docs`: either `url` (an `https` documentation page, shown in a frame) or `document: true` (Markdown shipped with the lab, fetched from `GET /tabs/{name}/doc`). A lab that declares no tabs gets only the focus tab. A QEMU lab cannot declare tabs: a single-VM lab gets the focus tab on its VM, a multi-VM lab gets the focus tab on its first VM (titled with the VM's name) and a terminal tab `vm-<name>` for each further VM. |
 | `canSubmit` | `true` when `POST /submit` would grade now: a lab or exam that was started and is still running (an expired exam can still be submitted). Never for a playground. |
 | `submit.tracking` | Where a result goes. `account`: the run has an Astrona lab session; the result is sent when astrona is signed in to that site. `local-only`: never sent. `none`: no lab session; the result stays on this machine. |
 | `submit.keepEnvironment` | The lab sets `teardown.keepCluster`: a submission never removes the environment, and `POST /destroy` refuses. |
@@ -486,11 +486,20 @@ is still running (nothing new is started), or `201` with a new one; a new one
 replaces the tab's ended shell. While one request starts a tab's shell, another
 for the same tab gets `409 terminal_starting`.
 
-This can take a minute the first time on a machine, while the terminal image is
-built. The terminal is a hardened container on the Kind network that mounts only
-the lab's own workspace directory; its prompt is `astrona-cli >` and `$HOME` is
-`/workspace`. If the container cannot start, the answer is
-`502 terminal_failed` and nothing else is started in its place.
+On a `kind` target this can take a minute the first time on a machine, while
+the terminal image is built. The terminal is a hardened container on the Kind
+network that mounts only the lab's own workspace directory; its prompt is
+`astrona-cli >` and `$HOME` is `/workspace`. If the container cannot start, the
+answer is `502 terminal_failed` and nothing else is started in its place.
+
+On a `vm` target the terminal is an `ssh -tt` login into that VM as the lab's
+student user, with the lab's own key and known-hosts file, no SSH config
+(`-F /dev/null`), no agent, no forwarding and no escape character, and a
+10-second connect timeout. The shell starts in `~/.astrona/runtime/<lab>` in
+the VM. The lab's resources are installed in the student's home first, as for
+`astrona ssh`. If that fails, the answer is `502 terminal_failed`. If ssh
+cannot connect, the terminal ends with ssh's error and exit code `255`. There
+is never a fallback to a shell on the host.
 
 Errors: `409 not_started`, `409 run_changed`, `409 run_stopped`,
 `409 terminal_starting`, `400 unknown_tab`, `429 too_many_terminals`,

@@ -71,23 +71,22 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			"An interactive run with the browser setting at always (the default) or --browser opens the browser first: astrona " +
 			"starts the local browser workspace (or reuses a running one), prints its link and opens it. The tab shows the CLI " +
 			"terms when they still need accepting (declining stops the command), then the lab being set up, then the lab. " +
-			"Questions the terminal asks (start over?, log in?, trust?) are answered there. A QEMU lab ends the page and " +
-			"continues in the terminal. " +
+			"Questions the terminal asks (start over?, log in?, trust?) are answered there. " +
 			"The link has a single-use code that expires after 2 minutes; `astrona ui <lab>` opens a fresh one and " +
 			"`astrona ui stop` stops the workspace (labs keep running). An exam's timer starts when you click Start in the browser, not when " +
 			"the lab is ready. With `astrona settings set browser ask` the lab is set up in the terminal first, which then asks \"Open this lab in your browser?\" " +
 			"(yes/no/always/never) each run, and never keeps runs in the terminal. --browser and --no-browser decide for one run. " +
 			"Without a terminal on stdin and stdout, or with no browser on the machine (no display), the workspace is not opened " +
 			"unless --browser or a saved always asks for it. --headless never opens the browser.\n\n" +
-			"QEMU (VM) labs do not open in the browser yet: once ready, run prints the astrona ssh command for each VM; " +
-			"astrona status <lab> shows them.\n\n" +
+			"A QEMU (VM) lab opens the same way, with one terminal tab per VM, each the student's ssh login on that VM; " +
+			"run also prints the astrona ssh command for each VM, and astrona status <lab> shows them.\n\n" +
 			"--headless keeps Kind and QEMU setup headless. It skips the browser workspace, login reminder and new account sessions, " +
 			"then returns after setup with the lab still running for external validation. Missing approvals fail instead of prompting, even in a terminal. " +
 			"Terms, settings review, remote-code trust and --yes for replacing an existing run still apply. This uses the normal lab name and setup; " +
 			"it does not grade or clean up automatically. Use astrona destroy when finished, or astrona test for the full setup, reference solution, grading and cleanup pipeline.",
 		Example: `  astrona run astrona.io/ATS014/section-010/module-01/lab-02   # catalog lab: no login needed
   astrona run ./labs/my-lab
-  astrona run ./labs/my-lab --browser                 # browser workspace (Kind labs)
+  astrona run ./labs/my-lab --browser                 # browser workspace
   astrona run ./labs/my-lab --headless --accept-terms # setup for external checks
   astrona run --git https://github.com/org/labs -c labs/net-01
   astrona run renew                                  # a running playground: its full time limit again`,
@@ -124,12 +123,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer configCleanup()
 			if flags.launch != nil {
-				if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" {
-					flags.launch.End(workspace.LaunchEnded, "This lab runs on "+cfg.Runtime.Type+" virtual machines, which do not open in the browser yet. Continue in your terminal.")
-					flags.launch = nil
-				} else {
-					flags.launch.SetTitle(labops.SanitizeLine(cfg.Metadata.Name))
-				}
+				flags.launch.SetTitle(labops.SanitizeLine(cfg.Metadata.Name))
 			}
 
 			// Resolve restart consent before account access or runtime changes.
@@ -192,7 +186,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			if flags.launch != nil {
 				flags.browserRun = true // decided by browserFirst, and the tab is open
-			} else if flags.browserRun, err = wantBrowser(flags, cfg, browser, noBrowser); err != nil {
+			} else if flags.browserRun, err = wantBrowser(flags, browser, noBrowser); err != nil {
 				return err
 			}
 
@@ -275,7 +269,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&flags.localOnly, "local-only", false, "Keep this run on this machine: no lab session, progress, results or CPU/memory samples are sent to Astrona, even when signed in")
 	cmd.Flags().BoolVar(&withoutLogin, "without-login", false, "Confirm running a catalog lab without signing in or tracking progress on Astrona")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "If the lab is already running, destroy it and start over without asking")
-	cmd.Flags().BoolVar(&browser, "browser", false, "Open the Kind lab in the browser workspace once it is ready, without asking")
+	cmd.Flags().BoolVar(&browser, "browser", false, "Open the lab in the browser workspace once it is ready, without asking")
 	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "Do not open the browser workspace or ask about it")
 	cmd.MarkFlagsMutuallyExclusive("browser", "no-browser")
 	// `astrona connect` runs `run <lab> --session <id>` for "Start on my machine".

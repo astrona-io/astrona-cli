@@ -21,7 +21,7 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ui [lab-name]",
 		Short: "Open a running lab, or every lab on this computer, in the browser",
-		Long: "Open a running Kind lab in the browser workspace: astrona starts the local workspace server " +
+		Long: "Open a running lab (Kind or QEMU) in the browser workspace: astrona starts the local workspace server " +
 			"(or reuses a running one), prints a link with a fresh single-use code (valid for two minutes) and " +
 			"opens it in your browser. With no browser on this machine (no display), open the printed link yourself. " +
 			"Use it when a link has expired or the browser tab was closed; it never restarts the lab or its timer, " +
@@ -31,7 +31,7 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 			"where you open or end them. " +
 			"A lab named status, stop or serve is opened by its full name (" + apphome.ClusterPrefix() + "status), " +
 			"since the short name is a subcommand.\n\n" +
-			"QEMU labs do not open in the browser yet: astrona status <lab> shows the astrona ssh command for each VM.\n\n" +
+			"A QEMU lab opens with one terminal tab per VM, each the student's ssh login on that VM.\n\n" +
 			"astrona ui status shows the workspace server and a fresh link; astrona ui stop stops it (labs keep running).",
 		Example: "  astrona ui\n  astrona ui my-lab\n  astrona ui " + apphome.ClusterPrefix() + "status   # a lab named status\n  astrona ui status\n  astrona ui stop",
 		Args:    cobra.MaximumNArgs(1),
@@ -80,9 +80,6 @@ func newWorkspaceCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer cleanup()
-			if cfg.Runtime.Type != "" && cfg.Runtime.Type != "kind" {
-				return fmt.Errorf("lab %s runs on %s, which the browser workspace does not open yet; astrona status %s shows the astrona ssh command for each VM", name, cfg.Runtime.Type, uiLabArg(name))
-			}
 			return reopenBrowserWorkspace(cfg, baseDir, flags)
 		},
 	}

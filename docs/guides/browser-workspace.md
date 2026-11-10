@@ -1,6 +1,6 @@
 # Browser Workspace
 
-The browser workspace is a local web page for working on a Kind lab: the task
+The browser workspace is a local web page for working on a lab, Kind or QEMU: the task
 on one side, a terminal on the lab on the other, in your own browser. `astrona`
 serves the page itself, on `127.0.0.1` only; nothing leaves your machine. It
 replaces the earlier terminal UI: `astrona ui` now opens this page.
@@ -28,7 +28,7 @@ opens it in your default browser. You can follow everything from that tab:
 Some questions are still asked in the terminal: whether to start a running lab
 over, whether to log in, and whether to trust a lab's repository. The tab says
 so while it waits. If you stop the command (Ctrl+C), the tab says that astrona
-stopped. A QEMU lab ends the page and carries on in the terminal (see
+stopped. A QEMU lab opens the same way, with a terminal on each VM (see
 [QEMU labs](#qemu-labs)).
 
 The [`browser` setting](settings.md) changes this:
@@ -119,9 +119,27 @@ answer, it says so, since Kind labs cannot be listed without it.
 
 ## QEMU labs
 
-QEMU (VM) labs do not open in the browser yet, and `--browser` on a QEMU lab is
-an error. Once a QEMU lab is ready, `astrona run` prints the `astrona ssh`
-command for each VM; `astrona status <lab>` shows them again.
+A QEMU (VM) lab opens in the browser like a Kind lab: the intro, **Start**, the
+timer, **Submit** and **All labs** work the same way. Its terminals are SSH
+logins into the VMs, as the lab's `student` user, starting in the lab's
+workspace directory in the VM (`~/.astrona/runtime/<lab>`), the same login
+`astrona ssh` gives you. There is no `kubectl` and no host shell.
+
+- A single-VM lab has one **Terminal** tab on its VM.
+- A multi-VM lab has one tab per VM, named after the VM. The first VM in the
+  lab's config is the focus tab.
+
+![A multi-VM lab in the browser workspace: one terminal tab per VM](../assets/browser-workspace-vm-terminals.png)
+
+The VM tabs are fixed: a QEMU lab cannot declare [`tabs`](../reference/lab-config.md#tabs).
+When a shell ends (`exit`), **Open a new shell** logs in to the same VM again.
+The workspace connects with the lab's own key and known-hosts file only; it
+never uses your SSH config, agent or keys. If the VM does not answer within 10
+seconds, ssh gives up and the tab shows that the shell ended; nothing else is
+started in its place.
+
+`astrona run` still prints the `astrona ssh` command for each VM, and
+`astrona status <lab>` shows them again, for a terminal outside the browser.
 
 ## Before you start
 
@@ -150,7 +168,7 @@ run sends nothing.
   panel already shows the task; the lab's name is in the browser tab's title.
   **All labs** and **About Astrona** sit at the bottom of the panel.
 - **Terminal** (right): a shell on the lab with `kubectl` pointed at its
-  cluster. Keyboard focus moves into the terminal after **Start** and when the
+  cluster (on a QEMU lab, an SSH login into its VM; see [QEMU labs](#qemu-labs)). Keyboard focus moves into the terminal after **Start** and when the
   page opens. Press <kbd>F6</kbd> to leave the terminal; <kbd>Shift</kbd>+<kbd>F6</kbd>
   works too. The skip links at the top move focus between task and terminal.
 - **Divider**: drag it, or focus it and use the arrow keys (<kbd>Shift</kbd> for
@@ -255,8 +273,8 @@ It always opens a dialog first that says what is about to happen for this run:
   a local-only run, finishes it. A fail keeps the attempt open: fix the lab
   and submit again.
 - Whether the environment stays. When a pass finishes the attempt, the cluster
-  and its terminals are removed, unless the lab sets `teardown.keepCluster`.
-- If the checks cannot run (for example, the container engine stopped),
+  (or the VMs) and its terminals are removed, unless the lab sets `teardown.keepCluster`.
+- If the checks cannot run (for example, the container engine or a VM stopped),
   nothing is recorded or sent and the lab keeps running.
 
 ![The Submit lab dialog over the workspace, for a local lab that is not linked to an account](../assets/browser-workspace-submit.png)

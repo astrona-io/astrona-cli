@@ -17,6 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"astrona/internal/config"
 	"astrona/internal/workspace/web"
 )
 
@@ -47,6 +48,10 @@ type Config struct {
 	Busy func() bool
 	// Assets is the frontend; nil uses the embedded web.FS().
 	Assets fs.FS
+	// PrepareVM installs a QEMU lab's resources into the student's home in
+	// a VM before its terminal logs in (cmd's resource workspace, as
+	// `astrona ssh` does); nil skips it.
+	PrepareVM func(ctx context.Context, lab string, h *config.QEMUHandle) error
 }
 
 // Server is the loopback workspace server. Create it with New, then call

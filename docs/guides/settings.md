@@ -31,7 +31,7 @@ astrona settings -o json
 | `update-check` | `yes` | Check for new CLI releases and show update notices |
 | `cache-retention-days` | `30` | Maximum disposable-cache age; whole days from 1 to 36500 |
 | `cache-max-size-gb` | `50` | Combined disposable-cache limit in decimal GB; `0` means unlimited size |
-| `browser` | `always` | After `astrona run` of a Kind lab: open the [browser workspace](browser-workspace.md) `always`, `ask` each time, or `never` |
+| `browser` | `always` | After `astrona run` of a lab: open the [browser workspace](browser-workspace.md) `always`, `ask` each time, or `never` |
 
 With `ask`, answering `always` or `never` to "Open this lab in your browser?"
 saves that answer here. On a machine with no browser (no display) the default
