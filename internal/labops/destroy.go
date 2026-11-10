@@ -1,6 +1,7 @@
 package labops
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"astrona/internal/runtime"
 	"astrona/internal/scripts"
 	"astrona/internal/ui"
+	"astrona/internal/vmprovider/qemu"
 )
 
 // Teardown is what `astrona destroy` needs from the lab config — best
@@ -216,13 +218,14 @@ func DestroyByNameLocked(name string, rep *ui.Reporter, opts DestroyOptions) err
 	ReleaseLab(opts.Out, name) // before the delete unsets the lab's context
 
 	var errs []string
+	vmp := qemu.New(rep)
 	if foundQemu || legacyQemu {
-		if err := hypervisor.DestroyQEMUVM(name, rep); err != nil {
+		if err := vmp.Delete(context.Background(), name); err != nil {
 			errs = append(errs, fmt.Sprintf("qemu: %s", err))
 		}
 	}
 	for _, vm := range vms {
-		if err := hypervisor.DestroyQEMUVM(vm, rep); err != nil {
+		if err := vmp.Delete(context.Background(), vm); err != nil {
 			errs = append(errs, fmt.Sprintf("qemu %s: %s", vm, err))
 		}
 	}

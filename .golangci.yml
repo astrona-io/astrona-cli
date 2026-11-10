@@ -161,6 +161,7 @@ linters:
           files:
             - "**/internal/cluster/**"
             - "**/internal/hypervisor/**"
+            - "**/internal/vmprovider/**"
             - "**/internal/portforward/**"
             - "**/internal/runtime/**"
             - "**/internal/scripts/**"

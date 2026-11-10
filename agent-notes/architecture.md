@@ -35,6 +35,7 @@ The codebase is organized in a standard, logical Go folder structure:
   - `labshell` — Student Kind terminals run in a tools container. Only the per-run `runtime/<lab>/work` directory is writable from the terminal; never mount host homes, engine sockets or SSH agents. Keep failure closed: no host shell fallback. UI image preparation must be cancellable without holding the rendering lock. QEMU terminals remain inside their VM with SSH local escapes disabled.
   - `cluster` — Handles container engine detection and Kind cluster lifecycle (`cluster.go`).
   - `hypervisor` — Manages QEMU VM background processes, UEFI vars, and multi-NIC topology (`hypervisor.go`).
+  - `vmprovider` — The VM backend seam: `Provider` (`Create`, `Get`, `Delete`) over a `Spec` and an `Instance` (SSH endpoint and the CLI's admin identity). `vmprovider/qemu` is the only implementation and wraps `hypervisor`; `runtime` creates, loads and destroys lab VMs through it, and `labops` destroy deletes through it. Discovery (`StateExists`, `MultiVMs`, inventory), `astrona ssh` and the image cache still call `hypervisor` directly.
   - `executor` — Defines shell execution abstractions on the host or over SSH (`executor.go`).
   - `scripts` — Sequentially executes init, bootstrap, and testing scripts (`scripts.go`).
   - `manifests` — Applies Kubernetes manifests to clusters (`manifests.go`).
