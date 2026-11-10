@@ -5627,7 +5627,7 @@ Kind workspace files. Copy anything you want to keep out before deleting a run.<
 <p>Every VM gets an implicit host-only management NIC (astrona's own control channel) in addition to any declared <code>networks</code>.</p>
 </li>
 <li><code>sshAccess</code> wires up passwordless SSH from one named VM into another — both must already share a <code>runtime.networks</code> segment; it doesn't create connectivity on its own, only trust over a path that already exists.</li>
-<li>The lab's shared root <code>bootstrap</code>/<code>validation</code> run once per VM, in <code>runtime.qemu</code>'s order; a VM's own nested <code>bootstrap</code>/<code>validation</code> block (if set) runs after that, scoped to just that VM.</li>
+<li>The lab's shared root <code>bootstrap</code>/<code>validation</code> run once per VM, in <code>runtime.qemu</code>'s order; a VM's own nested <code>bootstrap</code>/<code>validation</code> block (if set) runs after that, scoped to just that VM. A nested <code>validation</code> block's <code>command</code> checks run inside that VM, and its results are suffixed <code>(vmName)</code> — see <a href="../grading/#script-checks-validationscript-validationscripts">Grading</a>.</li>
 </ul>
 <h2 id="choosing-one">Choosing one<a class="headerlink" href="#choosing-one" title="Permanent link">&para;</a></h2>
 <p>Default to <code>kind</code> unless a lab specifically needs a full OS, kernel-level behavior, or multi-host networking that a Kubernetes cluster can't model — it's faster to boot and has no VM image to manage.</p>

@@ -5375,7 +5375,7 @@ their normal API behavior.</p>
 <tbody>
 <tr>
 <td><code>astrona submit -o json</code></td>
-<td><code>{lab, pass, earned, max, percent, attempt, checks: [{name, pass, points, message, hint, durationMs}]}</code> (hints left out under exam conditions; still recorded as an attempt; exit codes as above)</td>
+<td><code>{lab, pass, earned, max, percent, attempt, checks: [{name, pass, points, message, hint, durationMs, vm}]}</code> (<code>vm</code> only for a multi-VM qemu lab's per-VM results) (hints left out under exam conditions; still recorded as an attempt; exit codes as above)</td>
 </tr>
 <tr>
 <td><code>astrona submit --history -o json</code></td>

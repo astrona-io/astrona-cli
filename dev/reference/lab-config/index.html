@@ -5828,7 +5828,7 @@
 <tr>
 <td><code>validation</code></td>
 <td>ValidationConfig</td>
-<td>Runs only against this VM, after the shared root <code>validation</code> (multi-VM only)</td>
+<td>Graded only against this VM, after the shared root <code>validation</code>: its <code>command</code> checks and scripts run inside this VM, <code>http</code> checks from this machine. Results are suffixed <code>(name)</code> in a multi-VM lab. Its <code>passPercent</code> is ignored — the root one sets the pass mark</td>
 </tr>
 </tbody>
 </table>
