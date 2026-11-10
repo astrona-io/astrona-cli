@@ -474,6 +474,12 @@ func DestroyLab(info Teardown, baseDir string, rep *ui.Reporter, opts DestroyOpt
 	}
 
 	testClusterName := config.NormalizeTestClusterName(info.ClusterName)
+	releaseTest, err := labstate.LockMutation(testClusterName)
+	if err != nil {
+		rep.Warn("kept test lab '%s': %s", testClusterName, err)
+		return nil
+	}
+	defer releaseTest()
 	if err := TearDownLabEnvironment(testClusterName, info, baseDir, false, rep); err != nil {
 		// TearDownLabEnvironment(hardFail=false) never actually returns an
 		// error, but handle it rather than silently dropping one if that
