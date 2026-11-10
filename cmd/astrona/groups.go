@@ -35,6 +35,7 @@ func commandGroups(flags *rootFlags) []commandGroup {
 			newResourceCmd(flags),
 			newSSHCmd(),
 			newSubmitCmd(flags),
+			newExamCmd(flags),
 			newStatusCmd(flags),
 			newProgressCmd(),
 			newResetCmd(flags),

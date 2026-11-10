@@ -56,14 +56,26 @@ func buildStep(e ui.Event) string {
 	return ""
 }
 
-// stepQueue sends build steps to the lab page in order, off the build's
+// stepQueue sends build steps to the page in order, off the build's
 // goroutine: a slow or unreachable site never holds the build up, and a step
 // that doesn't fit the queue is dropped.
+//
+// It also keeps a long step alive: labs fails a preparing session (or exam)
+// that sends nothing for a while (its stall sweep), and one step — a
+// 30-minute waitFor, a slow image pull — can last longer than that. While
+// the queue is open, the last step is sent again whenever nothing was sent
+// for ProgressKeepalive. Labs takes at most 200 progress events per session
+// and 60 a minute; one every five minutes stays far inside both.
 type stepQueue struct {
 	mu     sync.Mutex
 	steps  chan string
 	done   chan struct{}
 	closed bool
+	send   func(string)
+
+	lastMu   sync.Mutex
+	last     string
+	lastSent time.Time
 }
 
 const (
@@ -72,6 +84,80 @@ const (
 	// before it, so they reach the page first.
 	stepFlushWait = 10 * time.Second
 )
+
+// ProgressKeepalive is how long a step may go without being sent again
+// while it lasts (see stepQueue). Labs' stall sweep is 45 minutes for a
+// lab session and 15 for a lab exam's preparation.
+var ProgressKeepalive = 5 * time.Minute
+
+// newStepQueue starts a queue that hands each step to send.
+func newStepQueue(send func(string)) *stepQueue {
+	q := &stepQueue{steps: make(chan string, stepQueueSize), done: make(chan struct{}), send: send}
+	go q.run()
+	go q.keepAlive()
+	return q
+}
+
+// add queues step, unless the queue is full or closed.
+func (q *stepQueue) add(step string) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.closed {
+		return
+	}
+	select {
+	case q.steps <- step:
+	default:
+	}
+}
+
+func (q *stepQueue) run() {
+	defer close(q.done)
+	for step := range q.steps {
+		q.send(step)
+		q.lastMu.Lock()
+		q.last, q.lastSent = step, time.Now()
+		q.lastMu.Unlock()
+	}
+}
+
+// keepAlive sends the last step again while nothing new was sent for
+// ProgressKeepalive, until the queue closes.
+func (q *stepQueue) keepAlive() {
+	tick := ProgressKeepalive / 5
+	if tick <= 0 {
+		tick = time.Second
+	}
+	t := time.NewTicker(tick)
+	defer t.Stop()
+	for {
+		select {
+		case <-q.done:
+			return
+		case <-t.C:
+			q.lastMu.Lock()
+			last, idle := q.last, time.Since(q.lastSent)
+			q.lastMu.Unlock()
+			if last != "" && idle >= ProgressKeepalive {
+				q.add(last)
+			}
+		}
+	}
+}
+
+// close stops taking steps and waits, briefly, for the queued ones.
+func (q *stepQueue) close() {
+	q.mu.Lock()
+	if !q.closed {
+		q.closed = true
+		close(q.steps)
+	}
+	q.mu.Unlock()
+	select {
+	case <-q.done:
+	case <-time.After(stepFlushWait):
+	}
+}
 
 // Observe is a ui.Reporter observer: it queues the page's line for e, if any.
 func (ls *LabStart) Observe(e ui.Event) {
@@ -84,28 +170,11 @@ func (ls *LabStart) Observe(e ui.Event) {
 	}
 	ls.stepsMu.Lock()
 	if ls.queue == nil {
-		ls.queue = &stepQueue{steps: make(chan string, stepQueueSize), done: make(chan struct{})}
-		go ls.sendSteps(ls.queue)
+		ls.queue = newStepQueue(func(step string) { ls.Progress("preparing", step) })
 	}
 	q := ls.queue
 	ls.stepsMu.Unlock()
-
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	if q.closed {
-		return
-	}
-	select {
-	case q.steps <- step:
-	default:
-	}
-}
-
-func (ls *LabStart) sendSteps(q *stepQueue) {
-	defer close(q.done)
-	for step := range q.steps {
-		ls.Progress("preparing", step)
-	}
+	q.add(step)
 }
 
 // flushSteps stops taking steps and waits, briefly, for the queued ones.
@@ -113,17 +182,7 @@ func (ls *LabStart) flushSteps() {
 	ls.stepsMu.Lock()
 	q := ls.queue
 	ls.stepsMu.Unlock()
-	if q == nil {
-		return
-	}
-	q.mu.Lock()
-	if !q.closed {
-		q.closed = true
-		close(q.steps)
-	}
-	q.mu.Unlock()
-	select {
-	case <-q.done:
-	case <-time.After(stepFlushWait):
+	if q != nil {
+		q.close()
 	}
 }

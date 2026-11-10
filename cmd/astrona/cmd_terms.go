@@ -25,11 +25,11 @@ func newTermsCmd() *cobra.Command {
 
 func termsExempt(cmd *cobra.Command) bool {
 	path := strings.TrimPrefix(cmd.CommandPath(), cmd.Root().Name()+" ")
-	// Hidden detached helpers (playground-watchdog, port-forward supervise,
+	// Hidden detached helpers (playground-watchdog, exam-watchdog, port-forward supervise,
 	// usage-reporter, outbox-flush) are only started by a command that
 	// already passed this gate; --accept-terms is not passed down to them.
 	switch path {
-	case "help", "docgen", "schema", "__complete", "__completeNoDesc", "playground-watchdog", "port-forward supervise", "usage-reporter", "outbox-flush", "stop", "destroy", "logout", "port-forward stop", "ui serve", "ui stop", "ui status":
+	case "help", "docgen", "schema", "__complete", "__completeNoDesc", "playground-watchdog", "exam-watchdog", "port-forward supervise", "usage-reporter", "outbox-flush", "stop", "destroy", "logout", "port-forward stop", "ui serve", "ui stop", "ui status":
 		return true
 	}
 	for _, name := range []string{"completion", "settings", "data"} {

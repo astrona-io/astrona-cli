@@ -121,6 +121,8 @@ func errorFromBody(status int, body []byte) *httpError {
 		StatusMessage    string `json:"statusMessage"`
 		Message          string `json:"message"`
 		Detail           any    `json:"detail"`
+		// h3's createError data, when a Nuxt route passes an upstream error on.
+		Data any `json:"data"`
 	}
 	e := &httpError{Status: status}
 	if json.Unmarshal(body, &b) != nil {
@@ -128,7 +130,23 @@ func errorFromBody(status int, body []byte) *httpError {
 	}
 	e.Code = sanitize(b.Error)
 	detail, _ := b.Detail.(string)
-	for _, m := range []string{b.ErrorDescription, b.StatusMessage, b.Message, detail} {
+	// FastAPI {detail: {code, message}} (labs), possibly inside h3's data.
+	for _, d := range []any{b.Detail, b.Data} {
+		obj, ok := d.(map[string]any)
+		if !ok {
+			continue
+		}
+		if inner, ok := obj["detail"].(map[string]any); ok {
+			obj = inner
+		}
+		if code, _ := obj["code"].(string); code != "" && e.Code == "" {
+			e.Code = sanitize(code)
+		}
+		if msg, _ := obj["message"].(string); msg != "" && detail == "" {
+			detail = msg
+		}
+	}
+	for _, m := range []string{b.ErrorDescription, detail, b.StatusMessage, b.Message} {
 		if m = sanitize(m); m != "" {
 			e.Message = m
 			break

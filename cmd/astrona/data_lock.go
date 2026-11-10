@@ -34,12 +34,14 @@ func lockLocalData(cmd *cobra.Command, s localdata.Store, exclusive bool) (func(
 //   - port-forward supervise: its own forward spec and status, kubectl.
 //   - playground-watchdog: lab state while waiting; it takes the shared lock
 //     itself around the destroy at the deadline (destroyPlayground).
+//   - exam-watchdog: the exam's state file while waiting; it takes the
+//     shared lock itself around grading and teardown (examWatch).
 //   - schema, docgen, help and completion: no local data at all.
 //
 // Every other command takes the shared lock; connect releases it after setup.
 func lockFreeCommand(cmd *cobra.Command) bool {
 	switch strings.TrimPrefix(cmd.CommandPath(), cmd.Root().Name()+" ") {
-	case "usage-reporter", "outbox-flush", "port-forward supervise", "playground-watchdog",
+	case "usage-reporter", "outbox-flush", "port-forward supervise", "playground-watchdog", "exam-watchdog",
 		"schema", "docgen", "help", "__complete", "__completeNoDesc":
 		return true
 	}

@@ -314,6 +314,37 @@ func (k KubectlContexts) Exists(name string) (bool, error) {
 	return false, nil
 }
 
+// SetContext adds (or changes) the context name pointing at an existing
+// cluster and user entry, as `kubectl config set-context` does.
+func (k KubectlContexts) SetContext(name, cluster, user string) error {
+	return k.run("config", "set-context", name, "--cluster="+cluster, "--user="+user)
+}
+
+// DeleteContext removes the context name. Missing is fine.
+func (k KubectlContexts) DeleteContext(name string) error {
+	ok, err := k.Exists(name)
+	if err != nil || !ok {
+		return err
+	}
+	return k.run("config", "delete-context", name)
+}
+
+// ContextCluster is the cluster entry context name points at, or "" when
+// there is no such context.
+func (k KubectlContexts) ContextCluster(name string) (string, error) {
+	out, err := exec.Command(k.Path, "config", "view", "-o",
+		`jsonpath={range .contexts[*]}{.name}{"\t"}{.context.cluster}{"\n"}{end}`).Output()
+	if err != nil {
+		return "", fmt.Errorf("kubectl config view: %w", err)
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		if ctx, clusterRef, ok := strings.Cut(line, "\t"); ok && ctx == name {
+			return strings.TrimSpace(clusterRef), nil
+		}
+	}
+	return "", nil
+}
+
 func (k KubectlContexts) run(args ...string) error {
 	out, err := exec.Command(k.Path, args...).CombinedOutput()
 	if err != nil {

@@ -174,3 +174,20 @@ func startLinkedClustersParallel(ctx context.Context, cfg *config.LabConfig, ord
 	}
 	return fmt.Errorf("linked clusters failed: %w — not started: %s", firstErr, notStarted(rest))
 }
+
+// RunParallel runs start for each of n independent jobs, at most parallel
+// at a time (the scheduler linked clusters use). started and done, either
+// may be nil, are called on the calling goroutine only — safe to touch a
+// Reporter from. After the first failure nothing new starts; the jobs
+// already running finish. Returns the indices never started and the first
+// error.
+func RunParallel(n, parallel int, start func(i int) error, started func(i int), done func(i int, err error, took time.Duration)) ([]int, error) {
+	order := make([]config.KindCluster, n)
+	for i := range order {
+		order[i].Name = fmt.Sprintf("job-%d", i)
+	}
+	if parallel < 1 {
+		parallel = 1
+	}
+	return scheduleClusters(order, parallel, start, scheduleHooks{started: started, done: done})
+}
