@@ -6367,20 +6367,17 @@ separate window instead.</p>
 <tr>
 <td><code>~/.astrona/workspace/runs/&lt;lab&gt;/start.json</code></td>
 <td>Start</td>
-<td>When Start was clicked, for which <code>runId</code>.</td>
+<td>When Start was clicked, for which <code>runId</code>. Removed when the lab is deleted (submit, destroy, reset, expiry). <code>astrona submit</code> uses it only while its <code>runId</code> is the lab's current run and it is not earlier than the lab became ready.</td>
 </tr>
 <tr>
 <td><code>~/.astrona/workspace/runs/&lt;lab&gt;/submission.json</code></td>
 <td>Submit</td>
 <td>The latest browser submission for that <code>runId</code>: the result as <code>GET /submission</code> shows it.</td>
 </tr>
-<tr>
-<td><code>~/.astrona/exams/&lt;lab&gt;.json</code></td>
-<td>Start (exam labs)</td>
-<td>The exam clock, as before.</td>
-</tr>
 </tbody>
 </table>
+<p>The whole <code>runs/&lt;lab&gt;/</code> folder is removed when the lab is started again, from a terminal or the browser, so a new run never inherits an earlier run's record, Start or result.
+| <code>~/.astrona/exams/&lt;lab&gt;.json</code> | Start (exam labs) | The exam clock, as before. |</p>
 <p>Other profiles use their own home (<code>~/.astrona-dev/…</code>).</p>
 
 
