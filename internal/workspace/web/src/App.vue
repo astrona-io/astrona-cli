@@ -20,7 +20,7 @@ import {
 } from './api'
 import { serverNow, syncServerClock } from './clock'
 import { apiReachable, apiUnreachable, connectionLost } from './connectivity'
-import { endSessionCopy, removeCopy, type EndCopy } from './endSession'
+import { endSessionCopy, removeCopy, runAgainCommand, type EndCopy } from './endSession'
 import MessagePage from './components/MessagePage.vue'
 import IntroPage from './components/IntroPage.vue'
 import WorkspacePage from './components/WorkspacePage.vue'
@@ -308,13 +308,13 @@ async function removeEnvironment(r: Run): Promise<void> {
         kind: 'message',
         title: 'Playground ended',
         body: 'The playground and everything in it were deleted. Start a new one from your terminal.',
-        command: `astrona run ${r.lab}`,
+        command: runAgainCommand(r),
       }
     : {
         kind: 'message',
         title: 'Environment removed',
         body: 'The lab’s environment was deleted. To practise again, start a new run from your terminal.',
-        command: `astrona run ${r.lab}`,
+        command: runAgainCommand(r),
       }
 }
 
