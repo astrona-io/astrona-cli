@@ -9,6 +9,7 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/hypervisor"
+	"astrona/internal/labstate"
 	"astrona/internal/lifecycle"
 	"astrona/internal/portforward"
 	"astrona/internal/runtime"
@@ -19,7 +20,7 @@ import (
 // name, else cfg (the lab config from -c/--file/--git, nil when none
 // loaded), else the only astrona kind lab whose status want accepts
 // (running ones for stop, stopped ones for start). verb is for error
-// messages. Neither stop nor start takes the lab's mutation lock.
+// messages.
 func ResolveKindLab(labArg string, cfg *config.LabConfig, want func(status string) bool, verb string) (string, error) {
 	check := func(name string) (string, error) {
 		if hypervisor.StateExists(name) {
@@ -63,6 +64,7 @@ func ResolveKindLab(labArg string, cfg *config.LabConfig, want func(status strin
 type StopPlan struct {
 	Lab    string
 	Linked []string
+	runID  string
 }
 
 // Labs is the lab followed by its linked clusters, in stop order.
@@ -71,7 +73,11 @@ func (p *StopPlan) Labs() []string { return append([]string{p.Lab}, p.Linked...)
 // PlanStop finds lab's linked clusters and refuses an HA cluster (its node
 // IPs change on restart) before anything is touched.
 func PlanStop(lab string) (*StopPlan, error) {
-	plan := &StopPlan{Lab: lab, Linked: lifecycle.OwnedClusters(lab, nil)}
+	st, err := labstate.Load(lab)
+	if err != nil {
+		return nil, err
+	}
+	plan := &StopPlan{Lab: lab, Linked: lifecycle.OwnedClusters(lab, nil), runID: RunID(st)}
 	for _, l := range plan.Labs() {
 		cs, _, err := cluster.KindNodeContainers(l)
 		if err != nil {
@@ -87,6 +93,26 @@ func PlanStop(lab string) (*StopPlan, error) {
 // Stop pauses the port forwards and stops the node containers of every
 // cluster in plan; progress goes to rep.
 func Stop(plan *StopPlan, rep *ui.Reporter) error {
+	release, err := labstate.LockMutation(plan.Lab)
+	if err != nil {
+		return err
+	}
+	defer release()
+	if err := GuardRun(plan.Lab, plan.runID); err != nil {
+		return err
+	}
+	// Rebuild under the parent lock: a linked reset may have changed the
+	// child list or topology since the command prepared its plan.
+	current, err := PlanStop(plan.Lab)
+	if err != nil {
+		return err
+	}
+	*plan = *current
+	releaseChildren, err := lockLinkedClusters(plan.Lab, plan.Linked)
+	if err != nil {
+		return err
+	}
+	defer releaseChildren()
 	labs := plan.Labs()
 	for _, l := range labs {
 		if len(labs) > 1 {
@@ -124,7 +150,17 @@ type StartResult struct {
 // the lab itself, its port forwards and its link names. Progress goes to
 // rep.
 func Start(lab string, rep *ui.Reporter) (*StartResult, error) {
+	release, err := labstate.LockMutation(lab)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	linked := lifecycle.OwnedClusters(lab, nil)
+	releaseChildren, err := lockLinkedClusters(lab, linked)
+	if err != nil {
+		return nil, err
+	}
+	defer releaseChildren()
 	saved, _ := cluster.ReadLinks(lab)
 	for _, c := range linked {
 		rep.Section("Linked cluster %s", c)
@@ -148,10 +184,34 @@ func Start(lab string, rep *ui.Reporter) (*StartResult, error) {
 		return nil, err
 	}
 	// Node IPs may have changed with the restart.
-	lifecycle.RefreshLinkNames(lab, false, rep)
+	lifecycle.RefreshLinkNamesLocked(lab, false, linked, rep)
 
 	health, _ := KindAPIHealth(lab)
 	return &StartResult{Lab: lab, Linked: linked, Health: health, Forwards: forwards}, nil
+}
+
+// Lock all children before changing any containers, and recheck ownership
+// after acquiring each lock in case a standalone run claimed its name.
+func lockLinkedClusters(lab string, linked []string) (func(), error) {
+	var releases []func()
+	releaseAll := func() {
+		for i := len(releases) - 1; i >= 0; i-- {
+			releases[i]()
+		}
+	}
+	for _, child := range linked {
+		release, err := labstate.LockMutation(child)
+		if err != nil {
+			releaseAll()
+			return nil, err
+		}
+		releases = append(releases, release)
+		if err := lifecycle.RequireLinkedOwnership(lab, child); err != nil {
+			releaseAll()
+			return nil, err
+		}
+	}
+	return releaseAll, nil
 }
 
 // startKindLab starts lab's node containers, waits for its API, and

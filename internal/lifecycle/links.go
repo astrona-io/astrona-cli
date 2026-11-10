@@ -4,6 +4,7 @@ import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/executor"
+	"astrona/internal/labstate"
 	"astrona/internal/manifests"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
@@ -73,11 +74,46 @@ func linkHosts(links []cluster.LinkState, except string) map[string]string {
 // that exists — after all of them are created (an earlier one couldn't
 // know a later one's IP), and after a restart or rebuild may have changed
 // IPs. skipLab leaves the lab's own cluster alone (already current).
+// The caller holds the parent's mutation lock.
 func RefreshLinkNames(labCluster string, skipLab bool, rep *ui.Reporter) {
+	RefreshLinkNamesLocked(labCluster, skipLab, nil, rep)
+}
+
+// RefreshLinkNamesLocked also accepts child locks already held by the caller.
+// Other children are locked here before checking ownership or changing DNS.
+func RefreshLinkNamesLocked(labCluster string, skipLab bool, lockedChildren []string, rep *ui.Reporter) {
 	links, _ := cluster.ReadLinks(labCluster)
 	if len(links) == 0 {
 		return
 	}
+	locked := make(map[string]bool, len(lockedChildren))
+	for _, child := range lockedChildren {
+		locked[child] = true
+	}
+	var releases []func()
+	defer func() {
+		for i := len(releases) - 1; i >= 0; i-- {
+			releases[i]()
+		}
+	}()
+	var owned []cluster.LinkState
+	for _, link := range links {
+		if !locked[link.Cluster] {
+			release, err := labstate.LockMutation(link.Cluster)
+			if err != nil {
+				rep.Warn("skipping DNS updates for linked cluster %s: %s", link.Cluster, err)
+				continue
+			}
+			releases = append(releases, release)
+			locked[link.Cluster] = true
+		}
+		if err := RequireLinkedOwnership(labCluster, link.Cluster); err != nil {
+			rep.Warn("skipping DNS updates for linked cluster %s: %s", link.Cluster, err)
+			continue
+		}
+		owned = append(owned, link)
+	}
+	links = owned
 	targets := []string{}
 	if !skipLab {
 		targets = append(targets, labCluster)

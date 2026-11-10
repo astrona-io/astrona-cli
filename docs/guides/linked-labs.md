@@ -40,6 +40,10 @@ has lost its saved ownership, inspect `astrona list` and explicitly destroy the
 leftover cluster by its full name before retrying; editing a config cannot claim
 an existing cluster.
 
+DNS refresh also checks ownership and locks every linked cluster it updates.
+Busy or replaced linked clusters are skipped with a warning and excluded from
+the refreshed DNS routes; the lab remains accessible.
+
 ### Dependencies and start order
 
 By default clusters are created **one at a time**: every linked cluster first, then the lab's own. Each one is only created once the previous is fully ready — its bootstrap done and its `waitFor` gates passed. Use `dependsOn` when one linked cluster needs another:
@@ -273,6 +277,8 @@ Linked clusters belong to the lab:
 | `astrona test` | Creates test copies of every cluster, applies each linked cluster's `testing`, then the lab's, grades, and tears everything down — even on failure |
 | `astrona check` | Counts their memory in the lab's estimate |
 | `astrona diagnose` / `test --diagnostics` | Collects every linked cluster too, under `clusters/<cluster>/` in the bundle |
+
+After rebuilding a linked cluster, open a new lab terminal to refresh its credentials. Your selected context, namespaces and other kubeconfig preferences are preserved.
 
 Before bootstrap scripts run, `astrona run` and `astrona test` wait for the cluster's DNS (CoreDNS) — a script resolving a linked cluster's host in the first seconds after a cluster is created would otherwise fail with `bad address`.
 

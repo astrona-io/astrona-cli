@@ -380,11 +380,7 @@ func ResolveConfigPath(configDirOrURL, fileName, gitURL, gitRef string, verbose 
 			return "", err
 		}
 
-		subDir, err := JoinWithinBaseDir(repoDir, configDirOrURL)
-		if err != nil {
-			return "", fmt.Errorf("--config must stay within the cloned repo: %w", err)
-		}
-		configDirOrURL = subDir
+		return ResolveGitConfigPath(repoDir, configDirOrURL, fileName)
 	}
 
 	if strings.HasPrefix(configDirOrURL, "http://") || strings.HasPrefix(configDirOrURL, "https://") {
@@ -408,6 +404,35 @@ func ResolveConfigPath(configDirOrURL, fileName, gitURL, gitRef string, verbose 
 	}
 
 	return cleanPath, nil
+}
+
+// ResolveGitConfigPath bounds both the selected path and the final config file
+// to a checkout. It also serves saved runs, which must not refresh the checkout.
+func ResolveGitConfigPath(repoDir, selected, fileName string) (string, error) {
+	repoDir, err := filepath.Abs(repoDir)
+	if err != nil {
+		return "", err
+	}
+	base, err := JoinWithinBaseDir(repoDir, selected)
+	if err != nil {
+		return "", fmt.Errorf("--config must stay within the cloned repo: %w", err)
+	}
+	if filepath.IsAbs(fileName) {
+		return "", fmt.Errorf("--file must be relative to the cloned repo: %q", fileName)
+	}
+	final, err := ResolveConfigPath(base, fileName, "", "", false)
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(repoDir, final)
+	if err != nil {
+		return "", err
+	}
+	final, err = JoinWithinBaseDir(repoDir, rel)
+	if err != nil {
+		return "", fmt.Errorf("lab config must stay within the cloned repo: %w", err)
+	}
+	return final, nil
 }
 
 // LoadLabConfig reads and parses a lab config, either from a local file or

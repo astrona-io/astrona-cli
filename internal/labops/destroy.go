@@ -256,7 +256,7 @@ func DestroyByNameLocked(name string, rep *ui.Reporter, opts DestroyOptions) err
 		}
 	}
 	for _, vm := range vms {
-		if err := vmp.Delete(context.Background(), vm); err != nil {
+		if err := destroyOwnedQEMUVM(name, vm, rep); err != nil {
 			errs = append(errs, fmt.Sprintf("qemu %s: %s", vm, err))
 		}
 	}
@@ -274,6 +274,27 @@ func DestroyByNameLocked(name string, rep *ui.Reporter, opts DestroyOptions) err
 
 	fmt.Fprintf(opts.Out, "Lab '%s' cleaned up successfully.\n", name)
 	return nil
+}
+
+// A child may have been removed and recreated as a standalone lab since
+// MultiVMs listed it. Recheck ownership while its name is reserved.
+func destroyOwnedQEMUVM(lab, vm string, rep *ui.Reporter) error {
+	release, err := labstate.LockMutation(vm)
+	if err != nil {
+		return err
+	}
+	defer release()
+	st, err := labstate.Load(vm)
+	if err != nil {
+		return err
+	}
+	if st != nil {
+		return fmt.Errorf("qemu VM %s now has standalone lab state; it was kept", vm)
+	}
+	if err := hypervisor.RequireQEMUOwnership(vm, lab); err != nil {
+		return err
+	}
+	return qemu.New(rep).Delete(context.Background(), vm)
 }
 
 // DestroyByPattern handles a glob-style lab-name argument (e.g.

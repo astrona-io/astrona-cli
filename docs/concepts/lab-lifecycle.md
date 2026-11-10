@@ -97,6 +97,15 @@ astrona reset -c ./labs/my-lab --yes    # no prompt (required in scripts/CI)
 
 To pause a lab instead of losing it, see [`astrona stop` / `astrona start`](runtimes.md#pausing-a-lab-astrona-stop-astrona-start).
 
+`submit`, `stop`, and `start` refuse to run while another command changes the
+same lab. Submission keeps the run reserved through grading, recording, and
+result delivery, so a concurrent reset cannot attach its grade to a new attempt.
+Start and stop also reserve the lab's linked clusters before changing containers.
+
+With no selected lab, these commands can choose the only matching running or
+stopped lab. An unreadable saved selection or a failed explicit config selection
+is an error; it never selects a different lab as a fallback.
+
 ## Source types, everywhere
 
 Every script/manifest reference (`bootstrap.init`, `bootstrap.manifests`, `testing.*`, `teardown.init`, `validation.script`) shares the same `ResourceItem` shape:

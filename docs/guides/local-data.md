@@ -80,6 +80,7 @@ partial image/addon downloads older than 24 hours inside Astrona's cache. It
 does not scan the system temp directory or delete unrelated temporary files.
 
 If any saved lab, VM, Kind, exam or port-forward state exists, caches are kept.
+Permanent mutation locks and helper logs are kept but do not block cleanup after the lab is gone.
 Stopped VMs can still depend on cached backing images. Use `astrona list` to
 inspect your labs and `astrona destroy <lab>` to remove those you no longer need.
 Do not delete state files to bypass this check. Symlinked cache locations are

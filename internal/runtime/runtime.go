@@ -144,6 +144,11 @@ func CreateEnvironment(ctx context.Context, name, baseDir string, cfg config.Run
 		if err := config.ValidateQEMUVMs(cfg.QEMU); err != nil {
 			return nil, err
 		}
+		release, err := reserveQEMUVMs(name, cfg.QEMU)
+		if err != nil {
+			return nil, err
+		}
+		defer release()
 		// Resolved once, up front, for every VM in the lab together — a
 		// segment's listen/connect role assignment (ResolveNetworkTopology)
 		// needs to see all of them at once, not just the one CreateQEMUVM
@@ -252,6 +257,9 @@ func LoadEnvironment(name string, cfg config.RuntimeConfig) (*LabEnvironment, er
 		ctx := context.Background()
 		provider := qemu.New(nil)
 		if !config.IsMultiVM(cfg.QEMU) {
+			if err := hypervisor.RequireQEMUOwnership(name, name); err != nil {
+				return nil, err
+			}
 			vm, err := provider.Get(ctx, name)
 			if err != nil {
 				return nil, err
@@ -265,6 +273,9 @@ func LoadEnvironment(name string, cfg config.RuntimeConfig) (*LabEnvironment, er
 		}
 		executors := make(map[string]executor.ScriptExecutor, len(cfg.QEMU))
 		for _, vm := range cfg.QEMU {
+			if err := hypervisor.RequireQEMUOwnership(name+"-"+vm.Name, name); err != nil {
+				return nil, err
+			}
 			inst, err := provider.Get(ctx, name+"-"+vm.Name)
 			if err != nil {
 				return nil, fmt.Errorf("vm '%s': %w", vm.Name, err)
@@ -307,6 +318,11 @@ func destroyEnvironment(name string, runtimeType RuntimeType, cfg config.Runtime
 		portforward.StopForLab(name, rep)
 		return cluster.DeleteKindCluster(name, rep)
 	case RuntimeQEMU:
+		release, err := reserveQEMUVMs(name, cfg.QEMU)
+		if err != nil {
+			return err
+		}
+		defer release()
 		// An empty cfg.QEMU (config missing/unreadable at destroy time —
 		// see cmd_destroy.go's loadTeardownInfo, which never fails) can't
 		// tell multi-VM from single-VM apart; DestroyQEMUVM(name) is the

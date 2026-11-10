@@ -9,7 +9,70 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"astrona/internal/labstate"
 )
+
+func TestCleanIgnoresReleasedMutationLocksAndHelperLogs(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	s, err := DefaultStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache := filepath.Join(s.Data, "cache", "addons", "old.yaml")
+	put(t, cache)
+	release, err := labstate.LockMutation("astro-gone")
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	lock := filepath.Join(s.Data, "labs", "locks", "astro-gone.json.lock")
+	before, err := os.Stat(lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, suffix := range []string{".usage.log", ".watchdog.log"} {
+		put(t, filepath.Join(s.Data, "labs", "astro-gone"+suffix))
+	}
+	p, err := s.PlanClean(t.Context(), false, time.Now())
+	if err != nil || len(p.Items) != 1 {
+		t.Fatalf("cleanup with no saved labs = %+v, %v", p, err)
+	}
+	if err := p.Apply(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	assertExists(t, cache, false)
+	after, err := os.Stat(lock)
+	if err != nil || !os.SameFile(before, after) {
+		t.Fatalf("cleanup changed permanent lock: %v", err)
+	}
+	for _, suffix := range []string{".usage.log", ".watchdog.log"} {
+		assertExists(t, filepath.Join(s.Data, "labs", "astro-gone"+suffix), true)
+	}
+}
+
+func TestCleanKeepsCachesForUnknownLabMetadata(t *testing.T) {
+	for _, rel := range []string{"locks/unexpected", "locks/astro-lab.json.lock", "astro-lab.usage.log", "astro-lab.json"} {
+		t.Run(rel, func(t *testing.T) {
+			s := testStore(t)
+			put(t, filepath.Join(s.Data, "cache", "addons", "old.yaml"))
+			path := filepath.Join(s.Data, "labs", filepath.FromSlash(rel))
+			put(t, path)
+			if strings.HasSuffix(rel, ".lock") || strings.HasSuffix(rel, ".log") {
+				if err := os.Remove(path); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(t.TempDir(), path); err != nil {
+					t.Fatal(err)
+				}
+			}
+			p, err := s.PlanClean(t.Context(), false, time.Now())
+			if err != nil || len(p.Items) != 0 || len(p.Skipped) != 1 {
+				t.Fatalf("unexpected metadata must defer cleanup: %+v, %v", p, err)
+			}
+		})
+	}
+}
 
 func testStore(t *testing.T) Store {
 	t.Helper()

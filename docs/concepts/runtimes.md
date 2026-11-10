@@ -225,6 +225,8 @@ Port forwards (bound to 127.0.0.1 only):
 
 **How it works.** Each forward gets its own detached supervisor process (a hidden `astrona port-forward supervise`), which runs `kubectl --context kind-<lab> port-forward --address 127.0.0.1 …` and restarts it with backoff (1s doubling up to 10s) whenever it exits — plain `kubectl port-forward` dies whenever the pod behind it restarts. State lives in `~/.astrona/portforward/<lab>/<name>/` (`spec.json`, `status.json`, `supervisor.pid`, `supervisor.log` — check the log when a forward won't come up).
 
+Stopping a forward checks the saved process start time before signalling its process group. For older records without that timestamp, the process must identify itself as the supervisor for that exact lab and forward. An unrelated process that reused the PID is left alone.
+
 **Status** (`astrona port-forward list`):
 
 | Status | Meaning |
@@ -308,6 +310,8 @@ runtime:
 ```
 
 In a multi-VM lab:
+
+- Each VM's saved handle identifies its parent lab. Creation and config-based teardown reserve the VM names and refuse names belonging to another lab, even when the names match the config. A child without readable ownership is kept; inspect it and use `astrona destroy <exact-vm-name>` if you intend to remove it. Destroying a parent by name rechecks each discovered child's ownership before removing it.
 
 - Every VM gets an implicit host-only management NIC (astrona's own control channel) in addition to any declared `networks`.
 - `sshAccess` wires up passwordless SSH from one named VM into another — both must already share a `runtime.networks` segment; it doesn't create connectivity on its own, only trust over a path that already exists.

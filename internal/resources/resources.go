@@ -492,7 +492,8 @@ func Labs() ([]string, error) {
 // file is only replaced with force; files are written 0644/0755 (they're
 // the student's now), links are never followed.
 func (r Resource) CopyTo(dir, dest string, force bool) (string, error) {
-	if _, err := r.Path(dir); err != nil {
+	sourcePath, err := r.Path(dir)
+	if err != nil {
 		return "", err
 	}
 	rt, err := openNoLink(dir)
@@ -500,11 +501,35 @@ func (r Resource) CopyTo(dir, dest string, force bool) (string, error) {
 		return "", err
 	}
 	defer rt.Close()
-	if _, err := lstatNoLinks(rt, r.File); err != nil { // before replacing anything
+	sourceInfo, err := lstatNoLinks(rt, r.File)
+	if err != nil { // before replacing anything
 		return "", fmt.Errorf("copy %s: %w", r.Name, err)
 	}
 	if fi, err := os.Stat(dest); err == nil && fi.IsDir() {
 		dest = filepath.Join(dest, path.Base(r.File))
+	}
+	if destInfo, err := os.Stat(dest); err == nil {
+		if os.SameFile(sourceInfo, destInfo) {
+			return "", fmt.Errorf("%s is the source resource; choose another destination", dest)
+		}
+		if destInfo.IsDir() {
+			containsSource, err := directoryContainsPath(destInfo, sourcePath)
+			if err != nil {
+				return "", err
+			}
+			if containsSource {
+				return "", fmt.Errorf("%s contains the source resource; choose another destination", dest)
+			}
+		}
+	}
+	if sourceInfo.IsDir() {
+		inside, err := directoryContainsPath(sourceInfo, dest)
+		if err != nil {
+			return "", err
+		}
+		if inside {
+			return "", fmt.Errorf("%s is inside the source resource; choose another destination", dest)
+		}
 	}
 	if _, err := os.Lstat(dest); err == nil {
 		if !force {
@@ -519,4 +544,42 @@ func (r Resource) CopyTo(dir, dest string, force bool) (string, error) {
 		return "", fmt.Errorf("copy %s: %w", r.Name, err)
 	}
 	return dest, nil
+}
+
+// Resolve the nearest existing ancestor so aliases and paths with several
+// missing components receive the same containment check.
+func directoryContainsPath(directory fs.FileInfo, name string) (bool, error) {
+	ancestor, err := filepath.Abs(name)
+	if err != nil {
+		return false, err
+	}
+	for {
+		resolved, err := filepath.EvalSymlinks(ancestor)
+		if err == nil {
+			ancestor = resolved
+			break
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return false, err
+		}
+		parent := filepath.Dir(ancestor)
+		if parent == ancestor {
+			return false, err
+		}
+		ancestor = parent
+	}
+	for {
+		info, err := os.Stat(ancestor)
+		if err != nil {
+			return false, err
+		}
+		if os.SameFile(directory, info) {
+			return true, nil
+		}
+		parent := filepath.Dir(ancestor)
+		if parent == ancestor {
+			return false, nil
+		}
+		ancestor = parent
+	}
 }

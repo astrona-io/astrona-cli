@@ -87,8 +87,10 @@ func newSubmitCmd(flags *rootFlags) *cobra.Command {
 			}
 			// No lab named, none picked with `astrona use`, none here: the
 			// only running lab, if there is exactly one.
-			if saved == nil && len(args) == 0 && !flags.fromCurrent && !cmd.Flags().Changed("config") && !cmd.Flags().Changed("git") &&
-				!cmd.Flags().Changed("file") && !labConfigHere(flags) {
+			if saved == nil && len(args) == 0 && !labSourceSelected(cmd, flags) && !labConfigHere(flags) {
+				if err := labDiscoveryAllowed(); err != nil {
+					return err
+				}
 				selectedName, src, pickErr := labops.PickRunningLab(labops.RunningLabNames(), labstate.Load)
 				if pickErr != nil {
 					return pickErr
