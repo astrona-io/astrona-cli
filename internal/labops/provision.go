@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"astrona/internal/account"
@@ -307,6 +308,9 @@ type LabStart struct {
 	interrupted bool
 	out         io.Writer
 	warn        io.Writer
+	// queue sends build steps to the page (Observe); nil until the first.
+	stepsMu sync.Mutex
+	queue   *stepQueue
 }
 
 // Interrupted marks the lab's setup as stopped by the user (Ctrl+C), so
@@ -399,6 +403,9 @@ func (ls *LabStart) Done(clusterName string) {
 func (ls *LabStart) Progress(phase, message string) {
 	if ls == nil || ls.Session == nil || ls.Session.IsPlayground() {
 		return
+	}
+	if phase != "preparing" {
+		ls.flushSteps() // the build's steps go first; nothing is taken after the end
 	}
 	client, store, _, err := AccountDeps()
 	if err != nil {

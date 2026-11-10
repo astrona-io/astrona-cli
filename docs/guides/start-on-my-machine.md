@@ -74,6 +74,15 @@ empty working directory, one at a time. Anything that would need an answer
 from you fails rather than waiting. Accept the [CLI terms](cli-terms.md) once
 at a terminal first.
 
+## What the page shows while it builds
+
+The lab page lists each stage of the build as it starts: the lab's cluster,
+images, add-ons, setup scripts, manifests and readiness checks. For a lab with
+linked clusters it also shows each cluster as it is created and when it is
+ready, so a long multi-cluster build doesn't look stuck. Running
+`astrona settings set parallel 3` on that computer creates up to three linked
+clusters at a time, for the website as for `astrona run`.
+
 ## Your computers
 
 ```bash
