@@ -1,8 +1,8 @@
 # qemu-basics-01 — step-by-step
 
 A copy-pasteable walkthrough of this lab's full lifecycle: build the CLI,
-bring the VM up, list it, SSH into it, grade it, tear it down. Run these
-from the repo root.
+bring the VM up, list it, SSH into it and do the task, check it, submit it
+(which also tears it down). Run these from the repo root.
 
 See [`docs/prerequisites.md`](docs/prerequisites.md) for what needs to be on
 `PATH` first (`qemu-system-aarch64`, `qemu-img`, `ssh`, `oras`, an ISO9660
@@ -11,7 +11,7 @@ tool) — `astrona check` will tell you what's missing.
 ## 1. Build the CLI
 
 ```sh
-go build -o astrona .
+just build
 ./astrona check
 ```
 
@@ -35,7 +35,8 @@ directory is browsable (`ls ~/.astrona/cache/images/`) instead of just a
 pile of opaque hashes, even though the hash suffix (not the readable part)
 is what actually identifies the entry: the full checksum is always
 re-verified on every cache hit regardless of filename. Run `astrona run`
-again (after `astrona destroy`, see step 6) and you'll see `Using cached
+again (after `astrona submit` or `astrona destroy` deleted the VM, see
+step 6) and you'll see `Using cached
 qemu base image (sha256:...)` instead of a fresh `oras pull` — noticeably
 faster on a ~700MB image. The cache survives `astrona destroy` (it's keyed
 by checksum, not tied to any one lab run); delete
@@ -61,7 +62,7 @@ That's what used to cause ghost `qemu-system-*` processes piling up
 invisibly; check `ps aux | grep qemu-system` if you ever want to confirm
 none are left over.
 
-## 4. SSH into it
+## 4. SSH into it and do the task
 
 ```sh
 ./astrona ssh qemu-basics-01
@@ -70,34 +71,50 @@ none are left over.
 `astrona ssh` takes the lab **name** (as shown by `astrona list`), not
 `--config` — it doesn't need the lab config at all, just the running VM's
 state. Drops you into an interactive shell as the `student` user
-(passwordless sudo). Try:
+(passwordless sudo). Bootstrap only printed the VM's hostname; the marker
+file is yours to write:
 
 ```sh
-cat /tmp/astrona-lab/marker.txt   # written by this lab's bootstrap script
+mkdir -p /tmp/astrona-lab
+echo "qemu-smoke-ok" > /tmp/astrona-lab/marker.txt
+cat /tmp/astrona-lab/marker.txt   # qemu-smoke-ok
 exit
 ```
 
-## 5. Grade it
+## 5. Check your work (optional)
+
+```sh
+./astrona submit -c examples/qemu-basics-01 --watch
+```
+
+Re-grades every 5 seconds while you work and prints ``Passing — run
+`astrona submit` to record this attempt.`` once the check passes. It records
+nothing, sends nothing and leaves the VM running; Ctrl-C stops it.
+
+## 6. Submit
 
 ```sh
 ./astrona submit -c examples/qemu-basics-01
+./astrona list   # should show "No astrona labs running."
 ```
 
-Runs the validation script over the same SSH connection and prints
-PASS/FAIL.
+Runs the validation script over SSH and prints PASS/FAIL (exit code `0`
+on pass, `2` on fail). A submit is final: pass or fail, it records the
+attempt, ends it and then deletes the lab, exactly like `astrona destroy`.
+The qemu process is killed and its state dir under `~/.astrona/qemu/`
+(overlay disk, cloud-init seed, ephemeral SSH keys) goes with it. To try
+again, start a new attempt with `astrona run`.
 
-## 6. Tear it down
+## Stopping without submitting
 
 ```sh
 ./astrona destroy -c examples/qemu-basics-01
-./astrona list   # should show "(none running)"
 ```
 
-This kills the qemu process and deletes its entire state dir under
-`~/.astrona/qemu/qemu-basics-01` (overlay disk, cloud-init seed, ephemeral
-SSH key) — nothing about this VM survives it. Always run this when you're
-done; a qemu lab is a real background process astrona manages itself, not
-something `docker ps` will remind you about later.
+Deletes the VM the same way, without grading. Run it if you walk away
+from a lab you don't submit; a qemu lab is a real background process
+astrona manages itself, not something `docker ps` will remind you about
+later.
 
 ## Multi-arch images (`{ARCH}`)
 

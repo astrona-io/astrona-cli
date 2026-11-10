@@ -51,8 +51,9 @@ point at a local image or a plain HTTPS URL.
 
 ```sh
 astrona run -c examples/qemu-basics-01
-astrona submit -c examples/qemu-basics-01
-astrona destroy -c examples/qemu-basics-01
+astrona ssh qemu-basics-01                     # do the task inside the VM
+astrona submit -c examples/qemu-basics-01 --watch   # optional: check without ending the attempt
+astrona submit -c examples/qemu-basics-01      # final: grades, ends the attempt, deletes the VM
 ```
 
 `astrona run` returns as soon as the VM is SSH-ready and bootstrap has run —
@@ -66,7 +67,8 @@ astrona list                          # every qemu VM astrona knows about, with 
 astrona ssh qemu-basics-01             # interactive shell inside this lab's VM (name, not --config)
 ```
 
-Always `astrona destroy -c examples/qemu-basics-01` when you're done — a
+`astrona submit` deletes the VM itself, pass or fail. If you stop without
+submitting, run `astrona destroy -c examples/qemu-basics-01` — a
 qemu VM is a real background process astrona manages itself (unlike a kind
 cluster, which `docker ps`/`kind get clusters` would also show you), so a
 forgotten one won't show up anywhere else on the machine. `astrona list`
