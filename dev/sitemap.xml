@@ -129,6 +129,10 @@
          <lastmod>2026-11-10</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/guides/start-on-my-machine/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/reference/lab-config/</loc>
          <lastmod>2026-11-10</lastmod>
     </url>
@@ -161,6 +165,10 @@
          <lastmod>2026-11-10</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_connect/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_content/</loc>
          <lastmod>2026-11-10</lastmod>
     </url>
@@ -190,6 +198,10 @@
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_destroy/</loc>
+         <lastmod>2026-11-10</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_devices/</loc>
          <lastmod>2026-11-10</lastmod>
     </url>
     <url>
