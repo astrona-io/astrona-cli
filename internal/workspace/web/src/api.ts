@@ -374,6 +374,35 @@ export function answerTerms(id: string, accept: boolean, sha256: string): Promis
   return request('POST', `/launches/${encodeURIComponent(id)}/terms`, { accept, sha256 }, true, { timeoutMs: QUICK_TIMEOUT_MS })
 }
 
+/** One astrona lab on this machine (GET /labs), opened in the browser or not. */
+export interface MachineLab {
+  lab: string
+  name: string
+  title?: string
+  runtime: 'kind' | 'qemu' | string
+  state: 'running' | 'stopped' | 'degraded' | 'unknown'
+  uptime?: string
+  vms?: number
+  mode?: string
+  playground: boolean
+  deadlineAt?: string
+  /** The workspace has this run: the page can open, end or remove it. */
+  workspace: boolean
+  runId?: string
+  runStatus?: string
+}
+
+export interface MachineLabs {
+  labs: MachineLab[]
+  /** Set when the container engine does not answer. */
+  engine?: string
+}
+
+export async function listMachineLabs(): Promise<MachineLabs> {
+  const res = await request<MachineLabs>('GET', '/labs', undefined, true, { timeoutMs: 30_000 })
+  return { labs: res.labs ?? [], engine: res.engine }
+}
+
 export async function listRuns(): Promise<RunListItem[]> {
   const res = await request<{ runs: RunListItem[] }>('GET', '/runs')
   return res.runs ?? []

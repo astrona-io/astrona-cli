@@ -17,11 +17,13 @@ opens it in your default browser. You can follow everything from that tab:
    changed, the tab shows them in a dialog. **Accept and continue** goes on;
    **Decline and stop** stops the command before anything is downloaded or
    started. Nothing else happens, and no time counts, until you answer.
-2. **Setup.** The tab shows each step as the terminal does: what it is doing,
-   ✓ / – / ✗ with how long each step took, and what a long step is waiting on.
-   If setup fails, the tab shows the error and where the log is.
-3. **The lab.** Once the lab is ready the same tab opens it, at the intro page.
-   An exam's clock still starts only when you click **Start**.
+2. **Setup.** The tab shows each step in a terminal-style window, as the
+   terminal does: what it is doing, ✓ / – / ✗ with how long each step took,
+   and what a long step is waiting on. If setup fails, the tab shows the error
+   and where the log is.
+3. **The lab.** Once the lab is ready the tab says so and waits for you:
+   **Begin this session** opens the intro page. Nothing counts yet; an exam's
+   clock still starts only when you click **Start** there.
 
 Some questions are still asked in the terminal: whether to start a running lab
 over, whether to log in, and whether to trust a lab's repository. The tab says
@@ -78,7 +80,7 @@ you closed:
 
 ```sh
 astrona ui my-lab
-astrona ui            # the only running lab; with several, it lists them
+astrona ui            # the only running lab; with none or several, every lab on this computer
 ```
 
 It starts the workspace server if needed, prints a new link with a fresh code
@@ -90,6 +92,30 @@ repository; it does not check GitHub, update the checkout or rerun setup.
 A lab named `status`, `stop` or `serve` is opened by its full name, since the
 short name is a subcommand: `astrona ui astro-status` (`astrodev-status` for
 development builds). `astrona list` shows the full names.
+
+## Labs on this computer
+
+A lab keeps running in the background after `astrona run` returns, until you
+end it; a playground also ends when its time is up. Each one uses CPU and
+memory, so it is easy to leave several running without noticing.
+
+**Labs on this computer** lists every lab and playground running here, whether
+or not it was opened in the browser: its title, Kind or QEMU, whether it is
+running, how long it has been up and, for a playground, when it is deleted.
+For a lab the workspace knows, **Open** opens it and **End playground** or
+**Remove** removes it after the same confirmation as in the workspace. Other
+labs show the command that opens or removes them. Labs that are stopped but not
+removed are listed on one line below.
+
+To get there:
+
+- `astrona ui` with no lab name, when no lab or several labs are running;
+- **All labs** in the workspace's top bar;
+- **See all labs on this computer** after a playground ended or a lab was
+  removed.
+
+The page refreshes every five seconds. When the container engine does not
+answer, it says so, since Kind labs cannot be listed without it.
 
 ## QEMU labs
 

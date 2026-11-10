@@ -13,7 +13,7 @@ import SplitDivider from './SplitDivider.vue'
 // environment closes the terminals on purpose, so their drop is not a lost
 // connection and the "connection lost" dialog stays away.
 const props = defineProps<{ run: Run; ending?: boolean }>()
-const emit = defineEmits<{ unauthorized: []; runGone: []; end: [] }>()
+const emit = defineEmits<{ unauthorized: []; runGone: []; end: []; home: [] }>()
 
 // ---------------------------------------------------------------- time up
 
@@ -176,7 +176,7 @@ onBeforeUnmount(() => {
       <button type="button" class="skip__link" @click="focusTask">Skip to task</button>
     </nav>
 
-    <TopBar :run="run" :status="status" @end="emit('end')" />
+    <TopBar :run="run" :status="status" @end="emit('end')" @home="emit('home')" />
 
     <div v-if="timeUp && run.playground" class="timeup" role="status">
       <p class="timeup__text">

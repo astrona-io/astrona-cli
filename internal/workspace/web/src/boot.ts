@@ -6,7 +6,8 @@
 //
 // The fragment the CLI prints is "#code=<code>", optionally with "&lab=<id>"
 // or "&launch=<id>" (an `astrona run` whose lab is not ready yet). After this
-// module the address bar shows "#/runs/<lab>", "#/launches/<id>" or nothing.
+// module the address bar shows "#/runs/<lab>", "#/launches/<id>", "#/labs"
+// (every lab on this computer) or nothing.
 
 export interface Launch {
   /** Single-use launch code, or null when the page was not opened from the CLI. */
@@ -22,6 +23,7 @@ function readLaunch(): Launch {
   if (hash.startsWith('/runs/')) {
     return { code: null, lab: decodeURIComponent(hash.slice('/runs/'.length)) || null, launchId: null }
   }
+  if (hash === '/labs') return { code: null, lab: null, launchId: null }
   if (hash.startsWith('/launches/')) {
     return { code: null, lab: null, launchId: decodeURIComponent(hash.slice('/launches/'.length)) || null }
   }
@@ -52,5 +54,12 @@ export function rememberLab(lab: string): void {
   const target = `#/runs/${encodeURIComponent(lab)}`
   if (window.location.hash !== target) {
     window.history.replaceState(null, '', window.location.pathname + window.location.search + target)
+  }
+}
+
+/** Records "Labs on this computer" in the address bar. */
+export function rememberHome(): void {
+  if (window.location.hash !== '#/labs') {
+    window.history.replaceState(null, '', window.location.pathname + window.location.search + '#/labs')
   }
 }

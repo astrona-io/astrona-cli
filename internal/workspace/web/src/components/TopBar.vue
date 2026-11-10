@@ -8,7 +8,7 @@ import AboutDialog from './AboutDialog.vue'
 import BrandMark from './BrandMark.vue'
 
 const props = defineProps<{ run: Run; status: ViewStatus }>()
-const emit = defineEmits<{ end: [] }>()
+const emit = defineEmits<{ end: []; home: [] }>()
 
 // Submit for a lab or exam, End for a playground. A playground can always be
 // ended while it runs; a lab only when the server says it can be graded now,
@@ -74,6 +74,9 @@ watch(left, (ms) => {
         <span class="timer__value" aria-hidden="true">{{ formatDuration(left) }}</span>
         <span class="visually-hidden">{{ Math.ceil(left / 60_000) }} minutes</span>
       </p>
+      <button type="button" class="btn btn--sm btn--ghost" title="Every lab running on this computer" @click="emit('home')">
+        All labs
+      </button>
       <button type="button" class="btn btn--sm btn--ghost" aria-haspopup="dialog" @click="aboutOpen = true">About</button>
       <div v-if="showEnd" class="topbar__end">
         <p v-if="endBlocked" id="end-blocked" class="topbar__blocked small muted">{{ endBlocked }}</p>
