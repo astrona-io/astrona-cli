@@ -34,6 +34,22 @@ export function useCountdown(deadlineAt: Ref<string | null>) {
   })
 }
 
+/** Milliseconds since startedAt, ticking once a second; null without a start. */
+export function useElapsed(startedAt: Ref<string | null>) {
+  const now = ref(serverNow())
+  const timer = window.setInterval(() => {
+    now.value = serverNow()
+  }, 1000)
+  onBeforeUnmount(() => window.clearInterval(timer))
+
+  return computed<number | null>(() => {
+    if (!startedAt.value) return null
+    const started = Date.parse(startedAt.value)
+    if (Number.isNaN(started)) return null
+    return Math.max(0, now.value - started)
+  })
+}
+
 export function formatDuration(ms: number): string {
   const total = Math.ceil(ms / 1000)
   const h = Math.floor(total / 3600)

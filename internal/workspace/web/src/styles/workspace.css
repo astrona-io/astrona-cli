@@ -418,6 +418,10 @@
   font-variant-numeric: tabular-nums;
 }
 
+.timer--elapsed {
+  color: var(--muted);
+}
+
 .timer--low {
   border-color: var(--amber);
   background: var(--tint-amber);
