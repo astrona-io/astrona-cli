@@ -80,32 +80,67 @@ func (f *Fetcher) Fetch(org string, extra []string) Catalog {
 	return cat
 }
 
+// The search API returns at most 100 results a page and 1,000 in all.
+const (
+	searchPerPage  = 100
+	searchMaxPages = 10
+)
+
 // topicRepos lists org's public repos with the training topic, as clone URLs.
+// It reads every page; a page that fails fails the whole search, so the
+// catalog is never built from part of the list.
 func (f *Fetcher) topicRepos(org string) ([]string, error) {
 	q := url.QueryEscape("org:" + org + " topic:" + Topic)
-	req, _ := http.NewRequest(http.MethodGet, f.API+"/search/repositories?per_page=100&q="+q, nil)
+	var repos []string
+	seen := map[string]bool{}
+	for page := 1; page <= searchMaxPages; page++ {
+		items, total, err := f.searchPage(q, page)
+		if err != nil {
+			if page > 1 {
+				return nil, fmt.Errorf("page %d: %w", page, err)
+			}
+			return nil, err
+		}
+		for _, u := range items {
+			if !seen[u] {
+				seen[u] = true
+				repos = append(repos, u)
+			}
+		}
+		if len(items) < searchPerPage || (total > 0 && len(repos) >= total) {
+			break
+		}
+	}
+	return repos, nil
+}
+
+// searchPage reads one page of a repository search: its clone URLs and the
+// search's total_count.
+func (f *Fetcher) searchPage(q string, page int) ([]string, int, error) {
+	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/search/repositories?per_page=%d&page=%d&q=%s", f.API, searchPerPage, page, q), nil)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	resp, err := f.Client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s", resp.Status)
+		return nil, 0, fmt.Errorf("%s", resp.Status)
 	}
 	var out struct {
-		Items []struct {
+		TotalCount int `json:"total_count"`
+		Items      []struct {
 			CloneURL string `json:"clone_url"`
 		} `json:"items"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 8<<20)).Decode(&out); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	var repos []string
+	urls := make([]string, 0, len(out.Items))
 	for _, it := range out.Items {
-		repos = append(repos, it.CloneURL)
+		urls = append(urls, it.CloneURL)
 	}
-	return repos, nil
+	return urls, out.TotalCount, nil
 }
 
 // training reads one repo's astrona.yaml: straight from GitHub for a
