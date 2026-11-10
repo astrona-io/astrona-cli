@@ -4904,6 +4904,11 @@
 <p>Not a "run" stage — it's what the <a href="../grading/">Proctor</a> executes when you run <code>astrona submit</code> (or as the grading step inside <code>astrona test</code>). Declarative <code>checks</code> plus one or more custom pass/fail <code>script</code>s.</p>
 <h2 id="teardown"><code>teardown</code><a class="headerlink" href="#teardown" title="Permanent link">&para;</a></h2>
 <p>Runs on <code>astrona destroy</code>, and always (even on failure) at the end of <code>astrona test</code>.</p>
+<p>An explicit config, Git source, catalog lab, or saved selection must resolve
+successfully before <code>astrona destroy</code> proceeds. If it cannot be loaded, nothing
+is destroyed. Discovery of the sole running lab is only a fallback when no
+source was selected. Discovery also rechecks the run under its mutation lock;
+a lab restarted during discovery is kept.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">teardown</span><span class="p">:</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"dump-logs"</span>
@@ -4917,6 +4922,7 @@
 <li>A remote lab (<code>--git</code>, URL, catalog) must be <a href="../../guides/remote-config/#approving-remote-labs">approved</a> before <code>astrona destroy</code> runs its teardown scripts, just like <code>run</code>. If it isn't (you decline, or there's no terminal and no <code>--trust</code>), the scripts are skipped with a warning and the lab is still destroyed.</li>
 <li>Linked clusters (<code>runtime.kind.clusters</code>) can have their own <code>teardown.init</code>; they run after the lab's, in reverse start order, each with <code>KUBECONFIG</code> pointing at its cluster (skipped if that cluster is gone).</li>
 <li>The lab's linked clusters are destroyed even if destroying the lab itself fails.</li>
+<li>If the lab's <code>astrona test</code> copy is active, <code>destroy</code> leaves it running and prints a warning.</li>
 <li>If <code>astrona run</code> pointed your kubectl at the lab, destroy switches it back to the context you had before (only while the lab's context is still current — see <a href="../runtimes/#kubeconfig-isolation">kubeconfig isolation</a>), then forgets what was remembered about the lab (<code>~/.astrona/labs/&lt;lab&gt;.json</code>: its config source and lab session).</li>
 <li>The exam clock and the lab's memory are removed only once the lab is deleted, or confirmed not to exist. If Docker or Podman is installed but doesn't answer, astrona can't tell whether a kind lab still exists: <code>destroy</code> stops before changing anything — no teardown scripts, nothing deleted, saved state, session and exam clock kept — and asks you to start Docker or Podman and run destroy again. <code>run</code> and <code>reset</code> stop the same way, and <code>astrona list</code> shows remembered labs as <code>EngineUnreachable</code> instead of dropping them. A qemu lab destroyed by name doesn't need the container engine.</li>
 <li>The lab's port forwards are stopped whenever a lab is destroyed by name, whatever runtime it turns out to have.</li>

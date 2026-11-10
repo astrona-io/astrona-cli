@@ -5059,6 +5059,14 @@
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="nv">seed users</span><span class="p p-Indicator">,</span><span class="nt"> type</span><span class="p">:</span><span class="w"> </span><span class="nv">file</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">clusters/idp/testing/seed.sh</span><span class="p p-Indicator">}</span>
 </code></pre></div>
 <p>Each entry takes the same cluster fields as <code>runtime.kind</code> (version, nodes, networking, addons, preloadImages, …) plus its own <code>bootstrap</code> and <code>testing</code>. Up to 5 per lab; names are lowercase letters, digits and <code>-</code> (max 20 characters). See <a href="../../reference/lab-config/#runtimekindclustersn"><code>runtime.kind.clusters</code></a>.</p>
+<p>Linked names must not collide with another lab. For example, <code>auth-lab</code> with
+linked cluster <code>idp</code> cannot replace a standalone lab named <code>auth-lab-idp</code>.
+Astrona checks every linked name before changing any cluster and only replaces
+existing clusters recorded as belonging to this lab. The same ownership check
+protects teardown scripts, linked resets and deletion. If an older installation
+has lost its saved ownership, inspect <code>astrona list</code> and explicitly destroy the
+leftover cluster by its full name before retrying; editing a config cannot claim
+an existing cluster.</p>
 <h3 id="dependencies-and-start-order">Dependencies and start order<a class="headerlink" href="#dependencies-and-start-order" title="Permanent link">&para;</a></h3>
 <p>By default clusters are created <strong>one at a time</strong>: every linked cluster first, then the lab's own. Each one is only created once the previous is fully ready — its bootstrap done and its <code>waitFor</code> gates passed. Use <code>dependsOn</code> when one linked cluster needs another:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="w">    </span><span class="nt">clusters</span><span class="p">:</span>

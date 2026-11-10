@@ -4818,7 +4818,7 @@
 <p>Remove a lab and everything in it (and any leftover <code>astrona test</code> copy)</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Tear down a lab environment (both the normal run and any leftover 'astrona test' run).</p>
-<p>With no lab-name, resolves the lab config the same way <code>run</code>/<code>submit</code> do (-c/--file/--git/--git-ref) and falls back to auto-discovering running labs if that fails.</p>
+<p>With no lab-name, resolves the lab config the same way <code>run</code>/<code>submit</code> do (-c/--file/--git/--git-ref) and falls back to auto-discovering running labs only when no source was selected. An unreadable explicit config, catalog lab or saved selection fails without destroying another lab.</p>
 <p>With a lab-name (as shown by <code>astrona list</code>, with or without the 'astro-' prefix — e.g. 'astro-my-lab' or just 'my-lab'), destroys that lab directly — no config needed, so -c/--file/--git/--git-ref are ignored and any teardown scripts are skipped.</p>
 <p>With a catalog name (astrona.io/ATS016/section-020/module-01/lab-01, or without astrona.io/ as <code>astrona labs</code> lists it), destroys that lab through its config, teardown scripts included.</p>
 <p>With a glob pattern (contains *, ?, or [), matches against all currently-running lab names (same list <code>astrona list</code> shows, with or without the 'astro-' prefix) and destroys every match — e.g. <code>astrona destroy 'qemu-jumphost-*'</code> (quote it so your shell doesn't expand the glob itself). No config needed, same trade-offs as a single name.</p>

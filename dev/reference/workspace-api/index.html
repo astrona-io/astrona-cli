@@ -5320,6 +5320,15 @@ See the <a href="../../guides/browser-workspace/">browser workspace guide</a>.</
 </ol>
 <p><code>POST /api/v1/auth/ticket</code> (no body) → <code>200 {"ticket": "&lt;ticket&gt;", "expiresAt": "&lt;time&gt;"}</code></p>
 <p>A ticket is single-use and valid for 30 seconds.</p>
+<ol>
+<li>Entering a run from setup or the lab list loads a fresh document so its
+   framing policy includes that run's page tabs:</li>
+</ol>
+<p><code>POST /api/v1/auth/code</code> (bearer token, no body) → <code>200 {"code": "&lt;code&gt;"}</code></p>
+<p>This code has the same two-minute lifetime and single-use rules as a CLI
+   launch code. The page reloads with it in the fragment and exchanges it as
+   above. This also works when browser storage is disabled and the current
+   bearer token exists only in memory; bearer tokens never go in URLs.</p>
 <h2 id="routes">Routes<a class="headerlink" href="#routes" title="Permanent link">&para;</a></h2>
 <p>All paths are under <code>/api/v1</code> unless they start with <code>/ws/</code>.</p>
 <table>
@@ -5333,6 +5342,10 @@ See the <a href="../../guides/browser-workspace/">browser workspace guide</a>.</
 <tr>
 <td><code>POST /auth/exchange</code></td>
 <td>Launch code → session token.</td>
+</tr>
+<tr>
+<td><code>POST /auth/code</code></td>
+<td>Authenticated page → single-use launch code for document navigation.</td>
 </tr>
 <tr>
 <td><code>POST /auth/ticket</code></td>
@@ -5907,8 +5920,9 @@ reload.</p>
 <p>The page is served with the strict policy above plus a <code>frame-src</code> that names
 exactly the origins of the current runs' <code>browser</code> tabs and <code>docs</code> URL
 tabs, computed when the page is loaded. It never names the server's own
-origin. A lab started after the page was opened needs a reload before its page
-tabs can be framed. Frames are sandboxed (<code>allow-scripts allow-same-origin
+origin. Entering a run from setup or the lab list automatically reloads the
+document, so tabs for labs created after the page opened can be framed.
+Frames are sandboxed (<code>allow-scripts allow-same-origin
 allow-forms allow-popups allow-downloads</code>); nothing is proxied through the
 server. A site that refuses to be framed (<code>X-Frame-Options</code> or CSP
 <code>frame-ancestors</code>) stays blank; the tab's <strong>Open in new window</strong> shows it in a
