@@ -147,17 +147,49 @@
   min-width: 0;
 }
 
-.topbar__mark {
-  display: inline-grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
+/* The Astrona mark, as the astrona.io header shows it: the logo (black on
+   transparent) in a round panel with an orange glow, inverted to white on the
+   dark theme. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand .eyebrow {
+  margin: 0;
+}
+
+.brand-mark {
+  display: inline-flex;
   flex: none;
-  border-radius: var(--radius-xs);
-  background: var(--orange);
-  color: var(--on-orange);
-  font-weight: 700;
-  font-size: 15px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: 0 0 14px rgba(255, 122, 24, 0.25);
+}
+
+.brand-mark--sm {
+  padding: 4px;
+}
+
+.brand-mark__logo {
+  display: block;
+  width: 32px;
+  height: 32px;
+  filter: invert(1);
+}
+
+.brand-mark--sm .brand-mark__logo {
+  width: 24px;
+  height: 24px;
+}
+
+@media (prefers-color-scheme: light) {
+  .brand-mark__logo {
+    filter: none;
+  }
 }
 
 .topbar__title {

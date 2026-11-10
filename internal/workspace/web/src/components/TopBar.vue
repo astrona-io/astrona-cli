@@ -4,6 +4,7 @@ import type { Run } from '../api'
 import { formatDuration, useCountdown } from '../clock'
 import type { ViewStatus } from '../views/types'
 import { endSessionCopy } from '../endSession'
+import BrandMark from './BrandMark.vue'
 
 const props = defineProps<{ run: Run; status: ViewStatus }>()
 const emit = defineEmits<{ end: [] }>()
@@ -57,7 +58,7 @@ watch(left, (ms) => {
 <template>
   <header class="topbar">
     <div class="topbar__brand">
-      <span class="topbar__mark" aria-hidden="true">A</span>
+      <BrandMark size="sm" />
       <span class="eyebrow eyebrow--page topbar__kind">{{ run.playground ? 'Playground' : run.mode === 'exam' ? 'Exam' : 'Lab' }}</span>
       <h1 class="topbar__title">{{ run.title }}</h1>
     </div>
