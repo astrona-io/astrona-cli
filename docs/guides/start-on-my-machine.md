@@ -21,6 +21,13 @@ retries after about a second, waits up to a minute between tries, and spreads
 the retries out at random. Each new connection tells the site how the previous
 one ended, so support can see drops.
 
+Pressing Ctrl+C while the website's command runs stops it the way Ctrl+C stops
+`astrona run` at a terminal: a lab that is being built stops at the next step,
+removes what this run created, and the lab page shows that the build failed.
+`astrona connect` waits for that, up to two minutes, before it exits. Press
+Ctrl+C a second time to quit at once; anything left over is then removed by
+`astrona destroy`.
+
 ## Confirm each request
 
 ```bash
@@ -52,6 +59,14 @@ The installed service writes to `~/.astrona/logs/connect.log`. It uses the
 `kind` the same way. On Linux the user service runs while you are logged in;
 `loginctl enable-linger` keeps it running after you log out. `--install` isn't
 available on Windows yet.
+
+Stopping the service (logging out, `--uninstall`) also lets a running lab
+build clean up first. If another `astrona connect` takes the connection over,
+the service exits with an error, and the service manager starts it again about
+ten seconds later, so it takes the connection back. To run `astrona connect` in
+a terminal for longer, run `astrona connect --uninstall` first. If this
+computer is signed out, the service stops and stays stopped; sign in with
+`astrona login`, then run `astrona connect --install` again.
 
 ## What the website can ask for
 
@@ -96,4 +111,5 @@ the website. Signing out a computer that is connected ends its connection and
 removes its sign-in. `astrona connect` then stops and doesn't reconnect.
 
 Only one `astrona connect` runs per computer. Starting a second one takes the
-connection over, and the first one stops.
+connection over, and the first one stops, unless it is the installed service,
+which starts again and takes the connection back.
