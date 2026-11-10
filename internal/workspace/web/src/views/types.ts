@@ -1,9 +1,10 @@
-// The right panel shows one "view" of a target. M1 has the terminal view; a
-// desktop (noVNC) view slots in later by adding a component here and the
-// server listing "desktop" in the target's views. Nothing else changes.
+// The right panel shows the lab's tabs (src/components/LabTabs.vue). Each tab
+// is shown by the view for its kind: a terminal, a page the lab serves, or
+// documentation. A new kind (for example a desktop) is a new view component
+// here and a new tab kind on the server; the workspace page does not change.
 
 import type { Component } from 'vue'
-import type { ViewKind } from '../api'
+import type { RunTab, TabKind } from '../api'
 
 /** What a view reports to the top bar. */
 export interface ViewStatus {
@@ -13,38 +14,26 @@ export interface ViewStatus {
 
 /**
  * Props every view component accepts. A view emits "status" with a
- * ViewStatus whenever its connection changes, emits "leave" when the user
- * asks to move focus out of it, "unauthorized" when the session token is
+ * ViewStatus whenever its state changes, emits "leave" when the user asks
+ * to move focus out of it, "unauthorized" when the session token is
  * refused, "runGone" when the server says the run changed or stopped, and
- * exposes focus(). A view that loses its connection reports it to
- * connectivity.ts, which covers the workspace with the "connection lost"
- * dialog.
+ * exposes focus(). A view stays mounted while another tab is shown. A view
+ * that loses its connection reports it to connectivity.ts, which covers the
+ * whole workspace with the "connection lost" dialog, whichever tab is shown.
  */
 export interface ViewProps {
   lab: string
   runId: string
-  target: string
+  tab: RunTab
 }
 
 export interface ViewHandle {
   focus(): void
 }
 
-export interface ViewDefinition {
-  kind: ViewKind
-  label: string
-  component: () => Promise<Component>
-}
-
-/** Views this build can show, in order of preference. */
-export const views: ViewDefinition[] = [
-  {
-    kind: 'terminal',
-    label: 'Terminal',
-    component: () => import('./TerminalView.vue').then((m) => m.default),
-  },
-]
-
-export function pickView(offered: ViewKind[]): ViewDefinition | null {
-  return views.find((v) => offered.includes(v.kind)) ?? null
+/** The view component for each tab kind. */
+export const views: Record<TabKind, () => Promise<Component>> = {
+  terminal: () => import('./TerminalView.vue').then((m) => m.default),
+  browser: () => import('./FrameView.vue').then((m) => m.default),
+  docs: () => import('./DocsView.vue').then((m) => m.default),
 }

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { workspaceDevServer } from './dev/mock.ts'
+import { MOCK_APP_ORIGIN, workspaceDevServer } from './dev/mock.ts'
 import { thirdPartyNotices } from './build/notices.ts'
 
 // The output in dist/ is embedded into the astrona binary with go:embed and
@@ -46,10 +46,12 @@ export default defineConfig(({ command, isPreview }) => ({
   },
   // `npm run preview` serves the built dist/ with the mock under the same
   // policy the Go server sends, so CSP violations show up before release.
+  // The server adds frame-src with the origins of the run's page tabs; the
+  // mock's page tab is MOCK_APP_ORIGIN.
   preview: {
     host: '127.0.0.1',
     port: 4173,
     strictPort: true,
-    headers: isPreview ? { 'Content-Security-Policy': serverPolicy() } : {},
+    headers: isPreview ? { 'Content-Security-Policy': `${serverPolicy()}; frame-src ${MOCK_APP_ORIGIN}` } : {},
   },
 }))

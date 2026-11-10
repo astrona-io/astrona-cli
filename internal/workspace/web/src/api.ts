@@ -21,6 +21,34 @@ export interface Target {
   views: ViewKind[]
 }
 
+/** What a tab of the right panel shows. */
+export type TabKind = 'terminal' | 'browser' | 'docs'
+
+/**
+ * One tab of the right panel. The lab decides the tabs; the page can switch
+ * between them, never add or close one. The first (focus: true) is the
+ * terminal on the lab's own cluster.
+ */
+export interface RunTab {
+  name: string
+  title: string
+  kind: TabKind
+  focus: boolean
+  /** terminal: the target its shell runs on. */
+  target?: string
+  /** browser: http(s)://127.0.0.1:<port>/… of a port forward; docs: an https URL. */
+  url?: string
+  /** docs shipped with the lab: GET /tabs/{name}/doc renders it. */
+  document?: boolean
+}
+
+export interface TabDoc {
+  name: string
+  title: string
+  /** Rendered and sanitised on the server. Inserted as given, never evaluated. */
+  html: string
+}
+
 export interface QuestionSummary {
   id: string
   title: string
@@ -54,6 +82,8 @@ export interface Run {
   /** Summaries only, never the text. */
   questions: QuestionSummary[]
   targets: Target[]
+  /** The right panel's tabs, the focus tab first. */
+  tabs: RunTab[]
   canSubmit: boolean
 }
 
@@ -77,6 +107,8 @@ export interface Question {
 
 export interface Terminal {
   id: string
+  /** The terminal tab it belongs to. */
+  tab: string
   target: string
   status: 'running' | 'ended'
   /** Set once ended; -1 when killed by a signal. */
@@ -235,14 +267,23 @@ export async function listTerminals(id: string): Promise<Terminal[]> {
   return res.terminals ?? []
 }
 
-/** Can take a minute the first time, while the terminal image is built. */
-export function openTerminal(id: string, runId: string, target: string): Promise<Terminal> {
-  return request<Terminal>('POST', `${lab(id)}/terminals`, { runId, target })
+/**
+ * Opens the shell of a terminal tab, or returns the one still running.
+ * Replaces an ended one. Can take a minute the first time, while the
+ * terminal image is built.
+ */
+export function openTerminal(id: string, runId: string, tab: string): Promise<Terminal> {
+  return request<Terminal>('POST', `${lab(id)}/terminals`, { runId, tab })
 }
 
-/** Ends the shell and forgets the terminal. */
-export async function closeTerminal(id: string, terminalId: string): Promise<void> {
-  await request<null>('DELETE', `${lab(id)}/terminals/${encodeURIComponent(terminalId)}`)
+/** Another request is starting this tab's terminal: try again shortly. */
+export function isTerminalStarting(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 409 && err.code === 'terminal_starting'
+}
+
+/** A docs tab's Markdown, rendered. 409 not_started before Start. */
+export function getTabDoc(id: string, tab: string): Promise<TabDoc> {
+  return request<TabDoc>('GET', `${lab(id)}/tabs/${encodeURIComponent(tab)}/doc`)
 }
 
 // ---------------------------------------------------------------- terminal frames

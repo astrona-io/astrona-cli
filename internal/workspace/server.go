@@ -243,9 +243,9 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/runs/{lab}", s.requireToken(s.handleRun))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/questions/{id}", s.requireToken(s.handleQuestion))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/start", s.requireToken(s.handleStart))
+	mux.HandleFunc("GET /api/v1/runs/{lab}/tabs/{name}/doc", s.requireToken(s.handleTabDoc))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/terminals", s.requireToken(s.handleTerminals))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/terminals", s.requireToken(s.handleOpenTerminal))
-	mux.HandleFunc("DELETE /api/v1/runs/{lab}/terminals/{id}", s.requireToken(s.handleCloseTerminal))
 	mux.HandleFunc("/api/", s.requireToken(func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "not found")
 	}))
@@ -297,7 +297,7 @@ func (s *Server) handleServer(w http.ResponseWriter, _ *http.Request) {
 		"profile":   s.cfg.Profile,
 		"startedAt": s.startedAt.UTC(),
 		"serverNow": time.Now().UTC(),
-		"features":  []string{"runs", "terminals"},
+		"features":  []string{"runs", "terminals", "tabs"},
 		"assets":    s.assetsKind(),
 	})
 }
@@ -333,6 +333,10 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusNotFound, "not found")
 		return
+	}
+	if name == "index.html" {
+		// The page's own policy names the frames its lab tabs show.
+		w.Header().Set("Content-Security-Policy", s.pagePolicy())
 	}
 	http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(data))
 }

@@ -1,13 +1,14 @@
 // Whether this page can still reach the workspace server. Two signals feed
-// it: the terminal's WebSocket (reconnecting, with its attempt number) and
-// the page's own status polling (consecutive failures). The workspace shows
-// its "connection lost" dialog while either is down.
+// it: the terminals' WebSockets (reconnecting, with their attempt numbers;
+// one per terminal tab that has been opened) and the page's own status
+// polling (consecutive failures). The workspace shows its "connection lost"
+// dialog while any of them is down.
 
 import { computed, reactive, readonly, ref } from 'vue'
 
 const state = reactive({
-  /** Reconnect attempt of the terminal, or 0 while it is not reconnecting. */
-  terminalAttempt: 0,
+  /** Reconnect attempt per terminal tab that is reconnecting. */
+  terminals: {} as Record<string, number>,
   /** Consecutive status polls that could not reach the server. */
   apiFailures: 0,
 })
@@ -20,17 +21,21 @@ const back = ref(0)
  */
 export const serverBack = readonly(back)
 
-export const connectionLost = computed(() => state.terminalAttempt > 0 || state.apiFailures > 0)
+const terminalAttempt = computed(() => Math.max(0, ...Object.values(state.terminals)))
 
-/** The attempt number to show: the higher of the two counts. */
-export const reconnectAttempt = computed(() => Math.max(state.terminalAttempt, state.apiFailures))
+export const connectionLost = computed(() => terminalAttempt.value > 0 || state.apiFailures > 0)
 
-export function terminalReconnecting(attempt: number): void {
-  state.terminalAttempt = attempt
+/** The attempt number to show: the highest of the counts. */
+export const reconnectAttempt = computed(() => Math.max(terminalAttempt.value, state.apiFailures))
+
+/** The terminal shown in tab `tab` is reconnecting. */
+export function terminalReconnecting(tab: string, attempt: number): void {
+  state.terminals[tab] = attempt
 }
 
-export function terminalSettled(): void {
-  state.terminalAttempt = 0
+/** The terminal in tab `tab` is connected, ended or gone: not reconnecting. */
+export function terminalSettled(tab: string): void {
+  delete state.terminals[tab]
 }
 
 export function apiUnreachable(): void {
@@ -43,6 +48,6 @@ export function apiReachable(): void {
 }
 
 export function resetConnectivity(): void {
-  state.terminalAttempt = 0
+  for (const tab of Object.keys(state.terminals)) delete state.terminals[tab]
   state.apiFailures = 0
 }

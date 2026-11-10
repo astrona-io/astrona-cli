@@ -45,19 +45,22 @@ type RunRecord struct {
 	Lab    string `json:"lab"`
 	// RunID is RunDigest of the lab's labops.RunID when the record was
 	// written; it no longer matches once the lab is stopped or restarted.
-	RunID             string    `json:"runId"`
-	Title             string    `json:"title"`
-	Exam              bool      `json:"exam"`
-	Playground        bool      `json:"playground"`
-	TimeLimitSeconds  int64     `json:"timeLimitSeconds,omitempty"`
-	Strict            bool      `json:"strict"`
-	HintsHidden       bool      `json:"hintsHidden"`
-	QuestionTitle     string    `json:"questionTitle"`
-	Question          string    `json:"question"`
-	Prerequisites     string    `json:"prerequisites,omitempty"`
-	EstimatedDuration string    `json:"estimatedDuration,omitempty"`
-	Targets           []Target  `json:"targets"`
-	CreatedAt         time.Time `json:"createdAt"`
+	RunID             string   `json:"runId"`
+	Title             string   `json:"title"`
+	Exam              bool     `json:"exam"`
+	Playground        bool     `json:"playground"`
+	TimeLimitSeconds  int64    `json:"timeLimitSeconds,omitempty"`
+	Strict            bool     `json:"strict"`
+	HintsHidden       bool     `json:"hintsHidden"`
+	QuestionTitle     string   `json:"questionTitle"`
+	Question          string   `json:"question"`
+	Prerequisites     string   `json:"prerequisites,omitempty"`
+	EstimatedDuration string   `json:"estimatedDuration,omitempty"`
+	Targets           []Target `json:"targets"`
+	// Tabs are the right panel's tabs, the focus tab first; empty in a
+	// record from before tabs (DefaultTabs then).
+	Tabs      []Tab     `json:"tabs,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // startMarker records the Start click for one run.
@@ -107,6 +110,9 @@ func WriteRun(rec RunRecord) error {
 		if err := config.ValidateName(t.Name); err != nil {
 			return fmt.Errorf("target name: %w", err)
 		}
+	}
+	if err := validateTabs(rec); err != nil {
+		return err
 	}
 	rec.Schema = runRecordSchema
 	if rec.CreatedAt.IsZero() {
@@ -232,6 +238,7 @@ type runView struct {
 	Intro            runIntro       `json:"intro"`
 	Questions        []questionView `json:"questions"`
 	Targets          []Target       `json:"targets"`
+	Tabs             []tabView      `json:"tabs"`
 	CanSubmit        bool           `json:"canSubmit"`
 }
 
@@ -267,6 +274,7 @@ func buildView(rec RunRecord, now time.Time) (runView, error) {
 		Rules:     runRules{Strict: rec.Strict, HintsHidden: rec.HintsHidden},
 		Questions: []questionView{{ID: "q1", Title: rec.QuestionTitle}},
 		Targets:   rec.Targets,
+		Tabs:      tabViews(rec.tabs()),
 	}
 	if rec.Exam && rec.TimeLimitSeconds > 0 {
 		limit := rec.TimeLimitSeconds

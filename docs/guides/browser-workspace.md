@@ -99,6 +99,23 @@ bar counts down to the deadline.
 
 Submit from a terminal with `astrona submit` when you are done.
 
+### Tabs
+
+The right panel shows the lab's tabs. The first, **Terminal**, is the shell on
+the lab's own cluster. A lab can add more with [`tabs`](../reference/lab-config.md#tabs):
+a terminal on a linked cluster, a page the lab serves through one of its port
+forwards, or documentation. You switch between them with the mouse or with the
+arrow keys and Enter; you cannot add or close a tab. Tabs keep running while
+another one is shown, so a terminal keeps its shell and its scrollback. When a
+shell ends, **Open a new shell** starts another in the same tab. Without
+`tabs` in the lab, the panel shows only the **Terminal** tab.
+
+A page or documentation tab shows the page inside the workspace. **Back to
+start** returns to the page the lab configured, wherever you navigated, and
+**Open in new window** shows it in a separate window. Some documentation sites
+refuse to be shown inside another page: if a tab stays blank, use **Open in new
+window**.
+
 ### The terminal
 
 The shell runs on your machine, held by the workspace server, not by the page:
@@ -122,13 +139,14 @@ output looks the same either way.
 When the page cannot reach the workspace server for more than a second or two
 (the server stopped or hangs, or the computer slept), a dialog covers the
 workspace and the page behind it is blurred, so nothing typed goes into a
-terminal that cannot receive it:
+terminal that cannot receive it. It covers every tab, whichever terminal lost
+its connection:
 
 ![The connection-lost dialog over the blurred workspace](../assets/browser-workspace-connection-lost.png)
 
 The page keeps reconnecting and shows the attempt number. The dialog cannot be
 closed; it goes away by itself once the server answers, and you continue in
-the same shell, with its output and the task as they were, and the keyboard
+the same shells, with their output and the task as they were, and the keyboard
 focus back where it was. Shorter drops do not show it.
 
 If it does not come back, check with `astrona ui status` that the server is

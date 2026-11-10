@@ -33,6 +33,7 @@ var schemaEnums = map[string][]string{
 	"KindAddons.gatewayAPI":        {GatewayEnvoy},
 	"QEMUImageSource.type":         {"file", "url", "oci"},
 	"LabResource.type":             {ResourceTypeFile},
+	"Tab.type":                     TabTypes,
 }
 
 // schemaPatterns are regex constraints on string fields, same keys as
@@ -41,6 +42,7 @@ var schemaEnums = map[string][]string{
 var schemaPatterns = map[string]string{
 	"MetadataConfig.name": namePattern.String(),
 	"QEMUVM.name":         namePattern.String(),
+	"Tab.name":            dns1123Label.String(),
 }
 
 // Schema returns the JSON Schema (draft 2020-12) for config.yaml,

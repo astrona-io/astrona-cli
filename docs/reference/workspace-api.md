@@ -31,7 +31,7 @@ See the [browser workspace guide](../guides/browser-workspace.md).
   | Status | `code` | When |
   | --- | --- | --- |
   | 400 | `bad_request` | Malformed body, wrong content type, unknown field, invalid size. |
-  | 400 | `unknown_target` | `target` is not one of the run's targets. |
+  | 400 | `unknown_tab` | `tab` is not one of the run's terminal tabs. |
   | 401 | `unauthorized` | Missing or invalid token, launch code or ticket. |
   | 403 | `forbidden` | Not a loopback peer, foreign `Origin`, cross-site `Sec-Fetch-Site`. |
   | 404 | `not_found` | Unknown route, lab, question or terminal. |
@@ -39,6 +39,7 @@ See the [browser workspace guide](../guides/browser-workspace.md).
   | 409 | `run_changed` | `runId` in the request is not the lab's current run. Reload the run. |
   | 409 | `not_started` | Question text or terminals requested before **Start**. |
   | 409 | `run_stopped` | The lab is no longer running (stopped, destroyed or restarted). |
+  | 409 | `terminal_starting` | Another request is already starting this tab's terminal. Try again in a few seconds. |
   | 421 | `unexpected_host` | `Host` is not `127.0.0.1:<port>` or `localhost:<port>`. |
   | 429 | `too_many_terminals` | The lab already has 12 open terminals. |
   | 500 | `internal` | Anything else. The message says what failed. |
@@ -85,12 +86,12 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | `POST /auth/ticket` | Single-use WebSocket ticket. |
 | `GET /server` | Version, profile, features. |
 | `GET /runs` | Labs the workspace was opened for. |
-| `GET /runs/{lab}` | One run: identity, mode, status, clock, questions, targets. |
+| `GET /runs/{lab}` | One run: identity, mode, status, clock, questions, targets, tabs. |
 | `GET /runs/{lab}/questions/{id}` | One question rendered to HTML. After **Start** only. |
 | `POST /runs/{lab}/start` | The **Start** button. Idempotent. |
 | `GET /runs/{lab}/terminals` | Open terminals. |
-| `POST /runs/{lab}/terminals` | Open a terminal on a target. After **Start** only. |
-| `DELETE /runs/{lab}/terminals/{id}` | Close a terminal. |
+| `GET /runs/{lab}/tabs/{name}/doc` | A docs tab's Markdown, rendered to HTML. After **Start** only. |
+| `POST /runs/{lab}/terminals` | Open the shell of a terminal tab. After **Start** only. |
 | `GET /ws/v1/terminals/{id}?ticket=…` | Attach to a terminal (WebSocket). |
 | *later* `PUT /runs/{lab}/progress`, `POST /runs/{lab}/submit`, `GET /runs/{lab}/submission`, `GET /runs/{lab}/events` | Not implemented yet. |
 
@@ -104,7 +105,7 @@ GET routes never change saved state, so polling them is safe.
   "profile": ".astrona",
   "startedAt": "2026-11-09T21:00:00Z",
   "serverNow": "2026-11-09T21:05:12Z",
-  "features": ["runs", "terminals"],
+  "features": ["runs", "terminals", "tabs"],
   "assets": "built"
 }
 ```
@@ -147,6 +148,13 @@ GET routes never change saved state, so polling them is safe.
   "targets": [
     { "name": "pod-basics", "label": "main", "kind": "kind", "views": ["terminal"] }
   ],
+  "tabs": [
+    { "name": "main", "title": "Terminal", "kind": "terminal", "focus": true, "target": "pod-basics" },
+    { "name": "shop", "title": "Shop", "kind": "browser", "focus": false, "url": "http://127.0.0.1:8080/" },
+    { "name": "k8s", "title": "Kubernetes docs", "kind": "docs", "focus": false,
+      "url": "https://kubernetes.io/docs/concepts/workloads/pods/" },
+    { "name": "notes", "title": "Notes", "kind": "docs", "focus": false, "document": true }
+  ],
   "canSubmit": false
 }
 ```
@@ -163,7 +171,8 @@ GET routes never change saved state, so polling them is safe.
 | `rules` | `strict`: a submission after the deadline cannot pass. `hintsHidden`: hints are never shown. |
 | `intro` | For the intro page. `prerequisitesHtml` is `""` when the lab has none; `estimatedDuration` is `""` when its task does not say. |
 | `questions` | Summaries only, never the text. Today every lab has exactly one question, `q1`, built from `metadata.docs.question`. `points` is `null` until per-question points exist. |
-| `targets` | Where terminals can run. `name` is what `POST /terminals` takes; `label` is the display name (`main`, or a linked lab's name). `views` lists what the target offers: `["terminal"]` today; a desktop will add `"desktop"`. |
+| `targets` | Where terminals run. `label` is the display name (`main`, or a linked cluster's name). `views` lists what the target offers: `["terminal"]` today; a desktop will add `"desktop"`. |
+| `tabs` | The right panel, as the lab declares it (lab config `tabs`). The first is always the focus tab: `name` `main`, a terminal on the lab's own cluster. The page shows exactly these and cannot add or close one. `kind` is `terminal` (`target` says where its shell runs), `browser` (`url` is a loopback port forward of the lab), or `docs`: either `url` (an `https` documentation page, shown in a frame) or `document: true` (Markdown shipped with the lab, fetched from `GET /tabs/{name}/doc`). A lab that declares no tabs gets only the focus tab. |
 | `canSubmit` | Always `false` until submit lands in the browser. Submit with `astrona submit` meanwhile. |
 
 Responses never contain the solution document, validation scripts, check
@@ -192,6 +201,16 @@ Insert it as HTML; the page's CSP blocks inline script anyway.
 Before Start an exam or learning lab answers `409 not_started` (a playground
 never does). A question id other than `q1` gives `404 not_found`.
 
+### `GET /runs/{lab}/tabs/{name}/doc`
+
+```json
+{ "name": "notes", "title": "Notes", "html": "<h1>Notes</h1>\n<p>…</p>\n" }
+```
+
+Rendered and sanitised like the question. Only for a docs tab with
+`document: true`; any other name is `404 not_found`. Errors: `409 not_started`,
+`409 run_stopped`.
+
 ### `POST /runs/{lab}/start`
 
 Request: `{"runId": "<runId>"}`
@@ -214,22 +233,28 @@ when the lab is ready.
 ```json
 {
   "terminals": [
-    { "id": "Zk3q…", "target": "pod-basics", "status": "running",
+    { "id": "Zk3q…", "tab": "main", "target": "pod-basics", "status": "running",
       "exitCode": null, "createdAt": "2026-11-09T21:01:03Z", "attached": true }
   ]
 }
 ```
 
 `status` is `running` or `ended`; `exitCode` is set once it ended (`-1` when
-the process was killed by a signal). Ended terminals stay listed until they are
-deleted, so the page can show "Shell ended".
+the process was killed by a signal). Ended terminals stay listed until the tab
+opens a new shell, which replaces the ended one, so the page can show "Shell
+ended". The page cannot close a terminal; `astrona ui stop` ends them all.
 
 ### `POST /runs/{lab}/terminals`
 
-Request: `{"runId": "<runId>", "target": "pod-basics"}`. `target` may be
-omitted for the main target.
+Request: `{"runId": "<runId>", "tab": "main"}`. `tab` names one of the run's
+terminal tabs and may be omitted for the focus tab. The page cannot name a
+target or anything else: a shell is only ever opened where the lab declared a
+terminal tab.
 
-Response: `201` with one terminal object as above.
+Each tab has at most one shell. Response: `200` with the tab's terminal when it
+is still running (nothing new is started), or `201` with a new one; a new one
+replaces the tab's ended shell. While one request starts a tab's shell, another
+for the same tab gets `409 terminal_starting`.
 
 This can take a minute the first time on a machine, while the terminal image is
 built. The terminal is a hardened container on the Kind network that mounts only
@@ -238,13 +263,8 @@ the lab's own workspace directory; its prompt is `astrona-cli >` and `$HOME` is
 `502 terminal_failed` and nothing else is started in its place.
 
 Errors: `409 not_started`, `409 run_changed`, `409 run_stopped`,
-`400 unknown_target`, `429 too_many_terminals`, `501 unsupported`.
-
-### `DELETE /runs/{lab}/terminals/{id}`
-
-Ends the shell (hang-up, then kill after three seconds), removes its container,
-and forgets the terminal. Response `204`, also for a terminal that had already
-ended. Unknown id: `404 not_found`.
+`409 terminal_starting`, `400 unknown_tab`, `429 too_many_terminals`,
+`501 unsupported`.
 
 ### `GET /ws/v1/terminals/{id}?ticket=<ticket>`
 
@@ -278,13 +298,25 @@ Client to server:
 | `{"type":"ping"}` | Keep-alive; answered with `pong`. |
 
 Other close codes: `1001` when the server shuts down or the terminal is
-deleted, `1008` for a control frame that is not valid JSON, `1009` for a frame
+replaced, `1008` for a control frame that is not valid JSON, `1009` for a frame
 larger than 64 KiB.
 
 Opening the same terminal again takes it over: only the newest view can type.
 Closing the WebSocket (tab closed, page reloaded) does not end the shell;
 reattaching replays its recent output, so the shell and its history survive a
 reload.
+
+## Framing
+
+The page is served with the strict policy above plus a `frame-src` that names
+exactly the origins of the current runs' `browser` tabs and `docs` URL
+tabs, computed when the page is loaded. It never names the server's own
+origin. A lab started after the page was opened needs a reload before its page
+tabs can be framed. Frames are sandboxed (`allow-scripts allow-same-origin
+allow-forms allow-popups allow-downloads`); nothing is proxied through the
+server. A site that refuses to be framed (`X-Frame-Options` or CSP
+`frame-ancestors`) stays blank; the tab's **Open in new window** shows it in a
+separate window instead.
 
 ## Lifetime
 
@@ -302,7 +334,7 @@ reload.
 | --- | --- | --- |
 | `~/.astrona/workspace/server.json` | server | PID, port, start time, version, per-start secret. |
 | `~/.astrona/workspace/server.log` | server | Its log. |
-| `~/.astrona/workspace/runs/<lab>/run.json` | `astrona run` | What the page shows for that run: title, mode, rules, the task and prerequisites Markdown, targets. Never the solution or the validation block. |
+| `~/.astrona/workspace/runs/<lab>/run.json` | `astrona run` | What the page shows for that run: title, mode, rules, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs). Never the solution or the validation block. |
 | `~/.astrona/workspace/runs/<lab>/start.json` | Start | When Start was clicked, for which `runId`. |
 | `~/.astrona/exams/<lab>.json` | Start (exam labs) | The exam clock, as before. |
 

@@ -292,6 +292,137 @@
   padding: 24px;
 }
 
+/* ---------------------------------------------------------------- lab tabs */
+
+.tabs {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tabs__list {
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  overflow-x: auto;
+}
+
+.tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tabs__tab:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.tabs__tab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.tabs__tab--active {
+  border-color: var(--line-strong);
+  background: var(--term-bg);
+  color: var(--ink);
+  box-shadow: inset 0 2px 0 var(--orange);
+}
+
+.tabs__tab--active:focus-visible {
+  box-shadow:
+    inset 0 2px 0 var(--orange),
+    var(--focus);
+}
+
+.tabs__dot {
+  display: inline-flex;
+}
+
+.tabs__panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ---------------------------------------------------------------- page and docs views */
+
+.frame {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.frame__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.frame__url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.frame__note {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.frame__iframe {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: #ffffff;
+}
+
+.docs {
+  flex: 1;
+  min-height: 0;
+  padding: 24px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.docs:focus {
+  outline: none;
+}
+
+.docs__problem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 60ch;
+}
+
 /* ---------------------------------------------------------------- terminal view */
 
 .term {
