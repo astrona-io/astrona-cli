@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { Run, Submission } from '../api'
+import { runAgainCommand } from '../endSession'
 
 // The graded result of a submission and what happened to it. Shows only
 // what the server returns: names, pass/fail, points and allowed hints —
@@ -112,7 +113,7 @@ const time = computed(() => {
         <button v-if="canRemove" type="button" class="btn btn--ghost" @click="emit('remove')">Remove environment…</button>
       </div>
       <p class="small muted">To start over with a fresh environment, run this in your terminal:</p>
-      <pre class="message__command"><code>astrona run {{ lab }}</code></pre>
+      <pre class="message__command"><code>{{ runAgainCommand(run) }}</code></pre>
       <p class="small muted">You can close this tab when you are done.</p>
     </section>
   </main>

@@ -87,6 +87,8 @@ export interface Run {
   /** True when POST /submit would grade now; submit.blocked says why not. */
   canSubmit: boolean
   submit: SubmitInfo
+  /** The command that starts this lab again; "" when its source is unknown. */
+  runAgain: string
 }
 
 /**

@@ -174,7 +174,8 @@ GET routes never change saved state, so polling them is safe.
     "grading": false,
     "submitted": false,
     "blocked": ""
-  }
+  },
+  "runAgain": "astrona run astrona.io/ATS014/section-010/module-01/lab-02"
 }
 ```
 
@@ -198,6 +199,7 @@ GET routes never change saved state, so polling them is safe.
 | `submit.grading` | A submission of this run is being graded now. |
 | `submit.submitted` | This run has a saved result (`GET /submission`). |
 | `submit.blocked` | Why Submit is not possible now, for the page to show next to the disabled button; `""` when it is. |
+| `runAgain` | The command that starts this lab again, as `astrona run` was given it: the catalog ID, the `--git` source, or the config path (`-c`). Never the cluster name, which `astrona run` does not accept. `""` when the source is not known. |
 
 Responses never contain the solution document, validation scripts, check
 commands, expected values, admin credentials or kubeconfigs.

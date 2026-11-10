@@ -112,3 +112,11 @@ export function removeCopy(run: Run): EndCopy {
     busy: 'Removing the environment…',
   }
 }
+
+/**
+ * How to start this lab again from a terminal: the run command it was
+ * started with (a path, Git source or catalog ID — never the cluster name).
+ */
+export function runAgainCommand(run: Run | null): string {
+  return run?.runAgain || 'astrona run <lab path or ID>'
+}
