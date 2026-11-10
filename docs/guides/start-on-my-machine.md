@@ -21,7 +21,26 @@ retries after about a second, waits up to a minute between tries, and spreads
 the retries out at random. Each new connection tells the site how the previous
 one ended, so support can see drops.
 
-To have it start with your login session instead:
+## Confirm each request
+
+```bash
+astrona connect --confirm
+```
+
+asks in the terminal before each request from the website runs, for example:
+
+```text
+The website asks to build and start ATS000/section-010/module-01/lab-01 on this computer. Allow? [y/N]
+```
+
+Type `y` to run it. Anything else, or no answer within two minutes, refuses
+it, and the lab page shows that the request was declined on this computer.
+Status requests run without asking because they change nothing. `--confirm`
+needs a terminal, so it can't be combined with `--install`.
+
+## Start with your login session
+
+To have it start with your login session:
 
 ```bash
 astrona connect --install     # macOS LaunchAgent, or Linux systemd user service
