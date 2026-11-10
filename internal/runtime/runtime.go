@@ -128,8 +128,9 @@ func CreateEnvironment(ctx context.Context, name, baseDir string, cfg config.Run
 		kubeconfig, err := cluster.WriteLabKubeconfig(name, rep)
 		env := &LabEnvironment{
 			Type: RuntimeKind, Name: name, KubeContext: "kind-" + name,
-			Kubeconfig: kubeconfig, Executor: executor.LocalExecutor{Kubeconfig: kubeconfig},
+			Kubeconfig: kubeconfig, ExtraEnv: KindEnv(name),
 		}
+		env.Executor = executor.LocalExecutor{Kubeconfig: kubeconfig, ExtraEnv: env.ExtraEnv}
 		if err != nil {
 			return env, err
 		}
@@ -243,12 +244,14 @@ func LoadEnvironment(name string, cfg config.RuntimeConfig) (*LabEnvironment, er
 		// queryable by name from any process — no liveness check needed
 		// here, kubectl will fail naturally downstream if it's gone.
 		kubeconfig := cluster.ExistingKubeconfig(name)
+		extra := KindEnv(name)
 		return &LabEnvironment{
 			Type:        RuntimeKind,
 			Name:        name,
 			KubeContext: "kind-" + name,
 			Kubeconfig:  kubeconfig,
-			Executor:    executor.LocalExecutor{Kubeconfig: kubeconfig},
+			ExtraEnv:    extra,
+			Executor:    executor.LocalExecutor{Kubeconfig: kubeconfig, ExtraEnv: extra},
 		}, nil
 	case RuntimeQEMU:
 		if err := config.ValidateQEMUVMs(cfg.QEMU); err != nil {
@@ -361,6 +364,24 @@ func sshExecutorFor(vm vmprovider.Instance) executor.SSHExecutor {
 		KeyPath:    vm.KeyPath,
 		KnownHosts: vm.KnownHosts,
 	}
+}
+
+// KindEnv is what a kind lab's host scripts and command checks are told
+// about the lab's own cluster, so a script can find it without hardcoding
+// the lab name: ASTRONA_KUBE_CONTEXT (the context in KUBECONFIG),
+// ASTRONA_KIND_CLUSTER (the kind cluster; its node containers are
+// <cluster>-control-plane, <cluster>-worker, <cluster>-worker2, ...) and
+// ASTRONA_CONTAINER_ENGINE (docker or podman, for `exec` into a node). The
+// engine is left out when none is found; kind could not have run either.
+func KindEnv(name string) []string {
+	env := []string{
+		"ASTRONA_KUBE_CONTEXT=kind-" + name,
+		"ASTRONA_KIND_CLUSTER=" + name,
+	}
+	if engine, err := cluster.DetectContainerEngine(); err == nil {
+		env = append(env, "ASTRONA_CONTAINER_ENGINE="+engine.Name)
+	}
+	return env
 }
 
 // WithLinks records the lab's linked clusters — for checks with

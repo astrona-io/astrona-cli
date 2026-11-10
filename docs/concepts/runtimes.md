@@ -80,6 +80,15 @@ Classic `Ingress` isn't offered: ingress-nginx is retired upstream. Cilium isn't
 - `bootstrap.manifests` / `testing.manifests` apply against the cluster via `kubectl --context kind-<cluster-name>`.
 - `validation.checks` of type `resourceExists`/`podReady` run against the same context.
 - Scripts (`bootstrap.init`, `teardown.init`, `validation.script`) run on the **host** — there's no VM to SSH into — with `KUBECONFIG` set to the lab's own kubeconfig (see below), so a plain `kubectl` in a script always hits the lab.
+- Those scripts, and `command` checks, also get the lab's cluster by name, so they never need to hardcode it:
+
+  | Variable | Value |
+  | --- | --- |
+  | `ASTRONA_KUBE_CONTEXT` | The context in `KUBECONFIG`, `kind-astro-<lab>` |
+  | `ASTRONA_KIND_CLUSTER` | The kind cluster, `astro-<lab>`. Its node containers are `$ASTRONA_KIND_CLUSTER-control-plane`, `$ASTRONA_KIND_CLUSTER-worker`, `$ASTRONA_KIND_CLUSTER-worker2`, … |
+  | `ASTRONA_CONTAINER_ENGINE` | `docker` or `podman`, whichever runs the cluster: `"$ASTRONA_CONTAINER_ENGINE" exec "$ASTRONA_KIND_CLUSTER-control-plane" …` |
+
+  A script that uses them works unchanged on any cluster that sets them, for example a cluster shared by several labs. Keep a fallback for an older astrona that does not set them: `${ASTRONA_KUBE_CONTEXT:-kind-astro-<lab>}`.
 - `runtime.portForwards` exposes in-cluster services on `127.0.0.1` — see [Port forwards](#port-forwards).
 
 ### DNS for the lab network (`runtime.kind.dns`)
@@ -152,7 +161,7 @@ Every kind lab gets its own kubeconfig, `~/.astrona/kind/<lab>/kubeconfig` (mode
     `astrona destroy` (or deleting the lab after a passing `astrona submit`) switches back to that context — but only if the lab's context is still current: if you've switched to another one meanwhile, that's left as it is and destroy says so. If the previous context no longer exists, nothing is switched and destroy says so; if you had none, it's unset again. The context to go back to is kept in `~/.astrona/labs/<lab>.json` (mode `0600`). Starting a lab over (`run` on a running lab, `reset`) keeps the context from before the lab first ran. Labs started on top of each other chain: run lab A (from `prod`), then lab B (from A's context), and destroying A first hands `prod` on to B, so destroying B still brings you back to `prod`. The context is put back before the lab is deleted — if the delete then fails, your context stays restored and a later `astrona destroy` just removes what's left.
 - `--keep-context` on `run`/`reset` leaves your current-context alone: reach the lab with `astrona shell` or `kubectl --context kind-astro-<lab> …`. Either way, the switch never happens mid-build — `kind create cluster`'s own switch is undone straight away, and only the finished lab is made current.
 - still lets kind add the `kind-<lab>` context to your own kubeconfig, so `kubectl --context kind-astro-<lab> …` works from any terminal.
-- runs lab scripts and `command` validation checks with `KUBECONFIG=<lab kubeconfig>`.
+- runs lab scripts and `command` validation checks with `KUBECONFIG=<lab kubeconfig>`, plus `ASTRONA_KUBE_CONTEXT`, `ASTRONA_KIND_CLUSTER` and `ASTRONA_CONTAINER_ENGINE` (see [above](#kind-default)).
 - deletes the file on `astrona destroy`.
 
 To work in a lab:
