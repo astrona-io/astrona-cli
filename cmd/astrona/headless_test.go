@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"astrona/internal/account"
+	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/labops"
 	"astrona/internal/version"
@@ -236,6 +237,9 @@ func TestHeadlessResetRequiresYesOnTerminal(t *testing.T) {
 	for _, mode := range [][]string{nil, {"--soft"}, {"--cluster", "idp"}, {"--soft", "--cluster", "idp"}} {
 		t.Run(strings.Join(mode, " "), func(t *testing.T) {
 			t.Setenv("HOME", t.TempDir())
+			if err := cluster.WriteLinks("astro-headless-reset", []cluster.LinkState{{Name: "idp", Cluster: "astro-headless-reset-idp"}}); err != nil {
+				t.Fatal(err)
+			}
 			dir := t.TempDir()
 			cfg := "metadata: {name: headless-reset}\nruntime:\n  type: kind\n  kind:\n    clusters:\n      - name: idp\n"
 			if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(cfg), 0600); err != nil {

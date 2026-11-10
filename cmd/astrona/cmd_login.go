@@ -128,6 +128,14 @@ func loginWithBrowser(ctx context.Context, client *account.Client, store account
 	}
 
 	creds := account.NewCredentials(site, device, tokens, client.Now())
+	release, err := store.Lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
+	// A reporter may have renewed the old sign-in during authorization.
+	// Revoke the credentials being replaced, using their current token.
+	previous, _ = store.Load()
 	if err := store.Save(creds); err != nil {
 		return err
 	}

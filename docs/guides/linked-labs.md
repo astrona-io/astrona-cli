@@ -31,6 +31,15 @@ runtime:
 
 Each entry takes the same cluster fields as `runtime.kind` (version, nodes, networking, addons, preloadImages, …) plus its own `bootstrap` and `testing`. Up to 5 per lab; names are lowercase letters, digits and `-` (max 20 characters). See [`runtime.kind.clusters`](../reference/lab-config.md#runtimekindclustersn).
 
+Linked names must not collide with another lab. For example, `auth-lab` with
+linked cluster `idp` cannot replace a standalone lab named `auth-lab-idp`.
+Astrona checks every linked name before changing any cluster and only replaces
+existing clusters recorded as belonging to this lab. The same ownership check
+protects teardown scripts, linked resets and deletion. If an older installation
+has lost its saved ownership, inspect `astrona list` and explicitly destroy the
+leftover cluster by its full name before retrying; editing a config cannot claim
+an existing cluster.
+
 ### Dependencies and start order
 
 By default clusters are created **one at a time**: every linked cluster first, then the lab's own. Each one is only created once the previous is fully ready — its bootstrap done and its `waitFor` gates passed. Use `dependsOn` when one linked cluster needs another:

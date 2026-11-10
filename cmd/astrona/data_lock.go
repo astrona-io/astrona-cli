@@ -36,7 +36,7 @@ func lockLocalData(cmd *cobra.Command, s localdata.Store, exclusive bool) (func(
 //     itself around the destroy at the deadline (destroyPlayground).
 //   - schema, docgen, help and completion: no local data at all.
 //
-// Every other command, hidden or not, holds the shared lock.
+// Every other command takes the shared lock; connect releases it after setup.
 func lockFreeCommand(cmd *cobra.Command) bool {
 	switch strings.TrimPrefix(cmd.CommandPath(), cmd.Root().Name()+" ") {
 	case "usage-reporter", "outbox-flush", "port-forward supervise", "playground-watchdog",
@@ -48,6 +48,7 @@ func lockFreeCommand(cmd *cobra.Command) bool {
 
 // executeWithDataLock holds a shared lock before command setup until Execute
 // returns. Data commands acquire their own exclusive lock only when applying.
+// Connect releases the lock after setup; commands it starts take their own.
 // Terms use an independent atomic receipt and can be read without any writes.
 // Installing this at the entrypoint keeps command construction side-effect free.
 func executeWithDataLock(root *cobra.Command, store func() (localdata.Store, error)) error {
@@ -91,6 +92,12 @@ func executeWithDataLock(root *cobra.Command, store func() (localdata.Store, err
 				}
 			}
 			ready = c
+			// Connect's setup reads preferences, but its idle service only uses
+			// credentials. Each child command acquires its own maintenance lock.
+			if c.CommandPath() == c.Root().Name()+" connect" && release != nil {
+				release()
+				release = nil
+			}
 			return nil
 		}
 		for _, child := range cmd.Commands() {

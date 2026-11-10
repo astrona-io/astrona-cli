@@ -5,6 +5,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/exam"
 	"astrona/internal/executor"
+	"astrona/internal/labstate"
 	"astrona/internal/portforward"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
@@ -138,6 +139,27 @@ func softResetClusters(cfg *config.LabConfig, baseDir, clusterName, only string,
 	}
 	if only != "" {
 		if _, err := FindLinkedCluster(clusterName, only, states); err != nil {
+			return err
+		}
+	}
+	// Reserve every selected child before resetting any of them. Config
+	// changes must not turn another lab into a soft-reset target.
+	var releases []func()
+	defer func() {
+		for i := len(releases) - 1; i >= 0; i-- {
+			releases[i]()
+		}
+	}()
+	for _, state := range states {
+		if only != "" && state.Name != only {
+			continue
+		}
+		release, err := labstate.LockMutation(state.Cluster)
+		if err != nil {
+			return err
+		}
+		releases = append(releases, release)
+		if err := RequireLinkedOwnership(clusterName, state.Cluster); err != nil {
 			return err
 		}
 	}

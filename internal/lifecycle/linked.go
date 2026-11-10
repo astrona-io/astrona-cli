@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"astrona/internal/cluster"
 	"astrona/internal/config"
+	"astrona/internal/labstate"
 	"astrona/internal/runtime"
 	"astrona/internal/ui"
 	"context"
@@ -54,6 +55,11 @@ func StartLinkedClusters(ctx context.Context, cfg *config.LabConfig, baseDir, la
 	if err != nil || len(states) == 0 {
 		return nil, err
 	}
+	release, err := reserveLinkedClusters(labCluster, states)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	if err := cluster.WriteLinks(labCluster, states); err != nil {
 		return nil, fmt.Errorf("save linked clusters: %w", err)
 	}
@@ -77,7 +83,7 @@ func StartLinkedClusters(ctx context.Context, cfg *config.LabConfig, baseDir, la
 			return nil, linkedClusterError(l, name, err)
 		}
 		if err := runtime.DestroyEnvironment(name, sub.Runtime, rep); err != nil {
-			rep.Warn("could not clean up a previous '%s', proceeding anyway: %s", name, err)
+			return nil, linkedClusterError(l, name, fmt.Errorf("remove previous linked cluster: %w", err))
 		}
 		rep.Section("Linked cluster '%s'", l.Name)
 		_, _, err := Up(ctx, sub, baseDir, name, deps, forTest, rep)
@@ -96,6 +102,55 @@ func StartLinkedClusters(ctx context.Context, cfg *config.LabConfig, baseDir, la
 	// Clusters created earlier learn the names of later ones.
 	RefreshLinkNames(labCluster, true, rep)
 	return states, nil
+}
+
+// reserveLinkedClusters checks all names before recording ownership or deleting
+// anything. Keep their locks until setup finishes so a standalone run cannot
+// claim a linked name between this check and creation.
+func reserveLinkedClusters(lab string, states []cluster.LinkState) (func(), error) {
+	previous, err := cluster.ReadLinks(lab)
+	if err != nil {
+		return nil, fmt.Errorf("read linked cluster ownership: %w", err)
+	}
+	owned := make(map[string]bool, len(previous))
+	for _, link := range previous {
+		if link.Cluster == config.LinkedClusterName(lab, link.Name) {
+			owned[link.Cluster] = true
+		}
+	}
+	var releases []func()
+	release := func() {
+		for i := len(releases) - 1; i >= 0; i-- {
+			releases[i]()
+		}
+	}
+	for _, link := range states {
+		unlock, err := labstate.LockMutation(link.Cluster)
+		if err != nil {
+			release()
+			return nil, err
+		}
+		releases = append(releases, unlock)
+		st, err := labstate.Load(link.Cluster)
+		if err != nil {
+			release()
+			return nil, fmt.Errorf("check linked cluster %s: %w", link.Cluster, err)
+		}
+		exists, err := cluster.Lookup(link.Cluster)
+		if err != nil {
+			release()
+			return nil, fmt.Errorf("check linked cluster %s: %w", link.Cluster, err)
+		}
+		if st != nil || (exists && !owned[link.Cluster]) {
+			release()
+			return nil, fmt.Errorf("linked cluster %s conflicts with an existing lab not owned by %s; choose another name or explicitly destroy that lab", link.Cluster, lab)
+		}
+		if err := checkOtherLinkedOwners(lab, link.Cluster); err != nil {
+			release()
+			return nil, err
+		}
+	}
+	return release, nil
 }
 
 // linkedClusterError names which linked cluster failed — the same wording

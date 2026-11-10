@@ -214,6 +214,12 @@ is dimmed rather than blurred.
 
 ### Submit or end from the browser
 
+Browser submissions and removal use the same trust checks as CLI commands.
+An official catalog lab needs no separate approval when its clean checkout
+matches the commit published by Astrona. If that verification fails, the page
+cannot approve code: submit from a terminal to review it. Removal skips
+unapproved teardown scripts.
+
 The top bar has one button to finish the session. Its label fits the run:
 
 | Run | Button | What it does |

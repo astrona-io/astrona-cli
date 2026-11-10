@@ -3,11 +3,28 @@ package authoring
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"astrona/internal/config"
+	"astrona/internal/labstate"
 	"astrona/internal/ui"
 )
+
+func TestRunTestHonorsMutationLock(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("PATH", t.TempDir())
+	name := config.NormalizeTestClusterName("busy")
+	release, err := labstate.LockMutation(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	run := RunTest(context.Background(), &config.LabConfig{}, t.TempDir(), TestOptions{ClusterName: name}, ui.Discard())
+	if run.Err == nil || !strings.Contains(run.Err.Error(), "being changed") {
+		t.Fatalf("test ignored mutation lock: %v", run.Err)
+	}
+}
 
 // A run whose context is already cancelled creates nothing: it stops right
 // after the clean-slate teardown with ErrTestInterrupted.

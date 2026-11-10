@@ -260,7 +260,7 @@ func (c *client) ended(ctx context.Context, creds *account.Credentials, ws *webs
 	code := int(websocket.CloseStatus(err))
 	switch code {
 	case CloseRevoked:
-		if _, derr := c.o.Store.Delete(); derr != nil {
+		if _, derr := c.o.Store.DeleteIfCurrent(ctx, creds); derr != nil {
 			c.logf("Could not remove the saved sign-in: %v", derr)
 		}
 		return nil, ErrRevoked
@@ -284,9 +284,15 @@ func (c *client) ended(ctx context.Context, creds *account.Credentials, ws *webs
 }
 
 // unauthorized renews the sign-in after the site rejected the access
-// token; a refused renewal stops Run.
+// token. A replacement login can reconnect; a refused sign-in stops Run.
 func (c *client) unauthorized(ctx context.Context, creds *account.Credentials, d *Disconnect) (*Disconnect, error) {
-	if _, err := c.o.Client.Renew(ctx, c.o.Store, creds); err != nil {
+	_, err := c.o.Client.Renew(ctx, c.o.Store, creds)
+	if errors.Is(err, account.ErrSignedOut) {
+		// Login may have replaced the device while this connection was open.
+		// Reconnect with that sign-in, but only for the configured site.
+		_, err = c.o.Client.Active(ctx, c.o.Store, c.o.Site)
+	}
+	if err != nil {
 		if errors.Is(err, account.ErrSignedOut) {
 			return nil, err
 		}

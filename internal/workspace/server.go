@@ -240,6 +240,7 @@ func (s *Server) Close() error {
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/auth/exchange", s.handleExchange)
+	mux.HandleFunc("POST /api/v1/auth/code", s.requireToken(s.handleCode))
 	mux.HandleFunc("POST /api/v1/auth/ticket", s.requireToken(s.handleTicket))
 	mux.HandleFunc("GET /api/v1/server", s.requireToken(s.handleServer))
 	mux.HandleFunc("GET /api/v1/launches/{id}", s.requireToken(s.handleLaunch))
@@ -298,6 +299,17 @@ func (s *Server) handleTicket(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ticket": ticket, "expiresAt": expires.UTC()})
+}
+
+// handleCode lets an authenticated page reload with a fresh document policy,
+// including when its token only lives in memory because storage is disabled.
+func (s *Server) handleCode(w http.ResponseWriter, _ *http.Request) {
+	code, err := MintCode(s.auth.secret, s.auth.now(), DefaultCodeTTL)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, "could not create a launch code")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"code": code})
 }
 
 func (s *Server) handleServer(w http.ResponseWriter, _ *http.Request) {

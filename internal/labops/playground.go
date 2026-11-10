@@ -117,19 +117,32 @@ func SpawnDetached(command, clusterName, logSuffix string) (int, error) {
 	return pid, nil
 }
 
+// PlaygroundDeadline identifies the run and deadline a watchdog may expire.
+type PlaygroundDeadline struct {
+	RunID      string
+	SessionID  string
+	DeadlineAt string
+}
+
+func (d PlaygroundDeadline) matches(st *labstate.State) bool {
+	return st != nil && !st.LocalOnly && st.Session.IsPlayground() &&
+		RunID(st) == d.RunID && st.Session.ID == d.SessionID && st.Session.DeadlineAt == d.DeadlineAt
+}
+
 // WatchPlayground waits until the playground's deadline, checking every
 // tick that it still runs under the same session (destroyed, replaced by
 // a new run, or renewed — which starts its own watchdog: nothing to do).
-// At the deadline it stops the clock as "time_limit" and destroys the
-// cluster with destroy. A cancelled ctx ends it quietly — that is how
+// At the deadline expire takes the maintenance lock and calls ExpirePlayground.
+// A cancelled ctx ends it quietly — that is how
 // `astrona destroy` stops it. Progress lines go to w, warnings to warn.
 // It is the body of the hidden `astrona playground-watchdog` helper.
-func WatchPlayground(ctx context.Context, w, warn io.Writer, clusterName string, tick time.Duration, destroy func(clusterName string) error) error {
+func WatchPlayground(ctx context.Context, w, warn io.Writer, clusterName string, tick time.Duration, expire func(context.Context, string, PlaygroundDeadline) error) error {
 	st, err := labstate.Load(clusterName)
 	if err != nil || st == nil || st.LocalOnly || !st.Session.IsPlayground() {
 		return err
 	}
 	sess := *st.Session
+	expected := PlaygroundDeadline{RunID: RunID(st), SessionID: sess.ID, DeadlineAt: sess.DeadlineAt}
 	deadline, err := time.Parse(time.RFC3339, sess.DeadlineAt)
 	if err != nil {
 		return fmt.Errorf("playground %s has no deadline: %w", clusterName, err)
@@ -147,7 +160,7 @@ func WatchPlayground(ctx context.Context, w, warn io.Writer, clusterName string,
 		case <-time.After(min(wait, tick)):
 		}
 		cur, err := labstate.Load(clusterName)
-		if err == nil && (cur == nil || cur.Session == nil || cur.Session.ID != sess.ID) {
+		if err == nil && !expected.matches(cur) {
 			return nil
 		}
 	}
@@ -155,12 +168,45 @@ func WatchPlayground(ctx context.Context, w, warn io.Writer, clusterName string,
 	if err != nil {
 		return err
 	}
-	if current == nil || current.LocalOnly || current.Session == nil || current.Session.ID != sess.ID {
+	if ctx.Err() != nil || !expected.matches(current) {
 		return nil
 	}
 	fmt.Fprintf(w, "%s time limit reached: stopping %s\n", time.Now().Format(time.RFC3339), clusterName)
-	StopPlaygroundClock(ctx, warn, &sess, "time_limit", RunUsageReport(clusterName, current))
-	return destroy(clusterName)
+	err = expire(ctx, clusterName, expected)
+	if ctx.Err() != nil {
+		return nil
+	}
+	return err
+}
+
+// ExpirePlayground checks the watchdog's identity under the mutation lock before
+// stopping its session and deleting the lab. The caller holds the maintenance
+// lock; renewal and replacement use the same mutation lock.
+func ExpirePlayground(ctx context.Context, clusterName string, expected PlaygroundDeadline, rep *ui.Reporter, opts DestroyOptions) error {
+	if ctx.Err() != nil {
+		return nil
+	}
+	release, err := labstate.WaitMutation(ctx, clusterName)
+	if err != nil {
+		return err
+	}
+	defer release()
+	current, err := labstate.Load(clusterName)
+	if err != nil {
+		return err
+	}
+	if ctx.Err() != nil || !expected.matches(current) {
+		return nil
+	}
+	deadline, err := time.Parse(time.RFC3339, expected.DeadlineAt)
+	if err != nil || time.Now().Before(deadline) {
+		return fmt.Errorf("playground %s has not reached a valid deadline", clusterName)
+	}
+	StopPlaygroundClock(ctx, opts.ForgetWarn, current.Session, "time_limit", RunUsageReport(clusterName, current))
+	if ctx.Err() != nil {
+		return nil
+	}
+	return DestroyByNameLocked(clusterName, rep, opts)
 }
 
 // StopPlaygroundClock tells the site the playground ended, through the

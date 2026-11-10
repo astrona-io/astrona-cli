@@ -139,7 +139,7 @@ func startLinkedClustersParallel(ctx context.Context, cfg *config.LabConfig, ord
 			deps = append(deps, byName[d])
 		}
 		if err := runtime.DestroyEnvironment(name, sub.Runtime, subRep); err != nil {
-			subRep.Warn("could not clean up a previous '%s', proceeding anyway: %s", name, err)
+			return linkedClusterError(l, name, fmt.Errorf("remove previous linked cluster: %w", err))
 		}
 		_, _, err := Up(ctx, sub, baseDir, name, deps, forTest, subRep)
 		if err == nil {

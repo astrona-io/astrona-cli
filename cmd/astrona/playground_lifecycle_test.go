@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/labops"
 	"astrona/internal/labstate"
+	"astrona/internal/localdata"
 )
 
 // playgroundSite is an Astrona site that signs in, starts lab sessions
@@ -247,5 +249,24 @@ func TestRunningPlaygroundsForgetsGoneLabs(t *testing.T) {
 	}
 	if stops := site.stopped(); len(stops) != 1 || stops[0] != "astro-gone destroyed" {
 		t.Errorf("stops = %v, want the gone playground's clock stopped", stops)
+	}
+}
+
+func TestWatchdogMaintenanceWaitIsCancellable(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	s, err := localdata.DefaultStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	release, err := s.Lock(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := destroyPlayground(ctx, "astro-play", labops.PlaygroundDeadline{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("watchdog lock wait = %v", err)
 	}
 }

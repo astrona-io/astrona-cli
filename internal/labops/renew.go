@@ -80,6 +80,11 @@ type RenewResult struct {
 // deadline, and replaces the watchdog with one for it. Notices and
 // warnings go to warn; what to print about the result is the caller's.
 func RenewPlayground(ctx context.Context, warn io.Writer, clusterName string) (*RenewResult, error) {
+	release, err := labstate.LockMutation(clusterName)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	st, err := labstate.Load(clusterName)
 	if err != nil || st == nil || !st.Session.IsPlayground() {
 		return nil, errors.New("no playground session is remembered for it")

@@ -46,6 +46,19 @@ func teardownTrusted(flags *rootFlags, info labops.Teardown, baseDir string, rep
 	return false
 }
 
+func destroyDiscoveryAllowed() error {
+	// Setup ignores selection read errors. Discovery must not turn a broken
+	// saved selection into permission to remove an unrelated running lab.
+	saved, err := loadCurrentLab()
+	if err != nil {
+		return fmt.Errorf("read saved lab selection: %w; nothing was destroyed", err)
+	}
+	if saved != nil {
+		return errors.New("a saved lab selection exists but its config could not be loaded; nothing was destroyed")
+	}
+	return nil
+}
+
 // newDestroyCmd builds `astrona destroy`: run teardown scripts, then tear
 // down the lab environment (unless the config says keepCluster: true).
 // Also best-effort tears down the "test-<lab>" environment `astrona test`
@@ -63,7 +76,8 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 		Short:             "Remove a lab and everything in it (and any leftover `astrona test` copy)",
 		Long: "Tear down a lab environment (both the normal run and any leftover 'astrona test' run).\n\n" +
 			"With no lab-name, resolves the lab config the same way `run`/`submit` do (-c/--file/--git/--git-ref) " +
-			"and falls back to auto-discovering running labs if that fails.\n\n" +
+			"and falls back to auto-discovering running labs only when no source was selected. " +
+			"An unreadable explicit config, catalog lab or saved selection fails without destroying another lab.\n\n" +
 			"With a lab-name (as shown by `astrona list`, with or without the '" + apphome.ClusterPrefix() + "' prefix — e.g. '" + apphome.ClusterPrefix() + "my-lab' " +
 			"or just 'my-lab'), destroys that lab directly — no config needed, so -c/--file/--git/--git-ref are " +
 			"ignored and any teardown scripts are skipped.\n\n" +
@@ -88,6 +102,10 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			"remaining steps, so less is left behind. A second Ctrl+C quits at once.",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			selected := len(args) > 0 || flags.fromCurrent || flags.gitURL != "" || flags.labArg != ""
+			for _, name := range []string{"config", "file", "git", "git-ref"} {
+				selected = selected || cmd.Flags().Changed(name)
+			}
 			labName := "-"
 			if len(args) == 1 {
 				labName = args[0]
@@ -128,6 +146,12 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 
 			finalPath, err := config.ResolveConfigPath(flags.configPath, flags.fileName, flags.gitURL, flags.gitRef, flags.verbose)
 			if err != nil {
+				if selected {
+					return fmt.Errorf("resolve selected lab: %w; nothing was destroyed", err)
+				}
+				if err := destroyDiscoveryAllowed(); err != nil {
+					return err
+				}
 				rep.Warn("path resolution failed (%s) — falling back to auto-discovery of running astrona labs", err)
 				defer finishOnInterrupt()()
 				return labops.DestroyByDiscovery(rep, destroyOptions())
@@ -140,6 +164,12 @@ func newDestroyCmd(flags *rootFlags) *cobra.Command {
 			defer configCleanup()
 
 			if loadErr != nil {
+				if selected {
+					return fmt.Errorf("load selected lab: %w; nothing was destroyed", loadErr)
+				}
+				if err := destroyDiscoveryAllowed(); err != nil {
+					return err
+				}
 				rep.Warn("could not load lab config from '%s' (%s) — falling back to auto-discovery of running astrona labs", finalPath, loadErr)
 				defer finishOnInterrupt()()
 				return labops.DestroyByDiscovery(rep, destroyOptions())
