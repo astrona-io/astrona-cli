@@ -52,6 +52,18 @@ CODE = re.compile(r"Confirm the code (\S+) matches")
 SESSION_PATH = re.compile(r"^/api/cli/lab-sessions/([A-Za-z0-9-]+)/(results|progress|usage|stop|renew|pause|resume|start)$")
 GUEST_RUNS = "/api/cli/guest-runs"
 
+# GET /api/labs: a development build reads the official trainings from the
+# selected site. Only the lab the suites run, no "sourceSha", so nothing is
+# pre-trusted; ATS000/section-010/module-01/playground is found by convention.
+CATALOG = {"trainings": [{
+    "id": "ATS000",
+    "title": "Getting Started",
+    "description": "",
+    "repo": "ATS000",
+    "labs": [{"title": "Your First Lab: Bring A Deployment Back To Life",
+              "path": "sections/section-010/module-01/labs/lab-01"}],
+}]}
+
 # What the website and the labs service accept, copied from astrona-web
 # (server/api/cli/guest-runs.post.ts, server/api/cli/lab-sessions/**) and
 # astrona-svc-labs (app/api/schemas.py). Keep them in step when either changes.
@@ -377,6 +389,8 @@ class FakeSite:
                         "token_endpoint": "/api/cli/token",
                         "revocation_endpoint": "/api/cli/revoke",
                     })
+                if url.path == "/api/labs":
+                    return self.send_json(200, CATALOG)
                 if url.path == "/cli/authorize":
                     code = urllib.parse.parse_qs(url.query).get("code", [""])[0]
                     target = site.verify.get(code) or f"{site.kc.realm_url}/device"

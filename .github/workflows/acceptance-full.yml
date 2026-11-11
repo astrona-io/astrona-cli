@@ -172,6 +172,20 @@ jobs:
               env KIND_EXPERIMENTAL_PROVIDER=podman "${robot[@]}" ;;
           esac
 
+      # What a failed destroy leaves behind, and what the host's security
+      # module refused (SELinux AVCs, AppArmor denials).
+      - name: Engine state after a failure
+        if: failure() && matrix.engine != 'docker'
+        run: |
+          case "${{ matrix.engine }}" in
+            podman-rootful) podman=(sudo podman) ;;
+            *) podman=(podman) ;;
+          esac
+          "${podman[@]}" ps -a || true
+          "${podman[@]}" network ls || true
+          ps -eo pid,user,args | grep -E '[p]asta|[r]ootlessport|[c]onmon' || true
+          sudo dmesg | grep -iE 'apparmor="DENIED"|avc: +denied' | tail -40 || true
+
       - name: Pack report
         if: always()
         env:
