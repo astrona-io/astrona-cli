@@ -12,7 +12,7 @@ import (
 )
 
 // ErrExamTooBig: the exam's clusters don't fit the container engine's
-// memory. For a lab, going over the headroom is a warning; for a full exam
+// memory. For a lab, going over the headroom is a warning; for a hands-on exam
 // it is a refusal, since a cluster killed for memory an hour into the clock
 // costs the attempt.
 var ErrExamTooBig = errors.New("not enough memory for this exam")

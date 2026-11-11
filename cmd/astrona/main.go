@@ -256,6 +256,7 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 
 func main() {
 	apphome.Configure(Version)
+	labops.CLIVersion = Version
 	if err := configurePackageTools(); err != nil {
 		ui.PrintError(err)
 		os.Exit(1)

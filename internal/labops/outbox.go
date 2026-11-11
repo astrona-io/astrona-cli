@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"astrona/internal/account"
+	"astrona/internal/guestrun"
 	"astrona/internal/labstate"
 	"astrona/internal/outbox"
 	"astrona/internal/ui"
@@ -250,7 +251,9 @@ func StopSession(ctx context.Context, w io.Writer, sess *labstate.Session, reaso
 
 // RunOutboxFlusher retries until nothing waits, Astrona needs a new sign-in,
 // or for at most `budget`; one flusher at a time. It is the body of the
-// hidden `astrona outbox-flush` helper.
+// hidden `astrona outbox-flush` helper. Besides the lab sessions' outbox it
+// sends the hands-on exam queue (FlushExamQueue) and guest run reports
+// (FlushGuestRuns).
 func RunOutboxFlusher(ctx context.Context, budget time.Duration) error {
 	dir, err := outbox.Dir()
 	if err != nil {
@@ -274,7 +277,10 @@ func RunOutboxFlusher(ctx context.Context, budget time.Duration) error {
 	wait := 15 * time.Second
 	for time.Now().Before(until) {
 		status, err := FlushOutbox(ctx, 20*time.Second)
-		if err == nil && (status.Pending == 0 || status.State == outbox.SignedOut) {
+		labsDone := err == nil && (status.Pending == 0 || status.State == outbox.SignedOut)
+		exam := FlushExamQueue(ctx, nil)
+		guests, _ := FlushGuestRuns(ctx)
+		if labsDone && (exam.Left == 0 || exam.SignedOut) && guests == 0 {
 			return nil
 		}
 		select {
@@ -295,7 +301,7 @@ func StartOutboxFlusher() {
 	if testing.Testing() {
 		return // a test binary has no outbox-flush command to start
 	}
-	if n, err := outbox.Pending(); err != nil || n == 0 {
+	if n, err := outbox.Pending(); (err != nil || n == 0) && ExamQueueLen("", false) == 0 && guestrun.Pending() == 0 {
 		return
 	}
 	exe, err := os.Executable()

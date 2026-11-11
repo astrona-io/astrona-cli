@@ -103,7 +103,7 @@ func PrepareExam(ctx context.Context, req ExamPrepareRequest) error {
 			return fmt.Errorf("task %d (%s): %w", t.Position, t.Lab, err)
 		}
 		if err := examLabFits(cfg); err != nil {
-			return fmt.Errorf("task %d (%s) can't be part of a full exam: %w", t.Position, t.Lab, err)
+			return fmt.Errorf("task %d (%s) can't be part of a hands-on exam: %w", t.Position, t.Lab, err)
 		}
 		byCluster[t.Cluster] = append(byCluster[t.Cluster], examTaskLab{task: t, cfg: cfg, baseDir: baseDir})
 	}

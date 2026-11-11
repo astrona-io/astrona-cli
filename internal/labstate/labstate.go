@@ -76,10 +76,15 @@ type State struct {
 	Session     *Session     `json:"session,omitempty"`
 	// LocalOnly prevents account tracking and result uploads for this run.
 	LocalOnly bool `json:"localOnly,omitempty"`
+	// Guest marks a signed-out catalog run ("continue as guest"): once it
+	// counts (a lab submitted, a playground destroyed) one anonymous report
+	// goes to Astrona (internal/guestrun). --local-only and --headless runs
+	// are never guests.
+	Guest bool `json:"guest,omitempty"`
 }
 
 func (s *State) empty() bool {
-	return s == nil || (s.StartedAt == "" && s.Source == nil && s.KubeContext == nil && s.Session == nil && !s.LocalOnly)
+	return s == nil || (s.StartedAt == "" && s.Source == nil && s.KubeContext == nil && s.Session == nil && !s.LocalOnly && !s.Guest)
 }
 
 // Dir returns ~/.astrona/labs (not created).

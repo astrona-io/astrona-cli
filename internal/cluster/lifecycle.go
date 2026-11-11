@@ -126,7 +126,7 @@ func StartKindCluster(clusterName string, rep *ui.Reporter) error {
 
 // PauseKindCluster freezes every running node container of clusterName
 // (`docker pause` / `podman pause`): the cgroup freezer stops every
-// process in them, memory stays allocated and nothing is lost. A lab exam's
+// process in them, memory stays allocated and nothing is lost. A hands-on exam's
 // break uses it. Containers already paused are left as they are.
 func PauseKindCluster(clusterName string) error {
 	return freezeKindCluster(clusterName, "pause", "running")

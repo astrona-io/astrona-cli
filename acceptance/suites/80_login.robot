@@ -19,16 +19,22 @@ ${CATALOG_NAME}     ats-000-lab-010-01
 
 
 *** Test Cases ***
+Guest Run Creates An Install Id
+    [Documentation]    Signed out, the first catalog lab run makes the anonymous install id
+    ...    (a random UUID v4 in the profile home) without asking. Not --headless:
+    ...    a headless run reports nothing and needs no id.
+    [Tags]    kind    network
+    Run Astrona    run    ${CATALOG_LAB}    --without-login    --trust    --no-browser
+    ...    timeout=${SLOW_TIMEOUT}
+    Kind Cluster Should Exist    ${CATALOG_NAME}
+    Install Id Should Be New
+    Run Astrona    destroy    ${CATALOG_NAME}    --headless    timeout=${SLOW_TIMEOUT}
+    Kind Cluster Should Not Exist    ${CATALOG_NAME}
+
 Login Authorizes This Computer In The Browser
-    ${login}=    Start Process    ${ASTRONA}    login    --headless    --site    ${SITE}    --accept-terms
-    ...    cwd=${REPO_ROOT}    env=${ENV}    stdout=${CAPTURE}/login.txt    stderr=STDOUT
-    ${link}    ${code}=    Wait For Sign In Link    ${CAPTURE}/login.txt
-    Authorize In Browser    ${link}    ${code}
-    ${result}=    Wait For Process    ${login}    timeout=${FAST_TIMEOUT}    on_timeout=terminate
-    Log    ${result.stdout}
-    Should Be Equal As Integers    ${result.rc}    0    astrona login exited ${result.rc}    values=False
-    Should Contain    ${result.stdout}    Signed in
+    Sign In Through The Browser
     Site Should Have Received    /api/cli/token    grant=device_code    account=${USERNAME}
+    Install Id Should Be New
 
 Whoami Reports The Account
     ${me}=    Run Astrona Json    whoami
@@ -65,15 +71,42 @@ Logout Signs This Computer Out
     Site Should Have Received    /api/cli/revoke    status=${200}
     ${me}=    Run Astrona Json    whoami    rc=1
     Should Not Be True    ${me}[signedIn]
+    Install Id Should Be New
+
+Signing In Again Replaces The Install Id
+    Sign In Through The Browser
+    Install Id Should Be New
 
 
 *** Keywords ***
+Sign In Through The Browser
+    ${login}=    Start Process    ${ASTRONA}    login    --headless    --site    ${SITE}    --accept-terms
+    ...    cwd=${REPO_ROOT}    env=${ENV}    stdout=${CAPTURE}/login.txt    stderr=STDOUT
+    ${link}    ${code}=    Wait For Sign In Link    ${CAPTURE}/login.txt
+    Authorize In Browser    ${link}    ${code}
+    ${result}=    Wait For Process    ${login}    timeout=${FAST_TIMEOUT}    on_timeout=terminate
+    Log    ${result.stdout}
+    Should Be Equal As Integers    ${result.rc}    0    astrona login exited ${result.rc}    values=False
+    Should Contain    ${result.stdout}    Signed in
+
+Install Id Should Be New
+    [Documentation]    The install id is a UUID v4 and differs from every id read before in
+    ...    this suite: login and logout each replace it, so guest runs on either
+    ...    side of a sign-in can't be linked to the account.
+    ${id}=    Read Profile File    ${ENV}    install-id
+    Should Match Regexp    ${id}    ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
+    ...    msg=install id ${id} is not a UUID v4
+    List Should Not Contain Value    ${INSTALL_IDS}    ${id}    msg=install id ${id} was seen before
+    Append To List    ${INSTALL_IDS}    ${id}
+
 Start Login Suite
     Kind Cluster Should Not Exist    ${CATALOG_NAME}
     ${site}=    Start Sign In Stack
     Set Suite Variable    ${SITE}    ${site}
     ${username}=    Test Username
     Set Suite Variable    ${USERNAME}    ${username}
+    ${ids}=    Create List
+    Set Suite Variable    ${INSTALL_IDS}    ${ids}
     Prepare Astrona Environment
     # Every command talks to the fake site, whatever the caller's shell sets.
     Set To Dictionary    ${ENV}    ASTRONA_URL=${SITE}

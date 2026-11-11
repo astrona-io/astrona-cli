@@ -19,7 +19,7 @@ import (
 
 // Revision identifies the notice. The digest also detects edits
 // that accidentally leave this revision unchanged.
-const Revision = "2026-11-10"
+const Revision = "2026-11-11"
 
 //go:embed notice.txt
 var document string

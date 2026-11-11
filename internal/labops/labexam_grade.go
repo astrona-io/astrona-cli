@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"time"
 
 	"astrona/internal/account"
@@ -55,79 +54,51 @@ func GradeExamTask(ctx context.Context, st *ExamState, task ExamTaskRef, load Ex
 	return NewSubmission(cfg, cfg.Metadata.Name, results, pass, false, 1, true, at), nil
 }
 
-// SendExamResult sends a graded task to labs with a fresh idempotency key
-// and its grading time. One that can't be sent now (offline, signed out,
-// the site down) is kept in the local state and sent again by
-// FlushExamResults; queued is then true. One labs refuses for good
-// (past the deadline and its grace, on a break) is dropped with the error.
-func SendExamResult(ctx context.Context, api *ExamAPI, st *ExamState, position int, result Submission, at time.Time) (queued bool, err error) {
+// SendExamResult sends a graded task to labs with a fresh idempotency key,
+// its grading time and source (account.ResultSwitch, ...). One that can't
+// be sent now (offline, signed out, the site down) waits in the exam queue
+// and goes out with the next exam command, the watchdog or the background
+// sender; queued is then true. Only a result labs refuses for good (graded
+// after the end or during a break, or an unknown task) is dropped, with the
+// error.
+func SendExamResult(ctx context.Context, api *ExamAPI, st *ExamState, position int, result Submission, at time.Time, source string) (queued bool, err error) {
 	raw, err := json.Marshal(CapCheckTexts(result))
 	if err != nil {
 		return false, err
 	}
-	p := ExamPendingResult{Position: position, Key: newResultKey(), Result: raw, At: at.UTC()}
-	err = api.PostResult(ctx, st.ID, position, raw, p.Key, p.At)
-	if err == nil || resultRefused(err) {
-		return false, err
+	sig := ExamSignal{Attempt: st.ID, Site: api.Site, Kind: ExamSignalResult, Position: position, Key: newResultKey(), Result: raw, Source: source, At: at.UTC()}
+	if ExamQueueLen(st.ID, false) == 0 {
+		// Nothing waits ahead of it: send it straight away.
+		sctx, cancel := context.WithTimeout(ctx, SignalTimeout)
+		err = api.PostResult(sctx, st.ID, position, raw, sig.Key, sig.At, source)
+		cancel()
+		if err == nil || resultRefused(err) {
+			return false, err
+		}
 	}
-	if qerr := UpdateExamState(func(s *ExamState) (*ExamState, error) {
-		if s == nil || s.ID != st.ID {
-			return s, errors.New("the exam's local record is gone")
+	if qerr := QueueExamSignal(sig); qerr != nil {
+		if err == nil {
+			return false, fmt.Errorf("could not keep the result to send: %w", qerr)
 		}
-		// A newer grade of the same task replaces the one waiting: the
-		// latest result wins on the server too.
-		kept := s.Pending[:0]
-		for _, old := range s.Pending {
-			if old.Position != position {
-				kept = append(kept, old)
-			}
-		}
-		s.Pending = append(kept, p)
-		return s, nil
-	}); qerr != nil {
 		return false, fmt.Errorf("%w (and it could not be kept to send later: %w)", err, qerr)
 	}
-	return true, nil
+	FlushExamQueue(ctx, nil)
+	return ExamQueueHas(st.ID, sig.Key), nil
 }
 
-// FlushExamResults sends the results waiting in the local state, oldest
-// first, and reports how many are still waiting. Refused ones are dropped.
-func FlushExamResults(ctx context.Context, api *ExamAPI, warn io.Writer) int {
-	st, err := LoadExamState()
-	if err != nil || st == nil || len(st.Pending) == 0 {
-		return 0
+// ExamQueueHas reports whether the signal with key still waits.
+func ExamQueueHas(attempt, key string) bool {
+	path, err := examQueuePath()
+	if err != nil {
+		return false
 	}
-	sent := map[string]bool{}
-	for _, p := range st.Pending {
-		err := api.PostResult(ctx, st.ID, p.Position, p.Result, p.Key, p.At)
-		switch {
-		case err == nil:
-			sent[p.Key] = true
-		case resultRefused(err):
-			sent[p.Key] = true
-			if warn != nil {
-				fmt.Fprintf(warn, "Task %d's result from %s was not accepted: %s\n", p.Position, p.At.Local().Format(time.Kitchen), err)
-			}
+	q, _ := readExamQueue(path)
+	for _, s := range q {
+		if s.Attempt == attempt && s.Key == key {
+			return true
 		}
 	}
-	left := 0
-	_ = UpdateExamState(func(s *ExamState) (*ExamState, error) {
-		if s == nil || s.ID != st.ID {
-			return s, nil
-		}
-		kept := s.Pending[:0]
-		for _, p := range s.Pending {
-			if !sent[p.Key] {
-				kept = append(kept, p)
-			}
-		}
-		s.Pending, left = kept, len(kept)
-		if left == 0 && s.Ended {
-			return nil, nil
-		}
-		return s, nil
-	})
-	return left
+	return false
 }
 
 // ExamGradeSummary is what GradeAndSendExam did, without scores: the
@@ -139,9 +110,10 @@ type ExamGradeSummary struct {
 }
 
 // GradeAndSendExam grades every task against its cluster, as of at, and
-// sends each result. A task that can't be graded or sent is listed in
-// Failed and the rest go on: every task should get a result.
-func GradeAndSendExam(ctx context.Context, api *ExamAPI, st *ExamState, load ExamLabLoader, at time.Time, rep *ui.Reporter) ExamGradeSummary {
+// sends each result with source. A task that can't be graded or sent is
+// listed in Failed and the rest go on: every task should get a result.
+// Afterwards the local record says the end was graded here (Graded).
+func GradeAndSendExam(ctx context.Context, api *ExamAPI, st *ExamState, load ExamLabLoader, at time.Time, source string, rep *ui.Reporter) ExamGradeSummary {
 	var sum ExamGradeSummary
 	rep.Section("Grading %d task(s)", len(st.Tasks))
 	for _, t := range st.Tasks {
@@ -156,7 +128,7 @@ func GradeAndSendExam(ctx context.Context, api *ExamAPI, st *ExamState, load Exa
 			step.Fail(err)
 			continue
 		}
-		queued, err := SendExamResult(context.WithoutCancel(ctx), api, st, t.Position, result, at)
+		queued, err := SendExamResult(context.WithoutCancel(ctx), api, st, t.Position, result, at, source)
 		switch {
 		case err != nil:
 			sum.Failed = append(sum.Failed, fmt.Sprintf("task %d: %s", t.Position, err))
@@ -169,11 +141,18 @@ func GradeAndSendExam(ctx context.Context, api *ExamAPI, st *ExamState, load Exa
 			step.Done()
 		}
 	}
+	st.Graded = true
+	_ = UpdateExamState(func(s *ExamState) (*ExamState, error) {
+		if s != nil && s.ID == st.ID {
+			s.Graded = true
+		}
+		return s, nil
+	})
 	return sum
 }
 
 // ErrExamOnBreak: the attempt is on a break; nothing is graded until it ends.
-var ErrExamOnBreak = errors.New("the exam is on a break: resume it first (astrona exam resume)")
+var ErrExamOnBreak = errors.New("the exam is on a break: resume it first (astrona hands-on-exam resume)")
 
 // ExamOnBreak reports whether ex is on a break.
 func ExamOnBreak(ex *account.LabExam) bool { return ex != nil && ex.State == "on_break" }

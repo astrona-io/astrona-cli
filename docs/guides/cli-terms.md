@@ -39,6 +39,13 @@ memory use, see [Resource usage](lab-catalog.md#resource-usage)) and how to
 turn that off. Revision 2026-11-10 added that paragraph, so a receipt for an
 earlier revision asks again.
 
+Revision 2026-11-11 adds what a signed-out ("continue as guest") run sends:
+one report per catalog lab or playground run once it counts (a lab submitted,
+a playground destroyed), with an anonymous install id, the lab id, the kind,
+the start and finish times, the time used and the CLI version, and nothing
+else. See [Guest run reports](lab-catalog.md#guest-run-reports). A receipt for
+2026-11-10 asks again.
+
 Help, version output, completions and `astrona terms` remain available without
 acceptance. So do `settings`, `data`, `logout`, `stop`, `destroy`, and
 `port-forward stop`, so declining cannot prevent cleanup or preference repair.

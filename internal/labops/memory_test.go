@@ -23,7 +23,7 @@ func switchToLab(t *testing.T, clusterName, labContext string) *labstate.Switche
 // rememberLab is RememberLab for a test, with the source as cmd remembers it.
 func rememberLab(t *testing.T, clusterName string, src LabSource, sess *labstate.Session) {
 	t.Helper()
-	if err := RememberLab(clusterName, RememberedSource(src), false, sess); err != nil {
+	if err := RememberLab(clusterName, RememberedSource(src), false, sess, false); err != nil {
 		t.Fatal(err)
 	}
 }

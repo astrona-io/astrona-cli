@@ -133,6 +133,9 @@ type ProvisionRequest struct {
 	// LocalOnly marks a UI restart: no account session, progress or
 	// results.
 	LocalOnly bool
+	// Guest marks a signed-out catalog run ("continue as guest") that sends
+	// one anonymous report once it counts.
+	Guest bool
 	// KeepContext leaves the user's kubectl current-context alone.
 	KeepContext bool
 	// Parallel is how many linked clusters are created at once (--parallel).
@@ -277,7 +280,7 @@ func Provision(req ProvisionRequest, rep *ui.Reporter) (*ProvisionResult, error)
 		}
 	}
 
-	if err := RememberLab(clusterName, req.Source, req.LocalOnly, req.Session); err != nil {
+	if err := RememberLab(clusterName, req.Source, req.LocalOnly, req.Session, req.Guest); err != nil {
 		ui.Fwarnf(req.Warn, "could not remember this lab (%s) — `astrona submit` needs it named, and results won't reach the lab page", err)
 	}
 	rep.Close()

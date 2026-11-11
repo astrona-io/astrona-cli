@@ -10,8 +10,10 @@ import (
 
 	"astrona/internal/account"
 	"astrona/internal/apphome"
+	"astrona/internal/guestrun"
 	"astrona/internal/labops"
 	"astrona/internal/transport"
+	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -33,7 +35,9 @@ func newLoginCmd() *cobra.Command {
 			"The sign-in is saved in ~/" + apphome.Name() + "/credentials.json (readable only by you) and renewed " +
 			"automatically. Each sign-in also makes a device key for this computer, kept in ~/" + apphome.Name() +
 			"/device-key.json (readable only by you): the site gets only its public half and checks that every " +
-			"call comes from this computer. `astrona whoami` shows who is signed in, `astrona logout` signs out.\n\n" +
+			"call comes from this computer. `astrona whoami` shows who is signed in, `astrona logout` signs out. " +
+			"A successful sign-in replaces the anonymous install id that signed-out runs report with by a new " +
+			"random one, so guest runs before it can't be linked to the account.\n\n" +
 			"The default site is " + defaultSite + " unless --site (or " + account.SiteEnv + ") names another, " +
 			"for example http://localhost:3000 for local development. The site is remembered with the " +
 			"sign-in, so whoami, logout and catalog labs use it without repeating it; " + account.SiteEnv +
@@ -147,6 +151,11 @@ func loginWithBrowser(ctx context.Context, client *account.Client, store account
 	previous, _ = store.Load()
 	if err := store.SaveSignIn(creds); err != nil {
 		return err
+	}
+	// Guest runs after this sign-in never share the anonymous install id
+	// of the ones before it.
+	if err := guestrun.RotateInstallID(); err != nil {
+		ui.Warnf("could not replace the anonymous install id: %s", err)
 	}
 	if previous != nil && previous.RefreshToken != creds.RefreshToken {
 		rctx, cancel := context.WithTimeout(context.Background(), revokeTimeout)

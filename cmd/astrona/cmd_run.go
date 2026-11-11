@@ -354,6 +354,7 @@ func bringUpLab(ctx context.Context, cfg *config.LabConfig, baseDir string, flag
 		BaseDir:        baseDir,
 		Source:         rememberedSource(flags),
 		LocalOnly:      flags.localOnly,
+		Guest:          !flags.headless, // with no session: a signed-out "continue as guest" run
 		KeepContext:    flags.keepContext,
 		Parallel:       flags.parallel,
 		Session:        sess,
