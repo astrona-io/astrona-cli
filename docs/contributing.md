@@ -231,4 +231,6 @@ must already exist. The allocation policy tests run with
 
 Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`: it builds the four binaries with build provenance, publishes the GitHub release as **latest**, updates the [Homebrew tap](https://github.com/astrona-io/homebrew-tap) and then installs from the tap on macOS and Linux to check it.
 
+Only the acceptance suite and the binaries gate the release. The Linux packages (deb, rpm, Snap) depend on outside stores, and the Homebrew job runs after the release exists, so a store or tap that is down leaves the run red with its error but the release, RCs included, is still published. Once that source is back, open the run in Actions and choose **Re-run failed jobs**: it rebuilds what failed, and *Attach Linux packages* adds it to the release and replaces `SHA256SUMS`.
+
 A tag with a `-` — a release candidate like `v0.4.0-rc1` — is published as a **pre-release**: it never becomes "latest", so `astrona upgrade`, the update notice and Homebrew keep offering the last stable release, and the tap isn't touched. Testers install an RC on purpose with `astrona versions install 0.4.0-rc1`.
