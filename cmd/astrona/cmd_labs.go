@@ -12,7 +12,6 @@ import (
 	"astrona/internal/apphome"
 	"astrona/internal/catalog"
 	"astrona/internal/gitsource"
-	"astrona/internal/labops"
 	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
@@ -28,12 +27,15 @@ func catalogOrg() string {
 }
 
 // catalogSite is the Astrona site whose catalog lists the official
-// trainings: the selected site (ASTRONA_URL, else the signed-in one) when it
-// is astrona.io or this is a development build, else astrona.io — like the
-// official pins, another site never says which official labs exist.
+// trainings: astrona.io, or in a development build the site ASTRONA_URL
+// names (a local stack). Like the official pins, a release build never asks
+// another site which official labs exist.
 func catalogSite() string {
-	_, _, site, err := labops.AccountDeps()
-	if err != nil || (!account.IsDefaultSite(site) && !apphome.Development()) {
+	if !apphome.Development() || strings.TrimSpace(os.Getenv(account.SiteEnv)) == "" {
+		return account.DefaultSite
+	}
+	site, err := account.ResolveSite(os.Getenv, "")
+	if err != nil {
 		return account.DefaultSite
 	}
 	return site
