@@ -5495,6 +5495,7 @@ must already exist. The allocation policy tests run with
 <code>python3 -B -m unittest discover -s .github/scripts -p 'test_renovate_release.py'</code>.</p>
 <h2 id="releases">Releases<a class="headerlink" href="#releases" title="Permanent link">&para;</a></h2>
 <p>Pushing a tag <code>vX.Y.Z</code> runs <code>.github/workflows/release.yml</code>: it builds the four binaries with build provenance, publishes the GitHub release as <strong>latest</strong>, updates the <a href="https://github.com/astrona-io/homebrew-tap">Homebrew tap</a> and then installs from the tap on macOS and Linux to check it.</p>
+<p>Only the acceptance suite and the binaries gate the release. The Linux packages (deb, rpm, Snap) depend on outside stores, and the Homebrew job runs after the release exists, so a store or tap that is down leaves the run red with its error but the release, RCs included, is still published. Once that source is back, open the run in Actions and choose <strong>Re-run failed jobs</strong>: it rebuilds what failed, and <em>Attach Linux packages</em> adds it to the release and replaces <code>SHA256SUMS</code>.</p>
 <p>A tag with a <code>-</code> — a release candidate like <code>v0.4.0-rc1</code> — is published as a <strong>pre-release</strong>: it never becomes "latest", so <code>astrona upgrade</code>, the update notice and Homebrew keep offering the last stable release, and the tap isn't touched. Testers install an RC on purpose with <code>astrona versions install 0.4.0-rc1</code>.</p>
 
 
