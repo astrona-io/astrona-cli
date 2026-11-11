@@ -372,8 +372,9 @@ A resource's short name is its file name without the extension (`setup-db.sh` â†
 ## `tabs`
 
 kind only. The tabs of the [browser workspace](../guides/browser-workspace.md#tabs)'s right panel. The first tab is always the
-**focus tab**: a terminal on the lab's own cluster, named `main`. The entries here come after it, in order. The learner
-switches between tabs but cannot add or close one, and nothing outside this list is ever opened.
+**focus tab**: a terminal on the lab's own cluster, named `main`. The entries here come after it, in order. The workspace
+opens with these; the learner can close them and open more from the tab bar (another terminal on a target of the lab,
+the task, the prerequisites, the solution guide, or a closed tab from this list).
 
 Tabs are configured per lab. Without `tabs`, the workspace shows only the focus tab. With `tabs`, it shows exactly
 the focus tab and these: a [linked cluster](#runtimekindclustersn) gets a terminal tab only when you list it here.
@@ -420,7 +421,7 @@ tabs:
 | `portForward` | string | browser: a `runtime.portForwards` name with `scheme: http` or `https` |
 | `path` | string | browser: the path to open, starting with `/` (default `/`) |
 | `url` | string | docs: an `https://` documentation page. Either `url` or `file` |
-| `file` | string | docs: a Markdown file relative to `config.yaml`, at most 64 KiB, rendered like the task. Never the solution |
+| `file` | string | docs: a Markdown file relative to `config.yaml`, at most 64 KiB, rendered like the task. The solution only outside an exam: the page asks before it shows it |
 
 What each type does:
 
@@ -429,7 +430,7 @@ What each type does:
 - **docs** with `url`: the page, shown inside the tab in a sandboxed frame. **Back to start** returns to `url` wherever the learner navigated; **Open in new window** shows it in a separate window. Some documentation sites refuse to be shown inside another page (`X-Frame-Options` or CSP `frame-ancestors`): their tab stays blank, and the page cannot detect that, so a docs tab always notes it next to **Open in new window**. Prefer a site that allows framing. Of the sites checked when this was written, kubernetes.io, helm.sh, docs.cilium.io, gateway-api.sigs.k8s.io, prometheus.io and etcd.io allowed framing; istio.io (`SAMEORIGIN`) and docs.docker.com (`DENY`) did not.
 - **docs** with `file`: Markdown shipped with the lab, rendered and sanitised like the task.
 
-`astrona validate` fails on an unknown type, a field that does not apply to the type, an unknown cluster or port forward, a `tcp` port forward, a URL that is not `https://`, a missing, oversized or solution `file`, a duplicate name and more than 8 tabs.
+`astrona validate` fails on an unknown type, a field that does not apply to the type, an unknown cluster or port forward, a `tcp` port forward, a URL that is not `https://`, a missing or oversized `file`, the solution as a `file` in an exam, a duplicate name and more than 8 tabs.
 
 ## `ResourceItem`
 

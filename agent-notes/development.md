@@ -69,7 +69,9 @@ The page served by the browser workspace lives in `internal/workspace/web`
 - The right-hand panel shows the lab's tabs (`src/components/LabTabs.vue`);
   each tab kind has a view (`src/views/types.ts`). A new kind (for example a
   desktop) is a new view component and tab kind, not a change to the workspace
-  page. Tabs come only from the run; the page never creates one.
+  page. The run gives the tabs the page opens with; the learner opens more
+  from the + menu (term-<id> terminals on a run target, task, prerequisites,
+  solution guide) and closes them. Open tabs persist per run in localStorage.
 - Runtime dependencies must use a licence on the allowlist in
   `build/notices.ts` (MIT, ISC, BSD, Apache-2.0, OFL-1.1); the build fails
   otherwise and writes `dist/THIRD_PARTY_NOTICES.txt`, which release archives

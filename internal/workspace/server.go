@@ -256,11 +256,13 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/runs/{lab}/questions/{id}", s.requireToken(s.handleQuestion))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/start", s.requireToken(s.handleStart))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/tabs/{name}/doc", s.requireToken(s.handleTabDoc))
+	mux.HandleFunc("GET /api/v1/runs/{lab}/solution", s.requireToken(s.handleSolution))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/submit", s.requireToken(s.handleSubmit))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/submission", s.requireToken(s.handleSubmission))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/destroy", s.requireToken(s.handleDestroy))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/terminals", s.requireToken(s.handleTerminals))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/terminals", s.requireToken(s.handleOpenTerminal))
+	mux.HandleFunc("POST /api/v1/runs/{lab}/terminals/close", s.requireToken(s.handleCloseTerminal))
 	mux.HandleFunc("/api/", s.requireToken(func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "not found")
 	}))
@@ -323,7 +325,7 @@ func (s *Server) handleServer(w http.ResponseWriter, _ *http.Request) {
 		"profile":   s.cfg.Profile,
 		"startedAt": s.startedAt.UTC(),
 		"serverNow": time.Now().UTC(),
-		"features":  []string{"runs", "terminals", "tabs", "submit"},
+		"features":  []string{"runs", "terminals", "tabs", "tab-menu", "submit"},
 		"assets":    s.assetsKind(),
 	})
 }

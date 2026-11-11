@@ -260,8 +260,9 @@ func openWorkspaceHome(out io.Writer) error {
 }
 
 // browserRunRecord is what the page may show about this run: titles, the
-// task, prerequisites, rules and terminal targets. Never the solution,
-// validation, credentials or kubeconfigs.
+// task, prerequisites, rules and terminal targets, and for a learning lab
+// the solution guide, which the page shows only when the learner asks.
+// Never validation, credentials or kubeconfigs.
 func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (workspace.RunRecord, error) {
 	name := config.NormalizeClusterName(cfg.Metadata.Name)
 	st, err := labstate.Load(name)
@@ -299,6 +300,16 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 	if err != nil {
 		return workspace.RunRecord{}, err
 	}
+	if rec.Playground {
+		// A playground has no solution; a tab that would show one is left out.
+		kept := tabs[:0]
+		for _, t := range tabs {
+			if !t.Solution {
+				kept = append(kept, t)
+			}
+		}
+		tabs = kept
+	}
 	rec.Tabs = tabs
 	rec.QuestionTitle = "Task"
 	rec.Question = "No task document provided. Use the terminal to explore the lab."
@@ -326,8 +337,24 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 		}
 		_, rec.Prerequisites = docFrontMatter(labops.SanitizeTerminalText(text))
 	}
+	if doc := cfg.Metadata.Docs.Solution; doc != "" && !rec.Exam && !rec.Playground {
+		// The solution is optional for the page: a lab whose guide cannot be
+		// read still opens, without "Solution guide" in the tab menu.
+		text, err := readLabDocument(doc, baseDir, flags)
+		switch {
+		case err != nil:
+			ui.Warnf("the solution guide is not available in the browser: %s", err)
+		case len(text) > maxBrowserSolutionBytes:
+			ui.Warnf("the solution guide is larger than %d KiB and is not available in the browser", maxBrowserSolutionBytes>>10)
+		default:
+			_, rec.Solution = docFrontMatter(labops.SanitizeTerminalText(text))
+		}
+	}
 	return rec, nil
 }
+
+// maxBrowserSolutionBytes bounds the solution guide the run record keeps.
+const maxBrowserSolutionBytes = 256 << 10
 
 // isQEMULab reports whether cfg runs on QEMU VMs rather than Kind.
 func isQEMULab(cfg *config.LabConfig) bool { return cfg.Runtime.Type == "qemu" }
@@ -363,9 +390,9 @@ func readLabDocument(doc, baseDir string, flags *rootFlags) (string, error) {
 	return labops.ReadLabDoc(configPath, doc)
 }
 
-// browserTabs are the right panel's tabs: the focus tab (the lab's own
-// cluster), then the lab's tabs. Only what the lab declares becomes a tab;
-// without `tabs` there is only the focus tab.
+// browserTabs are the tabs the right panel opens with: the focus tab (the
+// lab's own cluster), then the lab's tabs; without `tabs` only the focus
+// tab. The learner can open more terminals and the lab's documents.
 func browserTabs(cfg *config.LabConfig, targets []workspace.Target, links []cluster.LinkState, baseDir string, flags *rootFlags) ([]workspace.Tab, error) {
 	if len(cfg.Tabs) == 0 {
 		return workspace.DefaultTabs(targets), nil
@@ -414,6 +441,7 @@ func browserTabs(cfg *config.LabConfig, targets []workspace.Target, links []clus
 				return nil, fmt.Errorf("the document of tab %s is larger than %d KiB", t.Name, config.MaxTabDocBytes>>10)
 			}
 			_, tab.Doc = docFrontMatter(labops.SanitizeTerminalText(text))
+			tab.Solution = config.IsSolutionFile(cfg, t.File)
 		}
 		tabs = append(tabs, tab)
 	}

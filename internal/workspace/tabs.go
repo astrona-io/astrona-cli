@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,9 +20,11 @@ const (
 	TabDocs     = config.TabDocs
 )
 
-// Tab is one tab of the workspace's right panel. The lab decides the tabs;
-// the page can switch between them, never add one. The first is the focus
-// tab: the terminal on the lab's own cluster.
+// Tab is one tab of the workspace's right panel, as the lab declares it.
+// These are the tabs the page opens with; the learner can close them and
+// open more (another terminal on a target, the task, the prerequisites, the
+// solution) from the tab bar. The first is the focus tab: the terminal on
+// the lab's own cluster.
 type Tab struct {
 	Name  string `json:"name"`
 	Title string `json:"title"`
@@ -34,6 +37,9 @@ type Tab struct {
 	// Doc is a docs tab's Markdown, shipped with the lab. It is served by
 	// GET /runs/{lab}/tabs/{name}/doc, never in the run itself.
 	Doc string `json:"doc,omitempty"`
+	// Solution marks a docs tab whose file is the lab's solution: the page
+	// asks before it shows it. Never in an exam or a playground.
+	Solution bool `json:"solution,omitempty"`
 }
 
 // tabView is a tab as GET /runs/{lab} shows it.
@@ -45,6 +51,7 @@ type tabView struct {
 	Target   string `json:"target,omitempty"`
 	URL      string `json:"url,omitempty"`
 	Document bool   `json:"document,omitempty"`
+	Solution bool   `json:"solution,omitempty"`
 }
 
 // FocusTab is the first tab: the terminal on the lab's own cluster.
@@ -72,6 +79,14 @@ func DefaultTabs(targets []Target) []Tab {
 	}
 	return tabs
 }
+
+// extraTerminalTab is the name of a terminal tab the learner opened with
+// "+ New terminal": the page picks a random id, so a reload reattaches.
+var extraTerminalTab = regexp.MustCompile(`^term-[a-z0-9]{4,16}$`)
+
+// IsExtraTerminalTab reports whether name is a terminal tab the learner
+// opened, not one the lab declared.
+func IsExtraTerminalTab(name string) bool { return extraTerminalTab.MatchString(name) }
 
 // VMTabName is the terminal tab of a multi-VM lab's VM named vm (its name
 // in runtime.qemu); the first VM has the focus tab instead.
@@ -106,7 +121,7 @@ func (r RunRecord) tab(name string) (Tab, bool) {
 func tabViews(tabs []Tab) []tabView {
 	out := make([]tabView, 0, len(tabs))
 	for i, t := range tabs {
-		out = append(out, tabView{Name: t.Name, Title: t.Title, Kind: t.Kind, Focus: i == 0, Target: t.Target, URL: t.URL, Document: t.Kind == TabDocs && t.URL == ""})
+		out = append(out, tabView{Name: t.Name, Title: t.Title, Kind: t.Kind, Focus: i == 0, Target: t.Target, URL: t.URL, Document: t.Kind == TabDocs && t.URL == "", Solution: t.Solution})
 	}
 	return out
 }
@@ -130,6 +145,9 @@ func validateTabs(rec RunRecord) error {
 		if err := config.ValidateName(t.Name); err != nil {
 			return fmt.Errorf("tab name: %w", err)
 		}
+		if IsExtraTerminalTab(t.Name) {
+			return fmt.Errorf("tab %s: names like term-<id> are for terminals the learner opens", t.Name)
+		}
 		if seen[t.Name] {
 			return fmt.Errorf("tab %s is listed twice", t.Name)
 		}
@@ -148,6 +166,9 @@ func validateTabs(rec RunRecord) error {
 				if _, err := config.TabDocsOrigin(t.URL); err != nil {
 					return fmt.Errorf("tab %s: %w", t.Name, err)
 				}
+			}
+			if t.Solution && (t.URL != "" || !rec.solutionAllowed()) {
+				return fmt.Errorf("tab %s: the solution is never shown in an exam or a playground", t.Name)
 			}
 		default:
 			return fmt.Errorf("tab %s: unknown kind %q", t.Name, t.Kind)
@@ -235,7 +256,7 @@ func (s *Server) handleTabDoc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t, found := rec.tab(r.PathValue("name"))
-	if !found || t.Kind != TabDocs || t.URL != "" {
+	if !found || t.Kind != TabDocs || t.URL != "" || (t.Solution && !rec.solutionAllowed()) {
 		writeError(w, http.StatusNotFound, "no such document")
 		return
 	}
@@ -258,4 +279,42 @@ func (s *Server) handleTabDoc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"name": t.Name, "title": t.Title, "html": html})
+}
+
+// solutionAllowed: the run may show its solution at all. Never in an exam
+// (a lab with a time limit) or a playground, which has none.
+func (r RunRecord) solutionAllowed() bool { return !r.Exam && !r.Playground }
+
+// handleSolution is GET /runs/{lab}/solution: the lab's solution guide,
+// rendered and sanitised like the question. After Start only, never in an
+// exam or a playground. Reading it changes nothing: the attempt is not
+// marked and nothing is reported.
+func (s *Server) handleSolution(w http.ResponseWriter, r *http.Request) {
+	rec, ok := loadRun(w, r.PathValue("lab"))
+	if !ok {
+		return
+	}
+	if !rec.solutionAllowed() || rec.Solution == "" {
+		writeErrorCode(w, http.StatusNotFound, "no_solution", "this lab has no solution to show")
+		return
+	}
+	v, err := buildView(rec, time.Now())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	switch v.Status {
+	case StatusStopped:
+		writeErrorCode(w, http.StatusConflict, "run_stopped", "the lab is no longer running")
+		return
+	case StatusReady:
+		writeErrorCode(w, http.StatusConflict, "not_started", "click Start first")
+		return
+	}
+	html, err := renderMarkdown(rec.Solution)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"title": "Solution guide", "html": html})
 }

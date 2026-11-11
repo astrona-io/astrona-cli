@@ -26,8 +26,9 @@ const MaxTabs = 8
 const MaxTabDocBytes = 64 << 10
 
 // Tab is one entry of `tabs:`: an extra tab in the browser workspace, next
-// to the focus tab (the lab's main terminal). The learner can switch tabs
-// but never add or close one; the lab decides what they are.
+// to the focus tab (the lab's main terminal). These are the tabs the
+// workspace opens with; the learner can close them, reopen them and open
+// more terminals and the lab's own documents from the tab bar.
 //
 //   - terminal: another isolated terminal, on the lab's own cluster or on
 //     a linked cluster (Cluster, a runtime.kind.clusters name).
@@ -198,7 +199,8 @@ func ValidateTabs(cfg *LabConfig) error {
 }
 
 // validateTabFile refuses a docs file that is not a relative Markdown path
-// in the lab, or that is the lab's solution.
+// in the lab, or that is the lab's solution in an exam. In a learning lab
+// the solution may be a tab: the workspace asks before it shows it.
 func validateTabFile(cfg *LabConfig, file string) error {
 	clean := path.Clean(file)
 	if path.IsAbs(file) || strings.Contains(file, `\`) || clean == ".." || strings.HasPrefix(clean, "../") {
@@ -207,10 +209,21 @@ func validateTabFile(cfg *LabConfig, file string) error {
 	if ext := strings.ToLower(path.Ext(clean)); ext != ".md" && ext != ".markdown" {
 		return fmt.Errorf("file %q must be a Markdown file (.md)", file)
 	}
-	for _, secret := range []string{cfg.Metadata.Docs.Solution, cfg.Metadata.Docs.Guide, DocFileNames["solution"]} {
-		if secret != "" && strings.EqualFold(clean, path.Clean(secret)) {
-			return fmt.Errorf("file %q is the lab's solution, which is never shown during the lab", file)
-		}
+	if cfg.Exam.Enabled() && IsSolutionFile(cfg, clean) {
+		return fmt.Errorf("file %q is the lab's solution, which is never shown during an exam", file)
 	}
 	return nil
+}
+
+// IsSolutionFile reports whether file (a path relative to config.yaml) is
+// the lab's solution: metadata.docs.solution, the older guide, or the
+// default solution.md.
+func IsSolutionFile(cfg *LabConfig, file string) bool {
+	clean := path.Clean(file)
+	for _, secret := range []string{cfg.Metadata.Docs.Solution, cfg.Metadata.Docs.Guide, DocFileNames["solution"]} {
+		if secret != "" && strings.EqualFold(clean, path.Clean(secret)) {
+			return true
+		}
+	}
+	return false
 }
