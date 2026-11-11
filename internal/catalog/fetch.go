@@ -22,6 +22,8 @@ const (
 	cacheFor = time.Hour
 	// maxManifest bounds an astrona.yaml download.
 	maxManifest = 4 << 20
+	// maxSiteCatalog bounds the site's catalog answer: every training at once.
+	maxSiteCatalog = 16 << 20
 )
 
 // Fetcher reads trainings from the network; its fields are swappable for
@@ -33,6 +35,9 @@ type Fetcher struct {
 	// Clone reads astrona.yaml from a non-GitHub git source (cloned into
 	// astrona's git cache); nil disables such sources.
 	Clone func(gitURL string) ([]byte, error)
+	// Site is the Astrona site whose catalog (GET {Site}/api/labs) lists
+	// DefaultOrg's trainings. Empty searches GitHub for them instead.
+	Site string
 }
 
 // NewFetcher talks to github.com.
@@ -41,11 +46,19 @@ func NewFetcher(clone func(string) ([]byte, error)) *Fetcher {
 }
 
 // Fetch builds the catalog: org's repos with the training topic, plus
-// extra sources (git URLs). A source that fails is listed in Errors.
+// extra sources (git URLs). DefaultOrg's trainings come from the Site's
+// catalog when one is set, so a student never hits GitHub's search limits.
+// A source that fails is listed in Errors.
 func (f *Fetcher) Fetch(org string, extra []string) Catalog {
 	cat := Catalog{FetchedAt: time.Now(), Trainings: []Training{}}
 	var repos []string
-	if org != "" {
+	if org == DefaultOrg && f.Site != "" {
+		found, err := f.siteTrainings()
+		if err != nil {
+			cat.Errors = append(cat.Errors, fmt.Sprintf("lab catalog of %s: %s", f.Site, err))
+		}
+		cat.Trainings = append(cat.Trainings, found...)
+	} else if org != "" {
 		found, err := f.topicRepos(org)
 		if err != nil {
 			cat.Errors = append(cat.Errors, fmt.Sprintf("GitHub search for %s trainings: %s", org, err))
@@ -57,6 +70,9 @@ func (f *Fetcher) Fetch(org string, extra []string) Catalog {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	seen := map[string]bool{}
+	for _, t := range cat.Trainings {
+		seen[t.Repo] = true // an extra source naming a site training isn't read again
+	}
 	for _, r := range repos {
 		if seen[r] {
 			continue
@@ -78,6 +94,78 @@ func (f *Fetcher) Fetch(org string, extra []string) Catalog {
 	wg.Wait()
 	cat.normalize()
 	return cat
+}
+
+// siteTrainings reads DefaultOrg's trainings from the site's catalog, which
+// Astrona syncs from the same repositories. The site names each repository,
+// never its URL: every training is a github.com/DefaultOrg repository, and
+// lab paths and ids are checked like a manifest's.
+func (f *Fetcher) siteTrainings() ([]Training, error) {
+	req, err := http.NewRequest(http.MethodGet, strings.TrimRight(f.Site, "/")+"/api/labs", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "astrona-cli")
+	resp, err := f.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%s", resp.Status)
+	}
+	var out struct {
+		Trainings []struct {
+			ID          string `json:"id"`
+			Title       string `json:"title"`
+			Description string `json:"description"`
+			Repo        string `json:"repo"`
+			Labs        []struct {
+				Title string `json:"title"`
+				Path  string `json:"path"`
+			} `json:"labs"`
+		} `json:"trainings"`
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxSiteCatalog+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > maxSiteCatalog {
+		return nil, fmt.Errorf("the catalog is larger than %d MB", maxSiteCatalog>>20)
+	}
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, fmt.Errorf("the catalog isn't valid JSON: %w", err)
+	}
+	if out.Trainings == nil {
+		return nil, errors.New("the answer has no catalog")
+	}
+	trainings := make([]Training, 0, len(out.Trainings))
+	for _, st := range out.Trainings {
+		name := strings.TrimSpace(st.Repo)
+		if !idPattern.MatchString(name) {
+			continue
+		}
+		t := Training{
+			ID:          strings.TrimSpace(st.ID),
+			Title:       strings.TrimSpace(st.Title),
+			Description: strings.TrimSpace(st.Description),
+			Repo:        "https://github.com/" + DefaultOrg + "/" + name + ".git",
+			Labs:        []Lab{},
+		}
+		if t.ID == "" {
+			t.ID = name
+		}
+		for _, l := range st.Labs {
+			p, ok := cleanLabPath(l.Path)
+			if !ok {
+				continue
+			}
+			t.Labs = append(t.Labs, Lab{ID: LabID(t.ID, p), Title: strings.TrimSpace(l.Title), Path: p})
+		}
+		trainings = append(trainings, t)
+	}
+	return trainings, nil
 }
 
 // The search API returns at most 100 results a page and 1,000 in all.

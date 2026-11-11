@@ -8,9 +8,11 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"astrona/internal/account"
 	"astrona/internal/apphome"
 	"astrona/internal/catalog"
 	"astrona/internal/gitsource"
+	"astrona/internal/labops"
 	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
@@ -23,6 +25,18 @@ func catalogOrg() string {
 		return v
 	}
 	return catalog.DefaultOrg
+}
+
+// catalogSite is the Astrona site whose catalog lists the official
+// trainings: the selected site (ASTRONA_URL, else the signed-in one) when it
+// is astrona.io or this is a development build, else astrona.io — like the
+// official pins, another site never says which official labs exist.
+func catalogSite() string {
+	_, _, site, err := labops.AccountDeps()
+	if err != nil || (!account.IsDefaultSite(site) && !apphome.Development()) {
+		return account.DefaultSite
+	}
+	return site
 }
 
 func catalogStore() (catalog.Store, error) {
@@ -56,6 +70,7 @@ func loadCatalog(refresh bool) (catalog.Catalog, error) {
 		}
 		return os.ReadFile(filepath.Join(dir, "astrona.yaml"))
 	})
+	f.Site = catalogSite()
 	c := f.Fetch(catalogOrg(), sources)
 	if len(c.Trainings) == 0 && len(c.Errors) > 0 {
 		if old, ok := store.Any(); ok {
@@ -138,8 +153,8 @@ func newLabsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "labs [training]",
 		Short: "Browse the lab catalog: trainings and their labs, runnable by name",
-		Long: "List the trainings astrona knows — the " + catalog.DefaultOrg + " repositories with the `" + catalog.Topic +
-			"` topic, plus sources you add (`astrona labs add`) — or one training's labs. Every lab has a " +
+		Long: "List the trainings astrona knows — the " + catalog.DefaultOrg + " trainings astrona.io publishes " +
+			"(its lab catalog), plus sources you add (`astrona labs add`) — or one training's labs. Every lab has a " +
 			"catalog name you can run, use or test directly:\n\n" +
 			"  astrona labs                       trainings\n" +
 			"  astrona labs ATS014                its labs\n" +
