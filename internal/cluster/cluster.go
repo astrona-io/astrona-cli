@@ -402,6 +402,32 @@ func deleteFailedKindCluster(kindPath, name string, env []string, rep *ui.Report
 	}
 }
 
+// podmanNetnsKillDenied is what rootless Podman reports when AppArmor stops it
+// from signalling pasta, Ubuntu's passt profile lacking a rule for the podman
+// profile (https://bugs.launchpad.net/ubuntu/+source/passt/+bug/2154379). By
+// then the node container is removed and the network namespace torn down, and
+// pasta exits along with it: only the exit status of `podman rm` is wrong.
+const podmanNetnsKillDenied = "rootless netns: kill network process: permission denied"
+
+// runKindDelete runs `kind delete cluster`, and once more when the first run
+// failed only on podmanNetnsKillDenied: the second finds the nodes gone and
+// succeeds, and fails as usual if something is in fact left.
+func runKindDelete(kindPath, clusterName string, env []string, out io.Writer) error {
+	var err error
+	for attempt := 1; attempt <= 2; attempt++ {
+		var output strings.Builder
+		cmd := exec.Command(kindPath, "delete", "cluster", "--name", clusterName)
+		cmd.Env = env
+		cmd.Stdout = io.MultiWriter(out, &output)
+		cmd.Stderr = cmd.Stdout
+		if err = cmd.Run(); err == nil || !strings.Contains(output.String(), podmanNetnsKillDenied) {
+			return err
+		}
+		fmt.Fprintln(out, "Podman could not stop its network helper (an AppArmor denial); checking the cluster is gone")
+	}
+	return err
+}
+
 func DeleteKindCluster(clusterName string, rep *ui.Reporter) error {
 	kindPath, err := exec.LookPath("kind")
 	if err != nil {
@@ -410,15 +436,10 @@ func DeleteKindCluster(clusterName string, rep *ui.Reporter) error {
 
 	t := rep.Step("Delete kind cluster %q", clusterName)
 
-	cmd := exec.Command(kindPath, "delete", "cluster", "--name", clusterName)
 	// Same provider selection as create: without it, kind falls back to
 	// docker on a machine where docker is installed but only podman runs.
-	cmd.Env = kindEnv()
-	out := t.Output()
-	cmd.Stdout = out
-	cmd.Stderr = out
-
-	if err := cmd.Run(); err != nil {
+	env := kindEnv()
+	if err := runKindDelete(kindPath, clusterName, env, t.Output()); err != nil {
 		return t.Fail(err)
 	}
 	if err := RemoveLabState(clusterName); err != nil {

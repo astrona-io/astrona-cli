@@ -193,20 +193,31 @@ func Command(ctx context.Context, lab, target string, command []string, tty bool
 }
 
 func runArgs(engine, path, lab, name string, env, hosts, command []string, tty bool) ([]string, error) {
-	// --mount uses commas as separators. Never reinterpret a user's home path
-	// as extra mount options.
+	// --mount and --volume use commas as separators. Never reinterpret a user's
+	// home path as extra mount options.
 	if strings.ContainsAny(path, ",\n\r") {
 		return nil, fmt.Errorf("terminal workspace path cannot contain commas or newlines")
 	}
-	mountOptions := ""
+	work, config := filepath.Join(path, "work"), filepath.Join(path, "config")
+	// Both mounts get a shared SELinux label, or an enforcing host (Fedora, RHEL)
+	// denies the shell its own workspace. Docker relabels only through --volume's
+	// "z"; --mount has no option for it. Both are no-ops without SELinux.
+	var mounts []string
 	if engine == "podman" {
-		mountOptions = ",relabel=shared"
+		mounts = []string{
+			"--mount", "type=bind,source=" + work + ",target=/workspace,relabel=shared",
+			"--mount", "type=bind,source=" + config + ",target=/run/astrona,readonly,relabel=shared"}
+	} else {
+		// --volume separates source, target and options with colons.
+		if strings.Contains(path, ":") {
+			return nil, fmt.Errorf("terminal workspace path cannot contain colons")
+		}
+		mounts = []string{"--volume", work + ":/workspace:z", "--volume", config + ":/run/astrona:ro,z"}
 	}
 	args := []string{"run", "--rm", "--interactive", "--name", name, "--label", terminalLabel + "=" + apphome.Name() + ":" + lab,
 		"--network", "kind", "--cap-drop=ALL", "--security-opt=no-new-privileges", "--read-only", "--pids-limit=256",
-		"--tmpfs", "/tmp:rw,nosuid,nodev,size=256m", "--workdir", "/workspace",
-		"--mount", "type=bind,source=" + filepath.Join(path, "work") + ",target=/workspace" + mountOptions,
-		"--mount", "type=bind,source=" + filepath.Join(path, "config") + ",target=/run/astrona,readonly" + mountOptions}
+		"--tmpfs", "/tmp:rw,nosuid,nodev,size=256m", "--workdir", "/workspace"}
+	args = append(args, mounts...)
 	if engine == "podman" {
 		args = append(args, "--userns=keep-id")
 	} else {

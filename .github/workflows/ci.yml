@@ -141,7 +141,7 @@ jobs:
           sudo mv kubectl /usr/local/bin/kubectl
 
       - name: Install kind
-        run: go install sigs.k8s.io/kind@v0.32.0
+        run: go install sigs.k8s.io/kind@v0.33.0
 
       - name: astrona check
         run: |
@@ -184,7 +184,7 @@ jobs:
           sudo mv kubectl /usr/local/bin/kubectl
 
       - name: Install kind
-        run: go install sigs.k8s.io/kind@v0.32.0
+        run: go install sigs.k8s.io/kind@v0.33.0
 
       - name: astrona test (linked-labs-01)
         run: |
@@ -247,7 +247,7 @@ jobs:
           sudo mv kubectl /usr/local/bin/kubectl
 
       - name: Install kind
-        run: go install sigs.k8s.io/kind@v0.32.0
+        run: go install sigs.k8s.io/kind@v0.33.0
 
       - name: Robot Framework smoke suite
         run: |
@@ -316,7 +316,7 @@ jobs:
           sudo mv kubectl /usr/local/bin/kubectl
 
       - name: Install Kind
-        run: go install sigs.k8s.io/kind@v0.32.0
+        run: go install sigs.k8s.io/kind@v0.33.0
 
       - name: Install Podman
         if: matrix.engine == 'podman'
