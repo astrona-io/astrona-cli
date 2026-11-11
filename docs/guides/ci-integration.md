@@ -97,7 +97,7 @@ jobs:
           sudo mv kubectl /usr/local/bin/kubectl
 
       - name: Install kind
-        run: go install sigs.k8s.io/kind@v0.32.0
+        run: go install sigs.k8s.io/kind@v0.33.0
 
       - name: Install astrona
         run: |

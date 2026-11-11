@@ -65,7 +65,7 @@ jobs:
           sudo mv kubectl /usr/local/bin/kubectl
 
       - name: Install kind
-        run: go install sigs.k8s.io/kind@v0.32.0
+        run: go install sigs.k8s.io/kind@v0.33.0
 
       - name: Robot Framework smoke and full tiers
         run: |
@@ -126,7 +126,7 @@ jobs:
           sudo mv kubectl /usr/local/bin/kubectl
 
       - name: Install kind
-        run: go install sigs.k8s.io/kind@v0.32.0
+        run: go install sigs.k8s.io/kind@v0.33.0
 
       # Docker stays off on the Podman legs, so engine detection cannot pick it.
       - name: Install Podman
@@ -243,7 +243,7 @@ jobs:
           sudo mv kubectl /usr/local/bin/kubectl
 
       - name: Install kind
-        run: go install sigs.k8s.io/kind@v0.32.0
+        run: go install sigs.k8s.io/kind@v0.33.0
 
       - name: Enable KVM
         run: |
@@ -316,7 +316,7 @@ jobs:
           sudo mv kubectl /usr/local/bin/kubectl
 
       - name: Install kind
-        run: go install sigs.k8s.io/kind@v0.32.0
+        run: go install sigs.k8s.io/kind@v0.33.0
 
       # The suite signs in on Keycloak's pages in headless Chromium.
       - name: Install Chromium for Playwright
