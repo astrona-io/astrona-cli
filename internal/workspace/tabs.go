@@ -285,6 +285,11 @@ func (s *Server) handleTabDoc(w http.ResponseWriter, r *http.Request) {
 // (a lab with a time limit) or a playground, which has none.
 func (r RunRecord) solutionAllowed() bool { return !r.Exam && !r.Playground }
 
+// docLinksAllowed: a learning lab and a playground show the lab's
+// documentation links; an exam never does, since its rules say nothing
+// about outside help.
+func (r RunRecord) docLinksAllowed() bool { return !r.Exam }
+
 // handleSolution is GET /runs/{lab}/solution: the lab's solution guide,
 // rendered and sanitised like the question. After Start only, never in an
 // exam or a playground. Reading it changes nothing: the attempt is not

@@ -12,6 +12,7 @@ package catalog
 
 import (
 	"fmt"
+	"net/url"
 	"path"
 	"regexp"
 	"sort"
@@ -68,6 +69,10 @@ type manifestContent struct {
 	Type  string `yaml:"type"`
 	Title string `yaml:"title"`
 	Path  string `yaml:"path"`
+	// Resources is a lab's list of documentation links ({name, url}),
+	// read leniently by LabDocLinks: a malformed list never fails the
+	// manifest.
+	Resources yaml.Node `yaml:"resources"`
 }
 
 // content is every content entry, in manifest order, in either layout.
@@ -114,6 +119,72 @@ func ParseManifest(data []byte, repo, fallbackID string) (Training, error) {
 		t.Labs = append(t.Labs, Lab{ID: LabID(id, p), Title: strings.TrimSpace(c.Title), Path: p})
 	}
 	return t, nil
+}
+
+// DocLink is one documentation link of a lab: a manifest entry's
+// `resources` item. Name reads "Product: page" by convention.
+type DocLink struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+}
+
+// MaxDocLinks bounds the links kept for one lab, as astrona.io does.
+const MaxDocLinks = 20
+
+// maxDocLinkName bounds a link's name, in bytes.
+const maxDocLinkName = 200
+
+// LabDocLinks returns the documentation links the manifest lists for the
+// lab at labPath (a directory relative to the repository): its content
+// entry's `resources`. An entry without a name or an https URL is left
+// out, as are entries past MaxDocLinks; a lab the manifest does not list
+// has none.
+func LabDocLinks(data []byte, labPath string) ([]DocLink, error) {
+	var m manifest
+	if err := yaml.Unmarshal(data, &m); err != nil {
+		return nil, fmt.Errorf("astrona.yaml isn't valid YAML: %w", err)
+	}
+	want, ok := cleanLabPath(labPath)
+	if !ok {
+		return nil, nil
+	}
+	for _, c := range m.content() {
+		if p, ok := cleanLabPath(c.Path); !ok || p != want || c.Type != "lab" {
+			continue
+		}
+		if c.Resources.Kind != yaml.SequenceNode {
+			return nil, nil
+		}
+		var links []DocLink
+		for _, item := range c.Resources.Content {
+			var r struct {
+				Name string `yaml:"name"`
+				URL  string `yaml:"url"`
+			}
+			if item.Decode(&r) != nil {
+				continue
+			}
+			name, link := strings.TrimSpace(r.Name), strings.TrimSpace(r.URL)
+			if name == "" || len(name) > maxDocLinkName || !httpsURL(link) {
+				continue
+			}
+			links = append(links, DocLink{Name: name, URL: link})
+			if len(links) == MaxDocLinks {
+				break
+			}
+		}
+		return links, nil
+	}
+	return nil, nil
+}
+
+// httpsURL accepts an absolute https URL with a host and no credentials.
+func httpsURL(s string) bool {
+	if strings.ContainsAny(s, " \t\r\n") {
+		return false
+	}
+	u, err := url.Parse(s)
+	return err == nil && u.Scheme == "https" && u.Host != "" && u.User == nil
 }
 
 // checkTrainingID accepts a plain name that can't be mistaken for the owner

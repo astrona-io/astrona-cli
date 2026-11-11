@@ -279,6 +279,7 @@ answer; Kind labs are then missing from the list.
       "url": "https://kubernetes.io/docs/concepts/workloads/pods/" },
     { "name": "notes", "title": "Notes", "kind": "docs", "focus": false, "document": true }
   ],
+  "docLinks": [],
   "canSubmit": true,
   "submit": {
     "tracking": "account",
@@ -305,6 +306,7 @@ answer; Kind labs are then missing from the list.
 | `questions` | Summaries only, never the text. Today every lab has exactly one question, `q1`, built from `metadata.docs.question`. `points` is `null` until per-question points exist. |
 | `targets` | Where terminals run. `kind` is `kind` (a Kind cluster) or `vm` (one VM of a QEMU lab; `name` is the VM's handle, the lab name for a single-VM lab or `<lab>-<vm>`). `label` is the display name (`main`, a linked cluster's name, or the VM's name in a multi-VM lab). `views` lists what the target offers: `["terminal"]` today; a desktop will add `"desktop"`. |
 | `tabs` | The right panel, as the lab declares it (lab config `tabs`). The first is always the focus tab: `name` `main`, a terminal on the lab's own cluster. The page opens with these; the learner can close them and open more from the tab bar's **+** menu (another terminal on a target, the task, the prerequisites, the solution guide, a closed lab tab), which the page remembers per run in `localStorage`. `kind` is `terminal` (`target` says where its shell runs), `browser` (`url` is a loopback port forward of the lab), or `docs`: either `url` (an `https` documentation page, shown in a frame) or `document: true` (Markdown shipped with the lab, fetched from `GET /tabs/{name}/doc`); `solution: true` marks a docs tab whose file is the lab's solution, which the page shows only after the learner confirms. A lab that declares no tabs gets only the focus tab. A QEMU lab cannot declare tabs: a single-VM lab gets the focus tab on its VM, a multi-VM lab gets the focus tab on its first VM (titled with the VM's name) and a terminal tab `vm-<name>` for each further VM. |
+| `docLinks` | Links to official documentation for the lab, from its `resources` in the training's `astrona.yaml`, as `{"name", "url"}`: `https` only, a non-empty name, at most 20; invalid entries are dropped. The page shows them under the task as **Relevant resources**. Always `[]` in an exam, and when the lab lists none. |
 | `canSubmit` | `true` when `POST /submit` would grade now: a lab or exam that was started and is still running (an expired exam can still be submitted). Never for a playground. |
 | `submit.tracking` | Where a result goes. `account`: the run has an Astrona lab session; the result is sent when astrona is signed in to that site. `local-only`: never sent. `none`: no lab session; the result stays on this machine. |
 | `submit.grading` | A submission of this run is being graded now. |

@@ -8,6 +8,7 @@
 //     and offers the window. Nothing is proxied.
 import { onMounted, ref } from 'vue'
 import { getQuestion, getSolution, getTabDoc, isRunGone, isUnauthorized, type TabDoc } from '../api'
+import { useCopyCode } from '../copyCode'
 import FrameView from './FrameView.vue'
 import type { ViewHandle, ViewProps, ViewStatus } from './types'
 
@@ -23,6 +24,8 @@ const root = ref<HTMLElement>()
 const frame = ref<ViewHandle | null>(null)
 const doc = ref<TabDoc | null>(null)
 const problem = ref<string | null>(null)
+const prose = ref<HTMLElement>()
+const copyCode = useCopyCode(prose, () => doc.value?.html)
 
 async function fetchDoc(): Promise<TabDoc> {
   const { tab } = props
@@ -83,6 +86,14 @@ defineExpose({
     </div>
     <p v-else-if="!doc" class="muted">Loading the document…</p>
     <!-- Rendered and sanitised on the server; innerHTML never runs scripts and CSP blocks inline handlers. -->
-    <article v-else class="prose" v-html="doc.html" />
+    <article
+      v-else
+      ref="prose"
+      class="prose"
+      @click="copyCode.onClick"
+      @keydown="copyCode.onKeydown"
+      v-html="doc.html"
+    />
+    <p class="visually-hidden" aria-live="polite">{{ copyCode.announcement.value }}</p>
   </div>
 </template>
