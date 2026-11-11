@@ -85,6 +85,7 @@ Optional tools, all at once: brew install git qemu oras cdrtools
 | Memory | under 2 GiB | under 4 GiB |
 | CPUs | — | 1 CPU |
 | Rootless engine | on cgroup v1 (kind needs v2) | — |
+| kind with Podman 6 or later | — | kind before v0.33.0 (Podman 6 changed how `podman ps` lists labels, so older kind finds no clusters) |
 | Linux only: `fs.inotify.max_user_watches` / `max_user_instances` | — | under 524288 / 512 (multi-node kind fails with "too many open files") |
 
 Each ⚠/✗ prints the command that fixes it, e.g. `podman machine stop && podman machine set --memory 8192 --cpus 4 && podman machine start`.
