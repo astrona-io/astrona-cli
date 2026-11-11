@@ -128,7 +128,8 @@ async function findOrOpenTerminal(): Promise<string> {
   try {
     for (let attempt = 0; ; attempt++) {
       try {
-        return (await openTerminal(props.lab, props.runId, props.tab.name)).id
+        const target = props.tab.source === 'terminal' ? props.tab.target : undefined
+        return (await openTerminal(props.lab, props.runId, props.tab.name, target)).id
       } catch (err) {
         if (!isTerminalStarting(err) || attempt >= 90 || unmounted) throw err
         await new Promise((resolve) => window.setTimeout(resolve, 2000))

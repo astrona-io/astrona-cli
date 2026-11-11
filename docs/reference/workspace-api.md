@@ -114,7 +114,9 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | `POST /runs/{lab}/start` | The **Start** button. Idempotent. |
 | `GET /runs/{lab}/terminals` | Open terminals. |
 | `GET /runs/{lab}/tabs/{name}/doc` | A docs tab's Markdown, rendered to HTML. After **Start** only. |
-| `POST /runs/{lab}/terminals` | Open the shell of a terminal tab. After **Start** only. |
+| `GET /runs/{lab}/solution` | The solution guide, rendered to HTML. After **Start** only; never in an exam or a playground. |
+| `POST /runs/{lab}/terminals` | Open the shell of a terminal tab, or of a new terminal on a target. After **Start** only. |
+| `POST /runs/{lab}/terminals/close` | End the shell of a terminal tab the learner closed. |
 | `POST /runs/{lab}/submit` | Grade the run, record and send the result. Needs an `Idempotency-Key` header. |
 | `GET /runs/{lab}/submission` | The run's latest submission, or that one is being graded. |
 | `POST /runs/{lab}/destroy` | Remove the environment without grading: ends a playground, or removes a lab as `astrona destroy` does. |
@@ -302,7 +304,7 @@ answer; Kind labs are then missing from the list.
 | `intro` | For the intro page. `prerequisitesHtml` is `""` when the lab has none; `estimatedDuration` is `""` when its task does not say. |
 | `questions` | Summaries only, never the text. Today every lab has exactly one question, `q1`, built from `metadata.docs.question`. `points` is `null` until per-question points exist. |
 | `targets` | Where terminals run. `kind` is `kind` (a Kind cluster) or `vm` (one VM of a QEMU lab; `name` is the VM's handle, the lab name for a single-VM lab or `<lab>-<vm>`). `label` is the display name (`main`, a linked cluster's name, or the VM's name in a multi-VM lab). `views` lists what the target offers: `["terminal"]` today; a desktop will add `"desktop"`. |
-| `tabs` | The right panel, as the lab declares it (lab config `tabs`). The first is always the focus tab: `name` `main`, a terminal on the lab's own cluster. The page shows exactly these and cannot add or close one. `kind` is `terminal` (`target` says where its shell runs), `browser` (`url` is a loopback port forward of the lab), or `docs`: either `url` (an `https` documentation page, shown in a frame) or `document: true` (Markdown shipped with the lab, fetched from `GET /tabs/{name}/doc`). A lab that declares no tabs gets only the focus tab. A QEMU lab cannot declare tabs: a single-VM lab gets the focus tab on its VM, a multi-VM lab gets the focus tab on its first VM (titled with the VM's name) and a terminal tab `vm-<name>` for each further VM. |
+| `tabs` | The right panel, as the lab declares it (lab config `tabs`). The first is always the focus tab: `name` `main`, a terminal on the lab's own cluster. The page opens with these; the learner can close them and open more from the tab bar's **+** menu (another terminal on a target, the task, the prerequisites, the solution guide, a closed lab tab), which the page remembers per run in `localStorage`. `kind` is `terminal` (`target` says where its shell runs), `browser` (`url` is a loopback port forward of the lab), or `docs`: either `url` (an `https` documentation page, shown in a frame) or `document: true` (Markdown shipped with the lab, fetched from `GET /tabs/{name}/doc`); `solution: true` marks a docs tab whose file is the lab's solution, which the page shows only after the learner confirms. A lab that declares no tabs gets only the focus tab. A QEMU lab cannot declare tabs: a single-VM lab gets the focus tab on its VM, a multi-VM lab gets the focus tab on its first VM (titled with the VM's name) and a terminal tab `vm-<name>` for each further VM. |
 | `canSubmit` | `true` when `POST /submit` would grade now: a lab or exam that was started and is still running (an expired exam can still be submitted). Never for a playground. |
 | `submit.tracking` | Where a result goes. `account`: the run has an Astrona lab session; the result is sent when astrona is signed in to that site. `local-only`: never sent. `none`: no lab session; the result stays on this machine. |
 | `submit.grading` | A submission of this run is being graded now. |
@@ -311,9 +313,11 @@ answer; Kind labs are then missing from the list.
 | `submit.blocked` | Why Submit is not possible now, for the page to show next to the disabled button; `""` when it is. |
 | `account` | Whose account this run is saved to, shown as one line on the intro page; the same object as on `GET /launches/{id}`. `astrona run` saves it with the run (`runs/<lab>/run.json`). A run without one, such as a lab started before this field or reopened with `astrona ui`, gets `signed-in` (site only) or `local-only` from its saved lab session, and no `account` otherwise. |
 | `runAgain` | The command that starts this lab again, as `astrona run` was given it: the catalog ID, the `--git` source, or the config path (`-c`). Never the cluster name, which `astrona run` does not accept. `""` when the source is not known. |
+| `solution` | `GET /solution` has a solution guide to show (after **Start**). Always `false` in an exam (a time limit) or a playground. |
 
-Responses never contain the solution document, validation scripts, check
-commands, expected values, admin credentials or kubeconfigs.
+Responses never contain the solution document (only `GET /solution` and a
+solution docs tab serve it, and never in an exam or a playground), validation
+scripts, check commands, expected values, admin credentials or kubeconfigs.
 
 ### `GET /runs/{lab}/questions/{id}`
 
@@ -493,14 +497,19 @@ Errors: `409 run_changed`, `409 submit_in_progress`, `409 environment_kept`,
 `status` is `running` or `ended`; `exitCode` is set once it ended (`-1` when
 the process was killed by a signal). Ended terminals stay listed until the tab
 opens a new shell, which replaces the ended one, so the page can show "Shell
-ended". The page cannot close a terminal; `astrona ui stop` ends them all.
+ended". `POST /terminals/close` ends one tab's; `astrona ui stop` ends them all.
 
 ### `POST /runs/{lab}/terminals`
 
-Request: `{"runId": "<runId>", "tab": "main"}`. `tab` names one of the run's
-terminal tabs and may be omitted for the focus tab. The page cannot name a
-target or anything else: a shell is only ever opened where the lab declared a
-terminal tab.
+Request: `{"runId": "<runId>", "tab": "main"}` for one of the run's terminal
+tabs (`tab` may be omitted for the focus tab), or
+`{"runId": "<runId>", "tab": "term-3f9a1c2e", "target": "<target>"}` for a
+terminal the learner opened with **+ New terminal**: `tab` is `term-` and 4
+to 16 lowercase letters or digits the page picks, and `target` is the `name`
+of one of the run's `targets`. A declared tab may also name its own target.
+The page cannot name a command or anything else: the new shell is the same
+isolated terminal as the focus tab's, on a target of the run. Lab tab names
+cannot have the `term-<id>` form.
 
 Each tab has at most one shell. Response: `200` with the tab's terminal when it
 is still running (nothing new is started), or `201` with a new one; a new one
@@ -523,8 +532,29 @@ cannot connect, the terminal ends with ssh's error and exit code `255`. There
 is never a fallback to a shell on the host.
 
 Errors: `409 not_started`, `409 run_changed`, `409 run_stopped`,
-`409 terminal_starting`, `400 unknown_tab`, `429 too_many_terminals`,
-`501 unsupported`.
+`409 terminal_starting`, `400 unknown_tab`, `400 unknown_target`,
+`429 too_many_terminals` (a lab has at most 12 terminals, running or ended,
+across all its tabs), `501 unsupported`.
+
+### `POST /runs/{lab}/terminals/close`
+
+Request: `{"runId": "<runId>", "tab": "term-3f9a1c2e"}`. The learner closed a
+terminal tab: its shell ends (a `kind` terminal's container is removed; a VM's
+ssh login ends) and it no longer counts towards the 12. Files in the lab are
+kept. `tab` is one of the run's terminal tabs or a `term-<id>` tab. Response:
+`200 {"closed": 1}`, or `{"closed": 0}` when the tab had no shell. Errors:
+`409 run_changed`, `409 terminal_starting` (its shell is still starting),
+`400 unknown_tab`.
+
+### `GET /runs/{lab}/solution`
+
+The lab's solution guide (`docs.solution`), rendered and sanitised like a
+question: `{"title": "Solution guide", "html": "<h1>…"}`. The page asks the
+learner before it shows it. Reading it changes nothing: the attempt is not
+marked and nothing is sent. `astrona run` keeps it in the run record only for
+a learning lab, so in an exam (a time limit) or a playground the answer is
+always `404 no_solution`, as for a lab without one. Errors: `404 no_solution`,
+`409 not_started`, `409 run_stopped`.
 
 ### `GET /ws/v1/terminals/{id}?ticket=<ticket>`
 
@@ -601,7 +631,7 @@ separate window instead.
 | `~/.astrona/workspace/server.log` | server | Its log. |
 | `~/.astrona/workspace/launches/<id>/launch.json` | `astrona run` | A browser-first run before its lab exists: stage, terms notice, setup progress. |
 | `~/.astrona/workspace/launches/<id>/answer.json` | server | The page's answer to the terms. |
-| `~/.astrona/workspace/runs/<lab>/run.json` | `astrona run` | What the page shows for that run: title, mode, rules, the account status, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs). Never the solution or the validation block. |
+| `~/.astrona/workspace/runs/<lab>/run.json` | `astrona run` | What the page shows for that run: title, mode, rules, the account status, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs), and for a learning lab the solution guide. Never the validation block, and never the solution in an exam or a playground. |
 | `~/.astrona/workspace/runs/<lab>/start.json` | Start | When Start was clicked, for which `runId`. Removed when the lab is deleted (submit, destroy, reset, expiry). `astrona submit` uses it only while its `runId` is the lab's current run and it is not earlier than the lab became ready. |
 | `~/.astrona/workspace/runs/<lab>/submission.json` | Submit | The latest browser submission for that `runId`: the result as `GET /submission` shows it. |
 

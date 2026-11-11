@@ -208,14 +208,38 @@ When you are done, use **Submit** in the top bar (see
 
 ### Tabs
 
-The right panel shows the lab's tabs. The first, **Terminal**, is the shell on
-the lab's own cluster. A lab can add more with [`tabs`](../reference/lab-config.md#tabs):
-a terminal on a linked cluster, a page the lab serves through one of its port
-forwards, or documentation. You switch between them with the mouse or with the
-arrow keys and Enter; you cannot add or close a tab. Tabs keep running while
-another one is shown, so a terminal keeps its shell and its scrollback. When a
-shell ends, **Open a new shell** starts another in the same tab. Without
-`tabs` in the lab, the panel shows only the **Terminal** tab.
+The right panel opens with the lab's tabs. The first, **Terminal**, is the
+shell on the lab's own cluster. A lab can add more with
+[`tabs`](../reference/lab-config.md#tabs): a terminal on a linked cluster, a
+page the lab serves through one of its port forwards, or documentation.
+Without `tabs` in the lab, the panel opens with only the **Terminal** tab.
+You switch between tabs with the mouse or with the arrow keys and Enter.
+Tabs keep running while another one is shown, so a terminal keeps its shell
+and its scrollback. When a shell ends, **Open a new shell** starts another in
+the same tab.
+
+The **+** at the right of the tab bar opens more tabs:
+
+- **New terminal**: another shell, the same kind as the first. In a lab with
+  several VMs or clusters you pick which one (**New terminal on worker**). A
+  lab has at most 12 terminals; at the limit the item is greyed out until you
+  close one.
+- **Task** and **Prerequisites**: the task and the prerequisites as a tab, for
+  example next to a terminal when the task panel is hidden.
+- **Solution guide**: the lab's full step-by-step solution. It asks first,
+  because it shows the whole answer; your attempt still counts and nothing
+  records that you looked. It is not offered in an exam (a lab with a time
+  limit) or a playground.
+- **Reopen**: any of the lab's own tabs you closed.
+
+![The + menu: New terminal, Task, Prerequisites and Solution guide](../assets/browser-workspace-tab-menu.png)
+
+Every tab has an **×** (or press Delete on a focused tab) to close it. Closing
+a terminal asks first and ends its shell: whatever runs in it stops and its
+scrollback is gone, while your files and the lab's environment stay. The last
+terminal cannot be closed, so there is always a shell. The open tabs are
+remembered in this browser for the run, so a reload brings them back, and a
+terminal you opened reattaches to its shell.
 
 A page or documentation tab shows the page inside the workspace. **Back to
 start** returns to the page the lab configured, wherever you navigated, and
@@ -323,8 +347,8 @@ for minutes shows as running rather than leaving the page looking stuck.
 
 The results page shows pass or fail, the score, the pass mark, the attempt
 number and every check with its points. A failed check shows its hint only when
-the lab shows hints. Check commands, expected values and the solution are never
-shown. Below that it says whether the result was saved and sent and whether
+the lab shows hints. Check commands and expected values are never shown, and
+the solution only through **Solution guide** in the tab menu. Below that it says whether the result was saved and sent and whether
 the environment was removed.
 
 ![The results page: FAIL, 4 of 5 points, each check with its points and the hint for the failed one](../assets/browser-workspace-results.png)

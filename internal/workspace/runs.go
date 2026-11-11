@@ -50,25 +50,30 @@ type Target struct {
 }
 
 // RunRecord is what `astrona run` hands the server about one run: what the
-// page shows, never the solution, validation, credentials or kubeconfigs.
+// page shows, never validation, credentials or kubeconfigs. The solution is
+// only kept for a learning lab, which shows it when the learner asks.
 // It is written to runs/<lab>/run.json under StateDir.
 type RunRecord struct {
 	Schema int    `json:"schema"`
 	Lab    string `json:"lab"`
 	// RunID is RunDigest of the lab's labops.RunID when the record was
 	// written; it no longer matches once the lab is stopped or restarted.
-	RunID             string   `json:"runId"`
-	Title             string   `json:"title"`
-	Exam              bool     `json:"exam"`
-	Playground        bool     `json:"playground"`
-	TimeLimitSeconds  int64    `json:"timeLimitSeconds,omitempty"`
-	Strict            bool     `json:"strict"`
-	HintsHidden       bool     `json:"hintsHidden"`
-	QuestionTitle     string   `json:"questionTitle"`
-	Question          string   `json:"question"`
-	Prerequisites     string   `json:"prerequisites,omitempty"`
-	EstimatedDuration string   `json:"estimatedDuration,omitempty"`
-	Targets           []Target `json:"targets"`
+	RunID             string `json:"runId"`
+	Title             string `json:"title"`
+	Exam              bool   `json:"exam"`
+	Playground        bool   `json:"playground"`
+	TimeLimitSeconds  int64  `json:"timeLimitSeconds,omitempty"`
+	Strict            bool   `json:"strict"`
+	HintsHidden       bool   `json:"hintsHidden"`
+	QuestionTitle     string `json:"questionTitle"`
+	Question          string `json:"question"`
+	Prerequisites     string `json:"prerequisites,omitempty"`
+	EstimatedDuration string `json:"estimatedDuration,omitempty"`
+	// Solution is the lab's solution guide (Markdown), served by GET
+	// /runs/{lab}/solution after Start. Always empty for an exam or a
+	// playground.
+	Solution string   `json:"solution,omitempty"`
+	Targets  []Target `json:"targets"`
 	// Tabs are the right panel's tabs, the focus tab first; empty in a
 	// record from before tabs (DefaultTabs then).
 	Tabs []Tab `json:"tabs,omitempty"`
@@ -126,6 +131,9 @@ func WriteRun(rec RunRecord) error {
 	if err := validateTabs(rec); err != nil {
 		return err
 	}
+	if !rec.solutionAllowed() {
+		rec.Solution = ""
+	}
 	rec.Schema = runRecordSchema
 	if rec.CreatedAt.IsZero() {
 		rec.CreatedAt = time.Now().UTC()
@@ -161,7 +169,7 @@ func ReadRun(lab string) (RunRecord, error) {
 	if err != nil {
 		return rec, err
 	}
-	data, err := readPrivateFile(filepath.Join(dir, "run.json"), 1<<20)
+	data, err := readPrivateFile(filepath.Join(dir, "run.json"), 2<<20)
 	if err != nil {
 		return rec, err
 	}
@@ -300,9 +308,12 @@ type runView struct {
 	Questions        []questionView `json:"questions"`
 	Targets          []Target       `json:"targets"`
 	Tabs             []tabView      `json:"tabs"`
-	CanSubmit        bool           `json:"canSubmit"`
-	Submit           submitView     `json:"submit"`
-	RunAgain         string         `json:"runAgain"`
+	// Solution: GET /runs/{lab}/solution has a solution guide to show
+	// (after Start). Never in an exam or a playground.
+	Solution  bool       `json:"solution"`
+	CanSubmit bool       `json:"canSubmit"`
+	Submit    submitView `json:"submit"`
+	RunAgain  string     `json:"runAgain"`
 	// Account is the account this run is saved to; absent when unknown.
 	Account *AccountStatus `json:"account,omitempty"`
 }
@@ -356,6 +367,7 @@ func buildView(rec RunRecord, now time.Time) (v runView, err error) {
 		Questions: []questionView{{ID: "q1", Title: rec.QuestionTitle}},
 		Targets:   rec.Targets,
 		Tabs:      tabViews(rec.tabs()),
+		Solution:  rec.solutionAllowed() && rec.Solution != "",
 		Submit:    submitView{Tracking: TrackingNone},
 		RunAgain:  rec.RunAgain,
 		Account:   rec.Account,

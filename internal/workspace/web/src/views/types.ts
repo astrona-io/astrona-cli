@@ -1,5 +1,6 @@
-// The right panel shows the lab's tabs (src/components/LabTabs.vue). Each tab
-// is shown by the view for its kind: a terminal, a page the lab serves, or
+// The right panel shows the open tabs (src/components/LabTabs.vue): the lab's
+// own, and the ones the learner opened from the + menu. Each tab is shown by
+// the view for its kind: a terminal, a page the lab serves, or
 // documentation. A new kind (for example a desktop) is a new view component
 // here and a new tab kind on the server; the workspace page does not change.
 
@@ -24,7 +25,25 @@ export interface ViewStatus {
 export interface ViewProps {
   lab: string
   runId: string
-  tab: RunTab
+  tab: WorkspaceTab
+}
+
+/**
+ * Where an open tab comes from: one the lab declared (lab), or one the
+ * learner opened from the + menu: another terminal on a target (terminal),
+ * the task, the prerequisites or the solution guide.
+ */
+export type TabSource = 'lab' | 'terminal' | 'task' | 'prerequisites' | 'solution'
+
+/** An open tab of the right panel. */
+export interface WorkspaceTab extends RunTab {
+  source: TabSource
+  /** prerequisites: the run's rendered prerequisites. */
+  html?: string
+  /** task: the question it shows. */
+  questionId?: string
+  /** A lab tab that shows the solution: the learner already confirmed. */
+  confirmed?: boolean
 }
 
 export interface ViewHandle {

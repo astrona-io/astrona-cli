@@ -168,6 +168,8 @@ function run() {
           { name: LINKED, label: 'edge', kind: 'kind', views: ['terminal'] },
         ],
     tabs: TABS,
+    // The mock is an exam (or a playground): never a solution guide.
+    solution: false,
     canSubmit: submitBlocked() === '',
     submit: {
       tracking,
@@ -335,7 +337,7 @@ function mockPlugin(): Plugin {
             profile: 'mock',
             startedAt: new Date().toISOString(),
             serverNow: new Date().toISOString(),
-            features: ['runs', 'terminals', 'tabs', 'submit'],
+            features: ['runs', 'terminals', 'tabs', 'tab-menu', 'submit'],
             assets: 'built',
           })
         }
@@ -370,8 +372,13 @@ function mockPlugin(): Plugin {
           if (!started()) return fail(res, 409, 'not_started', 'click Start first')
           const body = await readJSON(req)
           const name = typeof body.tab === 'string' && body.tab ? body.tab : 'main'
-          const tab = TABS.find((t) => t.name === name && t.kind === 'terminal')
+          const target = typeof body.target === 'string' ? body.target : ''
+          // A declared terminal tab, or one the learner opened (term-<id>) on a target of the run.
+          const declared = TABS.find((t) => t.name === name && t.kind === 'terminal')
+          const tab = declared ?? (/^term-[a-z0-9]{4,16}$/.test(name) && target ? { target } : undefined)
           if (!tab) return fail(res, 400, 'unknown_tab', `this lab has no terminal tab ${name}`)
+          if (!declared && !run().targets.some((t) => t.name === target))
+            return fail(res, 400, 'unknown_target', 'this run has no target by that name')
           const existing = shells.get(name)
           if (existing?.alive) return send(res, 200, existing.info())
           if (starting.has(name)) return fail(res, 409, 'terminal_starting', 'the terminal of this tab is starting')
@@ -383,6 +390,16 @@ function mockPlugin(): Plugin {
           shells.set(name, sh)
           return send(res, 201, sh.info())
         }
+        if (m === 'POST' && p === '/runs/demo/terminals/close') {
+          const body = await readJSON(req)
+          if (body.runId !== run().runId) return fail(res, 409, 'run_changed', 'this is not the lab’s current run; reload')
+          const name = typeof body.tab === 'string' ? body.tab : ''
+          const sh = shells.get(name)
+          shells.delete(name)
+          sh?.forget()
+          return send(res, 200, { closed: sh ? 1 : 0 })
+        }
+        if (m === 'GET' && p === '/runs/demo/solution') return fail(res, 404, 'no_solution', 'this lab has no solution to show')
         if (m === 'POST' && p === '/runs/demo/submit') {
           const key = String(req.headers['idempotency-key'] ?? '')
           if (!/^[A-Za-z0-9_-]{8,128}$/.test(key))

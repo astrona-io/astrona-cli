@@ -15,8 +15,9 @@ import (
 	"astrona/internal/termbridge"
 )
 
-// maxTerminalsPerLab caps open terminals (running or ended) per lab. A lab
-// has at most config.MaxTabs+1 terminal tabs and one terminal per tab.
+// maxTerminalsPerLab caps open terminals (running or ended) per lab, across
+// the lab's terminal tabs and the ones the learner opened; each tab has one
+// terminal.
 const maxTerminalsPerLab = 12
 
 // terminal is one shell the page opened for a terminal tab on a PTY from
@@ -265,13 +266,17 @@ func (s *Server) handleTerminals(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"terminals": TerminalInfos(s.terms.list(rec.Lab))})
 }
 
-// handleOpenTerminal opens the shell of one of the run's terminal tabs. The
-// page names a tab, never a target or a command: only what the lab
-// declared can run. A tab whose shell still runs gets that one back (200).
+// handleOpenTerminal opens the shell of a terminal tab: one the lab
+// declared, or one the learner opened with "+ New terminal" (a term-<id>
+// tab with a target of the run). The page names a tab and at most a
+// target of the run, never a command: the shell is the same isolated
+// terminal as the focus tab's. A tab whose shell still runs gets that one
+// back (200).
 func (s *Server) handleOpenTerminal(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		RunID string `json:"runId"`
-		Tab   string `json:"tab"`
+		RunID  string `json:"runId"`
+		Tab    string `json:"tab"`
+		Target string `json:"target"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -289,7 +294,15 @@ func (s *Server) handleOpenTerminal(w http.ResponseWriter, r *http.Request) {
 		req.Tab = rec.tabs()[0].Name
 	}
 	tab, found := rec.tab(req.Tab)
-	if !found || tab.Kind != TabTerminal {
+	switch {
+	case found && tab.Kind == TabTerminal && (req.Target == "" || req.Target == tab.Target):
+	case !found && IsExtraTerminalTab(req.Tab) && req.Target != "":
+		if _, ok := rec.target(req.Target); !ok {
+			writeErrorCode(w, http.StatusBadRequest, "unknown_target", "this run has no target by that name")
+			return
+		}
+		tab = Tab{Name: req.Tab, Kind: TabTerminal, Target: req.Target}
+	default:
 		writeErrorCode(w, http.StatusBadRequest, "unknown_tab", "this lab has no terminal tab by that name")
 		return
 	}
@@ -315,7 +328,7 @@ func (s *Server) handleOpenTerminal(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, running.view())
 		return
 	case !ok:
-		writeErrorCode(w, http.StatusTooManyRequests, "too_many_terminals", "too many terminals are open")
+		writeErrorCode(w, http.StatusTooManyRequests, "too_many_terminals", fmt.Sprintf("a lab can have at most %d terminals open; close one to open another", maxTerminalsPerLab))
 		return
 	}
 	target, found := rec.target(tab.Target)
@@ -381,4 +394,59 @@ func newTerminalID() (string, error) {
 		return "", err
 	}
 	return b64.EncodeToString(b), nil
+}
+
+// handleCloseTerminal is POST /runs/{lab}/terminals/close: the learner
+// closed a terminal tab, so its shell ends (its container is removed; a
+// VM's ssh login ends). Files in the lab are kept. Closing a tab without a
+// shell is not an error.
+func (s *Server) handleCloseTerminal(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		RunID string `json:"runId"`
+		Tab   string `json:"tab"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	rec, ok := loadRun(w, r.PathValue("lab"))
+	if !ok {
+		return
+	}
+	if req.RunID != rec.RunID {
+		writeErrorCode(w, http.StatusConflict, "run_changed", "this is not the lab's current run; reload")
+		return
+	}
+	if t, found := rec.tab(req.Tab); (!found || t.Kind != TabTerminal) && !IsExtraTerminalTab(req.Tab) {
+		writeErrorCode(w, http.StatusBadRequest, "unknown_tab", "this lab has no terminal tab by that name")
+		return
+	}
+	closed, err := s.terms.closeTab(rec.Lab, req.Tab)
+	if errors.Is(err, errTabStarting) {
+		writeErrorCode(w, http.StatusConflict, "terminal_starting", "this tab's terminal is starting; try again in a moment")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]int{"closed": closed})
+}
+
+// closeTab ends and forgets every terminal of lab's tab; errTabStarting
+// while one is being started.
+func (ts *terminals) closeTab(lab, tab string) (int, error) {
+	ts.mu.Lock()
+	if ts.starting[tabKey(lab, tab)] {
+		ts.mu.Unlock()
+		return 0, errTabStarting
+	}
+	var gone []*terminal
+	for id, t := range ts.byID {
+		if t.lab == lab && t.tab == tab {
+			gone = append(gone, t)
+			delete(ts.byID, id)
+		}
+	}
+	ts.mu.Unlock()
+	for _, t := range gone {
+		t.close()
+	}
+	return len(gone), nil
 }

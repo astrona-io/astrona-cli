@@ -1,12 +1,13 @@
 <script setup lang="ts">
 // A documentation tab. Two forms:
-//   - a Markdown document shipped in the lab: rendered and sanitised on the
-//     server, like the task;
+//   - a Markdown document: one shipped in the lab (a lab tab), the task, the
+//     prerequisites or the solution guide (tabs the learner opened from the
+//     + menu); rendered and sanitised on the server, like the task;
 //   - a documentation URL: framed (FrameView), with Back to start and Open in
 //     new window. A site that refuses framing stays blank; FrameView says so
 //     and offers the window. Nothing is proxied.
 import { onMounted, ref } from 'vue'
-import { getTabDoc, isRunGone, isUnauthorized, type TabDoc } from '../api'
+import { getQuestion, getSolution, getTabDoc, isRunGone, isUnauthorized, type TabDoc } from '../api'
 import FrameView from './FrameView.vue'
 import type { ViewHandle, ViewProps, ViewStatus } from './types'
 
@@ -23,11 +24,29 @@ const frame = ref<ViewHandle | null>(null)
 const doc = ref<TabDoc | null>(null)
 const problem = ref<string | null>(null)
 
+async function fetchDoc(): Promise<TabDoc> {
+  const { tab } = props
+  switch (tab.source) {
+    case 'task': {
+      const q = await getQuestion(props.lab, tab.questionId ?? '')
+      return { name: tab.name, title: q.title, html: q.html }
+    }
+    case 'prerequisites':
+      return { name: tab.name, title: tab.title, html: tab.html ?? '' }
+    case 'solution': {
+      const s = await getSolution(props.lab)
+      return { name: tab.name, title: s.title, html: s.html }
+    }
+    default:
+      return getTabDoc(props.lab, tab.name)
+  }
+}
+
 async function load(): Promise<void> {
   problem.value = null
   emit('status', { tone: 'busy', label: 'Loading' })
   try {
-    doc.value = await getTabDoc(props.lab, props.tab.name)
+    doc.value = await fetchDoc()
     emit('status', { tone: 'ok', label: 'Docs' })
   } catch (err) {
     if (isUnauthorized(err)) emit('unauthorized')

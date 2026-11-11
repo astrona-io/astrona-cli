@@ -26,9 +26,10 @@ export interface Target {
 export type TabKind = 'terminal' | 'browser' | 'docs'
 
 /**
- * One tab of the right panel. The lab decides the tabs; the page can switch
- * between them, never add or close one. The first (focus: true) is the
- * terminal on the lab's own cluster.
+ * One tab of the right panel as the lab declares it: the tabs the page
+ * opens with. The learner can close them and open more from the tab bar
+ * (src/components/LabTabs.vue). The first (focus: true) is the terminal on
+ * the lab's own cluster.
  */
 export interface RunTab {
   name: string
@@ -41,6 +42,8 @@ export interface RunTab {
   url?: string
   /** docs shipped with the lab: GET /tabs/{name}/doc renders it. */
   document?: boolean
+  /** docs: the document is the lab's solution; ask before showing it. */
+  solution?: boolean
 }
 
 export interface TabDoc {
@@ -85,6 +88,8 @@ export interface Run {
   targets: Target[]
   /** The right panel's tabs, the focus tab first. */
   tabs: RunTab[]
+  /** GET /solution has a solution guide (after Start); never in an exam or a playground. */
+  solution: boolean
   /** True when POST /submit would grade now; submit.blocked says why not. */
   canSubmit: boolean
   submit: SubmitInfo
@@ -499,10 +504,21 @@ export async function listTerminals(id: string): Promise<Terminal[]> {
 /**
  * Opens the shell of a terminal tab, or returns the one still running.
  * Replaces an ended one. Can take a minute the first time, while the
- * terminal image is built.
+ * terminal image is built. A tab the learner opened (term-<id>) names its
+ * target; a tab the lab declared does not.
  */
-export function openTerminal(id: string, runId: string, tab: string): Promise<Terminal> {
-  return request<Terminal>('POST', `${lab(id)}/terminals`, { runId, tab })
+export function openTerminal(id: string, runId: string, tab: string, target?: string): Promise<Terminal> {
+  return request<Terminal>('POST', `${lab(id)}/terminals`, target ? { runId, tab, target } : { runId, tab })
+}
+
+/** Ends the shell of a terminal tab the learner closed. */
+export function closeTerminalTab(id: string, runId: string, tab: string): Promise<{ closed: number }> {
+  return request<{ closed: number }>('POST', `${lab(id)}/terminals/close`, { runId, tab }, true, { timeoutMs: QUICK_TIMEOUT_MS })
+}
+
+/** The lab's solution guide, rendered. 404 no_solution in an exam or a playground. */
+export function getSolution(id: string): Promise<{ title: string; html: string }> {
+  return request<{ title: string; html: string }>('GET', `${lab(id)}/solution`)
 }
 
 /** Another request is starting this tab's terminal: try again shortly. */
