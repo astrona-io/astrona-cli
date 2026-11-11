@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	goruntime "runtime"
 	"strconv"
 	"strings"
@@ -135,7 +136,77 @@ func CheckEngine() ([]Result, *EngineInfo) {
 	res := []Result{{Name: engine.Name + " reachable", Detail: engine.Path}}
 	res = append(res, evaluateEngine(engine.Name, info)...)
 	res = append(res, checkKindKeyringQuota(engine)...)
+	res = append(res, checkKindForPodman(engine)...)
 	return res, &info
+}
+
+// kindForPodman6 is the first kind release that reads Podman 6's labels:
+// Podman 6 made `.Labels` in `podman ps --format` a list, and older kind's
+// `kind get clusters` then fails or lists nothing
+// (https://github.com/kubernetes-sigs/kind/issues/4201).
+var kindForPodman6 = [3]int{0, 33, 0}
+
+// checkKindForPodman compares the Podman client, which runs kind's `podman ps`
+// templates, with the kind on PATH. Nothing to say for Docker, or when either
+// version cannot be read.
+func checkKindForPodman(engine cluster.ContainerEngine) []Result {
+	if engine.Name != "podman" {
+		return nil
+	}
+	kindPath, err := exec.LookPath("kind")
+	if err != nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	podmanOut, err := exec.CommandContext(ctx, engine.Path, "--version").Output()
+	if err != nil {
+		return nil
+	}
+	kindOut, err := exec.CommandContext(ctx, kindPath, "version").Output()
+	if err != nil {
+		return nil
+	}
+	return evaluateKindForPodman(string(podmanOut), string(kindOut))
+}
+
+var versionPattern = regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)`)
+
+// parseVersion finds the first x.y.z in out ("podman version 6.2.0",
+// "kind v0.32.0 go1.26.5 linux/amd64").
+func parseVersion(out string) ([3]int, bool) {
+	m := versionPattern.FindStringSubmatch(out)
+	if m == nil {
+		return [3]int{}, false
+	}
+	var v [3]int
+	for i := range v {
+		v[i], _ = strconv.Atoi(m[i+1])
+	}
+	return v, true
+}
+
+func versionLess(a, b [3]int) bool {
+	for i := range a {
+		if a[i] != b[i] {
+			return a[i] < b[i]
+		}
+	}
+	return false
+}
+
+func evaluateKindForPodman(podmanOut, kindOut string) []Result {
+	podman, okPodman := parseVersion(podmanOut)
+	kind, okKind := parseVersion(kindOut)
+	if !okPodman || !okKind || podman[0] < 6 {
+		return nil
+	}
+	r := Result{Name: "kind for Podman 6", Detail: fmt.Sprintf("kind v%d.%d.%d, Podman %d.%d.%d", kind[0], kind[1], kind[2], podman[0], podman[1], podman[2])}
+	if versionLess(kind, kindForPodman6) {
+		r.Status = Warn
+		r.Hint = fmt.Sprintf("kind before v%d.%d.%d cannot find its clusters with Podman 6 — upgrade kind: https://kind.sigs.k8s.io/docs/user/quick-start/#installation", kindForPodman6[0], kindForPodman6[1], kindForPodman6[2])
+	}
+	return []Result{r}
 }
 
 // Read through an existing node so macOS checks the engine's Linux VM,
