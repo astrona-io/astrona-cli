@@ -142,11 +142,12 @@ func TestTerminalContainerArguments(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		mountOptions := ""
+		// Shared SELinux labels, or an enforcing host denies the shell its workspace.
+		mounts := []string{"/safe/path/work:/workspace:z", "/safe/path/config:/run/astrona:ro,z"}
 		if engine == "podman" {
-			mountOptions = ",relabel=shared"
+			mounts = []string{"type=bind,source=/safe/path/work,target=/workspace,relabel=shared", "type=bind,source=/safe/path/config,target=/run/astrona,readonly,relabel=shared"}
 		}
-		for _, required := range []string{"--cap-drop=ALL", "--security-opt=no-new-privileges", "--read-only", "--pids-limit=256", "--tty", "kind", "idp.astrona.internal:10.0.0.2", "type=bind,source=/safe/path/work,target=/workspace" + mountOptions, "type=bind,source=/safe/path/config,target=/run/astrona,readonly" + mountOptions} {
+		for _, required := range append([]string{"--cap-drop=ALL", "--security-opt=no-new-privileges", "--read-only", "--pids-limit=256", "--tty", "kind", "idp.astrona.internal:10.0.0.2"}, mounts...) {
 			if !slices.Contains(args, required) {
 				t.Fatalf("missing %s", required)
 			}
@@ -162,6 +163,9 @@ func TestTerminalContainerArguments(t *testing.T) {
 	}
 	if _, err := runArgs("docker", "/path,readonly=false", "lab", "tab", nil, nil, nil, false); err == nil {
 		t.Fatal("accepted mount option injection")
+	}
+	if _, err := runArgs("docker", "/path:/etc", "lab", "tab", nil, nil, nil, false); err == nil {
+		t.Fatal("accepted volume target injection")
 	}
 }
 
