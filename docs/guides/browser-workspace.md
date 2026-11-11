@@ -21,9 +21,12 @@ opens it in your default browser. You can follow everything from that tab:
    terminal does: what it is doing, ✓ / – / ✗ with how long each step took,
    and what a long step is waiting on. If setup fails, the tab shows the error
    and where the log is.
-3. **The lab.** Once the lab is ready the tab says so and waits for you:
-   **Begin this session** opens the intro page. Nothing counts yet; an exam's
-   clock still starts only when you click **Start** there.
+3. **The lab.** Once the lab is ready the tab says so and waits for you.
+   Nothing counts yet. **Begin this session** starts the lab and opens the
+   workspace straight away: the timer, and an exam's clock, start then. If the
+   start fails, the intro page shows the error and a **Start** button to try
+   again. A lab opened another way (`astrona ui`, *Labs on this computer*)
+   still shows its intro page and starts on **Start**.
 
 While the lab is set up, a card shows whether this run is saved to your
 Astrona account. `astrona run` decides that when it starts the lab:
