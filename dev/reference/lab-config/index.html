@@ -6435,8 +6435,9 @@ lab. <code>/dev/vda</code> is guaranteed to be the boot disk regardless of how m
 <p><code>astrona run</code> / <code>reset</code> copy the resources to <code>~/.astrona/resources/&lt;lab&gt;/</code> (owner-only) <strong>before</strong> the lab is built — nothing in them runs — and list them once the lab is ready. A new run replaces the copy; <code>astrona destroy</code> removes it (<code>--keep-resources</code> keeps it). A config fetched from a URL has no folder, so it can't have resources — use a local lab or <code>--git</code>. <code>astrona validate</code> checks them. Students use them with <a href="../../guides/lab-resources/"><code>astrona resource</code></a>.</p>
 <h2 id="tabs"><code>tabs</code><a class="headerlink" href="#tabs" title="Permanent link">&para;</a></h2>
 <p>kind only. The tabs of the <a href="../../guides/browser-workspace/#tabs">browser workspace</a>'s right panel. The first tab is always the
-<strong>focus tab</strong>: a terminal on the lab's own cluster, named <code>main</code>. The entries here come after it, in order. The learner
-switches between tabs but cannot add or close one, and nothing outside this list is ever opened.</p>
+<strong>focus tab</strong>: a terminal on the lab's own cluster, named <code>main</code>. The entries here come after it, in order. The workspace
+opens with these; the learner can close them and open more from the tab bar (another terminal on a target of the lab,
+the task, the prerequisites, the solution guide, or a closed tab from this list).</p>
 <p>Tabs are configured per lab. Without <code>tabs</code>, the workspace shows only the focus tab. With <code>tabs</code>, it shows exactly
 the focus tab and these: a <a href="#runtimekindclustersn">linked cluster</a> gets a terminal tab only when you list it here.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">runtime</span><span class="p">:</span>
@@ -6517,7 +6518,7 @@ the focus tab and these: a <a href="#runtimekindclustersn">linked cluster</a> ge
 <tr>
 <td><code>file</code></td>
 <td>string</td>
-<td>docs: a Markdown file relative to <code>config.yaml</code>, at most 64 KiB, rendered like the task. Never the solution</td>
+<td>docs: a Markdown file relative to <code>config.yaml</code>, at most 64 KiB, rendered like the task. The solution only outside an exam: the page asks before it shows it</td>
 </tr>
 </tbody>
 </table>
@@ -6528,7 +6529,7 @@ the focus tab and these: a <a href="#runtimekindclustersn">linked cluster</a> ge
 <li><strong>docs</strong> with <code>url</code>: the page, shown inside the tab in a sandboxed frame. <strong>Back to start</strong> returns to <code>url</code> wherever the learner navigated; <strong>Open in new window</strong> shows it in a separate window. Some documentation sites refuse to be shown inside another page (<code>X-Frame-Options</code> or CSP <code>frame-ancestors</code>): their tab stays blank, and the page cannot detect that, so a docs tab always notes it next to <strong>Open in new window</strong>. Prefer a site that allows framing. Of the sites checked when this was written, kubernetes.io, helm.sh, docs.cilium.io, gateway-api.sigs.k8s.io, prometheus.io and etcd.io allowed framing; istio.io (<code>SAMEORIGIN</code>) and docs.docker.com (<code>DENY</code>) did not.</li>
 <li><strong>docs</strong> with <code>file</code>: Markdown shipped with the lab, rendered and sanitised like the task.</li>
 </ul>
-<p><code>astrona validate</code> fails on an unknown type, a field that does not apply to the type, an unknown cluster or port forward, a <code>tcp</code> port forward, a URL that is not <code>https://</code>, a missing, oversized or solution <code>file</code>, a duplicate name and more than 8 tabs.</p>
+<p><code>astrona validate</code> fails on an unknown type, a field that does not apply to the type, an unknown cluster or port forward, a <code>tcp</code> port forward, a URL that is not <code>https://</code>, a missing or oversized <code>file</code>, the solution as a <code>file</code> in an exam, a duplicate name and more than 8 tabs.</p>
 <h2 id="resourceitem"><code>ResourceItem</code><a class="headerlink" href="#resourceitem" title="Permanent link">&para;</a></h2>
 <p>Shared shape for every script/manifest reference (<code>bootstrap.init</code>, <code>bootstrap.manifests</code>, <code>testing.*</code>, <code>teardown.init</code>, <code>validation.script</code>, <code>validation.scripts</code>).</p>
 <table>

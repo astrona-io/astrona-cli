@@ -1968,6 +1968,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#post-runslabterminalsclose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /runs/{lab}/terminals/close
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabsolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/solution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#get-wsv1terminalsidticketticket" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5389,6 +5411,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#post-runslabterminalsclose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /runs/{lab}/terminals/close
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabsolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/solution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#get-wsv1terminalsidticketticket" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5722,8 +5766,16 @@ See the <a href="../../guides/browser-workspace/">browser workspace guide</a>.</
 <td>A docs tab's Markdown, rendered to HTML. After <strong>Start</strong> only.</td>
 </tr>
 <tr>
+<td><code>GET /runs/{lab}/solution</code></td>
+<td>The solution guide, rendered to HTML. After <strong>Start</strong> only; never in an exam or a playground.</td>
+</tr>
+<tr>
 <td><code>POST /runs/{lab}/terminals</code></td>
-<td>Open the shell of a terminal tab. After <strong>Start</strong> only.</td>
+<td>Open the shell of a terminal tab, or of a new terminal on a target. After <strong>Start</strong> only.</td>
+</tr>
+<tr>
+<td><code>POST /runs/{lab}/terminals/close</code></td>
+<td>End the shell of a terminal tab the learner closed.</td>
 </tr>
 <tr>
 <td><code>POST /runs/{lab}/submit</code></td>
@@ -5988,7 +6040,7 @@ answer; Kind labs are then missing from the list.</p>
 </tr>
 <tr>
 <td><code>tabs</code></td>
-<td>The right panel, as the lab declares it (lab config <code>tabs</code>). The first is always the focus tab: <code>name</code> <code>main</code>, a terminal on the lab's own cluster. The page shows exactly these and cannot add or close one. <code>kind</code> is <code>terminal</code> (<code>target</code> says where its shell runs), <code>browser</code> (<code>url</code> is a loopback port forward of the lab), or <code>docs</code>: either <code>url</code> (an <code>https</code> documentation page, shown in a frame) or <code>document: true</code> (Markdown shipped with the lab, fetched from <code>GET /tabs/{name}/doc</code>). A lab that declares no tabs gets only the focus tab. A QEMU lab cannot declare tabs: a single-VM lab gets the focus tab on its VM, a multi-VM lab gets the focus tab on its first VM (titled with the VM's name) and a terminal tab <code>vm-&lt;name&gt;</code> for each further VM.</td>
+<td>The right panel, as the lab declares it (lab config <code>tabs</code>). The first is always the focus tab: <code>name</code> <code>main</code>, a terminal on the lab's own cluster. The page opens with these; the learner can close them and open more from the tab bar's <strong>+</strong> menu (another terminal on a target, the task, the prerequisites, the solution guide, a closed lab tab), which the page remembers per run in <code>localStorage</code>. <code>kind</code> is <code>terminal</code> (<code>target</code> says where its shell runs), <code>browser</code> (<code>url</code> is a loopback port forward of the lab), or <code>docs</code>: either <code>url</code> (an <code>https</code> documentation page, shown in a frame) or <code>document: true</code> (Markdown shipped with the lab, fetched from <code>GET /tabs/{name}/doc</code>); <code>solution: true</code> marks a docs tab whose file is the lab's solution, which the page shows only after the learner confirms. A lab that declares no tabs gets only the focus tab. A QEMU lab cannot declare tabs: a single-VM lab gets the focus tab on its VM, a multi-VM lab gets the focus tab on its first VM (titled with the VM's name) and a terminal tab <code>vm-&lt;name&gt;</code> for each further VM.</td>
 </tr>
 <tr>
 <td><code>canSubmit</code></td>
@@ -6022,10 +6074,15 @@ answer; Kind labs are then missing from the list.</p>
 <td><code>runAgain</code></td>
 <td>The command that starts this lab again, as <code>astrona run</code> was given it: the catalog ID, the <code>--git</code> source, or the config path (<code>-c</code>). Never the cluster name, which <code>astrona run</code> does not accept. <code>""</code> when the source is not known.</td>
 </tr>
+<tr>
+<td><code>solution</code></td>
+<td><code>GET /solution</code> has a solution guide to show (after <strong>Start</strong>). Always <code>false</code> in an exam (a time limit) or a playground.</td>
+</tr>
 </tbody>
 </table>
-<p>Responses never contain the solution document, validation scripts, check
-commands, expected values, admin credentials or kubeconfigs.</p>
+<p>Responses never contain the solution document (only <code>GET /solution</code> and a
+solution docs tab serve it, and never in an exam or a playground), validation
+scripts, check commands, expected values, admin credentials or kubeconfigs.</p>
 <h3 id="get-runslabquestionsid"><code>GET /runs/{lab}/questions/{id}</code><a class="headerlink" href="#get-runslabquestionsid" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"q1"</span><span class="p">,</span>
@@ -6207,12 +6264,17 @@ was never submitted. Read-only.</p>
 <p><code>status</code> is <code>running</code> or <code>ended</code>; <code>exitCode</code> is set once it ended (<code>-1</code> when
 the process was killed by a signal). Ended terminals stay listed until the tab
 opens a new shell, which replaces the ended one, so the page can show "Shell
-ended". The page cannot close a terminal; <code>astrona ui stop</code> ends them all.</p>
+ended". <code>POST /terminals/close</code> ends one tab's; <code>astrona ui stop</code> ends them all.</p>
 <h3 id="post-runslabterminals"><code>POST /runs/{lab}/terminals</code><a class="headerlink" href="#post-runslabterminals" title="Permanent link">&para;</a></h3>
-<p>Request: <code>{"runId": "&lt;runId&gt;", "tab": "main"}</code>. <code>tab</code> names one of the run's
-terminal tabs and may be omitted for the focus tab. The page cannot name a
-target or anything else: a shell is only ever opened where the lab declared a
-terminal tab.</p>
+<p>Request: <code>{"runId": "&lt;runId&gt;", "tab": "main"}</code> for one of the run's terminal
+tabs (<code>tab</code> may be omitted for the focus tab), or
+<code>{"runId": "&lt;runId&gt;", "tab": "term-3f9a1c2e", "target": "&lt;target&gt;"}</code> for a
+terminal the learner opened with <strong>+ New terminal</strong>: <code>tab</code> is <code>term-</code> and 4
+to 16 lowercase letters or digits the page picks, and <code>target</code> is the <code>name</code>
+of one of the run's <code>targets</code>. A declared tab may also name its own target.
+The page cannot name a command or anything else: the new shell is the same
+isolated terminal as the focus tab's, on a target of the run. Lab tab names
+cannot have the <code>term-&lt;id&gt;</code> form.</p>
 <p>Each tab has at most one shell. Response: <code>200</code> with the tab's terminal when it
 is still running (nothing new is started), or <code>201</code> with a new one; a new one
 replaces the tab's ended shell. While one request starts a tab's shell, another
@@ -6231,8 +6293,25 @@ the VM. The lab's resources are installed in the student's home first, as for
 cannot connect, the terminal ends with ssh's error and exit code <code>255</code>. There
 is never a fallback to a shell on the host.</p>
 <p>Errors: <code>409 not_started</code>, <code>409 run_changed</code>, <code>409 run_stopped</code>,
-<code>409 terminal_starting</code>, <code>400 unknown_tab</code>, <code>429 too_many_terminals</code>,
-<code>501 unsupported</code>.</p>
+<code>409 terminal_starting</code>, <code>400 unknown_tab</code>, <code>400 unknown_target</code>,
+<code>429 too_many_terminals</code> (a lab has at most 12 terminals, running or ended,
+across all its tabs), <code>501 unsupported</code>.</p>
+<h3 id="post-runslabterminalsclose"><code>POST /runs/{lab}/terminals/close</code><a class="headerlink" href="#post-runslabterminalsclose" title="Permanent link">&para;</a></h3>
+<p>Request: <code>{"runId": "&lt;runId&gt;", "tab": "term-3f9a1c2e"}</code>. The learner closed a
+terminal tab: its shell ends (a <code>kind</code> terminal's container is removed; a VM's
+ssh login ends) and it no longer counts towards the 12. Files in the lab are
+kept. <code>tab</code> is one of the run's terminal tabs or a <code>term-&lt;id&gt;</code> tab. Response:
+<code>200 {"closed": 1}</code>, or <code>{"closed": 0}</code> when the tab had no shell. Errors:
+<code>409 run_changed</code>, <code>409 terminal_starting</code> (its shell is still starting),
+<code>400 unknown_tab</code>.</p>
+<h3 id="get-runslabsolution"><code>GET /runs/{lab}/solution</code><a class="headerlink" href="#get-runslabsolution" title="Permanent link">&para;</a></h3>
+<p>The lab's solution guide (<code>docs.solution</code>), rendered and sanitised like a
+question: <code>{"title": "Solution guide", "html": "&lt;h1&gt;…"}</code>. The page asks the
+learner before it shows it. Reading it changes nothing: the attempt is not
+marked and nothing is sent. <code>astrona run</code> keeps it in the run record only for
+a learning lab, so in an exam (a time limit) or a playground the answer is
+always <code>404 no_solution</code>, as for a lab without one. Errors: <code>404 no_solution</code>,
+<code>409 not_started</code>, <code>409 run_stopped</code>.</p>
 <h3 id="get-wsv1terminalsidticketticket"><code>GET /ws/v1/terminals/{id}?ticket=&lt;ticket&gt;</code><a class="headerlink" href="#get-wsv1terminalsidticketticket" title="Permanent link">&para;</a></h3>
 <p>A WebSocket upgrade. The request must carry the page's own <code>Origin</code> (browsers
 do). Before the upgrade the server answers with a normal HTTP error:
@@ -6362,7 +6441,7 @@ separate window instead.</p>
 <tr>
 <td><code>~/.astrona/workspace/runs/&lt;lab&gt;/run.json</code></td>
 <td><code>astrona run</code></td>
-<td>What the page shows for that run: title, mode, rules, the account status, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs). Never the solution or the validation block.</td>
+<td>What the page shows for that run: title, mode, rules, the account status, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs), and for a learning lab the solution guide. Never the validation block, and never the solution in an exam or a playground.</td>
 </tr>
 <tr>
 <td><code>~/.astrona/workspace/runs/&lt;lab&gt;/start.json</code></td>
