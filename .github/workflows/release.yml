@@ -117,9 +117,12 @@ jobs:
           name: astrona-${{ matrix.goos }}-${{ matrix.goarch }}
           path: astrona-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
 
+  # The release waits for the acceptance suite and the binaries only. Linux
+  # packages depend on outside stores (the Snap Store, distro mirrors), so
+  # they are attached afterwards by attach-linux-packages.
   create-release:
     name: Create GitHub Release
-    needs: [build-release, build-linux-packages]
+    needs: build-release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -131,6 +134,9 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: artifacts
+          # Not the packages (astrona-package-*): attach-linux-packages adds
+          # them, and they may still be building.
+          pattern: '{astrona-linux-*,astrona-darwin-*,astrona-windows-*,oat-report-*}'
 
       - name: Flatten Artifacts
         run: |
@@ -152,6 +158,38 @@ jobs:
           prerelease: ${{ contains(inputs.version || github.ref_name, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Attaches the Linux packages that built, even when one failed, and updates
+  # SHA256SUMS. A failed package leaves the run red; "Re-run failed jobs"
+  # once its store is back rebuilds it and runs this again, replacing assets.
+  attach-linux-packages:
+    name: Attach Linux packages
+    needs: [create-release, build-linux-packages]
+    if: ${{ always() && needs.create-release.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download binaries and packages
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          pattern: astrona-*
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.version || github.ref_name }}
+        run: |
+          mkdir dist
+          find artifacts -type f -exec cp {} dist/ \;
+          (cd dist && sha256sum astrona-* > SHA256SUMS)
+          shopt -s nullglob
+          packages=(dist/*.deb dist/*.rpm dist/*.snap)
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "::warning::no Linux package built; SHA256SUMS is unchanged"
+            exit 0
+          fi
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "${packages[@]}" dist/SHA256SUMS
+          ls -l "${packages[@]}"
 
   # Publishes the release to the Homebrew tap (brew install
   # astrona-io/tap/astrona). Needs secret HOMEBREW_TAP_TOKEN: a fine-grained

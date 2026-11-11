@@ -122,8 +122,17 @@ jobs:
       # Embedded into astrona; build-linux-package.sh refuses the placeholder.
       - name: Build workspace frontend
         run: .github/scripts/build-workspace-web.sh
+      # The Snap Store is sometimes unreachable for a minute on a fresh runner
+      # ("unable to contact snap store"); retry before failing the release.
       - name: Install Snapcraft
-        run: sudo snap install snapcraft --classic
+        run: |
+          sudo snap wait system seed.loaded
+          for attempt in 1 2 3 4 5; do
+            sudo snap install snapcraft --classic && exit 0
+            echo "snap install failed (attempt $attempt), retrying"
+            sleep $((attempt * 20))
+          done
+          exit 1
       # Snapcraft runs as the runner user, so it can't refresh apt's package
       # lists itself; a stale image index then 404s on superseded packages.
       - name: Refresh apt package lists
