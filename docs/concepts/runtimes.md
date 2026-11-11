@@ -90,7 +90,7 @@ Classic `Ingress` isn't offered: ingress-nginx is retired upstream. Cilium isn't
 
   A script that uses them works unchanged on any cluster that sets them, for example a cluster shared by several labs. Keep a fallback for an older astrona that does not set them: `${ASTRONA_KUBE_CONTEXT:-kind-astro-<lab>}`.
 
-  In a [full lab exam](../guides/lab-exams.md), several tasks share one exam cluster. Their scripts and checks get `ASTRONA_KUBE_CONTEXT=exam-<n>` and `ASTRONA_KIND_CLUSTER=astro-exam-<attempt>-<n>`, with a `KUBECONFIG` whose current context is `exam-<n>`. A script that checks the current context against `ASTRONA_KUBE_CONTEXT` passes there as it does in a normal run.
+  In a [hands-on exam](../guides/lab-exams.md), several tasks share one exam cluster. Their scripts and checks get `ASTRONA_KUBE_CONTEXT=exam-<n>` and `ASTRONA_KIND_CLUSTER=astro-exam-<attempt>-<n>`, with a `KUBECONFIG` whose current context is `exam-<n>`. A script that checks the current context against `ASTRONA_KUBE_CONTEXT` passes there as it does in a normal run.
 - `runtime.portForwards` exposes in-cluster services on `127.0.0.1` — see [Port forwards](#port-forwards).
 
 ### DNS for the lab network (`runtime.kind.dns`)

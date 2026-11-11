@@ -130,6 +130,34 @@ To send none of this, choose one of two ways:
 
 `astrona logout` stops the usage reporters of running labs, since they post with your sign-in. The labs keep running; samples measured before the sign-out that were not sent yet wait in the outbox until you sign in again (or are dropped if usage samples are off). A playground's watchdog keeps running, so the playground is still removed at its time limit. Signing in again does not restart a reporter for a lab that is already running.
 
+## Guest run reports
+
+A catalog lab or playground run signed out ("continue as guest") sends one
+report once it counts, so Astrona's hands-on time includes guests: a lab
+when you submit it, a playground when it is destroyed. The report goes to
+`{site}/api/cli/guest-runs` without any sign-in and holds only:
+
+- an anonymous install id;
+- the catalog lab id and the kind (`lab` or `playground`);
+- the start and finish times and the time used (at most 8 hours);
+- why it ended (`submitted` or `destroyed`), a one-time key and the CLI version.
+
+Nothing else: no user name, e-mail, host name, command output or file
+contents.
+
+The install id is a random UUID v4 in `~/.astrona/install-id` (mode 0600),
+made without asking the first time astrona needs it — the first guest lab or
+playground start — and never derived from this computer. A successful
+`astrona login` replaces it with a new random one, and so does
+`astrona logout`, so guest runs before a sign-in, while signed in and after a
+sign-out never share an id and can't be linked to your account. A report
+already waiting keeps the id it was made with.
+
+A report that can't be sent waits in `~/.astrona/guest-runs/` and is retried
+by the background sender every `astrona` command starts; one still waiting
+after 7 days is dropped. `--local-only`, `--headless`, `--git` and labs from
+sources you added send nothing.
+
 ## Paused time and working offline
 
 The browser workspace does not pause your time. Once you click **Start**, the lab's clock keeps running when you close the page or lose the connection, and a playground is still removed at its time limit.

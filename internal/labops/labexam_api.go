@@ -77,22 +77,33 @@ func (a *ExamAPI) Progress(ctx context.Context, id, phase, message string, task 
 	return a.Client.LabExamProgress(ctx, a.Store, cr, id, phase, message, task)
 }
 
-// OpenTask records that the student moved to task position.
-func (a *ExamAPI) OpenTask(ctx context.Context, id string, position int) error {
+// OpenTask records that the student moved to task position at at.
+func (a *ExamAPI) OpenTask(ctx context.Context, id string, position int, at time.Time) error {
 	cr, err := a.creds(ctx)
 	if err != nil {
 		return err
 	}
-	return a.Client.OpenLabExamTask(ctx, a.Store, cr, id, position)
+	return a.Client.OpenLabExamTask(ctx, a.Store, cr, id, position, at)
 }
 
-// PostResult sends one task's graded result.
-func (a *ExamAPI) PostResult(ctx context.Context, id string, position int, result json.RawMessage, key string, at time.Time) error {
+// Activity tells labs the student was working at at.
+func (a *ExamAPI) Activity(ctx context.Context, id string, at time.Time, key string) error {
 	cr, err := a.creds(ctx)
 	if err != nil {
 		return err
 	}
-	return a.Client.PostLabExamResult(ctx, a.Store, cr, id, position, account.ResultPost{Result: result, Key: key, At: at})
+	return a.Client.PostLabExamActivity(ctx, a.Store, cr, id, at, key)
+}
+
+// PostResult sends one task's graded result; source is what made it
+// (account.ResultSwitch, ResultSubmit, ResultDeadline, ResultCheck or
+// ResultWake).
+func (a *ExamAPI) PostResult(ctx context.Context, id string, position int, result json.RawMessage, key string, at time.Time, source string) error {
+	cr, err := a.creds(ctx)
+	if err != nil {
+		return err
+	}
+	return a.Client.PostLabExamResult(ctx, a.Store, cr, id, position, account.ResultPost{Result: result, Key: key, At: at}, source)
 }
 
 // StartBreak starts a break at at.
@@ -131,10 +142,33 @@ func (a *ExamAPI) Abandon(ctx context.Context, id string) (*account.LabExam, err
 	return a.Client.AbandonLabExam(ctx, a.Store, cr, id)
 }
 
-// resultRefused reports whether labs answered a result for good (gone,
-// past the deadline and its grace, or not accepted in the attempt's state),
-// so sending it again can't help.
+// resultRefused reports whether labs refused a result for good: graded
+// after the attempt ended (409 after_end), during a break (409 on_break),
+// or for a task the attempt doesn't have. Only these drop a result; any
+// other error keeps it to send again, because labs takes a result graded
+// before the end at any time.
 func resultRefused(err error) bool {
-	return errors.Is(err, account.ErrExamGone) || errors.Is(err, account.ErrExamPastDeadline) ||
-		errors.Is(err, account.ErrExamState) || errors.Is(err, account.ErrExamUnavailable)
+	return errors.Is(err, account.ErrExamAfterEnd) || errors.Is(err, account.ErrExamBreakResult) ||
+		errors.Is(err, account.ErrExamUnknownTask)
 }
+
+// examAnswered reports whether labs answered a request with a refusal (as
+// opposed to not being reached, or the sign-in being gone): sending the
+// same task open, break or activity again can't help.
+func examAnswered(err error) bool {
+	if err == nil || errors.Is(err, account.ErrSignedOut) {
+		return false
+	}
+	for _, refused := range []error{account.ErrExamGone, account.ErrExamState, account.ErrExamUnavailable,
+		account.ErrExamPastDeadline, account.ErrBreakLimit, account.ErrExamOpen, account.ErrExamAfterEnd,
+		account.ErrExamBreakResult, account.ErrExamUnknownTask} {
+		if errors.Is(err, refused) {
+			return true
+		}
+	}
+	return account.Permanent(err)
+}
+
+// ExamAnswered is examAnswered for cmd: labs refused, rather than wasn't
+// reached.
+func ExamAnswered(err error) bool { return examAnswered(err) }

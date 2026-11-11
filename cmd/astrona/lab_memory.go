@@ -33,7 +33,7 @@ func applySource(flags *rootFlags, src *labstate.Source) {
 // rememberLab records, once a lab is up, where its config came from and
 // the lab session it runs under. Best effort: a failure is only a warning.
 func rememberLab(clusterName string, flags *rootFlags, sess *labstate.Session) {
-	if err := labops.RememberLab(clusterName, rememberedSource(flags), flags.localOnly, sess); err != nil {
+	if err := labops.RememberLab(clusterName, rememberedSource(flags), flags.localOnly, sess, !flags.headless); err != nil {
 		ui.Warnf("could not remember this lab (%s) — `astrona submit` needs it named, and results won't reach the lab page", err)
 	}
 }

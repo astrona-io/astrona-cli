@@ -13,30 +13,50 @@ import (
 	"time"
 )
 
-// Full lab exams (`astrona exam`): the CLI's routes under
+// Hands-on exams (`astrona hands-on-exam`): the CLI's routes under
 // {site}/api/cli/lab-exams, which astrona-web forwards to the labs service.
 // Labs keeps the clock; the CLI builds the clusters, grades on them and
 // reports.
 
 var (
-	// ErrExamUnavailable: the site has no full lab exam by that name, or its
+	// ErrExamUnavailable: the site has no hands-on exam by that name, or its
 	// pool is too small for a draw (HTTP 422).
-	ErrExamUnavailable = errors.New("this lab exam is not available")
+	ErrExamUnavailable = errors.New("this hands-on exam is not available")
 	// ErrExamOpen: an attempt is already open for this account (HTTP 409 on
 	// start).
-	ErrExamOpen = errors.New("you already have a lab exam open")
+	ErrExamOpen = errors.New("you already have a hands-on exam open")
 	// ErrExamGone: the site doesn't know the attempt, or it isn't this
 	// account's (HTTP 404).
-	ErrExamGone = errors.New("the lab exam attempt is gone or isn't yours")
+	ErrExamGone = errors.New("the hands-on exam attempt is gone or isn't yours")
 	// ErrExamState: the attempt is not in a state that allows this (HTTP
 	// 409): on a break, not running, already ended.
-	ErrExamState = errors.New("the lab exam can't do that now")
+	ErrExamState = errors.New("the hands-on exam can't do that now")
 	// ErrBreakLimit: every break of the attempt is used (HTTP 409
 	// break_limit).
 	ErrBreakLimit = errors.New("no breaks left")
 	// ErrExamPastDeadline: the attempt's deadline and grace period are over
-	// (HTTP 410).
-	ErrExamPastDeadline = errors.New("the lab exam's time is over")
+	// (HTTP 410). Labs no longer answers a result with it; a result is
+	// only refused for good with ErrExamAfterEnd, ErrExamBreakResult or
+	// ErrExamUnknownTask.
+	ErrExamPastDeadline = errors.New("the hands-on exam's time is over")
+	// ErrExamAfterEnd: a result graded after the attempt ended (HTTP 409
+	// after_end). It can never be accepted.
+	ErrExamAfterEnd = errors.New("the result was graded after the hands-on exam ended")
+	// ErrExamBreakResult: a result graded during a break (HTTP 409
+	// on_break). It can never be accepted.
+	ErrExamBreakResult = errors.New("the result was graded during a break")
+	// ErrExamUnknownTask: the attempt has no such task (HTTP 404
+	// unknown_task).
+	ErrExamUnknownTask = errors.New("the hands-on exam has no such task")
+)
+
+// Sources of a hands-on exam result: what made the CLI grade the task.
+const (
+	ResultSwitch   = "switch"   // the student moved to another task
+	ResultSubmit   = "submit"   // the student submitted the exam
+	ResultDeadline = "deadline" // the clock ran out while this machine was awake
+	ResultCheck    = "check"    // any other grading
+	ResultWake     = "wake"     // graded after the end, when this machine woke up
 )
 
 // LabExamEvent is one preparation step the attempt recorded.
@@ -100,11 +120,17 @@ type LabExam struct {
 	UsedSeconds      int             `json:"used_seconds"`
 	RemainingSeconds int             `json:"remaining_seconds"`
 	DeadlineAt       string          `json:"deadline_at"`
-	Breaks           LabExamBreaks   `json:"breaks"`
-	PassScore        int             `json:"pass_score"`
-	CurrentPosition  *int            `json:"current_position"`
-	Preparation      []LabExamEvent  `json:"preparation"`
-	Tasks            []LabExamTask   `json:"tasks"`
+	// EndedAt is when the attempt ended (submitted, abandoned, time up);
+	// "" while it is open.
+	EndedAt string `json:"ended_at"`
+	// Counted: the ended attempt counts (attempts, stats, hands-on time);
+	// nil from a site that doesn't say.
+	Counted         *bool          `json:"counted"`
+	Breaks          LabExamBreaks  `json:"breaks"`
+	PassScore       int            `json:"pass_score"`
+	CurrentPosition *int           `json:"current_position"`
+	Preparation     []LabExamEvent `json:"preparation"`
+	Tasks           []LabExamTask  `json:"tasks"`
 }
 
 // LastStep is the latest preparation step, if any.
@@ -121,6 +147,16 @@ func (e *LabExam) Deadline() (time.Time, bool) {
 		return time.Time{}, false
 	}
 	t, err := time.Parse(time.RFC3339Nano, e.DeadlineAt)
+	return t, err == nil
+}
+
+// Ended is EndedAt parsed; ok is false while the attempt is open or the
+// site doesn't say.
+func (e *LabExam) Ended() (time.Time, bool) {
+	if e == nil || e.EndedAt == "" {
+		return time.Time{}, false
+	}
+	t, err := time.Parse(time.RFC3339Nano, e.EndedAt)
 	return t, err == nil
 }
 
@@ -166,7 +202,7 @@ type LabExamAvailability struct {
 	OpenAttempt *LabExam `json:"open_attempt"`
 }
 
-// examKey is a lab exam's name as the site takes it (cks).
+// examKey is a hands-on exam's name as the site takes it (cks).
 func validExamKey(exam string) bool {
 	if exam == "" || len(exam) > 32 {
 		return false
@@ -183,10 +219,10 @@ func validExamKey(exam string) bool {
 func (c *Client) LabExamAvailable(ctx context.Context, s Store, cr *Credentials, exam string) (*LabExamAvailability, error) {
 	exam = strings.ToLower(exam)
 	if !validExamKey(exam) {
-		return nil, fmt.Errorf("%q is not a lab exam name (for example cks)", exam)
+		return nil, fmt.Errorf("%q is not a hands-on exam name (for example cks)", exam)
 	}
 	var out LabExamAvailability
-	if err := c.labExamCall(ctx, s, cr, http.MethodGet, noAttempt, "/available?exam="+url.QueryEscape(exam), nil, &out, "look up the lab exam"); err != nil {
+	if err := c.labExamCall(ctx, s, cr, http.MethodGet, noAttempt, "/available?exam="+url.QueryEscape(exam), nil, &out, "look up the hands-on exam"); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -196,12 +232,12 @@ func (c *Client) LabExamAvailable(ctx context.Context, s Store, cr *Credentials,
 // one is set up on. 409 wraps ErrExamOpen, 422 ErrExamUnavailable.
 func (c *Client) StartLabExam(ctx context.Context, s Store, cr *Credentials, exam string) (*LabExam, error) {
 	var out LabExam
-	err := c.labExamCall(ctx, s, cr, http.MethodPost, noAttempt, "", map[string]string{"exam": strings.ToLower(exam)}, &out, "start the lab exam")
+	err := c.labExamCall(ctx, s, cr, http.MethodPost, noAttempt, "", map[string]string{"exam": strings.ToLower(exam)}, &out, "start the hands-on exam")
 	if err != nil {
 		return nil, err
 	}
 	if !uuidPattern.MatchString(out.ID) {
-		return nil, fmt.Errorf("%s started a lab exam but sent no valid attempt id", cr.Site)
+		return nil, fmt.Errorf("%s started a hands-on exam but sent no valid attempt id", cr.Site)
 	}
 	return &out, nil
 }
@@ -209,7 +245,7 @@ func (c *Client) StartLabExam(ctx context.Context, s Store, cr *Credentials, exa
 // GetLabExam reads the attempt: state, clock, breaks and tasks.
 func (c *Client) GetLabExam(ctx context.Context, s Store, cr *Credentials, id string) (*LabExam, error) {
 	var out LabExam
-	if err := c.labExamCall(ctx, s, cr, http.MethodGet, id, "", nil, &out, "read the lab exam"); err != nil {
+	if err := c.labExamCall(ctx, s, cr, http.MethodGet, id, "", nil, &out, "read the hands-on exam"); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -230,17 +266,37 @@ func (c *Client) LabExamProgress(ctx context.Context, s Store, cr *Credentials, 
 	return c.labExamCall(ctx, s, cr, http.MethodPost, id, "/progress", body, nil, "report the exam's preparation")
 }
 
-// OpenLabExamTask records that the student moved to the task at position.
-func (c *Client) OpenLabExamTask(ctx context.Context, s Store, cr *Credentials, id string, position int) error {
-	return c.labExamCall(ctx, s, cr, http.MethodPost, id, "/tasks/"+strconv.Itoa(position)+"/open", nil, nil, "record the task you opened")
+// OpenLabExamTask records that the student moved to the task at position,
+// at at (zero: now, as the site sees it).
+func (c *Client) OpenLabExamTask(ctx context.Context, s Store, cr *Credentials, id string, position int, at time.Time) error {
+	var body any
+	if !at.IsZero() {
+		body = map[string]string{"at": at.UTC().Format(time.RFC3339Nano)}
+	}
+	return c.labExamCall(ctx, s, cr, http.MethodPost, id, "/tasks/"+strconv.Itoa(position)+"/open", body, nil, "record the task you opened")
+}
+
+// PostLabExamActivity tells labs the student was working at at (an
+// `astrona hands-on-exam` command, or their shell in use). Labs uses it to tell an
+// exam whose clock ran out while the student worked from one they had
+// left. key makes a resend count once.
+func (c *Client) PostLabExamActivity(ctx context.Context, s Store, cr *Credentials, id string, at time.Time, key string) error {
+	body := map[string]string{"at": at.UTC().Format(time.RFC3339Nano), "idempotency_key": key}
+	return c.labExamCall(ctx, s, cr, http.MethodPost, id, "/activity", body, nil, "record your exam activity")
 }
 
 // PostLabExamResult sends a task's graded result. The body is the lab
-// session result's (result, idempotency_key, at). 409 wraps ErrExamState
-// (on a break, not started, abandoned), 410 ErrExamPastDeadline, 422
+// session result's (result, idempotency_key, at) plus source (switch,
+// submit, deadline, check or wake). Labs takes a result graded before the
+// end at any time, also after grading; it refuses one for good with 409
+// after_end (ErrExamAfterEnd), 409 on_break (ErrExamBreakResult) or 404
+// unknown_task (ErrExamUnknownTask). Other 409s wrap ErrExamState, 422
 // ErrExamUnavailable (not the task's lab).
-func (c *Client) PostLabExamResult(ctx context.Context, s Store, cr *Credentials, id string, position int, p ResultPost) error {
+func (c *Client) PostLabExamResult(ctx context.Context, s Store, cr *Credentials, id string, position int, p ResultPost, source string) error {
 	payload := map[string]any{"result": p.Result}
+	if source != "" {
+		payload["source"] = source
+	}
 	if p.Key != "" {
 		payload["idempotency_key"] = p.Key
 	}
@@ -262,12 +318,12 @@ func (c *Client) StopLabExamBreak(ctx context.Context, s Store, cr *Credentials,
 
 // SubmitLabExam ends the attempt as submitted.
 func (c *Client) SubmitLabExam(ctx context.Context, s Store, cr *Credentials, id string) (*LabExam, error) {
-	return c.examTransition(ctx, s, cr, id, "/submit", time.Time{}, "submit the lab exam")
+	return c.examTransition(ctx, s, cr, id, "/submit", time.Time{}, "submit the hands-on exam")
 }
 
 // AbandonLabExam ends the attempt without grading.
 func (c *Client) AbandonLabExam(ctx context.Context, s Store, cr *Credentials, id string) (*LabExam, error) {
-	return c.examTransition(ctx, s, cr, id, "/abandon", time.Time{}, "abandon the lab exam")
+	return c.examTransition(ctx, s, cr, id, "/abandon", time.Time{}, "abandon the hands-on exam")
 }
 
 func (c *Client) examTransition(ctx context.Context, s Store, cr *Credentials, id, path string, at time.Time, what string) (*LabExam, error) {
@@ -292,7 +348,7 @@ func (c *Client) labExamCall(ctx context.Context, s Store, cr *Credentials, meth
 	path := rest
 	if id != noAttempt {
 		if !uuidPattern.MatchString(id) {
-			return fmt.Errorf("%q is not a lab exam attempt id", id)
+			return fmt.Errorf("%q is not a hands-on exam attempt id", id)
 		}
 		path = "/" + url.PathEscape(id) + rest
 	}
@@ -353,7 +409,7 @@ func (c *Client) labExamCall(ctx context.Context, s Store, cr *Credentials, meth
 		case "unknown_exam":
 			return withMessage(ErrExamUnavailable, he.Message)
 		case "unknown_task":
-			return fmt.Errorf("%s couldn't %s: %s", cr.Site, what, he.Message)
+			return withMessage(ErrExamUnknownTask, he.Message)
 		}
 		return withMessage(ErrExamGone, he.Message)
 	case http.StatusConflict:
@@ -362,6 +418,10 @@ func (c *Client) labExamCall(ctx context.Context, s Store, cr *Credentials, meth
 			return withMessage(ErrBreakLimit, he.Message)
 		case "open_attempt":
 			return withMessage(ErrExamOpen, he.Message)
+		case "after_end":
+			return withMessage(ErrExamAfterEnd, he.Message)
+		case "on_break":
+			return withMessage(fmt.Errorf("%w: %w", ErrExamBreakResult, ErrExamState), he.Message)
 		}
 		return withMessage(ErrExamState, he.Message)
 	case http.StatusGone:

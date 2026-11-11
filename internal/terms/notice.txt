@@ -1,5 +1,5 @@
 Astrona CLI usage terms and risk notice
-Revision: 2026-11-10
+Revision: 2026-11-11
 
 Astrona runs lab software on your machine. It can execute downloaded scripts,
 change Kubernetes contexts and networks, and create or delete containers, virtual
@@ -24,6 +24,14 @@ While you are signed in and a lab runs, astrona sends that lab's CPU and memory
 use to your Astrona lab session, about every 15 seconds, to show it on your labs
 page. Run with --local-only, or turn it off with `astrona settings`, to send
 nothing.
+
+When you run a catalog lab or a playground signed out, astrona sends one report
+once it counts (a lab submitted, a playground destroyed) so Astrona's hands-on
+time includes guests: an anonymous install id, the lab id, the kind (lab or
+playground), the start and finish times, the time used and the CLI version;
+nothing else. The install id is a random number stored on this machine, never
+derived from it, and replaced by a new one at every astrona login and logout,
+so guest runs can't be linked to your account. --local-only sends nothing.
 
 By accepting, you acknowledge these risks and the license terms. Acceptance is
 stored only on this machine; it is not sent to Astrona or linked to your account.

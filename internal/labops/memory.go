@@ -92,11 +92,20 @@ func quoteArg(s string) string {
 // RememberLab records, once a lab is up, where its config came from and
 // the lab session it runs under (nil: none — e.g. a -c lab). The lab works
 // without it, so callers treat an error as a warning.
-func RememberLab(clusterName string, src *labstate.Source, localOnly bool, sess *labstate.Session) error {
+//
+// guest marks a signed-out catalog run whose one anonymous report goes to
+// Astrona once it counts (internal/guestrun); it is ignored for a run with
+// a session or --local-only.
+func RememberLab(clusterName string, src *labstate.Source, localOnly bool, sess *labstate.Session, guest bool) error {
+	guest = guest && sess == nil && !localOnly && src != nil && src.Catalog != ""
+	if guest {
+		PrepareGuestRun()
+	}
 	return labstate.Update(clusterName, func(s *labstate.State) {
 		s.Source = src
 		s.Session = sess
 		s.LocalOnly = localOnly
+		s.Guest = guest
 		s.StartedAt = time.Now().UTC().Format(time.RFC3339)
 	})
 }
@@ -171,8 +180,13 @@ func ForgetLab(w io.Writer, clusterName string, opts ForgetOptions) {
 	}
 	if st, err := labstate.Load(clusterName); err != nil {
 		ui.Fwarnf(w, "could not read completed run for history: %s", err)
-	} else if err := labstate.RecordFinishedRun(clusterName, st, time.Now()); err != nil {
-		ui.Fwarnf(w, "could not save completed run history: %s", err)
+	} else {
+		if err := labstate.RecordFinishedRun(clusterName, st, time.Now()); err != nil {
+			ui.Fwarnf(w, "could not save completed run history: %s", err)
+		}
+		if err := queueGuestRun(clusterName, st); err != nil {
+			ui.Fwarnf(w, "could not save this guest run's anonymous report: %s", err)
+		}
 	}
 	if opts.EndSession != nil {
 		opts.EndSession(clusterName)

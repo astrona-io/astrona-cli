@@ -18,7 +18,7 @@ import (
 	"astrona/internal/filelock"
 )
 
-// A full lab exam (`astrona exam`) runs X kind clusters prepared from the
+// A hands-on exam (`astrona hands-on-exam`) runs X kind clusters prepared from the
 // exam's cluster profile, with every drawn task's setup applied to the
 // cluster labs assigned it. Labs keeps the attempt and its clock; this
 // machine keeps only what it needs to find its clusters again, in
@@ -41,9 +41,9 @@ type ExamTaskRef struct {
 	Scope    string `json:"scope,omitempty"`
 }
 
-// ExamPendingResult is a graded task that could not be sent yet. It is sent
-// again, with the same key and grading time, by the next exam command or
-// the watchdog.
+// ExamPendingResult is a graded task an older astrona kept in the local
+// state to send later. They are moved to the exam queue (ExamSignal) when
+// it is next flushed.
 type ExamPendingResult struct {
 	Position int             `json:"position"`
 	Key      string          `json:"key"`
@@ -68,13 +68,24 @@ type ExamState struct {
 	PreviousContext string `json:"previousContext,omitempty"`
 	PreviousUnset   bool   `json:"previousUnset,omitempty"`
 
-	Current     int  `json:"current,omitempty"` // the task last shown with `astrona exam task`
+	Current     int  `json:"current,omitempty"` // the task last shown with `astrona hands-on-exam task`
 	Ready       bool `json:"ready,omitempty"`   // every cluster built and every setup applied
 	Paused      bool `json:"paused,omitempty"`  // the node containers are paused for a break
 	WatchdogPID int  `json:"watchdogPid,omitempty"`
-	// Ended: the clusters are gone; the file is kept only for Pending.
+	// Ended: the clusters are gone; an older astrona kept the file only for
+	// Pending. Today the file goes with the clusters.
 	Ended bool `json:"ended,omitempty"`
+	// Graded: this machine graded every task at the end (submit, deadline
+	// or wake), so a wake after the deadline doesn't grade them again.
+	Graded bool `json:"graded,omitempty"`
+	// Notified is the countdown notice (minutes left: 60, 30, 15, 5, 1) the
+	// watchdog last showed; 0 before the first.
+	Notified int `json:"notified,omitempty"`
+	// LastActivity is when activity was last reported to labs (at most once
+	// a minute).
+	LastActivity time.Time `json:"lastActivity,omitzero"`
 
+	// Pending is an older astrona's unsent results (see ExamPendingResult).
 	Pending   []ExamPendingResult `json:"pending,omitempty"`
 	CreatedAt time.Time           `json:"createdAt"`
 }

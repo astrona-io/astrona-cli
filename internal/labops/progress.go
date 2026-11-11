@@ -94,7 +94,7 @@ const (
 
 // ProgressKeepalive is how long a step may go without being sent again
 // while it lasts (see stepQueue). Labs' stall sweep is 45 minutes for a
-// lab session and 15 for a lab exam's preparation.
+// lab session and 15 for a hands-on exam's preparation.
 var ProgressKeepalive = 5 * time.Minute
 
 // newStepQueue starts a queue that hands each step to send.

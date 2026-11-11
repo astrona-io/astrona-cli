@@ -75,6 +75,21 @@ class AstronaLib:
             self._home = None
 
     @keyword
+    def read_profile_file(self, env, name):
+        """Return the stripped text of ``name`` in the profile home of the HOME
+        in ``env`` (~/.astrona-dev for development builds, else ~/.astrona);
+        fails when neither has it."""
+        home = env.get("HOME") or os.path.expanduser("~")
+        tried = []
+        for profile in (".astrona-dev", ".astrona"):
+            path = os.path.join(home, profile, name)
+            tried.append(path)
+            if os.path.isfile(path):
+                with open(path, encoding="utf-8") as f:
+                    return f.read().strip()
+        raise AssertionError(f"{name} is not in the profile home: tried {', '.join(tried)}")
+
+    @keyword
     def parse_json_output(self, text):
         """Parse astrona's JSON stdout; fails with the text when it is not JSON."""
         try:

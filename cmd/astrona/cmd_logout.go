@@ -10,7 +10,9 @@ import (
 
 	"astrona/internal/account"
 	"astrona/internal/apphome"
+	"astrona/internal/guestrun"
 	"astrona/internal/labops"
+	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -28,7 +30,9 @@ func newLogoutCmd() *cobra.Command {
 			"`astrona login` again; labs that are already running keep running, but their usage reporters stop: " +
 			"no more CPU and memory samples are sent for them. Samples not sent yet wait on this computer until " +
 			"you sign in again (or are dropped when `astrona settings set usage-samples no` is set). " +
-			"A playground's watchdog keeps running so the playground is still removed at its time limit.",
+			"A playground's watchdog keeps running so the playground is still removed at its time limit. " +
+			"The anonymous install id that signed-out runs report with is replaced by a new random one, so " +
+			"later guest runs can't be linked to the account.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, store, _, err := labops.AccountDeps()
@@ -66,6 +70,11 @@ func logout(client *account.Client, store account.Store) error {
 	}
 	if _, err := store.Delete(); err != nil {
 		return err
+	}
+	// Guest runs after the sign-out never share the anonymous install id of
+	// the ones before or during the sign-in.
+	if err := guestrun.RotateInstallID(); err != nil {
+		ui.Warnf("could not replace the anonymous install id: %s", err)
 	}
 	// The reporters post with this sign-in: none keeps sending after it.
 	stopped := labops.StopUsageReporters()

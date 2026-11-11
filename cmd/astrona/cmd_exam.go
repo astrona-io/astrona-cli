@@ -31,31 +31,32 @@ const examParallelDefault = settings.MaxParallel
 
 func newExamCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "exam",
-		Short: "Take a full lab exam: several tasks on prepared clusters, against the clock",
-		Long: `Take a full lab exam, such as the CKS practice exam, on this computer.
+		Use:     "hands-on-exam",
+		Aliases: []string{"exam"},
+		Short:   "Take a hands-on exam: several tasks on prepared clusters, against the clock",
+		Long: `Take a hands-on exam, such as the CKS practice exam, on this computer.
 
-astrona exam start <exam> checks that the exam's clusters fit your container
+astrona hands-on-exam start <exam> checks that the exam's clusters fit your container
 engine, draws the tasks, builds the clusters in parallel and applies every
 task's setup. The clock does not run while it prepares: it starts when you
 press Begin exam on the exam page. Each task names the kubectl context to use
 (exam-1, exam-2, ...); switching to it is up to you, as in the real exam.
 
 Work on the tasks in any order. Take up to the exam's number of breaks
-(astrona exam break); a break pauses every exam cluster. astrona exam submit,
+(astrona hands-on-exam break); a break pauses every exam cluster. astrona hands-on-exam submit,
 or the deadline, grades every task on its cluster, sends the results and
 deletes the clusters. Results show on the exam page.`,
-		Example: `  astrona exam start cks
-  astrona exam status
-  astrona exam task 3
-  astrona exam next
-  astrona exam break
-  astrona exam resume
-  astrona exam submit`,
+		Example: `  astrona hands-on-exam start cks
+  astrona hands-on-exam status
+  astrona hands-on-exam task 3
+  astrona hands-on-exam next
+  astrona hands-on-exam break
+  astrona hands-on-exam resume
+  astrona hands-on-exam submit`,
 	}
 	cmd.AddCommand(
 		newExamStartCmd(flags),
-		newExamStatusCmd(),
+		newExamStatusCmd(flags),
 		newExamTaskCmd(flags),
 		newExamStepCmd(flags, "next", 1),
 		newExamStepCmd(flags, "prev", -1),
@@ -72,8 +73,8 @@ func newExamStartCmd(flags *rootFlags) *cobra.Command {
 	parallel := examParallelDefault
 	cmd := &cobra.Command{
 		Use:   "start <exam>",
-		Short: "Prepare a full lab exam's clusters and open the exam page",
-		Long: `Prepare a full lab exam on this computer.
+		Short: "Prepare a hands-on exam's clusters and open the exam page",
+		Long: `Prepare a hands-on exam on this computer.
 
 The exam's clusters must fit within 75% of your container engine's memory,
 counting other kind clusters that are running; if they don't, nothing is
@@ -85,8 +86,8 @@ deleted and the attempt is not counted.
 The clock starts when you press Begin exam on the exam page, not before. A
 watchdog keeps running in the background: it pauses and unpauses the clusters
 for breaks, and at the deadline grades every task and deletes the clusters.`,
-		Example: `  astrona exam start cks
-  astrona exam start cks --parallel 2`,
+		Example: `  astrona hands-on-exam start cks
+  astrona hands-on-exam start cks --parallel 2`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := settings.ValidateParallel(parallel); err != nil {
@@ -109,19 +110,25 @@ func examStart(ctx context.Context, out, warn io.Writer, flags *rootFlags, exam 
 	}
 	if st, err := labops.LoadExamState(); err != nil {
 		return err
-	} else if st != nil {
-		if !st.Ended {
-			return fmt.Errorf("%w on this computer (%s): astrona exam status shows it, astrona exam resume reattaches to it, astrona exam abandon ends it", account.ErrExamOpen, examTitle(st))
+	} else if st != nil && !st.Ended {
+		// It may have ended while this computer was asleep or off: grade
+		// and clean it up first.
+		ex, err := api.Get(ctx, st.ID)
+		if err != nil || ex.Open() {
+			return fmt.Errorf("%w on this computer (%s): astrona hands-on-exam status shows it, astrona hands-on-exam resume reattaches to it, astrona hands-on-exam abandon ends it", account.ErrExamOpen, examTitle(st))
 		}
-		labops.FlushExamResults(ctx, api, warn)
+		if err := examEndedHere(ctx, out, flags, api, st, ex); err != nil {
+			return err
+		}
 	}
+	labops.FlushExamQueue(ctx, warn)
 
 	avail, err := api.Available(ctx, exam)
 	if err != nil {
 		return examAPIError(err)
 	}
 	if avail.OpenAttempt != nil && avail.OpenAttempt.Open() {
-		return fmt.Errorf("%w (%s, %s): continue it with astrona exam resume %s, or end it with astrona exam abandon", account.ErrExamOpen, avail.OpenAttempt.Title, avail.OpenAttempt.State, exam)
+		return fmt.Errorf("%w (%s, %s): continue it with astrona hands-on-exam resume %s, or end it with astrona hands-on-exam abandon", account.ErrExamOpen, avail.OpenAttempt.Title, avail.OpenAttempt.State, exam)
 	}
 	if !avail.Available {
 		reason := avail.UnavailableReason
@@ -198,7 +205,7 @@ func prepareAttempt(ctx context.Context, out, warn io.Writer, api *labops.ExamAP
 			// The clock runs: a cluster that can't be rebuilt is the
 			// student's to retry, the attempt stays as it is.
 			rep.Close()
-			return fmt.Errorf("could not rebuild the exam clusters (try astrona exam resume again): %w", err)
+			return fmt.Errorf("could not rebuild the exam clusters (try astrona hands-on-exam resume again): %w", err)
 		}
 		reason := err.Error()
 		if errors.Is(err, context.Canceled) {
@@ -223,11 +230,11 @@ func prepareAttempt(ctx context.Context, out, warn io.Writer, api *labops.ExamAP
 	st.Ready = true
 	if preparing {
 		if err := api.Progress(context.WithoutCancel(ctx), st.ID, "ready", fmt.Sprintf("All %d clusters are ready", len(st.Clusters)), 0); err != nil {
-			rep.Warn("could not tell Astrona the exam is ready: %s (astrona exam resume tries again)", err)
+			rep.Warn("could not tell Astrona the exam is ready: %s (astrona hands-on-exam resume tries again)", err)
 		}
 	}
 	if _, err := labops.StartExamWatchdog(st); err != nil {
-		rep.Warn("could not start the exam watchdog: %s — run astrona exam resume", err)
+		rep.Warn("could not start the exam watchdog: %s — run astrona hands-on-exam resume", err)
 	}
 	rep.Close()
 
@@ -246,29 +253,32 @@ func prepareAttempt(ctx context.Context, out, warn io.Writer, api *labops.ExamAP
 			fmt.Fprintln(out, "Opened the exam page in your browser.")
 		}
 	}
-	fmt.Fprintln(out, "Then: astrona exam task 1 shows the first task; astrona exam status shows them all.")
+	fmt.Fprintln(out, "Then: astrona hands-on-exam task 1 shows the first task; astrona hands-on-exam status shows them all.")
 	return nil
 }
 
-func newExamStatusCmd() *cobra.Command {
+func newExamStatusCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show the exam's state, time left, breaks and tasks",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			st, api, err := loadExam()
+			st, api, err := loadExam(cmd.Context(), cmd.ErrOrStderr())
 			if err != nil {
 				return err
 			}
 			out := cmd.OutOrStdout()
-			left := labops.FlushExamResults(cmd.Context(), api, cmd.ErrOrStderr())
+			left := labops.ExamQueueLen(st.ID, true)
 			if st.Ended {
-				fmt.Fprintf(out, "%s has ended; its clusters are deleted. %d result(s) still to send (sent by the next astrona exam command).\n", examTitle(st), left)
+				fmt.Fprintf(out, "%s has ended; its clusters are deleted. %d result(s) still to send (sent in the background, and by any astrona command).\n", examTitle(st), left)
 				return nil
 			}
 			ex, err := api.Get(cmd.Context(), st.ID)
 			if err != nil {
 				return examAPIError(err)
+			}
+			if !ex.Open() {
+				return examEndedHere(cmd.Context(), out, flags, api, st, ex)
 			}
 			printExamStatus(out, st, ex, left)
 			return nil
@@ -276,7 +286,54 @@ func newExamStatusCmd() *cobra.Command {
 	}
 }
 
+// examEndedHere handles an attempt that ended on Astrona while no watchdog
+// followed it here (this computer was asleep or off): if this computer
+// never graded the end, every task is graded now as of the end (source
+// wake: nothing can have changed while it slept), then the clusters are
+// deleted.
+func examEndedHere(ctx context.Context, out io.Writer, flags *rootFlags, api *labops.ExamAPI, st *labops.ExamState, ex *account.LabExam) error {
+	labops.StopExamWatchdog(st)
+	if _, err := examWatch(api, st.ID, flags, out).Once(ctx, st); err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "%s has ended (%s); its clusters are deleted. Your result: %s\n", examTitle(st), examEndText(ex), examPageURL(st))
+	return nil
+}
+
+// examEndText says how an ended attempt ended and whether it counts.
+func examEndText(ex *account.LabExam) string {
+	text := ex.State
+	switch ex.EndReason {
+	case "submitted":
+		text = "submitted"
+	case "abandoned":
+		text = "ended early"
+	case "time_up":
+		text = "time up"
+	case "inactive":
+		text = "cancelled: no activity before time ran out"
+	}
+	if ex.Counted != nil && !*ex.Counted && ex.EndReason != "inactive" {
+		text += ", not counted"
+	}
+	return text
+}
+
 func printExamStatus(out io.Writer, st *labops.ExamState, ex *account.LabExam, pending int) {
+	if ex.State == "running" || ex.State == "on_break" {
+		// The time left comes first and stands out: it is what a student
+		// checks most.
+		left := max(time.Duration(ex.RemainingSeconds)*time.Second, 0)
+		line := "TIME LEFT  " + examClock(left)
+		if d, ok := ex.Deadline(); ok {
+			line += "  (until " + d.Local().Format("15:04") + ")"
+		}
+		if ex.State == "on_break" {
+			line += "  — clock stopped for a break"
+		}
+		bar := strings.Repeat("=", len([]rune(line))+4)
+		fmt.Fprintf(out, "%s\n  %s\n%s\n\n", bar, line, bar)
+	}
 	fmt.Fprintf(out, "%s: %s\n", examTitle(st), examStateText(ex.State))
 	switch ex.State {
 	case "preparing":
@@ -286,20 +343,12 @@ func printExamStatus(out io.Writer, st *labops.ExamState, ex *account.LabExam, p
 	case "ready":
 		fmt.Fprintf(out, "Press Begin exam on the exam page to start the clock: %s\n", examPageURL(st))
 	}
-	if ex.State == "running" || ex.State == "on_break" {
-		left := time.Duration(ex.RemainingSeconds) * time.Second
-		line := "Time left: " + left.Round(time.Second).String()
-		if d, ok := ex.Deadline(); ok {
-			line += " (until " + d.Local().Format("15:04") + ")"
-		}
-		fmt.Fprintln(out, line)
-	}
 	if ex.Breaks.Max > 0 {
 		fmt.Fprintf(out, "Breaks: %d of %d used, each up to %d minutes\n", ex.Breaks.Used, ex.Breaks.Max, ex.Breaks.LimitSeconds/60)
 	}
 	if ex.State == "on_break" && ex.Breaks.Current != nil {
 		if t, err := time.Parse(time.RFC3339Nano, ex.Breaks.Current.EndsAt); err == nil {
-			fmt.Fprintf(out, "On a break until %s; astrona exam resume ends it now\n", t.Local().Format("15:04"))
+			fmt.Fprintf(out, "On a break until %s; astrona hands-on-exam resume ends it now\n", t.Local().Format("15:04"))
 		}
 	}
 	paused := ""
@@ -322,8 +371,14 @@ func printExamStatus(out io.Writer, st *labops.ExamState, ex *account.LabExam, p
 		fmt.Fprintf(out, "\n%d graded result(s) waiting to be sent.\n", pending)
 	}
 	if !labops.ExamWatchdogAlive(st) {
-		fmt.Fprintln(out, "\nThe exam watchdog is not running: astrona exam resume restarts it.")
+		fmt.Fprintln(out, "\nThe exam watchdog is not running: astrona hands-on-exam resume restarts it.")
 	}
+}
+
+// examClock is d as h:mm:ss.
+func examClock(d time.Duration) string {
+	sec := int(d.Round(time.Second) / time.Second)
+	return fmt.Sprintf("%d:%02d:%02d", sec/3600, sec/60%60, sec%60)
 }
 
 func newExamTaskCmd(flags *rootFlags) *cobra.Command {
@@ -336,7 +391,7 @@ astrona does not switch the context for you: run the kubectl config
 use-context command the task names. Moving to another task quietly grades the
 one you leave, so a recent score is kept if your computer fails; you see no
 result until the exam is graded.`,
-		Example: "  astrona exam task 7",
+		Example: "  astrona hands-on-exam task 7",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			n, err := strconv.Atoi(args[0])
@@ -379,14 +434,13 @@ func newExamStepCmd(flags *rootFlags, name string, delta int) *cobra.Command {
 // quietly grades the task left.
 func examShowTask(cmd *cobra.Command, flags *rootFlags, pick func(current, count int) (int, error)) error {
 	ctx := cmd.Context()
-	st, api, err := loadExam()
+	st, api, err := loadExam(ctx, cmd.ErrOrStderr())
 	if err != nil {
 		return err
 	}
 	if st.Ended {
 		return fmt.Errorf("%s has ended", examTitle(st))
 	}
-	labops.FlushExamResults(ctx, api, cmd.ErrOrStderr())
 	ex, err := api.Get(ctx, st.ID)
 	if err != nil {
 		return examAPIError(err)
@@ -398,7 +452,7 @@ func examShowTask(cmd *cobra.Command, flags *rootFlags, pick func(current, count
 	case "preparing", "ready":
 		return fmt.Errorf("the exam hasn't started: press Begin exam on the exam page (%s)", examPageURL(st))
 	default:
-		return fmt.Errorf("%s has ended (%s)", examTitle(st), ex.State)
+		return examEndedHere(ctx, cmd.OutOrStdout(), flags, api, st, ex)
 	}
 	n, err := pick(st.Current, len(ex.Tasks))
 	if err != nil {
@@ -420,7 +474,8 @@ func examShowTask(cmd *cobra.Command, flags *rootFlags, pick func(current, count
 	}); err != nil {
 		return err
 	}
-	if err := api.OpenTask(ctx, st.ID, n); err != nil {
+	// Sent through the exam queue: offline, it goes out later.
+	if err := labops.SignalExam(ctx, labops.ExamSignal{Attempt: st.ID, Site: api.Site, Kind: labops.ExamSignalOpen, Position: n, At: time.Now()}, cmd.ErrOrStderr()); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Could not record the switch to task %d: %s\n", n, err)
 	}
 	if left != 0 && left != n {
@@ -428,7 +483,7 @@ func examShowTask(cmd *cobra.Command, flags *rootFlags, pick func(current, count
 			at := time.Now()
 			result, err := labops.GradeExamTask(ctx, st, ref, examLabLoader(flags), at)
 			if err == nil {
-				_, err = labops.SendExamResult(context.WithoutCancel(ctx), api, st, left, result, at)
+				_, err = labops.SendExamResult(context.WithoutCancel(ctx), api, st, left, result, at, account.ResultSwitch)
 			}
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Could not save task %d's progress now (it is graded again at submit): %s\n", left, err)
@@ -457,18 +512,33 @@ func newExamBreakCmd() *cobra.Command {
 		Short: "Start a break: the clock stops and every exam cluster is paused",
 		Long: `Start a break. The exam's clock stops, and the node containers of every exam
 cluster are paused, so kubectl against an exam context waits until the break
-ends. A break ends with astrona exam resume, or by itself when its time limit
+ends. A break ends with astrona hands-on-exam resume, or by itself when its time limit
 is reached. Tasks are not graded during a break.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			st, api, err := loadExam()
+			st, api, err := loadExam(ctx, cmd.ErrOrStderr())
 			if err != nil {
 				return err
 			}
-			ex, err := api.StartBreak(ctx, st.ID, time.Now())
+			out := cmd.OutOrStdout()
+			at := time.Now()
+			ex, err := api.StartBreak(ctx, st.ID, at)
 			if errors.Is(err, account.ErrBreakLimit) {
 				return fmt.Errorf("%w: every break of this exam is used", account.ErrBreakLimit)
+			}
+			if err != nil && !labops.ExamAnswered(err) {
+				// Astrona wasn't reached: the break starts here now and
+				// Astrona is told, with this time, once it answers.
+				if qerr := labops.QueueExamSignal(labops.ExamSignal{Attempt: st.ID, Site: api.Site, Kind: labops.ExamSignalBreakStart, At: at}); qerr != nil {
+					return examAPIError(err)
+				}
+				labops.StartOutboxFlusher()
+				if err := labops.PauseExam(st, true); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "Some clusters could not be paused: %s\n", err)
+				}
+				fmt.Fprintf(out, "Break started on this computer; the exam clusters are paused. Astrona couldn't be reached (%s): it is told when it answers, with the time the break started.\n", err)
+				return nil
 			}
 			if err != nil {
 				return examAPIError(err)
@@ -476,10 +546,9 @@ is reached. Tasks are not graded during a break.`,
 			if err := labops.PauseExam(st, true); err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "The break started, but some clusters could not be paused: %s\n", err)
 			}
-			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "Break %d of %d started; the clock is stopped and the exam clusters are paused.\n", ex.Breaks.Used, ex.Breaks.Max)
 			if ex.Breaks.LimitSeconds > 0 {
-				fmt.Fprintf(out, "It ends after %d minutes at most. astrona exam resume ends it now.\n", ex.Breaks.LimitSeconds/60)
+				fmt.Fprintf(out, "It ends after %d minutes at most. astrona hands-on-exam resume ends it now.\n", ex.Breaks.LimitSeconds/60)
 			}
 			return nil
 		},
@@ -500,8 +569,8 @@ rebuilt cluster is lost, and the clock keeps running while it rebuilds.
 
 To continue an exam started on another computer, name the exam: every
 cluster is prepared again here.`,
-		Example: `  astrona exam resume
-  astrona exam resume cks`,
+		Example: `  astrona hands-on-exam resume
+  astrona hands-on-exam resume cks`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := settings.ValidateParallel(parallel); err != nil {
@@ -525,21 +594,20 @@ func examResume(ctx context.Context, out, warn io.Writer, flags *rootFlags, exam
 	if err != nil {
 		return err
 	}
+	if st != nil && !st.Ended {
+		_ = labops.NoteExamActivity(st, time.Now())
+	}
+	labops.FlushExamQueue(ctx, warn)
 	if st != nil && st.Ended {
-		api, err := labops.NewExamAPI(st.Site)
-		if err != nil {
-			return err
-		}
-		left := labops.FlushExamResults(ctx, api, warn)
 		if exam == "" {
-			fmt.Fprintf(out, "%s has ended. %d result(s) still to send.\n", examTitle(st), left)
+			fmt.Fprintf(out, "%s has ended. %d result(s) still to send.\n", examTitle(st), labops.ExamQueueLen(st.ID, true))
 			return nil
 		}
 		st = nil
 	}
 	if st == nil {
 		if exam == "" {
-			return errors.New("no exam on this computer. To continue one started elsewhere, name it: astrona exam resume <exam>")
+			return errors.New("no exam on this computer. To continue one started elsewhere, name it: astrona hands-on-exam resume <exam>")
 		}
 		return examAdopt(ctx, out, warn, flags, exam, parallel)
 	}
@@ -550,24 +618,32 @@ func examResume(ctx context.Context, out, warn io.Writer, flags *rootFlags, exam
 	if err != nil {
 		return err
 	}
-	labops.FlushExamResults(ctx, api, warn)
 	ex, err := api.Get(ctx, st.ID)
+	if err != nil && st.Paused && !labops.ExamAnswered(err) {
+		// Astrona isn't reached and the break is on here: end it here,
+		// and tell Astrona when it answers.
+		if qerr := labops.QueueExamSignal(labops.ExamSignal{Attempt: st.ID, Site: api.Site, Kind: labops.ExamSignalBreakStop, At: time.Now()}); qerr != nil {
+			return examAPIError(err)
+		}
+		labops.StartOutboxFlusher()
+		if err := labops.PauseExam(st, false); err != nil {
+			fmt.Fprintf(warn, "Some exam clusters could not be unpaused: %s\n", err)
+		}
+		fmt.Fprintf(out, "Break over on this computer; the exam clusters run again. Astrona couldn't be reached (%s): it is told when it answers, with the time the break ended.\n", err)
+		return nil
+	}
 	if err != nil {
 		return examAPIError(err)
 	}
 	if !ex.Open() {
-		labops.StopExamWatchdog(st)
-		w := examWatch(api, st.ID, flags, out)
-		if _, err := w.Once(ctx, st); err != nil {
-			return err
-		}
-		fmt.Fprintf(out, "%s has ended (%s); its clusters are deleted.\n", examTitle(st), ex.State)
-		return nil
+		return examEndedHere(ctx, out, flags, api, st, ex)
 	}
 	if ex.State == "on_break" {
-		if ex, err = api.StopBreak(ctx, st.ID, time.Now()); err != nil {
+		next, err := api.StopBreak(ctx, st.ID, time.Now())
+		if err != nil {
 			return examAPIError(err)
 		}
+		ex = next
 		fmt.Fprintln(out, "Break over; the clock runs again.")
 	}
 	if st.Paused {
@@ -607,7 +683,7 @@ func examAdopt(ctx context.Context, out, warn io.Writer, flags *rootFlags, exam 
 		return examAPIError(err)
 	}
 	if avail.OpenAttempt == nil || !avail.OpenAttempt.Open() {
-		return fmt.Errorf("you have no open %s exam; start one with astrona exam start %s", exam, exam)
+		return fmt.Errorf("you have no open %s exam; start one with astrona hands-on-exam start %s", exam, exam)
 	}
 	ex, err := api.Get(ctx, avail.OpenAttempt.ID)
 	if err != nil {
@@ -664,13 +740,15 @@ func newExamSubmitCmd(flags *rootFlags) *cobra.Command {
 		Long: `End the exam now. Every task is graded on its cluster and the results are sent;
 then the exam clusters and the exam-<n> contexts are deleted, and kubectl goes
 back to the context you had before the exam. The score shows on the exam
-page. Results that can't be sent now are kept and sent by the next astrona
-exam command.`,
+page. Results that can't be sent now are kept on this computer and sent as
+soon as Astrona answers: in the background, and by any astrona command.
+Astrona takes them however late they arrive, as long as they were graded
+before the exam ended.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
-			st, api, err := loadExam()
+			st, api, err := loadExam(ctx, cmd.ErrOrStderr())
 			if err != nil {
 				return err
 			}
@@ -686,9 +764,9 @@ exam command.`,
 			case "on_break":
 				return labops.ErrExamOnBreak
 			case "preparing", "ready":
-				return errors.New("the exam hasn't started, so there is nothing to submit: astrona exam abandon ends it")
+				return errors.New("the exam hasn't started, so there is nothing to submit: astrona hands-on-exam abandon ends it")
 			default:
-				return fmt.Errorf("%s has already ended (%s): astrona exam resume cleans up", examTitle(st), ex.State)
+				return examEndedHere(ctx, cmd.OutOrStdout(), flags, api, st, ex)
 			}
 			if !yes && !confirmYes(os.Stdin, promptOut, "Submit the exam? Every task is graded now and the exam clusters are deleted.") {
 				return errors.New("not submitted")
@@ -700,7 +778,7 @@ exam command.`,
 				return err
 			}
 			defer rep.Close()
-			sum := labops.GradeAndSendExam(ctx, api, st, examLabLoader(flags), time.Now(), rep)
+			sum := labops.GradeAndSendExam(ctx, api, st, examLabLoader(flags), time.Now(), account.ResultSubmit, rep)
 			if err := labops.TeardownExam(st, rep); err != nil {
 				rep.Warn("some exam clusters could not be deleted: %s", err)
 			}
@@ -710,7 +788,7 @@ exam command.`,
 			rep.Close()
 			fmt.Fprintf(out, "\nExam submitted: %d task(s) graded", sum.Graded)
 			if sum.Queued > 0 {
-				fmt.Fprintf(out, ", %d waiting to be sent (the next astrona exam command sends them)", sum.Queued)
+				fmt.Fprintf(out, ", %d waiting to be sent (sent in the background, and by any astrona command, as soon as Astrona answers)", sum.Queued)
 			}
 			fmt.Fprintln(out, ".")
 			for _, f := range sum.Failed {
@@ -728,19 +806,21 @@ func newExamAbandonCmd() *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
 		Use:   "abandon",
-		Short: "End the exam now, without grading the tasks again, and delete its clusters",
-		Long: `End the exam now and delete the exam clusters and contexts. The tasks are not
-graded again: an exam abandoned after Begin exam is scored from the results
-already sent (each task is graded quietly when you move away from it). One
-abandoned before Begin exam is cancelled and doesn't count.`,
+		Short: "End the exam early: scored from the results so far, it counts as an attempt",
+		Long: `End the exam now and delete the exam clusters and contexts.
+
+After Begin exam, the exam ends now and is scored from the results sent so
+far (each task is graded quietly when you move away from it); the tasks are
+not graded again. It counts as an attempt. Before Begin exam it is
+cancelled and doesn't count.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			st, api, err := loadExam()
+			st, api, err := loadExam(ctx, cmd.ErrOrStderr())
 			if err != nil {
 				return err
 			}
-			if !yes && !confirmYes(os.Stdin, promptOut, fmt.Sprintf("Abandon %s? Nothing is graded and the exam clusters are deleted.", examTitle(st))) {
+			if !yes && !confirmYes(os.Stdin, promptOut, fmt.Sprintf("End %s now? It is scored from the results sent so far and counts as an attempt (before Begin exam it is cancelled and doesn't count). The exam clusters are deleted.", examTitle(st))) {
 				return errors.New("not abandoned")
 			}
 			labops.StopExamWatchdog(st)
@@ -758,12 +838,12 @@ abandoned before Begin exam is cancelled and doesn't count.`,
 			rep.Close()
 			if terr != nil {
 				// Keep the record so running abandon again finds the rest.
-				return fmt.Errorf("the exam is abandoned, but some of its clusters could not be deleted; run astrona exam abandon again: %w", terr)
+				return fmt.Errorf("the exam is abandoned, but some of its clusters could not be deleted; run astrona hands-on-exam abandon again: %w", terr)
 			}
 			if err := labops.RemoveExamState(); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "Exam abandoned; its clusters are deleted.")
+			fmt.Fprintln(cmd.OutOrStdout(), "Exam ended: it is scored from the results sent so far and counts as an attempt (cancelled instead if Begin exam was never pressed). Its clusters are deleted.")
 			return nil
 		},
 	}
@@ -771,12 +851,12 @@ abandoned before Begin exam is cancelled and doesn't count.`,
 	return cmd
 }
 
-// newExamWatchdogCmd is the detached helper astrona exam start leaves
+// newExamWatchdogCmd is the detached helper astrona hands-on-exam start leaves
 // running (labops.ExamWatch).
 func newExamWatchdogCmd(flags *rootFlags) *cobra.Command {
 	return &cobra.Command{
 		Use:    labops.ExamWatchdogCommand + " <attempt>",
-		Short:  "Follow a full lab exam's clock and breaks (started by astrona exam start)",
+		Short:  "Follow a hands-on exam's clock and breaks (started by astrona hands-on-exam start)",
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -800,7 +880,7 @@ func newExamWatchdogCmd(flags *rootFlags) *cobra.Command {
 
 func examWatch(api *labops.ExamAPI, id string, flags *rootFlags, out io.Writer) labops.ExamWatch {
 	return labops.ExamWatch{
-		API: api, ID: id, Load: examLabLoader(flags), Tick: 15 * time.Second, Out: out, FlushFor: 15 * time.Minute,
+		API: api, ID: id, Load: examLabLoader(flags), Tick: 15 * time.Second, Out: out,
 		// The watchdog holds no data lock while it waits; grading loads labs
 		// from cached checkouts, so it takes the shared lock for that.
 		WithLock: func(ctx context.Context, fn func() error) error {
@@ -864,19 +944,25 @@ func examVersionGate(constraint string, _ bool, _ func() error) error {
 	return fmt.Errorf("this exam has a lab that needs astrona %s; update astrona (astrona update) and try again", c)
 }
 
-// loadExam is the local attempt and the account it belongs to.
-func loadExam() (*labops.ExamState, *labops.ExamAPI, error) {
+// loadExam is the local attempt and the account it belongs to. Every exam
+// command counts as the student's activity (reported at most once a
+// minute), and sends what waits in the exam queue first.
+func loadExam(ctx context.Context, warn io.Writer) (*labops.ExamState, *labops.ExamAPI, error) {
 	st, err := labops.LoadExamState()
 	if err != nil {
 		return nil, nil, err
 	}
 	if st == nil {
-		return nil, nil, errors.New("no exam on this computer: astrona exam start <exam> starts one, astrona exam resume <exam> continues one started elsewhere")
+		return nil, nil, errors.New("no exam on this computer: astrona hands-on-exam start <exam> starts one, astrona hands-on-exam resume <exam> continues one started elsewhere")
 	}
 	api, err := labops.NewExamAPI(st.Site)
 	if err != nil {
 		return nil, nil, err
 	}
+	if err := labops.NoteExamActivity(st, time.Now()); err != nil {
+		fmt.Fprintf(warn, "Could not note your exam activity: %s\n", err)
+	}
+	labops.FlushExamQueue(ctx, warn)
 	return st, api, nil
 }
 
@@ -903,14 +989,19 @@ func examTitle(st *labops.ExamState) string {
 }
 
 // examPageURL is the attempt's page: the address labs gave, when it is a
-// safe one, else the site's /labs/exam/<id>.
+// safe one, else the site's /labs/hands-on-exam/<id>. An address on the
+// old /labs/exam/ path (an older labs, or an attempt started before the
+// move) is opened on the new path; the site redirects the old one too.
 func examPageURL(st *labops.ExamState) string {
 	if st.URL != "" {
 		if u, err := labops.ValidateOpenURL(st.URL); err == nil {
+			if rest, ok := strings.CutPrefix(u.Path, "/labs/exam/"); ok {
+				u.Path = "/labs/hands-on-exam/" + rest
+			}
 			return u.String()
 		}
 	}
-	return strings.TrimRight(st.Site, "/") + "/labs/exam/" + st.ID
+	return strings.TrimRight(st.Site, "/") + "/labs/hands-on-exam/" + st.ID
 }
 
 func examStateText(state string) string {
@@ -939,7 +1030,7 @@ func examAPIError(err error) error {
 	case errors.Is(err, account.ErrSignedOut):
 		return fmt.Errorf("%w: sign in with astrona login first", err)
 	case errors.Is(err, account.ErrExamGone):
-		return fmt.Errorf("%w; astrona exam abandon cleans up this computer", err)
+		return fmt.Errorf("%w; astrona hands-on-exam abandon cleans up this computer", err)
 	}
 	return err
 }
