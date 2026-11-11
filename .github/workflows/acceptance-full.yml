@@ -88,6 +88,106 @@ jobs:
           name: oat-report-kind
           path: oat-report-*-kind.zip
 
+  terminal:
+    name: Acceptance full (terminal, ${{ matrix.engine }})
+    runs-on: ubuntu-latest
+    # One kind lab per engine; the shell's workspace must work on each.
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [docker, podman-rootful, podman-rootless]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.3
+
+      - name: Build astrona
+        env:
+          VERSION: ${{ inputs.version || 'developer' }}
+        run: go build -ldflags "-X main.Version=$VERSION" -o astrona ./cmd/astrona
+
+      - name: Install kubectl
+        run: |
+          version="$(curl -L -s https://dl.k8s.io/release/stable.txt)"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+      - name: Install kind
+        run: go install sigs.k8s.io/kind@v0.32.0
+
+      # Docker stays off on the Podman legs, so engine detection cannot pick it.
+      - name: Install Podman
+        if: matrix.engine != 'docker'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+          sudo systemctl stop docker.service docker.socket
+          podman --version
+
+      # Rootless kind needs the user's systemd to delegate every cgroup
+      # controller, the iptables modules loaded by root, and unprivileged
+      # user namespaces (Ubuntu restricts them through AppArmor).
+      - name: Prepare rootless Podman
+        if: matrix.engine == 'podman-rootless'
+        run: |
+          sudo mkdir -p /etc/systemd/system/user@.service.d
+          printf '[Service]\nDelegate=yes\n' | sudo tee /etc/systemd/system/user@.service.d/delegate.conf
+          sudo systemctl daemon-reload
+          sudo modprobe -a ip6_tables ip6table_nat ip_tables iptable_nat
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo loginctl enable-linger "$(id -u)"
+          sudo systemctl restart "user@$(id -u).service"
+          until [ -S "/run/user/$(id -u)/bus" ]; do sleep 1; done
+          echo "XDG_RUNTIME_DIR=/run/user/$(id -u)" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus" >> "$GITHUB_ENV"
+          cat "/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers"
+
+      - name: Robot Framework terminal suite
+        env:
+          ENGINE: ${{ matrix.engine }}
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          robot=(uv run --with-requirements acceptance/requirements.txt
+            robot --include terminal --variable "ENGINE:$ENGINE"
+            --outputdir oat-report --xunit xunit.xml acceptance/suites)
+          case "$ENGINE" in
+            docker) KIND_EXPERIMENTAL_PROVIDER=docker "${robot[@]}" ;;
+            # Rootful Podman: astrona and kind run as root, as a learner's sudo would.
+            podman-rootful) sudo env "PATH=$PATH" KIND_EXPERIMENTAL_PROVIDER=podman "${robot[@]}" ;;
+            # Rootless Podman: a user scope that owns delegated cgroups, as kind documents.
+            podman-rootless) systemd-run --user --scope --quiet -p Delegate=yes \
+              env KIND_EXPERIMENTAL_PROVIDER=podman "${robot[@]}" ;;
+          esac
+
+      - name: Pack report
+        if: always()
+        env:
+          VERSION: ${{ inputs.version || 'developer' }}
+          ENGINE: ${{ matrix.engine }}
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" oat-report 2>/dev/null || true
+          (cd oat-report && zip -qr "../oat-report-$VERSION-terminal-$ENGINE.zip" .)
+
+      - name: Upload acceptance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: oat-report-terminal-${{ matrix.engine }}
+          path: oat-report-*-terminal-*.zip
+
   login:
     name: Acceptance full (login)
     runs-on: ubuntu-latest
