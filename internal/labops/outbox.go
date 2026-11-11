@@ -312,6 +312,11 @@ func StartOutboxFlusher() {
 	if err != nil {
 		return
 	}
+	// A guest who never had a lab session has no outbox folder yet; without
+	// it there is no log and the sender would never start.
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return
+	}
 	logF, err := os.OpenFile(filepath.Join(dir, "flush.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return
