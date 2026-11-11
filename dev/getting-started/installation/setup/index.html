@@ -5270,6 +5270,11 @@ and signing in does not repair a container connection.</p>
 <td>—</td>
 </tr>
 <tr>
+<td>kind with Podman 6 or later</td>
+<td>—</td>
+<td>kind before v0.33.0 (Podman 6 changed how <code>podman ps</code> lists labels, so older kind finds no clusters)</td>
+</tr>
+<tr>
 <td>Linux only: <code>fs.inotify.max_user_watches</code> / <code>max_user_instances</code></td>
 <td>—</td>
 <td>under 524288 / 512 (multi-node kind fails with "too many open files")</td>
