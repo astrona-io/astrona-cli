@@ -170,6 +170,14 @@ function run() {
     tabs: TABS,
     // The mock is an exam (or a playground): never a solution guide.
     solution: false,
+    // An exam never shows documentation links; the playground does.
+    docLinks: playground
+      ? [
+          { name: 'Kubernetes: Deployments', url: 'https://kubernetes.io/docs/concepts/workloads/controllers/deployment/' },
+          { name: 'Kubernetes: kubectl Quick Reference', url: 'https://kubernetes.io/docs/reference/kubectl/quick-reference/' },
+          { name: 'Jaeger', url: 'https://www.jaegertracing.io/docs/latest/' },
+        ]
+      : [],
     canSubmit: submitBlocked() === '',
     submit: {
       tracking,

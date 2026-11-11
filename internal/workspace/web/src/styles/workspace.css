@@ -1075,6 +1075,175 @@
   max-width: 100%;
 }
 
+/* Click to copy (src/copyCode.ts): inline code is a chip with a copy icon,
+   a code block has a Copy button in its corner. */
+.prose code.copyable {
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.12s, background-color 0.12s;
+}
+
+.prose code.copyable::after {
+  content: '';
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  margin-left: 0.35em;
+  vertical-align: -0.08em;
+  background: currentColor;
+  opacity: 0.45;
+  mask: url('../assets/copy.svg') center / contain no-repeat;
+}
+
+.prose code.copyable:hover,
+.prose code.copyable:focus-visible {
+  border-color: var(--line-strong);
+  background: var(--tint-orange);
+}
+
+.prose code.copyable:hover::after,
+.prose code.copyable:focus-visible::after {
+  opacity: 1;
+  color: var(--orange-ink);
+}
+
+.prose code.copyable.is-copied::after,
+.prose code.copyable.is-failed::after {
+  width: auto;
+  height: auto;
+  background: none;
+  mask: none;
+  opacity: 1;
+  font-family: var(--font-sans);
+  font-size: 0.8em;
+  vertical-align: baseline;
+}
+
+.prose code.copyable.is-copied::after {
+  content: 'Copied';
+  color: var(--green);
+}
+
+.prose code.copyable.is-failed::after {
+  content: 'Not copied';
+  color: var(--red);
+}
+
+.code-block {
+  position: relative;
+}
+
+/* Room for the Copy button at the end of the first line. */
+.code-block pre {
+  padding-right: 68px;
+}
+
+.code-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.code-block:hover .code-copy,
+.code-copy:focus-visible,
+.code-copy.is-copied,
+.code-copy.is-failed {
+  opacity: 1;
+}
+
+.code-copy:hover {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+
+.code-copy.is-copied {
+  color: var(--green);
+}
+
+.code-copy.is-failed {
+  color: var(--red);
+}
+
+@media (hover: none) {
+  .code-copy {
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------------- doc links */
+
+.doclinks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.doclinks__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.doclinks__link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--panel);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 0.12s, background-color 0.12s;
+}
+
+.doclinks__link:hover,
+.doclinks__link:focus-visible {
+  border-color: var(--line-bright);
+  background: var(--tint-orange);
+}
+
+.doclinks__product {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--violet);
+}
+
+.doclinks__title {
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.doclinks__out {
+  margin-left: 6px;
+  color: var(--orange-ink);
+}
+
+.doclinks__host {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 /* ---------------------------------------------------------------- end session */
 
 .topbar__end {

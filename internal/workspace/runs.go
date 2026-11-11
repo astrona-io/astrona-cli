@@ -72,8 +72,11 @@ type RunRecord struct {
 	// Solution is the lab's solution guide (Markdown), served by GET
 	// /runs/{lab}/solution after Start. Always empty for an exam or a
 	// playground.
-	Solution string   `json:"solution,omitempty"`
-	Targets  []Target `json:"targets"`
+	Solution string `json:"solution,omitempty"`
+	// DocLinks are the lab's documentation links (its astrona.yaml
+	// entry's resources), shown under the task. Always empty for an exam.
+	DocLinks []DocLink `json:"docLinks,omitempty"`
+	Targets  []Target  `json:"targets"`
 	// Tabs are the right panel's tabs, the focus tab first; empty in a
 	// record from before tabs (DefaultTabs then).
 	Tabs []Tab `json:"tabs,omitempty"`
@@ -84,6 +87,13 @@ type RunRecord struct {
 	// another command, such as astrona ui, wrote the record).
 	Account   *AccountStatus `json:"account,omitempty"`
 	CreatedAt time.Time      `json:"createdAt"`
+}
+
+// DocLink is one documentation link shown under the task: an https URL and
+// its name ("Product: page"). The page opens it in a new tab.
+type DocLink struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
 }
 
 // startMarker records the Start click for one run.
@@ -133,6 +143,9 @@ func WriteRun(rec RunRecord) error {
 	}
 	if !rec.solutionAllowed() {
 		rec.Solution = ""
+	}
+	if !rec.docLinksAllowed() {
+		rec.DocLinks = nil
 	}
 	rec.Schema = runRecordSchema
 	if rec.CreatedAt.IsZero() {
@@ -310,7 +323,9 @@ type runView struct {
 	Tabs             []tabView      `json:"tabs"`
 	// Solution: GET /runs/{lab}/solution has a solution guide to show
 	// (after Start). Never in an exam or a playground.
-	Solution  bool       `json:"solution"`
+	Solution bool `json:"solution"`
+	// DocLinks are the lab's documentation links; empty in an exam.
+	DocLinks  []DocLink  `json:"docLinks"`
 	CanSubmit bool       `json:"canSubmit"`
 	Submit    submitView `json:"submit"`
 	RunAgain  string     `json:"runAgain"`
@@ -368,9 +383,13 @@ func buildView(rec RunRecord, now time.Time) (v runView, err error) {
 		Targets:   rec.Targets,
 		Tabs:      tabViews(rec.tabs()),
 		Solution:  rec.solutionAllowed() && rec.Solution != "",
+		DocLinks:  []DocLink{},
 		Submit:    submitView{Tracking: TrackingNone},
 		RunAgain:  rec.RunAgain,
 		Account:   rec.Account,
+	}
+	if rec.docLinksAllowed() && len(rec.DocLinks) > 0 {
+		v.DocLinks = rec.DocLinks
 	}
 	if sub, err := readSubmission(rec); err == nil && sub != nil {
 		v.Submit.Submitted = true

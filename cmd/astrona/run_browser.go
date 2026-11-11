@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"astrona/internal/catalog"
 	"astrona/internal/cluster"
 	"astrona/internal/config"
 	"astrona/internal/exam"
@@ -337,6 +338,9 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 		}
 		_, rec.Prerequisites = docFrontMatter(labops.SanitizeTerminalText(text))
 	}
+	if !rec.Exam {
+		rec.DocLinks = labDocLinks(baseDir, flags)
+	}
 	if doc := cfg.Metadata.Docs.Solution; doc != "" && !rec.Exam && !rec.Playground {
 		// The solution is optional for the page: a lab whose guide cannot be
 		// read still opens, without "Solution guide" in the tab menu.
@@ -352,6 +356,74 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 	}
 	return rec, nil
 }
+
+// labDocLinks are the documentation links the training's astrona.yaml
+// lists for this lab (its entry's resources). The manifest is found by
+// walking up from the lab's directory to the repository root; the lab's
+// path relative to it picks the entry. A lab outside a training, or one
+// loaded from a URL, has none. They are optional for the page: a manifest
+// that cannot be read only costs the links.
+func labDocLinks(baseDir string, flags *rootFlags) []workspace.DocLink {
+	if strings.HasPrefix(flags.configPath, "https://") || strings.HasPrefix(flags.configPath, "http://") {
+		return nil
+	}
+	labDir, err := filepath.Abs(baseDir)
+	if err != nil {
+		return nil
+	}
+	dir := labDir
+	for range maxManifestDepth {
+		data, err := readManifest(filepath.Join(dir, "astrona.yaml"))
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		if err == nil {
+			rel, err := filepath.Rel(dir, labDir)
+			if err != nil {
+				return nil
+			}
+			found, err := catalog.LabDocLinks(data, filepath.ToSlash(rel))
+			if err != nil {
+				ui.Warnf("the lab's documentation links are not available in the browser: %s", err)
+				return nil
+			}
+			links := make([]workspace.DocLink, 0, len(found))
+			for _, l := range found {
+				links = append(links, workspace.DocLink{Name: labops.SanitizeLine(l.Name), URL: l.URL})
+			}
+			return links
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return nil // the repository root, without a manifest
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return nil
+		}
+		dir = parent
+	}
+	return nil
+}
+
+// maxManifestDepth bounds how far labDocLinks looks above the lab's
+// directory (sections/section-010/module-01/labs/lab-02 is five levels).
+const maxManifestDepth = 8
+
+// readManifest reads a training's astrona.yaml, a regular file of at most
+// maxManifestBytes.
+func readManifest(path string) ([]byte, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() || info.Size() > maxManifestBytes {
+		return nil, fmt.Errorf("%s is not a regular file of at most %d KiB", path, maxManifestBytes>>10)
+	}
+	return os.ReadFile(path)
+}
+
+// maxManifestBytes bounds the astrona.yaml labDocLinks reads.
+const maxManifestBytes = 2 << 20
 
 // maxBrowserSolutionBytes bounds the solution guide the run record keeps.
 const maxBrowserSolutionBytes = 256 << 10

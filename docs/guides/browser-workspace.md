@@ -189,6 +189,17 @@ run sends nothing.
   top-level heading (such as `# Exam Question: <lab>`) is left out, since the
   panel already shows the task; the lab's name is in the browser tab's title.
   **All labs** and **About Astrona** sit at the bottom of the panel.
+- **Copy**: every inline `code` in the task and in a docs tab carries a small
+  copy icon; click it (or focus it and press <kbd>Enter</kbd>) to copy its
+  text. A code block shows a **Copy** button in its corner. Both say
+  **Copied** for a moment.
+- **Relevant resources**: under the task, links to official documentation for
+  the lab, taken from the lab's `resources` in the training's `astrona.yaml`
+  (`- name: "Kubernetes: Deployments"`, `url: https://…`). The part of the
+  name before the first `: ` is shown as a small product label, the rest as
+  the title, with the site's host under it. Each link opens in a new browser
+  tab. Only `https` links with a name are shown, at most 20; the section is
+  hidden when the lab lists none, and it is never shown in an exam.
 - **Terminal** (right): a shell on the lab with `kubectl` pointed at its
   cluster (on a QEMU lab, an SSH login into its VM; see [QEMU labs](#qemu-labs)). Keyboard focus moves into the terminal after **Start** and when the
   page opens. Press <kbd>F6</kbd> to leave the terminal; <kbd>Shift</kbd>+<kbd>F6</kbd>
@@ -205,6 +216,8 @@ run sends nothing.
 When you are done, use **Submit** in the top bar (see
 [Submit or end from the browser](#submit-or-end-from-the-browser));
 `astrona submit` in a terminal does the same.
+
+![Inline code with copy icons and the Relevant resources links under the task](../assets/browser-workspace-resources.png)
 
 ### Tabs
 

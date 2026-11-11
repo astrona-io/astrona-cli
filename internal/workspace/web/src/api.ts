@@ -53,6 +53,15 @@ export interface TabDoc {
   html: string
 }
 
+/**
+ * A documentation link of the lab (its astrona.yaml entry's resources):
+ * an https URL and a name that reads "Product: page" by convention.
+ */
+export interface DocLink {
+  name: string
+  url: string
+}
+
 export interface QuestionSummary {
   id: string
   title: string
@@ -90,6 +99,8 @@ export interface Run {
   tabs: RunTab[]
   /** GET /solution has a solution guide (after Start); never in an exam or a playground. */
   solution: boolean
+  /** Shown under the task; empty in an exam and when the lab lists none. */
+  docLinks: DocLink[]
   /** True when POST /submit would grade now; submit.blocked says why not. */
   canSubmit: boolean
   submit: SubmitInfo

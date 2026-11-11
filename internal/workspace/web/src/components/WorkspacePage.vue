@@ -3,9 +3,11 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, toRef,
 import { useCountdown } from '../clock'
 import { getQuestion, isRunGone, isUnauthorized, type Question, type Run } from '../api'
 import { connectionLost, reconnectAttempt, resetConnectivity } from '../connectivity'
+import { useCopyCode } from '../copyCode'
 import type { ViewHandle, ViewStatus } from '../views/types'
 import AboutDialog from './AboutDialog.vue'
 import ConnectionLostDialog from './ConnectionLostDialog.vue'
+import DocLinks from './DocLinks.vue'
 import LabTabs from './LabTabs.vue'
 import TopBar from './TopBar.vue'
 import SplitDivider from './SplitDivider.vue'
@@ -46,6 +48,9 @@ async function loadQuestion(): Promise<void> {
 }
 onMounted(loadQuestion)
 watch(() => props.run.runId, loadQuestion)
+
+const prose = ref<HTMLElement>()
+const copyCode = useCopyCode(prose, () => question.value?.html)
 
 // ---------------------------------------------------------------- view
 
@@ -250,7 +255,15 @@ onBeforeUnmount(() => {
           <p v-if="questionError" class="error" role="alert">Could not load the task: {{ questionError }}</p>
           <p v-else-if="!question" class="muted">Loading the task…</p>
           <!-- Rendered and sanitised on the server; innerHTML never runs scripts and CSP blocks inline handlers. -->
-          <article v-else class="prose" v-html="question.html" />
+          <article
+            v-else
+            ref="prose"
+            class="prose"
+            @click="copyCode.onClick"
+            @keydown="copyCode.onKeydown"
+            v-html="question.html"
+          />
+          <DocLinks :links="run.docLinks ?? []" />
         </div>
         <footer class="task__foot">
           <button type="button" class="task__link" title="Every lab running on this computer" @click="emit('home')">
@@ -284,4 +297,5 @@ onBeforeUnmount(() => {
   <AboutDialog v-if="aboutOpen" @close="aboutOpen = false" />
   <ConnectionLostDialog v-if="lostShown" :lab="run.lab" :attempt="reconnectAttempt" />
   <p class="visually-hidden" aria-live="assertive">{{ announcement }}</p>
+  <p class="visually-hidden" aria-live="polite">{{ copyCode.announcement.value }}</p>
 </template>

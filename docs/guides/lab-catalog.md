@@ -202,6 +202,14 @@ modules:
       - type: lab
         title: "Route Requests By Header Lab"
         path: sections/section-010/module-01/labs/lab-01   # a lab directory with config.yaml
+        resources:                                         # optional: official docs for this lab
+          - name: "Istio: Request Routing"
+            url: https://istio.io/latest/docs/tasks/traffic-management/request-routing/
 ```
+
+A lab's `resources` show as **Relevant resources** under the task in the
+[browser workspace](browser-workspace.md#the-workspace) (never in an exam):
+`https` links with a name, at most 20; anything else is skipped. These are
+links, not the `resources/` files a lab ships to the student.
 
 …and the `astrona-training` topic (in the astrona-io organization) — or tell people to `astrona labs add` its URL.
