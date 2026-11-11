@@ -202,6 +202,85 @@ jobs:
           name: oat-report-terminal-${{ matrix.engine }}
           path: oat-report-*-terminal-*.zip
 
+  # The same suite on Fedora with SELinux enforcing, where an unlabelled bind
+  # mount locks the learner out of their workspace. GitHub has no Fedora
+  # runner and a container shares the runner's AppArmor kernel, so Fedora
+  # runs as a KVM guest (.github/scripts/oat-fedora-vm.sh).
+  terminal-fedora:
+    name: Acceptance full (terminal, fedora, ${{ matrix.engine }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [docker, podman-rootful, podman-rootless]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.3
+
+      - name: Build astrona
+        env:
+          VERSION: ${{ inputs.version || 'developer' }}
+        run: go build -ldflags "-X main.Version=$VERSION" -o astrona ./cmd/astrona
+
+      - name: Install kubectl
+        run: |
+          version="$(curl -L -s https://dl.k8s.io/release/stable.txt)"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl"
+          curl -LO "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/kubectl
+
+      - name: Install kind
+        run: go install sigs.k8s.io/kind@v0.32.0
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo udevadm settle
+          if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
+            echo "::error::/dev/kvm is missing or not usable on this runner; the Fedora VM needs hardware acceleration"
+            exit 1
+          fi
+
+      - name: Install QEMU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 qemu-utils genisoimage
+          qemu-system-x86_64 --version
+
+      - name: Robot Framework terminal suite in a Fedora VM
+        run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          .github/scripts/oat-fedora-vm.sh "${{ matrix.engine }}"
+
+      - name: Pack report
+        if: always()
+        env:
+          VERSION: ${{ inputs.version || 'developer' }}
+          ENGINE: ${{ matrix.engine }}
+        run: (cd oat-report && zip -qr "../oat-report-$VERSION-terminal-fedora-$ENGINE.zip" .)
+
+      - name: Upload acceptance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: oat-report-terminal-fedora-${{ matrix.engine }}
+          path: oat-report-*-terminal-fedora-*.zip
+
   login:
     name: Acceptance full (login)
     runs-on: ubuntu-latest
