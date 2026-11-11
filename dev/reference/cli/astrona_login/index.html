@@ -1235,7 +1235,7 @@
   <span class="md-ellipsis">
     
   
-    Full Lab Exams
+    Hands-on Exams
   
 
     
@@ -2843,14 +2843,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam
+    Astrona hands on exam
   
 
     
@@ -2871,14 +2871,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_start/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_start/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam start
+    Astrona hands on exam start
   
 
     
@@ -2899,14 +2899,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_status/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_status/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam status
+    Astrona hands on exam status
   
 
     
@@ -2927,14 +2927,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_task/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_task/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam task
+    Astrona hands on exam task
   
 
     
@@ -2955,14 +2955,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_next/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_next/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam next
+    Astrona hands on exam next
   
 
     
@@ -2983,14 +2983,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_prev/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_prev/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam prev
+    Astrona hands on exam prev
   
 
     
@@ -3011,14 +3011,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_break/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_break/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam break
+    Astrona hands on exam break
   
 
     
@@ -3039,14 +3039,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_resume/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_resume/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam resume
+    Astrona hands on exam resume
   
 
     
@@ -3067,14 +3067,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_submit/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_submit/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam submit
+    Astrona hands on exam submit
   
 
     
@@ -3095,14 +3095,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_abandon/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_abandon/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam abandon
+    Astrona hands on exam abandon
   
 
     
@@ -5171,7 +5171,7 @@
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
 <p>Sign this computer in to your Astrona account. Catalog labs (<code>astrona run astrona.io/ATS014/…</code>) are tied to your account: <code>astrona run</code> starts a lab session for you and opens the lab page, which tracks your time. Labs from your own files or repositories (-c / --git) don't need it.</p>
 <p>Sign-in happens on the configured Astrona website: astrona opens its sign-in page in your browser. If you're already signed in there, check that the code matches the one in the terminal and click Authorize; otherwise sign in on that site first and you're brought back to that page. The terminal waits and finishes by itself. No password is ever typed into the terminal. On a machine without a browser, open the printed link on any device. --headless prints the link without opening a browser.</p>
-<p>The sign-in is saved in ~/.astrona/credentials.json (readable only by you) and renewed automatically. Each sign-in also makes a device key for this computer, kept in ~/.astrona/device-key.json (readable only by you): the site gets only its public half and checks that every call comes from this computer. <code>astrona whoami</code> shows who is signed in, <code>astrona logout</code> signs out.</p>
+<p>The sign-in is saved in ~/.astrona/credentials.json (readable only by you) and renewed automatically. Each sign-in also makes a device key for this computer, kept in ~/.astrona/device-key.json (readable only by you): the site gets only its public half and checks that every call comes from this computer. <code>astrona whoami</code> shows who is signed in, <code>astrona logout</code> signs out. A successful sign-in replaces the anonymous install id that signed-out runs report with by a new random one, so guest runs before it can't be linked to the account.</p>
 <p>The default site is https://astrona.io unless --site (or ASTRONA_URL) names another, for example http://localhost:3000 for local development. The site is remembered with the sign-in, so whoami, logout and catalog labs use it without repeating it; ASTRONA_URL still overrides it per command. Plain http:// is only accepted for localhost.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona login [flags]
 </code></pre></div>

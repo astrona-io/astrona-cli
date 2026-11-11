@@ -1240,7 +1240,7 @@
   <span class="md-ellipsis">
     
   
-    Full Lab Exams
+    Hands-on Exams
   
 
     
@@ -1655,6 +1655,17 @@
     <span class="md-ellipsis">
       
         Resource usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#guest-run-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guest run reports
       
     </span>
   </a>
@@ -2839,14 +2850,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam
+    Astrona hands on exam
   
 
     
@@ -2867,14 +2878,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_start/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_start/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam start
+    Astrona hands on exam start
   
 
     
@@ -2895,14 +2906,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_status/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_status/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam status
+    Astrona hands on exam status
   
 
     
@@ -2923,14 +2934,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_task/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_task/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam task
+    Astrona hands on exam task
   
 
     
@@ -2951,14 +2962,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_next/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_next/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam next
+    Astrona hands on exam next
   
 
     
@@ -2979,14 +2990,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_prev/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_prev/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam prev
+    Astrona hands on exam prev
   
 
     
@@ -3007,14 +3018,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_break/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_break/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam break
+    Astrona hands on exam break
   
 
     
@@ -3035,14 +3046,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_resume/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_resume/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam resume
+    Astrona hands on exam resume
   
 
     
@@ -3063,14 +3074,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_submit/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_submit/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam submit
+    Astrona hands on exam submit
   
 
     
@@ -3091,14 +3102,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_abandon/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_abandon/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam abandon
+    Astrona hands on exam abandon
   
 
     
@@ -5082,6 +5093,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#guest-run-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Guest run reports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#paused-time-and-working-offline" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5248,6 +5270,30 @@ replaced run, cannot stop the playground or remove the lab.</p>
 <li><code>astrona run --local-only &lt;lab&gt;</code> keeps one whole run on this machine: astrona does not read your sign-in, starts no lab session, and sends no progress, results, clock signals or usage. <code>astrona submit</code> grades it and records the result locally only, then deletes the lab like any finished run. Starting a running lab over with <code>--local-only</code> detaches its old session without closing it on Astrona.</li>
 </ul>
 <p><code>astrona logout</code> stops the usage reporters of running labs, since they post with your sign-in. The labs keep running; samples measured before the sign-out that were not sent yet wait in the outbox until you sign in again (or are dropped if usage samples are off). A playground's watchdog keeps running, so the playground is still removed at its time limit. Signing in again does not restart a reporter for a lab that is already running.</p>
+<h2 id="guest-run-reports">Guest run reports<a class="headerlink" href="#guest-run-reports" title="Permanent link">&para;</a></h2>
+<p>A catalog lab or playground run signed out ("continue as guest") sends one
+report once it counts, so Astrona's hands-on time includes guests: a lab
+when you submit it, a playground when it is destroyed. The report goes to
+<code>{site}/api/cli/guest-runs</code> without any sign-in and holds only:</p>
+<ul>
+<li>an anonymous install id;</li>
+<li>the catalog lab id and the kind (<code>lab</code> or <code>playground</code>);</li>
+<li>the start and finish times and the time used (at most 8 hours);</li>
+<li>why it ended (<code>submitted</code> or <code>destroyed</code>), a one-time key and the CLI version.</li>
+</ul>
+<p>Nothing else: no user name, e-mail, host name, command output or file
+contents.</p>
+<p>The install id is a random UUID v4 in <code>~/.astrona/install-id</code> (mode 0600),
+made without asking the first time astrona needs it — the first guest lab or
+playground start — and never derived from this computer. A successful
+<code>astrona login</code> replaces it with a new random one, and so does
+<code>astrona logout</code>, so guest runs before a sign-in, while signed in and after a
+sign-out never share an id and can't be linked to your account. A report
+already waiting keeps the id it was made with.</p>
+<p>A report that can't be sent waits in <code>~/.astrona/guest-runs/</code> and is retried
+by the background sender every <code>astrona</code> command starts; one still waiting
+after 7 days is dropped. <code>--local-only</code>, <code>--headless</code>, <code>--git</code> and labs from
+sources you added send nothing.</p>
 <h2 id="paused-time-and-working-offline">Paused time and working offline<a class="headerlink" href="#paused-time-and-working-offline" title="Permanent link">&para;</a></h2>
 <p>The browser workspace does not pause your time. Once you click <strong>Start</strong>, the lab's clock keeps running when you close the page or lose the connection, and a playground is still removed at its time limit.</p>
 <p>Everything astrona tells Astrona about a running lab — the start from the browser workspace, pauses and resumes, resource samples, destroy and the time-limit stop — is saved on your computer first (<code>~/.astrona/outbox</code>) and then sent. If the connection drops, it waits there and goes out in order, with the time each thing happened, once Astrona is reachable again: from the usage reporter, or a background <code>astrona</code> that the next command starts. While you are signed out, signals wait for <code>astrona login</code>. Each lab session's signals go out in order; one Astrona can't accept yet holds back only that session's later signals, not other sessions'. A signal still waiting after 7 days is dropped, and a damaged outbox file is set aside (renamed <code>*.json.corrupt-*</code>, removed after 7 days) instead of blocking its session. A graded result (<code>astrona submit</code>) that could not be sent waits here too, with its key, so it is recorded once however often it is retried.</p>

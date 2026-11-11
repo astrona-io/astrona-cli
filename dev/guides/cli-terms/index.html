@@ -1240,7 +1240,7 @@
   <span class="md-ellipsis">
     
   
-    Full Lab Exams
+    Hands-on Exams
   
 
     
@@ -2714,14 +2714,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam
+    Astrona hands on exam
   
 
     
@@ -2742,14 +2742,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_start/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_start/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam start
+    Astrona hands on exam start
   
 
     
@@ -2770,14 +2770,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_status/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_status/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam status
+    Astrona hands on exam status
   
 
     
@@ -2798,14 +2798,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_task/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_task/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam task
+    Astrona hands on exam task
   
 
     
@@ -2826,14 +2826,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_next/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_next/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam next
+    Astrona hands on exam next
   
 
     
@@ -2854,14 +2854,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_prev/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_prev/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam prev
+    Astrona hands on exam prev
   
 
     
@@ -2882,14 +2882,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_break/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_break/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam break
+    Astrona hands on exam break
   
 
     
@@ -2910,14 +2910,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_resume/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_resume/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam resume
+    Astrona hands on exam resume
   
 
     
@@ -2938,14 +2938,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_submit/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_submit/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam submit
+    Astrona hands on exam submit
   
 
     
@@ -2966,14 +2966,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_abandon/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_abandon/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam abandon
+    Astrona hands on exam abandon
   
 
     
@@ -4971,6 +4971,12 @@ the binary being run, so review them when upgrading a pipeline's pinned CLI.
 memory use, see <a href="../lab-catalog/#resource-usage">Resource usage</a>) and how to
 turn that off. Revision 2026-11-10 added that paragraph, so a receipt for an
 earlier revision asks again.</p>
+<p>Revision 2026-11-11 adds what a signed-out ("continue as guest") run sends:
+one report per catalog lab or playground run once it counts (a lab submitted,
+a playground destroyed), with an anonymous install id, the lab id, the kind,
+the start and finish times, the time used and the CLI version, and nothing
+else. See <a href="../lab-catalog/#guest-run-reports">Guest run reports</a>. A receipt for
+2026-11-10 asks again.</p>
 <p>Help, version output, completions and <code>astrona terms</code> remain available without
 acceptance. So do <code>settings</code>, <code>data</code>, <code>logout</code>, <code>stop</code>, <code>destroy</code>, and
 <code>port-forward stop</code>, so declining cannot prevent cleanup or preference repair.

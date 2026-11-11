@@ -1453,7 +1453,7 @@
   <span class="md-ellipsis">
     
   
-    Full Lab Exams
+    Hands-on Exams
   
 
     
@@ -2917,14 +2917,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam
+    Astrona hands on exam
   
 
     
@@ -2945,14 +2945,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_start/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_start/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam start
+    Astrona hands on exam start
   
 
     
@@ -2973,14 +2973,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_status/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_status/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam status
+    Astrona hands on exam status
   
 
     
@@ -3001,14 +3001,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_task/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_task/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam task
+    Astrona hands on exam task
   
 
     
@@ -3029,14 +3029,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_next/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_next/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam next
+    Astrona hands on exam next
   
 
     
@@ -3057,14 +3057,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_prev/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_prev/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam prev
+    Astrona hands on exam prev
   
 
     
@@ -3085,14 +3085,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_break/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_break/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam break
+    Astrona hands on exam break
   
 
     
@@ -3113,14 +3113,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_resume/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_resume/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam resume
+    Astrona hands on exam resume
   
 
     
@@ -3141,14 +3141,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_submit/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_submit/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam submit
+    Astrona hands on exam submit
   
 
     
@@ -3169,14 +3169,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/cli/astrona_exam_abandon/" class="md-nav__link">
+      <a href="../../reference/cli/astrona_hands-on-exam_abandon/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam abandon
+    Astrona hands on exam abandon
   
 
     
@@ -5403,7 +5403,7 @@
 </tbody>
 </table>
 <p>A script that uses them works unchanged on any cluster that sets them, for example a cluster shared by several labs. Keep a fallback for an older astrona that does not set them: <code>${ASTRONA_KUBE_CONTEXT:-kind-astro-&lt;lab&gt;}</code>.</p>
-<p>In a <a href="../../guides/lab-exams/">full lab exam</a>, several tasks share one exam cluster. Their scripts and checks get <code>ASTRONA_KUBE_CONTEXT=exam-&lt;n&gt;</code> and <code>ASTRONA_KIND_CLUSTER=astro-exam-&lt;attempt&gt;-&lt;n&gt;</code>, with a <code>KUBECONFIG</code> whose current context is <code>exam-&lt;n&gt;</code>. A script that checks the current context against <code>ASTRONA_KUBE_CONTEXT</code> passes there as it does in a normal run.
+<p>In a <a href="../../guides/lab-exams/">hands-on exam</a>, several tasks share one exam cluster. Their scripts and checks get <code>ASTRONA_KUBE_CONTEXT=exam-&lt;n&gt;</code> and <code>ASTRONA_KIND_CLUSTER=astro-exam-&lt;attempt&gt;-&lt;n&gt;</code>, with a <code>KUBECONFIG</code> whose current context is <code>exam-&lt;n&gt;</code>. A script that checks the current context against <code>ASTRONA_KUBE_CONTEXT</code> passes there as it does in a normal run.
 - <code>runtime.portForwards</code> exposes in-cluster services on <code>127.0.0.1</code> — see <a href="#port-forwards">Port forwards</a>.</p>
 <h3 id="dns-for-the-lab-network-runtimekinddns">DNS for the lab network (<code>runtime.kind.dns</code>)<a class="headerlink" href="#dns-for-the-lab-network-runtimekinddns" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">runtime</span><span class="p">:</span>

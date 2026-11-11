@@ -1235,7 +1235,7 @@
   <span class="md-ellipsis">
     
   
-    Full Lab Exams
+    Hands-on Exams
   
 
     
@@ -2832,14 +2832,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam
+    Astrona hands on exam
   
 
     
@@ -2860,14 +2860,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_start/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_start/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam start
+    Astrona hands on exam start
   
 
     
@@ -2888,14 +2888,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_status/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_status/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam status
+    Astrona hands on exam status
   
 
     
@@ -2916,14 +2916,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_task/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_task/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam task
+    Astrona hands on exam task
   
 
     
@@ -2944,14 +2944,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_next/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_next/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam next
+    Astrona hands on exam next
   
 
     
@@ -2972,14 +2972,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_prev/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_prev/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam prev
+    Astrona hands on exam prev
   
 
     
@@ -3000,14 +3000,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_break/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_break/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam break
+    Astrona hands on exam break
   
 
     
@@ -3028,14 +3028,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_resume/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_resume/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam resume
+    Astrona hands on exam resume
   
 
     
@@ -3056,14 +3056,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_submit/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_submit/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam submit
+    Astrona hands on exam submit
   
 
     
@@ -3084,14 +3084,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../astrona_exam_abandon/" class="md-nav__link">
+      <a href="../astrona_hands-on-exam_abandon/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Astrona exam abandon
+    Astrona hands on exam abandon
   
 
     
@@ -5147,7 +5147,7 @@
 <h2 id="astrona-logout">astrona logout<a class="headerlink" href="#astrona-logout" title="Permanent link">&para;</a></h2>
 <p>Sign out of Astrona on this computer</p>
 <h3 id="synopsis">Synopsis<a class="headerlink" href="#synopsis" title="Permanent link">&para;</a></h3>
-<p>Sign out: revoke this computer's sign-in on the Astrona website (best effort, a few seconds at most) and delete ~/.astrona/credentials.json. Catalog labs then need <code>astrona login</code> again; labs that are already running keep running, but their usage reporters stop: no more CPU and memory samples are sent for them. Samples not sent yet wait on this computer until you sign in again (or are dropped when <code>astrona settings set usage-samples no</code> is set). A playground's watchdog keeps running so the playground is still removed at its time limit.</p>
+<p>Sign out: revoke this computer's sign-in on the Astrona website (best effort, a few seconds at most) and delete ~/.astrona/credentials.json. Catalog labs then need <code>astrona login</code> again; labs that are already running keep running, but their usage reporters stop: no more CPU and memory samples are sent for them. Samples not sent yet wait on this computer until you sign in again (or are dropped when <code>astrona settings set usage-samples no</code> is set). A playground's watchdog keeps running so the playground is still removed at its time limit. The anonymous install id that signed-out runs report with is replaced by a new random one, so later guest runs can't be linked to the account.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>astrona logout [flags]
 </code></pre></div>
 <h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
