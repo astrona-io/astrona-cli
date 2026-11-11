@@ -90,6 +90,20 @@ class AstronaLib:
         raise AssertionError(f"{name} is not in the profile home: tried {', '.join(tried)}")
 
     @keyword
+    def profile_queue_length(self, env, name):
+        """How many reports wait in the queue folder ``name`` (guest-runs, outbox)
+        of the profile homes of the HOME in ``env``: its *.json files, not
+        hidden ones or the outbox's status.json. A missing folder is empty."""
+        home = env.get("HOME") or os.path.expanduser("~")
+        count = 0
+        for profile in (".astrona-dev", ".astrona"):
+            folder = os.path.join(home, profile, name)
+            if os.path.isdir(folder):
+                count += sum(1 for entry in os.listdir(folder)
+                             if entry.endswith(".json") and not entry.startswith(".") and entry != "status.json")
+        return count
+
+    @keyword
     def parse_json_output(self, text):
         """Parse astrona's JSON stdout; fails with the text when it is not JSON."""
         try:
