@@ -473,16 +473,20 @@ onMounted(async () => {
     }
     rememberLab(labId)
     await refresh()
+    // "Begin this session" on the launch page already means start: skip the
+    // intro. A failed Start leaves the intro with its error and Start button.
+    if (launch.begin && screen.value.kind === 'intro' && run.value?.status === 'ready') await start()
     if (screen.value.kind === 'intro' || screen.value.kind === 'workspace') schedule()
   } catch (err) {
     showError(err)
   }
 })
 
-// The launch's lab is ready: open it in this tab, as a link with lab= would.
+// The launch's lab is ready and the learner clicked "Begin this session":
+// open it in this tab and start it, without the intro in between.
 async function onLaunchReady(lab: string): Promise<void> {
   try {
-    await enterRun(lab, getNavigationCode)
+    await enterRun(lab, getNavigationCode, { begin: true })
   } catch (err) {
     showError(err)
   }

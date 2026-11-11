@@ -20,7 +20,7 @@ function browser() {
 
 test('entering a new run reloads its document with a fresh code, without storage', async () => {
   const b = browser()
-  await enterRun('lab with spaces', async () => 'single-use-code', b)
+  await enterRun('lab with spaces', async () => 'single-use-code', { browser: b })
   assert.equal(b.events.length, 2)
   const url = new URL(b.events[0], 'http://localhost:5173')
   assert.equal(url.search, '?preview=1')
@@ -32,7 +32,7 @@ test('entering a new run reloads its document with a fresh code, without storage
 
 test('a failed code request leaves the current page and address intact', async () => {
   const b = browser()
-  await assert.rejects(enterRun('demo', async () => { throw new Error('offline') }, b), /offline/)
+  await assert.rejects(enterRun('demo', async () => { throw new Error('offline') }, { browser: b }), /offline/)
   assert.deepEqual(b.events, [])
 })
 
@@ -40,6 +40,8 @@ test('a failed code request leaves the current page and address intact', async (
 // replaced. This catches a launch button that fetches a run but never leaves
 // the launch screen, as well as Home navigation that retains stale CSP.
 const source = ts.createSourceFile('App.ts', read('../src/App.vue').split('<script setup lang="ts">')[1].split('</script>')[0], ts.ScriptTarget.Latest, true)
+// "Begin this session" starts the run in the new document; Home only opens it.
+const entered = { onLaunchReady: '/?preview=1#code=new-code&lab=demo&begin=1', openFromHome: '/?preview=1#code=new-code&lab=demo' }
 for (const name of ['onLaunchReady', 'openFromHome']) {
   const handler = source.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === name)
   assert.ok(handler, `${name} exists`)
@@ -47,16 +49,16 @@ for (const name of ['onLaunchReady', 'openFromHome']) {
   test(`${name} enters the run through a new document`, async () => {
     const b = browser()
     const errors = []
-    const invoke = makeHandler((lab, mint) => enterRun(lab, mint, b), async () => 'new-code', (err) => errors.push(err))
+    const invoke = makeHandler((lab, mint, opts) => enterRun(lab, mint, { ...opts, browser: b }), async () => 'new-code', (err) => errors.push(err))
     await invoke('demo')
     assert.deepEqual(errors, [])
-    assert.deepEqual(b.events, ['/?preview=1#code=new-code&lab=demo', 'reload'])
+    assert.deepEqual(b.events, [entered[name], 'reload'])
   })
   test(`${name} reports navigation failure`, async () => {
     const errors = []
     const failure = new Error('workspace unavailable')
     const b = browser()
-    const invokeWithBrowser = makeHandler((lab, mint) => enterRun(lab, mint, b), async () => { throw failure }, (err) => errors.push(err))
+    const invokeWithBrowser = makeHandler((lab, mint, opts) => enterRun(lab, mint, { ...opts, browser: b }), async () => { throw failure }, (err) => errors.push(err))
     await invokeWithBrowser('demo')
     assert.deepEqual(errors, [failure])
     assert.deepEqual(b.events, [])

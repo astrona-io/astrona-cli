@@ -170,7 +170,7 @@ command knows whether the tab is still open.
 | `terms` | Waiting for the terms. `terms` holds `revision`, `sha256` and `text`, exactly as the running CLI ships them. |
 | `checking` | Resolving the lab. The terminal may ask a question. |
 | `preparing` | Building the lab; `events` and `status` show progress. |
-| `ready` | `lab` names the run the page opens next (`GET /runs/{lab}`), after **Begin this session**. |
+| `ready` | `lab` names the run the page opens next (`GET /runs/{lab}`), after **Begin this session**, which also starts it (`POST /runs/{lab}/start`) without showing the intro. |
 | `failed` | `error` says why. |
 | `declined` | The terms were declined; nothing was started. |
 | `ended` | The command stopped without a lab for this page; `message` says why. |

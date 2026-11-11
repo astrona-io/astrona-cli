@@ -5,7 +5,8 @@
 // pick it up.
 //
 // The fragment the CLI prints is "#code=<code>", optionally with "&lab=<id>"
-// or "&launch=<id>" (an `astrona run` whose lab is not ready yet). After this
+// or "&launch=<id>" (an `astrona run` whose lab is not ready yet), and "&begin=1"
+// when the launch page's "Begin this session" opened the lab. After this
 // module the address bar shows "#/runs/<lab>", "#/launches/<id>", "#/labs"
 // (every lab on this computer) or nothing.
 
@@ -16,16 +17,18 @@ export interface Launch {
   lab: string | null
   /** An `astrona run` still starting: terms, then setup, then its lab. */
   launchId: string | null
+  /** "Begin this session" opened the lab: start it instead of showing the intro. */
+  begin: boolean
 }
 
 function readLaunch(): Launch {
   const hash = window.location.hash.replace(/^#/, '')
   if (hash.startsWith('/runs/')) {
-    return { code: null, lab: decodeURIComponent(hash.slice('/runs/'.length)) || null, launchId: null }
+    return { code: null, lab: decodeURIComponent(hash.slice('/runs/'.length)) || null, launchId: null, begin: false }
   }
-  if (hash === '/labs') return { code: null, lab: null, launchId: null }
+  if (hash === '/labs') return { code: null, lab: null, launchId: null, begin: false }
   if (hash.startsWith('/launches/')) {
-    return { code: null, lab: null, launchId: decodeURIComponent(hash.slice('/launches/'.length)) || null }
+    return { code: null, lab: null, launchId: decodeURIComponent(hash.slice('/launches/'.length)) || null, begin: false }
   }
   const params = new URLSearchParams(hash)
   const code = params.get('code')
@@ -37,7 +40,7 @@ function readLaunch(): Launch {
     else if (launchId) route = `#/launches/${encodeURIComponent(launchId)}`
     window.history.replaceState(null, '', window.location.pathname + window.location.search + route)
   }
-  return { code: code || null, lab: lab || null, launchId: launchId || null }
+  return { code: code || null, lab: lab || null, launchId: launchId || null, begin: params.get('begin') === '1' }
 }
 
 export const launch: Launch = readLaunch()

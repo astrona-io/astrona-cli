@@ -15,7 +15,7 @@ const POLL_MS = 600
 const launch = shallowRef<Launch | null>(null)
 const loadError = ref<string | null>(null)
 // The lab is ready: the page waits for "Begin this session" instead of
-// switching on its own.
+// switching on its own. Begin starts the lab: the next page is the workspace.
 const readyLab = ref<string | null>(null)
 let timer: number | undefined
 let stopped = false
@@ -80,14 +80,14 @@ const lead = computed(() => {
   const l = launch.value
   if (!l) return ''
   if (readyLab.value)
-    return 'Everything is set up and nothing counts yet. The next page shows what to expect; your time starts when you click Start there.'
+    return 'Everything is set up and nothing counts yet. Your time starts when you click Begin this session.'
   if (l.stage === 'declined') return 'Nothing was started and astrona has stopped. You can close this tab.'
   if (l.stage === 'failed') return l.message || 'astrona stopped with an error. The lab was not started, or what was started was removed.'
   if (l.stage === 'ended') return l.message || 'astrona finished in your terminal.'
   if (!l.alive) return 'The command in your terminal ended before the lab was ready. Run it again to start over.'
   if (l.stage === 'terms') return 'astrona is waiting for your answer. Nothing has been started yet.'
   if (l.stage === 'checking') return 'Checking the lab. If your terminal asks a question, answer it there.'
-  return 'This takes a few minutes. Your time does not start until you click Start on the next page.'
+  return 'This takes a few minutes. Your time does not start until you click Begin this session.'
 })
 
 // ---------------------------------------------------------------- steps
