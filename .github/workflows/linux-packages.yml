@@ -106,6 +106,9 @@ jobs:
       matrix:
         arch: [amd64, arm64]
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    # The arm64 runner often cannot reach the Snap Store (snapd/core24 downloads
+    # time out); a release then ships without the arm64 Snap rather than not at all.
+    continue-on-error: ${{ matrix.arch == 'arm64' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
