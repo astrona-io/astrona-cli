@@ -148,7 +148,7 @@ It needs Linux, Docker or Podman, Kind and kubectl, plus network access to GitHu
 `acceptance/` holds a [Robot Framework](https://robotframework.org/) suite that drives the built `./astrona` the way a learner and a lab author would. It has two tiers, chosen by tag:
 
 - **`smoke`** runs on every pull request (`Acceptance (smoke)` in CI, report in the `oat-smoke-report` artifact).
-- **`full`** adds the lab tools (shell, soft reset, doctor, diagnose, port forwards), a signed-out catalog lab, the two VM targets and a signed-in learner (the `login` suite). The `Acceptance (full)` workflow runs it on every release tag, RCs included, before anything is built, in three jobs: `Acceptance full (kind)` runs the smoke and full tiers without the `vm` and `login` tests, `Acceptance full (vm)` runs only the `vm` tests and `Acceptance full (login)` only the `login` tests. The release only builds when all three pass, and their reports are attached to the GitHub release as `oat-report-<version>-kind.zip`, `oat-report-<version>-vm.zip` and `oat-report-<version>-login.zip`. Run it by hand from the Actions tab.
+- **`full`** adds the lab tools (shell, soft reset, doctor, diagnose, port forwards), a signed-out catalog lab, the two VM targets and a signed-in learner and what finished runs report to Astrona (the `login` suites). The `Acceptance (full)` workflow runs it on every release tag, RCs included, before anything is built, in three jobs: `Acceptance full (kind)` runs the smoke and full tiers without the `vm` and `login` tests, `Acceptance full (vm)` runs only the `vm` tests and `Acceptance full (login)` only the `login` tests. The release only builds when all three pass, and their reports are attached to the GitHub release as `oat-report-<version>-kind.zip`, `oat-report-<version>-vm.zip` and `oat-report-<version>-login.zip`. Run it by hand from the Actions tab.
 
 ```sh
 just oat                    # build ./astrona, run the smoke tier, write oat-report/
@@ -182,6 +182,10 @@ The VM base image is a Debian 13 genericcloud qcow2 (about 330 MB, amd64 or arm6
 
 So it does not exercise the real astrona.io device page (astrona-web) or astrona-svc-labs, only the CLI's side of their contract.
 
+`85_run_reporting.robot` uses the same stack to check that a finished run reaches Astrona, so a change that breaks reporting fails here and not in production. Signed out, a submitted catalog lab and a destroyed playground must each send one anonymous guest run report (`POST /api/cli/guest-runs`, no sign-in) that the site accepts (201) with this install's id; signed in, a run must create a lab session, a submit must send its graded result with an idempotency key, and a destroyed playground must stop its clock. After each one the guest queue (`guest-runs/`) or the outbox (`outbox/`) in the profile home must be empty: sent, not left waiting. One case has the site fail the first guest report with a 503 and checks that the report stays queued and the background sender delivers it on its retry. Two `--local-only` runs, signed out and signed in, must send and queue nothing.
+
+For these the fake site checks request bodies the way astrona-web (`server/api/cli/guest-runs.post.ts`, `server/api/cli/lab-sessions/**`) and astrona-svc-labs (`app/api/schemas.py`) do and answers with their status codes: 201 for a new guest run and 200 for a replayed idempotency key, 200 for a lab session or result (the website's answer for both new and replayed), 422 for a body they would refuse, 409 for a second result after a lab's attempt ended. When either service changes what it accepts, change the fake site with it. The suite sets `ASTRONA_URL` to the fake site on the loopback address and checks that it is one, so no command in it can reach astrona.io. Its tests carry the `reporting` tag (`just oat --include reporting`) besides `login`, so the `Acceptance full (login)` job runs them.
+
 It needs Podman or Docker (the suite uses whichever answers, Podman first; set `OAT_CONTAINER_RUNTIME=docker` to choose), kind for the catalog lab, and Playwright's Chromium, installed once:
 
 ```sh
@@ -196,8 +200,8 @@ The first run pulls the Keycloak image; Keycloak then needs up to a minute to st
 | `acceptance/labs/` | The VM labs the VM suites run; their `base.qcow2` is linked in at run time, never committed |
 | `acceptance/resources/astrona.resource` | Shared keywords: `Run Astrona`, `Run Astrona Json`, `Run Kubectl On Lab` |
 | `acceptance/keycloak/` | The Keycloak realm the login suite imports |
-| `acceptance/libraries/SignInStack.py` | The login suite's Keycloak container, fake site and browser sign-in |
-| `acceptance/libraries/AstronaLib.py` | Only what Robot cannot express cleanly: isolated `HOME`, JSON parsing, kind and qemu lookups, the VM image cache, the desktop window check |
+| `acceptance/libraries/SignInStack.py` | The login and run-reporting suites' Keycloak container, fake site and browser sign-in |
+| `acceptance/libraries/AstronaLib.py` | Only what Robot cannot express cleanly: isolated `HOME`, profile files and report queues, JSON parsing, kind and qemu lookups, the VM image cache, the desktop window check |
 
 ## Dependency updates
 
