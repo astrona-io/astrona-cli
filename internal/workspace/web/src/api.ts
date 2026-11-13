@@ -99,7 +99,7 @@ export interface Run {
   tabs: RunTab[]
   /** GET /solution has a solution guide (after Start); never in an exam or a playground. */
   solution: boolean
-  /** Shown under the task; empty in an exam and when the lab lists none. */
+  /** Badges above the task; each opens as a tab. Empty in an exam and when the lab lists none. */
   docLinks: DocLink[]
   /** True when POST /submit would grade now; submit.blocked says why not. */
   canSubmit: boolean
@@ -528,6 +528,17 @@ export function closeTerminalTab(id: string, runId: string, tab: string): Promis
 }
 
 /** The lab's solution guide, rendered. 404 no_solution in an exam or a playground. */
+/**
+ * Whether a documentation link can be shown in a frame, as the server read
+ * it from the site's headers: "refused" (X-Frame-Options or CSP
+ * frame-ancestors), "allowed", or "unknown" when the check failed.
+ */
+export type FrameCheck = 'allowed' | 'refused' | 'unknown'
+
+export function getDocLinkFrame(id: string, url: string): Promise<{ frame: FrameCheck; reason?: string }> {
+  return request<{ frame: FrameCheck; reason?: string }>('GET', `${lab(id)}/doclinks/frame?url=${encodeURIComponent(url)}`)
+}
+
 export function getSolution(id: string): Promise<{ title: string; html: string }> {
   return request<{ title: string; html: string }>('GET', `${lab(id)}/solution`)
 }

@@ -207,8 +207,9 @@ modules:
             url: https://istio.io/latest/docs/tasks/traffic-management/request-routing/
 ```
 
-A lab's `resources` show as **Relevant resources** under the task in the
-[browser workspace](browser-workspace.md#the-workspace) (never in an exam):
+A lab's `resources` show as **Relevant resources** badges at the top of the
+task in the [browser workspace](browser-workspace.md#the-workspace), each
+opening its page as a workspace tab (never in an exam):
 `https` links with a name, at most 20; anything else is skipped. These are
 links, not the `resources/` files a lab ships to the student.
 

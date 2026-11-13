@@ -76,6 +76,7 @@ type Server struct {
 	runMu      sync.Mutex // serialises Start
 	terms      *terminals
 	subs       submits
+	frames     frameChecks // GET /runs/{lab}/doclinks/frame answers
 	stop       chan struct{}
 	stopOnce   sync.Once
 }
@@ -257,6 +258,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/runs/{lab}/start", s.requireToken(s.handleStart))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/tabs/{name}/doc", s.requireToken(s.handleTabDoc))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/solution", s.requireToken(s.handleSolution))
+	mux.HandleFunc("GET /api/v1/runs/{lab}/doclinks/frame", s.requireToken(s.handleDocLinkFrame))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/submit", s.requireToken(s.handleSubmit))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/submission", s.requireToken(s.handleSubmission))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/destroy", s.requireToken(s.handleDestroy))

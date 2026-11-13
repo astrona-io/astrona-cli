@@ -31,9 +31,10 @@ export interface ViewProps {
 /**
  * Where an open tab comes from: one the lab declared (lab), or one the
  * learner opened from the + menu: another terminal on a target (terminal),
- * the task, the prerequisites or the solution guide.
+ * the task, the prerequisites or the solution guide; or a documentation link
+ * of the lab (resource), opened from its badge above the task.
  */
-export type TabSource = 'lab' | 'terminal' | 'task' | 'prerequisites' | 'solution'
+export type TabSource = 'lab' | 'terminal' | 'task' | 'prerequisites' | 'solution' | 'resource'
 
 /** An open tab of the right panel. */
 export interface WorkspaceTab extends RunTab {

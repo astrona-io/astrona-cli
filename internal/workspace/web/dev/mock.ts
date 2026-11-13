@@ -67,6 +67,8 @@ const LINKED = qemu ? 'demo-worker' : 'demo-edge'
 // A stand-in for a page the lab serves on a port forward. It runs on its own
 // port: the workspace never frames its own origin.
 export const MOCK_APP_ORIGIN = 'http://127.0.0.1:4199'
+/** The origins of the mock playground's documentation links, for the preview's frame-src. */
+export const MOCK_DOC_ORIGINS = ['https://kubernetes.io', 'https://www.jaegertracing.io', 'https://docs.tigera.io']
 
 // MOCK_ACCOUNT=signed-in|signed-out|local-only|untracked picks whose account
 // the run is saved to (signed-in), on the launch page and the briefing.
@@ -176,6 +178,7 @@ function run() {
           { name: 'Kubernetes: Deployments', url: 'https://kubernetes.io/docs/concepts/workloads/controllers/deployment/' },
           { name: 'Kubernetes: kubectl Quick Reference', url: 'https://kubernetes.io/docs/reference/kubectl/quick-reference/' },
           { name: 'Jaeger', url: 'https://www.jaegertracing.io/docs/latest/' },
+          { name: 'Calico: Network policy', url: 'https://docs.tigera.io/calico/latest/network-policy/' },
         ]
       : [],
     canSubmit: submitBlocked() === '',
@@ -372,6 +375,15 @@ function mockPlugin(): Plugin {
         if (m === 'GET' && p === '/runs/demo/tabs/notes/doc') {
           if (!started()) return fail(res, 409, 'not_started', 'click Start first')
           return send(res, 200, { name: 'notes', title: 'Notes', html: notesHTML })
+        }
+        if (m === 'GET' && p === '/runs/demo/doclinks/frame') {
+          // The real server reads the site's headers; the mock knows the answer.
+          const link = run().docLinks.find((l) => l.url === url.searchParams.get('url'))
+          if (!link) return fail(res, 404, 'not_found', 'no such documentation link')
+          if (new URL(link.url).hostname === 'docs.tigera.io') {
+            return send(res, 200, { frame: 'refused', reason: 'its Content-Security-Policy (frame-ancestors) refuses it' })
+          }
+          return send(res, 200, { frame: 'allowed' })
         }
         if (m === 'GET' && p === '/runs/demo/terminals') {
           return send(res, 200, { terminals: [...shells.values()].map((sh) => sh.info()) })

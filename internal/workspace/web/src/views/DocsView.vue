@@ -78,6 +78,8 @@ defineExpose({
     :run-id="runId"
     :tab="tab"
     @status="emit('status', $event)"
+    @unauthorized="emit('unauthorized')"
+    @run-gone="emit('runGone')"
   />
   <div v-else ref="root" class="docs" tabindex="-1">
     <div v-if="problem" class="docs__problem" role="alert">

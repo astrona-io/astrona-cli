@@ -1182,66 +1182,108 @@
 
 /* ---------------------------------------------------------------- doc links */
 
+/* Compact badges above the task; each opens its page as a tab. */
 .doclinks {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.doclinks__heading {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .doclinks__list {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.doclinks__link {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-xs);
+.doclinks__list li {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.doclinks__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 2px 10px 2px 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--pill);
   background: var(--panel);
   color: var(--ink);
-  text-decoration: none;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
   transition: border-color 0.12s, background-color 0.12s;
 }
 
-.doclinks__link:hover,
-.doclinks__link:focus-visible {
-  border-color: var(--line-bright);
+.doclinks__badge:not(:has(.doclinks__product)) {
+  padding-left: 10px;
+}
+
+.doclinks__badge:hover,
+.doclinks__badge:focus-visible {
+  border-color: var(--orange);
   background: var(--tint-orange);
 }
 
+.doclinks__badge:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
 .doclinks__product {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: var(--pill);
+  background: var(--panel-2);
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
+  font-size: 9px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--violet);
 }
 
 .doclinks__title {
-  font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A resource whose site refuses to be framed. */
+.frame__refused {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 560px;
+  padding: 32px 24px;
+}
+
+.frame__refused p {
+  margin: 0;
+}
+
+.frame__refused-title {
+  margin: 0;
+  font-size: 20px;
   font-weight: 500;
-  overflow-wrap: anywhere;
-}
-
-.doclinks__out {
-  margin-left: 6px;
-  color: var(--orange-ink);
-}
-
-.doclinks__host {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--muted);
-  overflow-wrap: anywhere;
 }
 
 /* ---------------------------------------------------------------- end session */
