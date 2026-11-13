@@ -1122,6 +1122,8 @@
       
         
       
+        
+      
     
     
     
@@ -1394,6 +1396,34 @@
     
   
     CLI Usage Terms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../telemetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage Data (Telemetry)
   
 
     
@@ -4357,6 +4387,16 @@
       
         
       
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -4725,6 +4765,146 @@
     
   
     Astrona settings path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_telemetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona telemetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_telemetry_status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona telemetry status
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_telemetry_off/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona telemetry off
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_telemetry_on/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona telemetry on
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_telemetry_reset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona telemetry reset
   
 
     
@@ -5184,8 +5364,9 @@ not a server identity or tracking token. Writes share the settings lock and use
 private atomic files. If interrupted between saving choices and the receipt,
 the next explicit review asks again. <code>data reset --yes</code> clears both files. Unsetting
 <code>update-check</code> restores its default <code>yes</code> without requiring another review.</p>
-<p>Review does not enable telemetry or account tracking; existing signed-in lab
-progress tracking is separate. Usage terms and remote-code trust retain their
+<p>Review does not enable account tracking; existing signed-in lab progress
+tracking is separate. Usage data is the <code>telemetry</code> setting (on by default; see
+<a href="../telemetry/">Usage Data</a>); <code>astrona telemetry off</code> turns it off. Usage terms and remote-code trust retain their
 own approval requirements.</p>
 <p>CI and scripts do not need a settings review step or a pinned review ID.
 If you choose to run <code>settings review</code> without a terminal, it still requires

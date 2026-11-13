@@ -137,6 +137,10 @@
          <lastmod>2026-11-13</lastmod>
     </url>
     <url>
+         <loc>https://cli.astrona.io/dev/guides/telemetry/</loc>
+         <lastmod>2026-11-13</lastmod>
+    </url>
+    <url>
          <loc>https://cli.astrona.io/dev/reference/lab-config/</loc>
          <lastmod>2026-11-13</lastmod>
     </url>
@@ -450,6 +454,26 @@
     </url>
     <url>
          <loc>https://cli.astrona.io/dev/reference/cli/astrona_submit/</loc>
+         <lastmod>2026-11-13</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_telemetry/</loc>
+         <lastmod>2026-11-13</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_telemetry_off/</loc>
+         <lastmod>2026-11-13</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_telemetry_on/</loc>
+         <lastmod>2026-11-13</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_telemetry_reset/</loc>
+         <lastmod>2026-11-13</lastmod>
+    </url>
+    <url>
+         <loc>https://cli.astrona.io/dev/reference/cli/astrona_telemetry_status/</loc>
          <lastmod>2026-11-13</lastmod>
     </url>
     <url>
