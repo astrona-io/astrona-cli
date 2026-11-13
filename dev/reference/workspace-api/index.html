@@ -1902,6 +1902,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#get-runslabdoclinksframe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/doclinks/frame
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#post-runslabstart" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5345,6 +5356,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#get-runslabdoclinksframe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/doclinks/frame
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#post-runslabstart" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5766,6 +5788,10 @@ See the <a href="../../guides/browser-workspace/">browser workspace guide</a>.</
 <td>A docs tab's Markdown, rendered to HTML. After <strong>Start</strong> only.</td>
 </tr>
 <tr>
+<td><code>GET /runs/{lab}/doclinks/frame?url=…</code></td>
+<td>Whether one of the run's <code>docLinks</code> can be shown in a frame.</td>
+</tr>
+<tr>
 <td><code>GET /runs/{lab}/solution</code></td>
 <td>The solution guide, rendered to HTML. After <strong>Start</strong> only; never in an exam or a playground.</td>
 </tr>
@@ -6045,7 +6071,7 @@ answer; Kind labs are then missing from the list.</p>
 </tr>
 <tr>
 <td><code>docLinks</code></td>
-<td>Links to official documentation for the lab, from its <code>resources</code> in the training's <code>astrona.yaml</code>, as <code>{"name", "url"}</code>: <code>https</code> only, a non-empty name, at most 20; invalid entries are dropped. The page shows them under the task as <strong>Relevant resources</strong>. Always <code>[]</code> in an exam, and when the lab lists none.</td>
+<td>Links to official documentation for the lab, from its <code>resources</code> in the training's <code>astrona.yaml</code>, as <code>{"name", "url"}</code>: <code>https</code> only, a non-empty name, at most 20; invalid entries are dropped. The page shows them as <strong>Relevant resources</strong> badges at the top of the task; each opens as a <code>docs</code> tab of the right panel (see <a href="#get-runslabdoclinksframe"><code>GET /runs/{lab}/doclinks/frame</code></a>). Always <code>[]</code> in an exam, and when the lab lists none.</td>
 </tr>
 <tr>
 <td><code>canSubmit</code></td>
@@ -6112,6 +6138,39 @@ never does). A question id other than <code>q1</code> gives <code>404 not_found<
 <p>Rendered and sanitised like the question. Only for a docs tab with
 <code>document: true</code>; any other name is <code>404 not_found</code>. Errors: <code>409 not_started</code>,
 <code>409 run_stopped</code>.</p>
+<h3 id="get-runslabdoclinksframe"><code>GET /runs/{lab}/doclinks/frame</code><a class="headerlink" href="#get-runslabdoclinksframe" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"frame"</span><span class="p">:</span><span class="w"> </span><span class="s2">"refused"</span><span class="p">,</span><span class="w"> </span><span class="nt">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"its X-Frame-Options header refuses it"</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>Whether the documentation link <code>url</code> (URL-encoded, exactly as listed in the
+run's <code>docLinks</code>) can be shown in a frame. A cross-origin frame cannot tell
+the page that the site refused it, so the server requests the link once and
+reads its response headers; the page then frames the site itself, nothing is
+proxied. <code>frame</code> is:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allowed</code></td>
+<td>No header refuses framing. The page frames the link.</td>
+</tr>
+<tr>
+<td><code>refused</code></td>
+<td>CSP <code>frame-ancestors</code> (anything but <code>*</code>) or <code>X-Frame-Options</code> (<code>DENY</code>, <code>SAMEORIGIN</code>) refuses it, or it redirects to another origin, which the page's <code>frame-src</code> does not name. <code>reason</code> says which. The page shows <strong>This site does not allow embedding</strong> with an <strong>Open in browser</strong> link.</td>
+</tr>
+<tr>
+<td><code>unknown</code></td>
+<td>The check failed (offline, timeout, more than 5 redirects, a redirect away from <code>https</code>). The page tries the frame.</td>
+</tr>
+</tbody>
+</table>
+<p>Only links in the run's <code>docLinks</code> are checked; any other <code>url</code>, and any url
+in an exam, is <code>404 not_found</code>. <code>allowed</code> and <code>refused</code> answers are cached per
+URL for an hour; <code>unknown</code> is not cached. The check has an 8-second timeout.</p>
 <h3 id="post-runslabstart"><code>POST /runs/{lab}/start</code><a class="headerlink" href="#post-runslabstart" title="Permanent link">&para;</a></h3>
 <p>Request: <code>{"runId": "&lt;runId&gt;"}</code></p>
 <p>Response: <code>200</code> with the run, exactly as <code>GET /runs/{lab}</code>, now with
@@ -6159,24 +6218,24 @@ only remembered by this server process.</p>
 <p>If the checks cannot run (<code>grading_failed</code>, <code>not_trusted</code>, <code>lab_busy</code>),
 nothing is recorded or sent and the lab keeps running.</p>
 <p>Response: <code>200</code> with the submission:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">"lab"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pod-basics"</span><span class="p">,</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">"runId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3f1c…"</span><span class="p">,</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="nt">"result"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="nt">"pass"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"earned"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"max"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"percent"</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="nt">"passPercent"</span><span class="p">:</span><span class="w"> </span><span class="mi">66</span><span class="p">,</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="nt">"overTime"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"elapsedSeconds"</span><span class="p">:</span><span class="w"> </span><span class="mi">754</span><span class="p">,</span><span class="w"> </span><span class="nt">"attempt"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"time"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-09T21:40:00Z"</span><span class="p">,</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="nt">"checks"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pod web is running"</span><span class="p">,</span><span class="w"> </span><span class="nt">"pass"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"points"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="w"> </span><span class="p">},</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pod web uses nginx:1.27"</span><span class="p">,</span><span class="w"> </span><span class="nt">"pass"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"points"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="p">]</span>
-<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">  </span><span class="p">},</span>
-<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">  </span><span class="nt">"recorded"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">  </span><span class="nt">"sent"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">  </span><span class="nt">"queued"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="w">  </span><span class="nt">"finished"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="w">  </span><span class="nt">"environmentRemoved"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">  </span><span class="nt">"messages"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Sent to your lab page (attempt 2): https://…"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Lab pod-basics deleted."</span><span class="p">]</span>
-<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"lab"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pod-basics"</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">"runId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3f1c…"</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="nt">"result"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">"pass"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"earned"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"max"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"percent"</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="nt">"passPercent"</span><span class="p">:</span><span class="w"> </span><span class="mi">66</span><span class="p">,</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">"overTime"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"elapsedSeconds"</span><span class="p">:</span><span class="w"> </span><span class="mi">754</span><span class="p">,</span><span class="w"> </span><span class="nt">"attempt"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"time"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-09T21:40:00Z"</span><span class="p">,</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="nt">"checks"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pod web is running"</span><span class="p">,</span><span class="w"> </span><span class="nt">"pass"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"points"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pod web uses nginx:1.27"</span><span class="p">,</span><span class="w"> </span><span class="nt">"pass"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"points"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="p">]</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">  </span><span class="nt">"recorded"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">  </span><span class="nt">"sent"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">  </span><span class="nt">"queued"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">  </span><span class="nt">"finished"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">  </span><span class="nt">"environmentRemoved"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">  </span><span class="nt">"messages"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Sent to your lab page (attempt 2): https://…"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Lab pod-basics deleted."</span><span class="p">]</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="p">}</span>
 </code></pre></div>
 <table>
 <thead>
@@ -6234,9 +6293,9 @@ is run again.</p>
 <code>409 not_started</code>, <code>409 no_grading</code>, <code>409 submit_in_progress</code>, <code>409 lab_busy</code>,
 <code>409 not_trusted</code>, <code>500</code>/<code>502 grading_failed</code>.</p>
 <h3 id="get-runslabsubmission"><code>GET /runs/{lab}/submission</code><a class="headerlink" href="#get-runslabsubmission" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"grading"</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"failed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"grading_failed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"done"</span><span class="p">,</span><span class="w"> </span><span class="nt">"submission"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">…as</span><span class="w"> </span><span class="err">above…</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"grading"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"failed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"grading_failed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"done"</span><span class="p">,</span><span class="w"> </span><span class="nt">"submission"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">…as</span><span class="w"> </span><span class="err">above…</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
 </code></pre></div>
 <p><code>grading</code> while a submission runs, <code>failed</code> when the last one this server ran
 could not grade, <code>done</code> with the saved result. <code>404 no_submission</code> when the run
@@ -6259,12 +6318,12 @@ was never submitted. Read-only.</p>
 <p>Errors: <code>409 run_changed</code>, <code>409 submit_in_progress</code>, <code>409 environment_kept</code>,
 <code>502 destroy_failed</code>.</p>
 <h3 id="get-runslabterminals"><code>GET /runs/{lab}/terminals</code><a class="headerlink" href="#get-runslabterminals" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">"terminals"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Zk3q…"</span><span class="p">,</span><span class="w"> </span><span class="nt">"tab"</span><span class="p">:</span><span class="w"> </span><span class="s2">"main"</span><span class="p">,</span><span class="w"> </span><span class="nt">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pod-basics"</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"running"</span><span class="p">,</span>
-<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">      </span><span class="nt">"exitCode"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-09T21:01:03Z"</span><span class="p">,</span><span class="w"> </span><span class="nt">"attached"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
-<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="w">  </span><span class="p">]</span>
-<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">"terminals"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Zk3q…"</span><span class="p">,</span><span class="w"> </span><span class="nt">"tab"</span><span class="p">:</span><span class="w"> </span><span class="s2">"main"</span><span class="p">,</span><span class="w"> </span><span class="nt">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pod-basics"</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"running"</span><span class="p">,</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">      </span><span class="nt">"exitCode"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-09T21:01:03Z"</span><span class="p">,</span><span class="w"> </span><span class="nt">"attached"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="p">}</span>
 </code></pre></div>
 <p><code>status</code> is <code>running</code> or <code>ended</code>; <code>exitCode</code> is set once it ended (<code>-1</code> when
 the process was killed by a signal). Ended terminals stay listed until the tab
@@ -6394,15 +6453,18 @@ reattaching replays its recent output, so the shell and its history survive a
 reload.</p>
 <h2 id="framing">Framing<a class="headerlink" href="#framing" title="Permanent link">&para;</a></h2>
 <p>The page is served with the strict policy above plus a <code>frame-src</code> that names
-exactly the origins of the current runs' <code>browser</code> tabs and <code>docs</code> URL
-tabs, computed when the page is loaded. It never names the server's own
+exactly the origins of the current runs' <code>browser</code> tabs, <code>docs</code> URL
+tabs and <code>docLinks</code> (none in an exam), computed when the page is loaded. It never names the server's own
 origin. Entering a run from setup or the lab list automatically reloads the
 document, so tabs for labs created after the page opened can be framed.
 Frames are sandboxed (<code>allow-scripts allow-same-origin
 allow-forms allow-popups allow-downloads</code>); nothing is proxied through the
-server. A site that refuses to be framed (<code>X-Frame-Options</code> or CSP
-<code>frame-ancestors</code>) stays blank; the tab's <strong>Open in new window</strong> shows it in a
-separate window instead.</p>
+server. A lab's <code>docs</code> URL tab whose site refuses to be framed
+(<code>X-Frame-Options</code> or CSP <code>frame-ancestors</code>) stays blank; the tab's <strong>Open in
+new window</strong> shows it in a separate window instead. A tab opened from a
+<code>docLinks</code> badge is checked first with
+<a href="#get-runslabdoclinksframe"><code>GET /runs/{lab}/doclinks/frame</code></a> and shows an
+<strong>Open in browser</strong> fallback instead of a blank frame.</p>
 <h2 id="lifetime">Lifetime<a class="headerlink" href="#lifetime" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The server writes <code>~/.astrona/workspace/server.json</code> (mode 0600) with its

@@ -5485,13 +5485,20 @@ run sends nothing.</p>
   copy icon; click it (or focus it and press <kbd>Enter</kbd>) to copy its
   text. A code block shows a <strong>Copy</strong> button in its corner. Both say
   <strong>Copied</strong> for a moment.</li>
-<li><strong>Relevant resources</strong>: under the task, links to official documentation for
-  the lab, taken from the lab's <code>resources</code> in the training's <code>astrona.yaml</code>
-  (<code>- name: "Kubernetes: Deployments"</code>, <code>url: https://…</code>). The part of the
-  name before the first <code>:</code> is shown as a small product label, the rest as
-  the title, with the site's host under it. Each link opens in a new browser
-  tab. Only <code>https</code> links with a name are shown, at most 20; the section is
-  hidden when the lab lists none, and it is never shown in an exam.</li>
+<li><strong>Relevant resources</strong>: at the top of the task, small badges linking to
+  official documentation for the lab, taken from the lab's <code>resources</code> in the
+  training's <code>astrona.yaml</code> (<code>- name: "Kubernetes: Deployments"</code>,
+  <code>url: https://…</code>). The part of the name before the first <code>:</code> is shown as a
+  small product label inside the badge, the rest as its title; the site's host
+  is in the tooltip. A badge opens the page as a tab next to the terminal, not
+  as a browser tab; clicking it again shows that tab instead of opening a
+  second one. Resource tabs are remembered per run like any other tab and can
+  be reopened from the <strong>+</strong> menu under <strong>Resources</strong>. Many documentation
+  sites refuse to be shown inside another page; the workspace checks this
+  first, and such a tab says <strong>This site does not allow embedding</strong> with an
+  <strong>Open in browser</strong> button instead of staying blank. Only <code>https</code> links with
+  a name are shown, at most 20; the badges are hidden when the lab lists
+  none, and they are never shown in an exam.</li>
 <li><strong>Terminal</strong> (right): a shell on the lab with <code>kubectl</code> pointed at its
   cluster (on a QEMU lab, an SSH login into its VM; see <a href="#qemu-labs">QEMU labs</a>). Keyboard focus moves into the terminal after <strong>Start</strong> and when the
   page opens. Press <kbd>F6</kbd> to leave the terminal; <kbd>Shift</kbd>+<kbd>F6</kbd>
@@ -5508,7 +5515,8 @@ run sends nothing.</p>
 <p>When you are done, use <strong>Submit</strong> in the top bar (see
 <a href="#submit-or-end-from-the-browser">Submit or end from the browser</a>);
 <code>astrona submit</code> in a terminal does the same.</p>
-<p><img alt="Inline code with copy icons and the Relevant resources links under the task" src="../../assets/browser-workspace-resources.png" /></p>
+<p><img alt="Relevant resources as badges above the task, one opened as a tab next to the terminal" src="../../assets/browser-workspace-resources.png" /></p>
+<p><img alt="A resource tab for a site that refuses embedding, with an Open in browser button" src="../../assets/browser-workspace-resource-refused.png" /></p>
 <h3 id="tabs">Tabs<a class="headerlink" href="#tabs" title="Permanent link">&para;</a></h3>
 <p>The right panel opens with the lab's tabs. The first, <strong>Terminal</strong>, is the
 shell on the lab's own cluster. A lab can add more with
