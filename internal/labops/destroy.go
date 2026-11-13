@@ -212,6 +212,13 @@ func DestroyByName(name string, rep *ui.Reporter, opts DestroyOptions) error {
 // DestroyByNameLocked is DestroyByName for a caller that already holds the
 // lab's mutation lock.
 func DestroyByNameLocked(name string, rep *ui.Reporter, opts DestroyOptions) error {
+	done := teardownTelemetry(config.NormalizeClusterName(name))
+	err := destroyByNameLocked(name, rep, opts)
+	done(err == nil)
+	return err
+}
+
+func destroyByNameLocked(name string, rep *ui.Reporter, opts DestroyOptions) error {
 	// Accept the lab name with or without the "astro-" prefix — `astrona
 	// list` prints the prefixed form, but a user typing the bare lab name
 	// should still hit the right lab. Idempotent, so an already-prefixed
@@ -470,6 +477,13 @@ func DestroyLab(info Teardown, baseDir string, rep *ui.Reporter, opts DestroyOpt
 		return err
 	}
 	defer release()
+	done := teardownTelemetry(config.NormalizeClusterName(info.ClusterName))
+	err = destroyLabLocked(info, baseDir, rep, opts)
+	done(err == nil)
+	return err
+}
+
+func destroyLabLocked(info Teardown, baseDir string, rep *ui.Reporter, opts DestroyOptions) error {
 	clusterName := config.NormalizeClusterName(info.ClusterName)
 	current, err := labstate.Load(clusterName)
 	if err != nil {

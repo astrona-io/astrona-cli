@@ -481,6 +481,8 @@ func (s *Server) runSubmit(rec RunRecord, job *submitJob) {
 		fmt.Fprintf(logw, "workspace: could not save the submission of %s: %v\n", rec.Lab, werr)
 	}
 	job.sub = sub
+	// Usage events of this submit (and its teardown) go out in the background.
+	labops.StartOutboxFlusher()
 }
 
 // handleSubmission is the latest submission of the run: being graded,
@@ -556,6 +558,7 @@ func (s *Server) handleDestroy(w http.ResponseWriter, r *http.Request) {
 		writeErrorCode(w, http.StatusConflict, "environment_kept", "this lab keeps its environment (teardown.keepCluster); nothing was removed. Remove it in a terminal with: astrona destroy "+rec.Lab)
 		return
 	}
+	labops.StartOutboxFlusher()
 	writeJSON(w, http.StatusOK, map[string]any{"environmentRemoved": true, "messages": status.lines()})
 }
 

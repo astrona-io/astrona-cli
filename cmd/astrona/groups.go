@@ -67,6 +67,7 @@ func commandGroups(flags *rootFlags) []commandGroup {
 			newTermsCmd(),
 			newDataCmd(),
 			newSettingsCmd(flags),
+			newTelemetryCmd(flags),
 			newVersionsCmd(),
 			newUpgradeCmd(),
 		}},

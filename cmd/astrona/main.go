@@ -11,6 +11,7 @@ import (
 
 	"astrona/internal/apphome"
 	"astrona/internal/labops"
+	"astrona/internal/telemetry"
 	"astrona/internal/ui"
 	"astrona/internal/version"
 	"astrona/internal/workspace"
@@ -129,6 +130,7 @@ func checkLatestVersion(verbose bool) {
 			st.Latest, Version, releaseRepo, st.Latest)
 		st.NotifiedAt = now
 		saveUpdateState(path, st)
+		telemetry.Record(telemetry.Event{Type: telemetry.UpdateShown})
 	}
 }
 
@@ -182,6 +184,8 @@ func newRootCmd(flags *rootFlags) *cobra.Command {
 			if err := applyUserSettings(cmd, flags); err != nil {
 				return err
 			}
+			telemetry.Configure(Version, flags.settingsFile)
+			showTelemetryNotice(cmd)
 			if cmd.Name() != "use" {
 				applyCurrentLab(cmd, flags)
 			}
@@ -272,7 +276,12 @@ func main() {
 	installTermsGate(rootCmd, flags, func(c *cobra.Command, explicit bool) error { return checkTerms(c, explicit, flags) })
 	installHeadlessGate(rootCmd)
 
-	if err := executeWithDataLock(rootCmd, defaultDataStore); err != nil {
+	err := executeWithDataLock(rootCmd, defaultDataStore)
+	// Usage events this command recorded go out now, within a short budget;
+	// what does not make it waits for the next command or the background
+	// sender. Never changes the exit code.
+	labops.SendTelemetry(2 * time.Second)
+	if err != nil {
 		if exitCodeFor(err) != exitNotPassed {
 			ui.PrintError(err)
 		}

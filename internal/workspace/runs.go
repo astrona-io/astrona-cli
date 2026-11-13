@@ -633,6 +633,7 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ReportStart(lab, marker.StartedAt)
+	labops.RecordTimerStarted(lab)
 	v, err = buildView(rec, now)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

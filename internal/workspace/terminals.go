@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"astrona/internal/telemetry"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -319,6 +320,7 @@ func (s *Server) handleOpenTerminal(w http.ResponseWriter, r *http.Request) {
 		writeErrorCode(w, http.StatusConflict, "not_started", "click Start first")
 		return
 	}
+	telemetry.RecordTab(rec.Lab, telemetry.TabOpened, "terminal", tab.Name, nil)
 	running, ok, err := s.terms.reserve(rec.Lab, tab.Name)
 	switch {
 	case errors.Is(err, errTabStarting):
@@ -426,6 +428,7 @@ func (s *Server) handleCloseTerminal(w http.ResponseWriter, r *http.Request) {
 		writeErrorCode(w, http.StatusConflict, "terminal_starting", "this tab's terminal is starting; try again in a moment")
 		return
 	}
+	telemetry.RecordTab(rec.Lab, telemetry.TabClosed, "terminal", req.Tab, nil)
 	writeJSON(w, http.StatusOK, map[string]int{"closed": closed})
 }
 

@@ -140,7 +140,7 @@ func completeSetting(cmd *cobra.Command, args []string, toComplete string) ([]st
 		}
 	} else if len(args) == 1 && cmd.Name() == "set" {
 		switch args[0] {
-		case "verbose", "keep-context", "update-check", "login-reminder", "usage-samples":
+		case "verbose", "keep-context", "update-check", "login-reminder", "usage-samples", "telemetry":
 			values = []string{"yes", "no"}
 		case "browser":
 			values = []string{settings.BrowserAsk, settings.BrowserAlways, settings.BrowserNever}

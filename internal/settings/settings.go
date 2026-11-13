@@ -39,6 +39,7 @@ func Definitions() []Definition {
 		{"login-reminder", "true", "Ask guests to log in before starting a lab; disabling this allows guest runs without reminders"},
 		{"usage-samples", "true", "While signed in, send a running lab's CPU and memory use to its Astrona lab session; no stops it"},
 		{"update-check", "true", "Check for new CLI releases and show update notices"},
+		{"telemetry", "true", "Send usage data about the labs you run (no files, paths, commands or IPs), only to improve Astrona and its labs; no stops it and deletes unsent events (see astrona telemetry status)"},
 		{"cache-retention-days", strconv.Itoa(localdata.DefaultRetentionDays), "Maximum disposable-cache age in days (1–36500)"},
 		{"cache-max-size-gb", strconv.Itoa(localdata.DefaultMaxSizeGB), "Combined disposable-cache size in GB; 0 means unlimited"},
 		{"browser", `"always"`, "Open the lab in the browser workspace after `astrona run`: always, ask or never"},
@@ -104,7 +105,7 @@ func ValidateParallel(n int) error {
 // Parse validates value for key and returns its normalized JSON form.
 func Parse(key, value string) (json.RawMessage, error) {
 	switch key {
-	case "verbose", "keep-context", "update-check", "login-reminder", "usage-samples":
+	case "verbose", "keep-context", "update-check", "login-reminder", "usage-samples", "telemetry":
 		switch strings.ToLower(strings.TrimSpace(value)) {
 		case "yes", "y", "true", "on":
 			value = "true"

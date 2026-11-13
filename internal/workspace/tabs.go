@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"astrona/internal/telemetry"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -283,6 +284,7 @@ func (s *Server) handleTabDoc(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	telemetry.RecordTab(rec.Lab, telemetry.TabOpened, "docs", t.Name, nil)
 	writeJSON(w, http.StatusOK, map[string]string{"name": t.Name, "title": t.Title, "html": html})
 }
 
@@ -326,5 +328,6 @@ func (s *Server) handleSolution(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	telemetry.RecordTab(rec.Lab, telemetry.TabOpened, "solution", "solution", nil)
 	writeJSON(w, http.StatusOK, map[string]string{"title": "Solution guide", "html": html})
 }

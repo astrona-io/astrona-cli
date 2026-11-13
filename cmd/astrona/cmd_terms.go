@@ -32,7 +32,7 @@ func termsExempt(cmd *cobra.Command) bool {
 	case "help", "docgen", "schema", "__complete", "__completeNoDesc", "playground-watchdog", "exam-watchdog", "port-forward supervise", "usage-reporter", "outbox-flush", "stop", "destroy", "logout", "port-forward stop", "ui serve", "ui stop", "ui status":
 		return true
 	}
-	for _, name := range []string{"completion", "settings", "data"} {
+	for _, name := range []string{"completion", "settings", "data", "telemetry"} {
 		if path == name || strings.HasPrefix(path, name+" ") {
 			return true
 		}
