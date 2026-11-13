@@ -193,13 +193,20 @@ run sends nothing.
   copy icon; click it (or focus it and press <kbd>Enter</kbd>) to copy its
   text. A code block shows a **Copy** button in its corner. Both say
   **Copied** for a moment.
-- **Relevant resources**: under the task, links to official documentation for
-  the lab, taken from the lab's `resources` in the training's `astrona.yaml`
-  (`- name: "Kubernetes: Deployments"`, `url: https://…`). The part of the
-  name before the first `: ` is shown as a small product label, the rest as
-  the title, with the site's host under it. Each link opens in a new browser
-  tab. Only `https` links with a name are shown, at most 20; the section is
-  hidden when the lab lists none, and it is never shown in an exam.
+- **Relevant resources**: at the top of the task, small badges linking to
+  official documentation for the lab, taken from the lab's `resources` in the
+  training's `astrona.yaml` (`- name: "Kubernetes: Deployments"`,
+  `url: https://…`). The part of the name before the first `: ` is shown as a
+  small product label inside the badge, the rest as its title; the site's host
+  is in the tooltip. A badge opens the page as a tab next to the terminal, not
+  as a browser tab; clicking it again shows that tab instead of opening a
+  second one. Resource tabs are remembered per run like any other tab and can
+  be reopened from the **+** menu under **Resources**. Many documentation
+  sites refuse to be shown inside another page; the workspace checks this
+  first, and such a tab says **This site does not allow embedding** with an
+  **Open in browser** button instead of staying blank. Only `https` links with
+  a name are shown, at most 20; the badges are hidden when the lab lists
+  none, and they are never shown in an exam.
 - **Terminal** (right): a shell on the lab with `kubectl` pointed at its
   cluster (on a QEMU lab, an SSH login into its VM; see [QEMU labs](#qemu-labs)). Keyboard focus moves into the terminal after **Start** and when the
   page opens. Press <kbd>F6</kbd> to leave the terminal; <kbd>Shift</kbd>+<kbd>F6</kbd>
@@ -217,7 +224,9 @@ When you are done, use **Submit** in the top bar (see
 [Submit or end from the browser](#submit-or-end-from-the-browser));
 `astrona submit` in a terminal does the same.
 
-![Inline code with copy icons and the Relevant resources links under the task](../assets/browser-workspace-resources.png)
+![Relevant resources as badges above the task, one opened as a tab next to the terminal](../assets/browser-workspace-resources.png)
+
+![A resource tab for a site that refuses embedding, with an Open in browser button](../assets/browser-workspace-resource-refused.png)
 
 ### Tabs
 

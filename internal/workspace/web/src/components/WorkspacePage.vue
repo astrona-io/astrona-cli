@@ -4,6 +4,7 @@ import { useCountdown } from '../clock'
 import { getQuestion, isRunGone, isUnauthorized, type Question, type Run } from '../api'
 import { connectionLost, reconnectAttempt, resetConnectivity } from '../connectivity'
 import { useCopyCode } from '../copyCode'
+import type { ShownDocLink } from '../docLinks'
 import type { ViewHandle, ViewStatus } from '../views/types'
 import AboutDialog from './AboutDialog.vue'
 import ConnectionLostDialog from './ConnectionLostDialog.vue'
@@ -54,7 +55,8 @@ const copyCode = useCopyCode(prose, () => question.value?.html)
 
 // ---------------------------------------------------------------- view
 
-const viewRef = ref<ViewHandle | null>(null)
+// LabTabs: focus() like a view, and openResource() for a documentation badge.
+const viewRef = ref<(ViewHandle & { openResource(link: ShownDocLink): void }) | null>(null)
 const status = ref<ViewStatus>({ tone: 'busy', label: 'Connecting' })
 const aboutOpen = ref(false)
 
@@ -117,6 +119,10 @@ async function setCollapsed(value: boolean): Promise<void> {
   await nextTick()
   if (value) expandButton.value?.focus()
   else task.value?.focus()
+}
+
+function openResource(link: ShownDocLink): void {
+  viewRef.value?.openResource(link)
 }
 
 function focusView(): void {
@@ -252,6 +258,7 @@ onBeforeUnmount(() => {
               Hide task
             </button>
           </div>
+          <DocLinks :links="run.docLinks ?? []" @open="openResource" />
           <p v-if="questionError" class="error" role="alert">Could not load the task: {{ questionError }}</p>
           <p v-else-if="!question" class="muted">Loading the task…</p>
           <!-- Rendered and sanitised on the server; innerHTML never runs scripts and CSP blocks inline handlers. -->
@@ -263,7 +270,6 @@ onBeforeUnmount(() => {
             @keydown="copyCode.onKeydown"
             v-html="question.html"
           />
-          <DocLinks :links="run.docLinks ?? []" />
         </div>
         <footer class="task__foot">
           <button type="button" class="task__link" title="Every lab running on this computer" @click="emit('home')">

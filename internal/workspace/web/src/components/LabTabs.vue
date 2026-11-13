@@ -4,8 +4,10 @@
 // close any tab with its ×, except the last terminal, and open more from the
 // + menu: another terminal (on a VM or cluster of the run, when there are
 // several), the task, the prerequisites, the solution guide (after a
-// confirmation; never in an exam or a playground) and any of the lab's own
-// tabs that were closed. Closing a terminal ends its shell, after a
+// confirmation; never in an exam or a playground), the lab's documentation
+// links and any of the lab's own tabs that were closed. A documentation
+// badge above the task opens its link here too (openResource), or shows its
+// tab when it is already open. Closing a terminal ends its shell, after a
 // confirmation. The open tabs are remembered per run in localStorage, so a
 // reload keeps them.
 //
@@ -21,6 +23,7 @@ import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, reactive, re
 import { closeTerminalTab, isRunGone, isUnauthorized, type Run, type RunTab, type TabKind } from '../api'
 import { views, type TabSource, type ViewHandle, type ViewStatus, type WorkspaceTab } from '../views/types'
 import type { EndCopy } from '../endSession'
+import { resourceTabName, shownDocLinks, type ShownDocLink } from '../docLinks'
 import ConfirmDialog from './ConfirmDialog.vue'
 
 const props = defineProps<{ run: Run }>()
@@ -42,6 +45,7 @@ const lab = computed(() => props.run.lab)
 const runId = computed(() => props.run.runId)
 const labTabs = computed(() => props.run.tabs.filter((t) => t.kind in components))
 const terminalTargets = computed(() => props.run.targets.filter((t) => t.views.includes('terminal')))
+const docLinks = computed(() => shownDocLinks(props.run.docLinks ?? []))
 
 // ---------------------------------------------------------------- storage
 
@@ -56,6 +60,8 @@ interface StoredTab {
   target?: string
   questionId?: string
   confirmed?: boolean
+  /** resource: the documentation link it shows. */
+  url?: string
 }
 
 interface Stored {
@@ -84,6 +90,7 @@ function save(): void {
       target: t.source === 'terminal' ? t.target : undefined,
       questionId: t.questionId,
       confirmed: t.confirmed || undefined,
+      url: t.source === 'resource' ? t.url : undefined,
     })),
   }
   try {
@@ -124,6 +131,10 @@ function solutionTab(): WorkspaceTab | null {
   return { name: '@solution', title: 'Solution guide', kind: 'docs', focus: false, document: true, source: 'solution', solution: true }
 }
 
+function resourceTab(link: ShownDocLink): WorkspaceTab {
+  return { name: resourceTabName(link), title: link.name, kind: 'docs', focus: false, url: link.url, source: 'resource' }
+}
+
 function terminalTab(name: string, target: string, title: string): WorkspaceTab | null {
   if (!terminalTargets.value.some((t) => t.name === target)) return null
   return { name, title, kind: 'terminal', focus: false, target, source: 'terminal' }
@@ -142,6 +153,10 @@ function restore(s: StoredTab): WorkspaceTab | null {
       return s.questionId ? taskTab(s.questionId) : null
     case 'prerequisites':
       return prerequisitesTab()
+    case 'resource': {
+      const link = docLinks.value.find((l) => l.url === s.url)
+      return link ? resourceTab(link) : null
+    }
     case 'solution': {
       const t = solutionTab()
       if (t) t.confirmed = !!s.confirmed
@@ -452,6 +467,12 @@ const groups = computed<MenuGroup[]>(() => {
     })
   }
   if (docs.length > 0) out.push({ label: 'Documents', items: docs })
+  if (docLinks.value.length > 0) {
+    out.push({
+      label: 'Resources',
+      items: docLinks.value.map((l) => ({ key: resourceTabName(l), label: l.name, hint: l.host, run: () => openResource(l) })),
+    })
+  }
   const closed = labTabs.value.filter((t) => !find(t.name))
   if (closed.length > 0) {
     out.push({
@@ -474,6 +495,12 @@ const groups = computed<MenuGroup[]>(() => {
   }
   return out
 })
+
+/** Opens a documentation link as a tab, or shows its tab when already open. */
+function openResource(link: ShownDocLink): void {
+  const t = resourceTab(link)
+  add(find(t.name) ?? t)
+}
 
 const flatItems = computed(() => groups.value.flatMap((g) => g.items).filter((i) => !i.disabled))
 
@@ -545,6 +572,7 @@ save()
 
 defineExpose({
   focus: () => handles[active.value]?.focus(),
+  openResource,
 })
 </script>
 

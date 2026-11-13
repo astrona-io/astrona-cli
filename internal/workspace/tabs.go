@@ -196,8 +196,8 @@ func BrowserTabURL(scheme string, hostPort int, path string) string {
 	return scheme + "://" + loopbackAddr + ":" + strconv.Itoa(hostPort) + path
 }
 
-// frameSources are the origins the page may frame: the browser tabs and
-// docs URLs of every lab that still runs, never the server's own
+// frameSources are the origins the page may frame: the browser tabs, docs
+// URLs and documentation links of every lab that still runs, never the server's own
 // origin (a framed page there could read the session token).
 func (s *Server) frameSources() []string {
 	labs, err := RecordedLabs()
@@ -225,6 +225,11 @@ func (s *Server) frameSources() []string {
 				continue
 			}
 			if err == nil && origin != self {
+				set[origin] = true
+			}
+		}
+		for _, origin := range docLinkOrigins(rec) {
+			if origin != self {
 				set[origin] = true
 			}
 		}

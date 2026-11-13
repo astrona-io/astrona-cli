@@ -114,6 +114,7 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | `POST /runs/{lab}/start` | The **Start** button. Idempotent. |
 | `GET /runs/{lab}/terminals` | Open terminals. |
 | `GET /runs/{lab}/tabs/{name}/doc` | A docs tab's Markdown, rendered to HTML. After **Start** only. |
+| `GET /runs/{lab}/doclinks/frame?url=…` | Whether one of the run's `docLinks` can be shown in a frame. |
 | `GET /runs/{lab}/solution` | The solution guide, rendered to HTML. After **Start** only; never in an exam or a playground. |
 | `POST /runs/{lab}/terminals` | Open the shell of a terminal tab, or of a new terminal on a target. After **Start** only. |
 | `POST /runs/{lab}/terminals/close` | End the shell of a terminal tab the learner closed. |
@@ -306,7 +307,7 @@ answer; Kind labs are then missing from the list.
 | `questions` | Summaries only, never the text. Today every lab has exactly one question, `q1`, built from `metadata.docs.question`. `points` is `null` until per-question points exist. |
 | `targets` | Where terminals run. `kind` is `kind` (a Kind cluster) or `vm` (one VM of a QEMU lab; `name` is the VM's handle, the lab name for a single-VM lab or `<lab>-<vm>`). `label` is the display name (`main`, a linked cluster's name, or the VM's name in a multi-VM lab). `views` lists what the target offers: `["terminal"]` today; a desktop will add `"desktop"`. |
 | `tabs` | The right panel, as the lab declares it (lab config `tabs`). The first is always the focus tab: `name` `main`, a terminal on the lab's own cluster. The page opens with these; the learner can close them and open more from the tab bar's **+** menu (another terminal on a target, the task, the prerequisites, the solution guide, a closed lab tab), which the page remembers per run in `localStorage`. `kind` is `terminal` (`target` says where its shell runs), `browser` (`url` is a loopback port forward of the lab), or `docs`: either `url` (an `https` documentation page, shown in a frame) or `document: true` (Markdown shipped with the lab, fetched from `GET /tabs/{name}/doc`); `solution: true` marks a docs tab whose file is the lab's solution, which the page shows only after the learner confirms. A lab that declares no tabs gets only the focus tab. A QEMU lab cannot declare tabs: a single-VM lab gets the focus tab on its VM, a multi-VM lab gets the focus tab on its first VM (titled with the VM's name) and a terminal tab `vm-<name>` for each further VM. |
-| `docLinks` | Links to official documentation for the lab, from its `resources` in the training's `astrona.yaml`, as `{"name", "url"}`: `https` only, a non-empty name, at most 20; invalid entries are dropped. The page shows them under the task as **Relevant resources**. Always `[]` in an exam, and when the lab lists none. |
+| `docLinks` | Links to official documentation for the lab, from its `resources` in the training's `astrona.yaml`, as `{"name", "url"}`: `https` only, a non-empty name, at most 20; invalid entries are dropped. The page shows them as **Relevant resources** badges at the top of the task; each opens as a `docs` tab of the right panel (see [`GET /runs/{lab}/doclinks/frame`](#get-runslabdoclinksframe)). Always `[]` in an exam, and when the lab lists none. |
 | `canSubmit` | `true` when `POST /submit` would grade now: a lab or exam that was started and is still running (an expired exam can still be submitted). Never for a playground. |
 | `submit.tracking` | Where a result goes. `account`: the run has an Astrona lab session; the result is sent when astrona is signed in to that site. `local-only`: never sent. `none`: no lab session; the result stays on this machine. |
 | `submit.grading` | A submission of this run is being graded now. |
@@ -353,6 +354,28 @@ never does). A question id other than `q1` gives `404 not_found`.
 Rendered and sanitised like the question. Only for a docs tab with
 `document: true`; any other name is `404 not_found`. Errors: `409 not_started`,
 `409 run_stopped`.
+
+### `GET /runs/{lab}/doclinks/frame`
+
+```json
+{ "frame": "refused", "reason": "its X-Frame-Options header refuses it" }
+```
+
+Whether the documentation link `url` (URL-encoded, exactly as listed in the
+run's `docLinks`) can be shown in a frame. A cross-origin frame cannot tell
+the page that the site refused it, so the server requests the link once and
+reads its response headers; the page then frames the site itself, nothing is
+proxied. `frame` is:
+
+| Value | Meaning |
+| --- | --- |
+| `allowed` | No header refuses framing. The page frames the link. |
+| `refused` | CSP `frame-ancestors` (anything but `*`) or `X-Frame-Options` (`DENY`, `SAMEORIGIN`) refuses it, or it redirects to another origin, which the page's `frame-src` does not name. `reason` says which. The page shows **This site does not allow embedding** with an **Open in browser** link. |
+| `unknown` | The check failed (offline, timeout, more than 5 redirects, a redirect away from `https`). The page tries the frame. |
+
+Only links in the run's `docLinks` are checked; any other `url`, and any url
+in an exam, is `404 not_found`. `allowed` and `refused` answers are cached per
+URL for an hour; `unknown` is not cached. The check has an 8-second timeout.
 
 ### `POST /runs/{lab}/start`
 
@@ -605,15 +628,18 @@ reload.
 ## Framing
 
 The page is served with the strict policy above plus a `frame-src` that names
-exactly the origins of the current runs' `browser` tabs and `docs` URL
-tabs, computed when the page is loaded. It never names the server's own
+exactly the origins of the current runs' `browser` tabs, `docs` URL
+tabs and `docLinks` (none in an exam), computed when the page is loaded. It never names the server's own
 origin. Entering a run from setup or the lab list automatically reloads the
 document, so tabs for labs created after the page opened can be framed.
 Frames are sandboxed (`allow-scripts allow-same-origin
 allow-forms allow-popups allow-downloads`); nothing is proxied through the
-server. A site that refuses to be framed (`X-Frame-Options` or CSP
-`frame-ancestors`) stays blank; the tab's **Open in new window** shows it in a
-separate window instead.
+server. A lab's `docs` URL tab whose site refuses to be framed
+(`X-Frame-Options` or CSP `frame-ancestors`) stays blank; the tab's **Open in
+new window** shows it in a separate window instead. A tab opened from a
+`docLinks` badge is checked first with
+[`GET /runs/{lab}/doclinks/frame`](#get-runslabdoclinksframe) and shows an
+**Open in browser** fallback instead of a blank frame.
 
 ## Lifetime
 
