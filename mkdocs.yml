@@ -93,6 +93,7 @@ nav:
       - CLI Settings: guides/settings.md
       - Local Data and Caches: guides/local-data.md
       - CLI Usage Terms: guides/cli-terms.md
+      - Usage Data (Telemetry): guides/telemetry.md
       - Authoring a Lab: guides/authoring-a-lab.md
       - Writing a Question Bank: guides/question-banks.md
       - CI Integration: guides/ci-integration.md
@@ -197,6 +198,11 @@ nav:
               - reference/cli/astrona_settings_unset.md
               - reference/cli/astrona_settings_reset.md
               - reference/cli/astrona_settings_path.md
+              - reference/cli/astrona_telemetry.md
+              - reference/cli/astrona_telemetry_status.md
+              - reference/cli/astrona_telemetry_off.md
+              - reference/cli/astrona_telemetry_on.md
+              - reference/cli/astrona_telemetry_reset.md
               - reference/cli/astrona_versions.md
               - reference/cli/astrona_versions_list.md
               - reference/cli/astrona_versions_install.md

@@ -493,6 +493,13 @@ func Submit(ctx context.Context, req SubmitRequest) (*SubmitResult, error) {
 		Recorded:    recordErr == nil,
 	}
 	res.Result.ElapsedSeconds = attempt.ElapsedSeconds
+	passedChecks := 0
+	for _, r := range results {
+		if r.Pass {
+			passedChecks++
+		}
+	}
+	recordSubmit(clusterName, pass, len(results), passedChecks)
 	if req.Graded != nil {
 		if err := req.Graded(res, rep); err != nil {
 			return nil, err

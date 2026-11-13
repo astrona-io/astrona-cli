@@ -128,8 +128,9 @@ private atomic files. If interrupted between saving choices and the receipt,
 the next explicit review asks again. `data reset --yes` clears both files. Unsetting
 `update-check` restores its default `yes` without requiring another review.
 
-Review does not enable telemetry or account tracking; existing signed-in lab
-progress tracking is separate. Usage terms and remote-code trust retain their
+Review does not enable account tracking; existing signed-in lab progress
+tracking is separate. Usage data is the `telemetry` setting (on by default; see
+[Usage Data](telemetry.md)); `astrona telemetry off` turns it off. Usage terms and remote-code trust retain their
 own approval requirements.
 
 CI and scripts do not need a settings review step or a pinned review ID.

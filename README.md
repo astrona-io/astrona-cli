@@ -40,12 +40,21 @@ Flat, podman-`run`-style verbs at the root — no noun to namespace under. `--co
 - **Manage running labs** — `list`, `stop`, `start`, `port-forward`, `net`, `kubeconfig`
 - **Write labs** — `init`, `content`, `validate`, `test`, `bundle`
 - **Troubleshoot** — `doctor`, `check`, `diagnose`, `logs`, `images`
-- **astrona itself** — `terms`, `settings`, `data`, `versions`, `upgrade`
+- **astrona itself** — `terms`, `settings`, `telemetry`, `data`, `versions`, `upgrade`
 
 On first use, Astrona asks you to accept its CLI usage terms and data-loss risk
 notice. Read them with `astrona terms`. A changed notice in a later CLI release
 requires acceptance again. CI commands need an explicit `--accept-terms` flag;
 `--yes` and `--trust` do not accept terms. See [terms acceptance](docs/guides/cli-terms.md#cli-usage-terms).
+
+The CLI sends usage data only to improve the Astrona platform and its labs:
+which labs are used, how long they take, and where people get stuck or hit
+errors. Events carry a random install id (and your account when signed in);
+never files, paths, commands or IP addresses. It is on by default: turn it off
+with `astrona telemetry off`, `ASTRONA_TELEMETRY=0` or `DO_NOT_TRACK=1`, and
+see exactly what is sent with `astrona telemetry status`. See
+[usage data](docs/guides/telemetry.md) and the
+[privacy policy](https://astrona.io/privacy#cli-usage-data).
 
 `astrona data` shows local file counts and sizes. `astrona data clean` previews
 cache cleanup; `astrona data reset` previews resetting saved preferences and the

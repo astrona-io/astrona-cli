@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"astrona/internal/telemetry"
 	"context"
 	"errors"
 	"net/http"
@@ -101,11 +102,11 @@ func (s *Server) handleDocLinkFrame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	raw := r.URL.Query().Get("url")
-	listed := false
+	listed, index := false, 0
 	if rec.docLinksAllowed() {
-		for _, l := range rec.DocLinks {
+		for i, l := range rec.DocLinks {
 			if l.URL == raw {
-				listed = true
+				listed, index = true, i
 				break
 			}
 		}
@@ -114,6 +115,10 @@ func (s *Server) handleDocLinkFrame(w http.ResponseWriter, r *http.Request) {
 	if !listed || err != nil {
 		writeError(w, http.StatusNotFound, "no such documentation link")
 		return
+	}
+	// Only the link's position in the lab's list is recorded, never its URL.
+	if index < 100 {
+		telemetry.RecordTab(rec.Lab, telemetry.TabOpened, "doc_link", "", telemetry.Int(index))
 	}
 	now := time.Now()
 	a, ok := s.frames.get(raw, now)

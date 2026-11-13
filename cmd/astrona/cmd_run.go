@@ -5,6 +5,7 @@ import (
 	"astrona/internal/apphome"
 	"astrona/internal/authoring"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -209,8 +210,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer start.Abandon()
 			flags.runAccount = runAccountStatus(flags, acct, start.Session)
-			flags.launch.SetAccount(flags.runAccount,
-				start.Session.IsPlayground() || labops.IsPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground")
+			playground := start.Session.IsPlayground() || labops.IsPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground"
+			flags.launch.SetAccount(flags.runAccount, playground)
 			start.Progress("preparing", "Preparing your lab environment")
 
 			rep, err := ui.New("run", cfg.Metadata.Name, ui.Options{Verbose: flags.verbose, Plain: flags.headless})
@@ -218,11 +219,21 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 			defer rep.Close()
-			rep.SetObserver(start.Observe)
+			// Usage analytics (astrona telemetry): not for --local-only or
+			// --headless runs, which stay on this machine.
+			var usage *labops.RunTelemetry
+			if !flags.localOnly && !flags.headless {
+				usage = labops.StartRunTelemetry(clusterName, flags.catalogLab, playground, cfg.Runtime.Type)
+			}
+			rep.SetObserver(func(e ui.Event) {
+				start.Observe(e)
+				usage.Observe(e)
+			})
 			if flags.launch != nil {
 				rep.SetObserver(func(e ui.Event) {
 					flags.launch.Observe(e)
 					start.Observe(e)
+					usage.Observe(e)
 				})
 				flags.launch.SetLog(rep.LogPath())
 				flags.launch.Stage(workspace.LaunchPreparing, "")
@@ -238,6 +249,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 				// --local-only: detach the old run here, never through the
 				// Astrona API, before it is replaced.
 				if err := detachRunLocally(clusterName); err != nil {
+					usage.Finish(err)
 					return err
 				}
 			} else {
@@ -246,15 +258,19 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			if choice.startOver {
 				// With --keep-context run won't switch again: the old lab's context goes back first.
 				if err := labops.RemoveForRestart(os.Stdout, cfg, baseDir, clusterName, flags.keepContext, flags.localOnly, rep); err != nil {
+					usage.Finish(err)
 					return fmt.Errorf("could not remove the running lab, nothing was started: %w", err)
 				}
 			}
 			if err := bringUpLab(ctx, cfg, baseDir, flags, rep, start.Session); err != nil {
 				if ctx.Err() != nil {
 					start.Interrupted()
+					err = errors.Join(labops.ErrInterrupted, err)
 				}
+				usage.Finish(err)
 				return err
 			}
+			usage.Finish(nil)
 			start.Done(clusterName)
 			release()
 			disarm()
