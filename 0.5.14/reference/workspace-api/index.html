@@ -1,0 +1,6845 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Local Kubernetes lab environments with kind and qemu, graded by the Astrona Proctor.">
+      
+      
+      
+        <link rel="canonical" href="https://cli.astrona.io/0.5.14/reference/workspace-api/">
+      
+      
+        <link rel="prev" href="../lab-config/">
+      
+      
+        <link rel="next" href="../cli/astrona/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+    
+    
+      
+        <title>Workspace API - Astrona CLI</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#workspace-api" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+  <div class="astro-sky" aria-hidden="true"><span class="astro-sky__planet"></span></div>
+  
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Astrona CLI" class="md-header__button md-logo" aria-label="Astrona CLI" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Astrona CLI
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Workspace API
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/astrona-io/astrona-cli" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    astrona-io/astrona-cli
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+
+    <div class="md-container" data-md-component="container">
+      
+      
+  
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/runtimes/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/browser-workspace/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../lab-config/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+  <div class="astro-context md-grid">
+    <a class="astro-context__home" href="https://astrona.io">↗ Astrona.io <span>Cloud Native learning, open to everyone.</span></a>
+    <button class="astro-motion" type="button" aria-pressed="false" hidden>Pause animations</button>
+  </div>
+
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Astrona CLI" class="md-nav__button md-logo" aria-label="Astrona CLI" data-md-component="logo">
+      
+  <img src="../../assets/logo.svg" alt="logo">
+
+    </a>
+    Astrona CLI
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/astrona-io/astrona-cli" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    astrona-io/astrona-cli
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_1" id="__nav_2_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Installation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/homebrew/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Homebrew (macOS & Linux)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/apt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    APT (Debian & Ubuntu)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/dnf/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DNF (Fedora & Red Hat)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/snap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Snap (Ubuntu)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/windows/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Windows and WSL 2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/quick-install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/manual/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manual Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Setup and Verification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/shell-completion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Shell Completion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/installation/updates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/runtimes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtimes (kind vs qemu)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/lab-lifecycle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lab Lifecycle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/grading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Grading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/logs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run Logs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/browser-workspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Browser Workspace
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/start-on-my-machine/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Start Labs from the Website
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/lab-exams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hands-on Exams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/local-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Local Data and Caches
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/cli-terms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Usage Terms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/telemetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage Data (Telemetry)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/authoring-a-lab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authoring a Lab
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/question-banks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Writing a Question Bank
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/ci-integration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/macos-kind-testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    macOS Kind Regression
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/remote-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remote Config Sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/offline-bundles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Offline Bundles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/linked-labs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linked Labs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/astrona-versions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona Versions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/lab-catalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lab Catalog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/lab-resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lab Resources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../lab-config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lab Config Schema
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workspace API
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workspace API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Routes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Routes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /server
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-launchesid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /launches/{id}
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-launchesidterms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /launches/{id}/terms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-labs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /labs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabquestionsid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/questions/{id}
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabtabsnamedoc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/tabs/{name}/doc
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabdoclinksframe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/doclinks/frame
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-runslabstart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /runs/{lab}/start
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-runslabsubmit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /runs/{lab}/submit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabsubmission" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/submission
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-runslabdestroy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /runs/{lab}/destroy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabterminals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/terminals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-runslabterminals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /runs/{lab}/terminals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-runslabterminalsclose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /runs/{lab}/terminals/close
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabsolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/solution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-wsv1terminalsidticketticket" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /ws/v1/terminals/{id}?ticket=&lt;ticket&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#framing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Framing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lifetime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifetime
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-state-lives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where state lives
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3_2" id="__nav_5_3_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Take a lab
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Take a lab
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_login/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona login
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_whoami/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona whoami
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_connect/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona connect
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_devices/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona devices
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_logout/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona logout
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_labs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona labs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_labs_add/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona labs add
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_labs_remove/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona labs remove
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_labs_sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona labs sources
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_use/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona use
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona run
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona ui
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_ui_status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona ui status
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_ui_stop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona ui stop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_run_renew/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona run renew
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona docs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_shell/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona shell
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_resource/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona resource
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_resource_list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona resource list
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_resource_show/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona resource show
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_resource_copy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona resource copy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_resource_path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona resource path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_resource_run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona resource run
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_ssh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona ssh
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_submit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona submit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_hands-on-exam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona hands on exam
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_hands-on-exam_start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona hands on exam start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_hands-on-exam_status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona hands on exam status
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_hands-on-exam_task/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona hands on exam task
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_hands-on-exam_next/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona hands on exam next
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_hands-on-exam_prev/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona hands on exam prev
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_hands-on-exam_break/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona hands on exam break
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_hands-on-exam_resume/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona hands on exam resume
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_hands-on-exam_submit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona hands on exam submit
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_hands-on-exam_abandon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona hands on exam abandon
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona status
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_progress/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona progress
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_reset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona reset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_destroy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona destroy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3_3" id="__nav_5_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manage running labs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Manage running labs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona list
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_stop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona stop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_port-forward/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona port forward
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_port-forward_list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona port forward list
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_port-forward_start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona port forward start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_port-forward_stop/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona port forward stop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_net/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona net
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_kubeconfig/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona kubeconfig
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3_4" id="__nav_5_3_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Write labs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Write labs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_init/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona init
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_init_lab/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona init lab
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_content/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona content
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_content_build/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona content build
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_content_init/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona content init
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_content_validate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona content validate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_validate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona validate
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_test/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona test
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_bundle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona bundle
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_bundle_create/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona bundle create
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_bundle_inspect/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona bundle inspect
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_bundle_load/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona bundle load
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3_5" id="__nav_5_3_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshoot
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Troubleshoot
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_doctor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona doctor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_check/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona check
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_diagnose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona diagnose
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_logs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona logs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_logs_clean/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona logs clean
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_logs_export/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona logs export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_logs_list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona logs list
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_logs_path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona logs path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_logs_view/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona logs view
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_images/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona images
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_images_list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona images list
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_3_6" id="__nav_5_3_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    astrona itself
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    astrona itself
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_terms/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona terms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_data_clean/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona data clean
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_data_reset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona data reset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_settings_view/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings view
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_settings_review/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_settings_get/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings get
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_settings_set/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings set
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_settings_unset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings unset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_settings_reset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings reset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_settings_path/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona settings path
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_telemetry/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona telemetry
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_telemetry_status/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona telemetry status
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_telemetry_off/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona telemetry off
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_telemetry_on/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona telemetry on
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_telemetry_reset/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona telemetry reset
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_versions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona versions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_versions_list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona versions list
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_versions_install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona versions install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_versions_remove/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona versions remove
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_versions_available/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona versions available
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_upgrade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona upgrade
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#conventions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conventions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#routes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Routes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Routes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#get-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /server
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-launchesid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /launches/{id}
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-launchesidterms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /launches/{id}/terms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-labs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /labs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslab" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabquestionsid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/questions/{id}
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabtabsnamedoc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/tabs/{name}/doc
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabdoclinksframe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/doclinks/frame
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-runslabstart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /runs/{lab}/start
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-runslabsubmit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /runs/{lab}/submit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabsubmission" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/submission
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-runslabdestroy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /runs/{lab}/destroy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabterminals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/terminals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-runslabterminals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /runs/{lab}/terminals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-runslabterminalsclose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /runs/{lab}/terminals/close
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-runslabsolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /runs/{lab}/solution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-wsv1terminalsidticketticket" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GET /ws/v1/terminals/{id}?ticket=&lt;ticket&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#framing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Framing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lifetime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifetime
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-state-lives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where state lives
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/astrona-io/astrona-cli/edit/main/docs/reference/workspace-api.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="workspace-api">Workspace API<a class="headerlink" href="#workspace-api" title="Permanent link">&para;</a></h1>
+<p>The browser workspace is a small web page served by <code>astrona</code> itself, on
+<code>127.0.0.1</code> only. This page is the contract between that page and the server
+(<code>internal/workspace</code>). It describes what the server implements today; routes
+marked <em>later</em> are reserved and answer <code>404 not_found</code> until they exist.</p>
+<p>The server is started on demand by <code>astrona run &lt;lab&gt;</code> (when you answer yes to
+"Open this lab in your browser?") and stopped by <code>astrona ui stop</code> or after it
+has been idle for a while; <code>astrona ui &lt;lab&gt;</code> starts it for a running lab.
+See the <a href="../../guides/browser-workspace/">browser workspace guide</a>.</p>
+<h2 id="conventions">Conventions<a class="headerlink" href="#conventions" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Base URL.</strong> <code>http://127.0.0.1:&lt;port&gt;</code>. The server prefers port 47300 and
+  takes a free port when that one is in use; the port is recorded in
+  <code>~/.astrona/workspace/server.json</code>. <code>localhost:&lt;port&gt;</code> is accepted as well;
+  any other <code>Host</code> header is refused with <code>421</code>.</li>
+<li><strong>JSON.</strong> Request bodies must be <code>Content-Type: application/json</code>, at most
+  4 KiB, and may not contain unknown fields. Responses are JSON with
+  <code>Cache-Control: no-store</code>.</li>
+<li><strong>Times</strong> are RFC 3339 strings in UTC. Every run response carries
+  <code>serverNow</code>, so the page can compute remaining time from <code>deadlineAt</code> and the
+  offset to its own clock instead of trusting the local clock.</li>
+<li><strong>Errors</strong> always have this shape:</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="s2">"human readable message"</span><span class="p">,</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"not_started"</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th><code>code</code></th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>400</td>
+<td><code>bad_request</code></td>
+<td>Malformed body, wrong content type, unknown field, invalid size.</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>unknown_tab</code></td>
+<td><code>tab</code> is not one of the run's terminal tabs.</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>invalid_idempotency_key</code></td>
+<td><code>POST /submit</code> without an <code>Idempotency-Key</code> of 8 to 128 letters, digits, <code>-</code> or <code>_</code>.</td>
+</tr>
+<tr>
+<td>401</td>
+<td><code>unauthorized</code></td>
+<td>Missing or invalid token, launch code or ticket.</td>
+</tr>
+<tr>
+<td>403</td>
+<td><code>forbidden</code></td>
+<td>Not a loopback peer, foreign <code>Origin</code>, cross-site <code>Sec-Fetch-Site</code>.</td>
+</tr>
+<tr>
+<td>404</td>
+<td><code>not_found</code></td>
+<td>Unknown route, lab, question or terminal.</td>
+</tr>
+<tr>
+<td>405</td>
+<td><code>method_not_allowed</code></td>
+<td>Method not allowed (<code>OPTIONS</code> included: there is no CORS).</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>run_changed</code></td>
+<td><code>runId</code> in the request is not the lab's current run. Reload the run.</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>not_started</code></td>
+<td>Question text or terminals requested before <strong>Start</strong>.</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>run_stopped</code></td>
+<td>The lab is no longer running (stopped, destroyed or restarted).</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>terminal_starting</code></td>
+<td>Another request is already starting this tab's terminal. Try again in a few seconds.</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>submit_in_progress</code></td>
+<td>The lab is already being submitted (with another <code>Idempotency-Key</code>), or removal was asked for while it is.</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>no_grading</code></td>
+<td><code>POST /submit</code> on a playground: it has no checks. End it with <code>POST /destroy</code>.</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>lab_busy</code></td>
+<td>Another astrona command holds the lab's lock. Nothing was graded or sent.</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>not_trusted</code></td>
+<td>The lab's scripts were never approved on this machine. Approve it with <code>astrona run</code> in a terminal.</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>environment_kept</code></td>
+<td><code>POST /destroy</code> on a lab from your own files with <code>teardown.keepCluster</code>. Nothing was removed.</td>
+</tr>
+<tr>
+<td>404</td>
+<td><code>no_submission</code></td>
+<td><code>GET /submission</code> for a run that was never submitted.</td>
+</tr>
+<tr>
+<td>421</td>
+<td><code>unexpected_host</code></td>
+<td><code>Host</code> is not <code>127.0.0.1:&lt;port&gt;</code> or <code>localhost:&lt;port&gt;</code>.</td>
+</tr>
+<tr>
+<td>429</td>
+<td><code>too_many_terminals</code></td>
+<td>The lab already has 12 open terminals.</td>
+</tr>
+<tr>
+<td>500</td>
+<td><code>internal</code></td>
+<td>Anything else. The message says what failed.</td>
+</tr>
+<tr>
+<td>501</td>
+<td><code>unsupported</code></td>
+<td>Terminals on a platform without a PTY (native Windows).</td>
+</tr>
+<tr>
+<td>502</td>
+<td><code>terminal_failed</code></td>
+<td>The terminal container could not be started. Nothing else was started instead.</td>
+</tr>
+<tr>
+<td>500, 502</td>
+<td><code>grading_failed</code></td>
+<td>The checks could not run (config not loadable, container engine down). Nothing was recorded or sent; the lab keeps running.</td>
+</tr>
+<tr>
+<td>502</td>
+<td><code>destroy_failed</code></td>
+<td>Removing the environment failed. The message says what is left.</td>
+</tr>
+<tr>
+<td>503</td>
+<td><code>unavailable</code></td>
+<td>The server is stopping; no new terminal is started.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h2>
+<ol>
+<li>The CLI prints and opens a launch URL:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>http://127.0.0.1:&lt;port&gt;/#code=&lt;code&gt;&amp;lab=&lt;lab&gt;
+</code></pre></div>
+<p>The fragment is never sent to the server. <code>code</code> is single-use and valid for
+   two minutes; <code>lab</code> names the run the page should show (absent: show the
+   list from <code>GET /api/v1/runs</code>).</p>
+<ol>
+<li>The page exchanges the code and removes the fragment from the address bar:</li>
+</ol>
+<p><code>POST /api/v1/auth/exchange</code> <code>{"code": "&lt;code&gt;"}</code> → <code>200 {"token": "&lt;token&gt;"}</code></p>
+<p>A used, expired or forged code gives <code>401 unauthorized</code>.</p>
+<ol>
+<li>
+<p>Every other <code>/api/v1</code> request sends <code>Authorization: Bearer &lt;token&gt;</code>. There
+   are no cookies. Keep the token in <code>sessionStorage</code> (origin-scoped, port
+   included). A server restart invalidates every token; the page then asks the
+   user to run <code>astrona ui &lt;lab&gt;</code> for a new link.</p>
+</li>
+<li>
+<p>WebSockets cannot send headers. Fetch a ticket first:</p>
+</li>
+</ol>
+<p><code>POST /api/v1/auth/ticket</code> (no body) → <code>200 {"ticket": "&lt;ticket&gt;", "expiresAt": "&lt;time&gt;"}</code></p>
+<p>A ticket is single-use and valid for 30 seconds.</p>
+<ol>
+<li>Entering a run from setup or the lab list loads a fresh document so its
+   framing policy includes that run's page tabs:</li>
+</ol>
+<p><code>POST /api/v1/auth/code</code> (bearer token, no body) → <code>200 {"code": "&lt;code&gt;"}</code></p>
+<p>This code has the same two-minute lifetime and single-use rules as a CLI
+   launch code. The page reloads with it in the fragment and exchanges it as
+   above. This also works when browser storage is disabled and the current
+   bearer token exists only in memory; bearer tokens never go in URLs.</p>
+<h2 id="routes">Routes<a class="headerlink" href="#routes" title="Permanent link">&para;</a></h2>
+<p>All paths are under <code>/api/v1</code> unless they start with <code>/ws/</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Method and path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST /auth/exchange</code></td>
+<td>Launch code → session token.</td>
+</tr>
+<tr>
+<td><code>POST /auth/code</code></td>
+<td>Authenticated page → single-use launch code for document navigation.</td>
+</tr>
+<tr>
+<td><code>POST /auth/ticket</code></td>
+<td>Single-use WebSocket ticket.</td>
+</tr>
+<tr>
+<td><code>GET /server</code></td>
+<td>Version, profile, features.</td>
+</tr>
+<tr>
+<td><code>GET /launches/{id}</code></td>
+<td>A browser-first <code>astrona run</code> before its lab exists: terms, setup progress, outcome.</td>
+</tr>
+<tr>
+<td><code>POST /launches/{id}/terms</code></td>
+<td>Accept or decline the CLI terms for that run.</td>
+</tr>
+<tr>
+<td><code>GET /labs</code></td>
+<td>Every lab on this computer, opened in the browser or not.</td>
+</tr>
+<tr>
+<td><code>GET /runs</code></td>
+<td>Labs the workspace was opened for.</td>
+</tr>
+<tr>
+<td><code>GET /runs/{lab}</code></td>
+<td>One run: identity, mode, status, clock, questions, targets, tabs.</td>
+</tr>
+<tr>
+<td><code>GET /runs/{lab}/questions/{id}</code></td>
+<td>One question rendered to HTML. After <strong>Start</strong> only.</td>
+</tr>
+<tr>
+<td><code>POST /runs/{lab}/start</code></td>
+<td>The <strong>Start</strong> button. Idempotent.</td>
+</tr>
+<tr>
+<td><code>GET /runs/{lab}/terminals</code></td>
+<td>Open terminals.</td>
+</tr>
+<tr>
+<td><code>GET /runs/{lab}/tabs/{name}/doc</code></td>
+<td>A docs tab's Markdown, rendered to HTML. After <strong>Start</strong> only.</td>
+</tr>
+<tr>
+<td><code>GET /runs/{lab}/doclinks/frame?url=…</code></td>
+<td>Whether one of the run's <code>docLinks</code> can be shown in a frame.</td>
+</tr>
+<tr>
+<td><code>GET /runs/{lab}/solution</code></td>
+<td>The solution guide, rendered to HTML. After <strong>Start</strong> only; never in an exam or a playground.</td>
+</tr>
+<tr>
+<td><code>POST /runs/{lab}/terminals</code></td>
+<td>Open the shell of a terminal tab, or of a new terminal on a target. After <strong>Start</strong> only.</td>
+</tr>
+<tr>
+<td><code>POST /runs/{lab}/terminals/close</code></td>
+<td>End the shell of a terminal tab the learner closed.</td>
+</tr>
+<tr>
+<td><code>POST /runs/{lab}/submit</code></td>
+<td>Grade the run, record and send the result. Needs an <code>Idempotency-Key</code> header.</td>
+</tr>
+<tr>
+<td><code>GET /runs/{lab}/submission</code></td>
+<td>The run's latest submission, or that one is being graded.</td>
+</tr>
+<tr>
+<td><code>POST /runs/{lab}/destroy</code></td>
+<td>Remove the environment without grading: ends a playground, or removes a lab as <code>astrona destroy</code> does.</td>
+</tr>
+<tr>
+<td><code>GET /ws/v1/terminals/{id}?ticket=…</code></td>
+<td>Attach to a terminal (WebSocket).</td>
+</tr>
+<tr>
+<td><em>later</em> <code>PUT /runs/{lab}/progress</code>, <code>GET /runs/{lab}/events</code></td>
+<td>Not implemented yet.</td>
+</tr>
+</tbody>
+</table>
+<p>GET routes never change saved state, so polling them is safe.</p>
+<h3 id="get-server"><code>GET /server</code><a class="headerlink" href="#get-server" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0.5.0"</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">"profile"</span><span class="p">:</span><span class="w"> </span><span class="s2">".astrona"</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">"startedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-09T21:00:00Z"</span><span class="p">,</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">"serverNow"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-09T21:05:12Z"</span><span class="p">,</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">"features"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"runs"</span><span class="p">,</span><span class="w"> </span><span class="s2">"terminals"</span><span class="p">,</span><span class="w"> </span><span class="s2">"tabs"</span><span class="p">,</span><span class="w"> </span><span class="s2">"submit"</span><span class="p">],</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">"assets"</span><span class="p">:</span><span class="w"> </span><span class="s2">"built"</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>assets</code> is <code>"placeholder"</code> when the binary was built without the frontend.</p>
+<h3 id="get-launchesid"><code>GET /launches/{id}</code><a class="headerlink" href="#get-launchesid" title="Permanent link">&para;</a></h3>
+<p>A launch is one interactive <code>astrona run</code> that opened the browser before its
+lab exists. The page finds it from <code>&amp;launch=&lt;id&gt;</code> in the link (it rewrites the
+address to <code>#/launches/&lt;id&gt;</code>) and polls this route. <code>astrona run</code> writes the
+launch; the server only reads it, and notes when the page last asked so the
+command knows whether the tab is still open.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">"schema"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3f9c…"</span><span class="p">,</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">"pid"</span><span class="p">:</span><span class="w"> </span><span class="mi">41234</span><span class="p">,</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">"stage"</span><span class="p">:</span><span class="w"> </span><span class="s2">"preparing"</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">  </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Kubernetes playground"</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="nt">"events"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="p">{</span><span class="nt">"at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"section"</span><span class="p">,</span><span class="w"> </span><span class="nt">"label"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Cluster"</span><span class="p">},</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="p">{</span><span class="nt">"at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"step"</span><span class="p">,</span><span class="w"> </span><span class="nt">"label"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Create kind cluster"</span><span class="p">},</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="p">{</span><span class="nt">"at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">,</span><span class="w"> </span><span class="nt">"label"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Create kind cluster"</span><span class="p">,</span><span class="w"> </span><span class="nt">"seconds"</span><span class="p">:</span><span class="w"> </span><span class="mf">41.2</span><span class="p">}</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"waiting for CoreDNS · 12s"</span><span class="p">,</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">  </span><span class="nt">"logPath"</span><span class="p">:</span><span class="w"> </span><span class="s2">"~/.astrona/logs/…"</span><span class="p">,</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="nt">"account"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"signed-in"</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ada"</span><span class="p">,</span><span class="w"> </span><span class="nt">"site"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://astrona.io"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">  </span><span class="nt">"alive"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="p">}</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th><code>stage</code></th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>terms</code></td>
+<td>Waiting for the terms. <code>terms</code> holds <code>revision</code>, <code>sha256</code> and <code>text</code>, exactly as the running CLI ships them.</td>
+</tr>
+<tr>
+<td><code>checking</code></td>
+<td>Resolving the lab. The terminal may ask a question.</td>
+</tr>
+<tr>
+<td><code>preparing</code></td>
+<td>Building the lab; <code>events</code> and <code>status</code> show progress.</td>
+</tr>
+<tr>
+<td><code>ready</code></td>
+<td><code>lab</code> names the run the page opens next (<code>GET /runs/{lab}</code>), after <strong>Begin this session</strong>, which also starts it (<code>POST /runs/{lab}/start</code>) without showing the intro.</td>
+</tr>
+<tr>
+<td><code>failed</code></td>
+<td><code>error</code> says why.</td>
+</tr>
+<tr>
+<td><code>declined</code></td>
+<td>The terms were declined; nothing was started.</td>
+</tr>
+<tr>
+<td><code>ended</code></td>
+<td>The command stopped without a lab for this page; <code>message</code> says why.</td>
+</tr>
+</tbody>
+</table>
+<p><code>alive</code> is false once the <code>astrona run</code> process has exited; with a stage that
+is not final, the command was stopped. <code>answered</code> (<code>accepted</code> or <code>declined</code>)
+appears once the terms were answered. At most 200 events are kept. Launches
+older than a day are removed.</p>
+<p><code>account</code> appears once <code>astrona run</code> has decided whose account the run is
+saved to, which is after the lab was resolved and the lab session was (or was
+not) started. The page shows it as a card while the lab is set up.
+<code>playground: true</code> is set with it when the lab is a playground, which has time but
+no attempts, so the card does not mention a result.</p>
+<table>
+<thead>
+<tr>
+<th><code>account.state</code></th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>signed-in</code></td>
+<td>A catalog lab with a lab session: the time and the submitted result, pass or fail, are saved to the account (a playground: the time). <code>username</code> and <code>site</code> say which account.</td>
+</tr>
+<tr>
+<td><code>signed-out</code></td>
+<td>A catalog lab started without a lab session (not signed in): nothing from this run is saved to an account. <code>site</code> is the site astrona would sign in to, for a sign-up link.</td>
+</tr>
+<tr>
+<td><code>local-only</code></td>
+<td>Started with <code>--local-only</code>: nothing is sent.</td>
+</tr>
+<tr>
+<td><code>untracked</code></td>
+<td>A lab from local files or <code>--git</code>: no account applies. The page shows nothing.</td>
+</tr>
+</tbody>
+</table>
+<p><code>account</code> only ever holds <code>state</code>, <code>username</code> and <code>site</code>, never a token,
+device ID or key ID. <code>site</code> is the site the CLI resolved itself (<code>ASTRONA_URL</code>,
+then the saved sign-in, then the profile default), never a value from lab
+content. The state describes this run: signing in later does not change it.</p>
+<p>Errors: <code>404 launch_gone</code> (removed, or never existed).</p>
+<h3 id="post-launchesidterms"><code>POST /launches/{id}/terms</code><a class="headerlink" href="#post-launchesidterms" title="Permanent link">&para;</a></h3>
+<p>Request: <code>{"accept": true, "sha256": "&lt;terms.sha256&gt;"}</code>. Writes the answer
+for the waiting command, which saves the receipt (method <code>browser</code>) or stops.</p>
+<p>Response: <code>200 {"accepted": true}</code>.</p>
+<p>Errors: <code>404 launch_gone</code>; <code>409 not_asking</code> (not at <code>terms</code>, or the command
+exited); <code>409 terms_changed</code> (the digest does not match); <code>409 answered</code>.</p>
+<h3 id="get-labs"><code>GET /labs</code><a class="headerlink" href="#get-labs" title="Permanent link">&para;</a></h3>
+<p>Every astrona lab on this computer: Kind clusters and QEMU VMs with this
+build's prefix, joined with their saved state. Linked clusters (a lab's second
+cluster) and test clusters are left out.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">"labs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"lab"</span><span class="p">:</span><span class="w"> </span><span class="s2">"astro-pod-basics"</span><span class="p">,</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pod-basics"</span><span class="p">,</span><span class="w"> </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pod basics"</span><span class="p">,</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">      </span><span class="nt">"runtime"</span><span class="p">:</span><span class="w"> </span><span class="s2">"kind"</span><span class="p">,</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"running"</span><span class="p">,</span><span class="w"> </span><span class="nt">"uptime"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2h"</span><span class="p">,</span><span class="w"> </span><span class="nt">"mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"learning"</span><span class="p">,</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">      </span><span class="nt">"playground"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"workspace"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"runId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="p">,</span><span class="w"> </span><span class="nt">"runStatus"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ready"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">"engine"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>state</code> is <code>running</code>, <code>stopped</code>, <code>degraded</code> (some VMs stopped) or <code>unknown</code>.
+<code>vms</code> counts a QEMU lab's VMs. <code>deadlineAt</code> is when a playground is deleted or
+an exam ends. <code>workspace</code> is true when the page has a current run for the lab
+(<code>GET /runs/{lab}</code>); <code>title</code>, <code>mode</code>, <code>runId</code> and <code>runStatus</code> come from that
+run. <code>engine</code> is set, with a message, when the container engine does not
+answer; Kind labs are then missing from the list.</p>
+<h3 id="get-runs"><code>GET /runs</code><a class="headerlink" href="#get-runs" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">"runs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"lab"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pod-basics"</span><span class="p">,</span><span class="w"> </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pod basics"</span><span class="p">,</span><span class="w"> </span><span class="nt">"mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"learning"</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">      </span><span class="nt">"playground"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ready"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">}</span>
+</code></pre></div>
+<h3 id="get-runslab"><code>GET /runs/{lab}</code><a class="headerlink" href="#get-runslab" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">"lab"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pod-basics"</span><span class="p">,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">"runId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3f1c…64 hex characters…"</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pod basics"</span><span class="p">,</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">  </span><span class="nt">"mode"</span><span class="p">:</span><span class="w"> </span><span class="s2">"exam"</span><span class="p">,</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="nt">"playground"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"running"</span><span class="p">,</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="w">  </span><span class="nt">"startedAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-09T21:01:00Z"</span><span class="p">,</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="w">  </span><span class="nt">"deadlineAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-09T22:31:00Z"</span><span class="p">,</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="w">  </span><span class="nt">"timeLimitSeconds"</span><span class="p">:</span><span class="w"> </span><span class="mi">5400</span><span class="p">,</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="w">  </span><span class="nt">"serverNow"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-09T21:05:12Z"</span><span class="p">,</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="w">  </span><span class="nt">"rules"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"strict"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"hintsHidden"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="w">  </span><span class="nt">"intro"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">    </span><span class="nt">"prerequisitesHtml"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;p&gt;Know what a Pod is.&lt;/p&gt;\n"</span><span class="p">,</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">    </span><span class="nt">"estimatedDuration"</span><span class="p">:</span><span class="w"> </span><span class="s2">"45m"</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="w">  </span><span class="nt">"questions"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"q1"</span><span class="p">,</span><span class="w"> </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pod basics"</span><span class="p">,</span><span class="w"> </span><span class="nt">"points"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-6-19" name="__codelineno-6-19" href="#__codelineno-6-19"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-6-20" name="__codelineno-6-20" href="#__codelineno-6-20"></a><span class="w">  </span><span class="nt">"targets"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-6-21" name="__codelineno-6-21" href="#__codelineno-6-21"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pod-basics"</span><span class="p">,</span><span class="w"> </span><span class="nt">"label"</span><span class="p">:</span><span class="w"> </span><span class="s2">"main"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"kind"</span><span class="p">,</span><span class="w"> </span><span class="nt">"views"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"terminal"</span><span class="p">]</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-6-22" name="__codelineno-6-22" href="#__codelineno-6-22"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-6-23" name="__codelineno-6-23" href="#__codelineno-6-23"></a><span class="w">  </span><span class="nt">"tabs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-6-24" name="__codelineno-6-24" href="#__codelineno-6-24"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"main"</span><span class="p">,</span><span class="w"> </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Terminal"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"terminal"</span><span class="p">,</span><span class="w"> </span><span class="nt">"focus"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pod-basics"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-6-25" name="__codelineno-6-25" href="#__codelineno-6-25"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"shop"</span><span class="p">,</span><span class="w"> </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Shop"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"browser"</span><span class="p">,</span><span class="w"> </span><span class="nt">"focus"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://127.0.0.1:8080/"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-6-26" name="__codelineno-6-26" href="#__codelineno-6-26"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"k8s"</span><span class="p">,</span><span class="w"> </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Kubernetes docs"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"docs"</span><span class="p">,</span><span class="w"> </span><span class="nt">"focus"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-6-27" name="__codelineno-6-27" href="#__codelineno-6-27"></a><span class="w">      </span><span class="nt">"url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://kubernetes.io/docs/concepts/workloads/pods/"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-6-28" name="__codelineno-6-28" href="#__codelineno-6-28"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"notes"</span><span class="p">,</span><span class="w"> </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Notes"</span><span class="p">,</span><span class="w"> </span><span class="nt">"kind"</span><span class="p">:</span><span class="w"> </span><span class="s2">"docs"</span><span class="p">,</span><span class="w"> </span><span class="nt">"focus"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"document"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-6-29" name="__codelineno-6-29" href="#__codelineno-6-29"></a><span class="w">  </span><span class="p">],</span>
+<a id="__codelineno-6-30" name="__codelineno-6-30" href="#__codelineno-6-30"></a><span class="w">  </span><span class="nt">"docLinks"</span><span class="p">:</span><span class="w"> </span><span class="p">[],</span>
+<a id="__codelineno-6-31" name="__codelineno-6-31" href="#__codelineno-6-31"></a><span class="w">  </span><span class="nt">"canSubmit"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-6-32" name="__codelineno-6-32" href="#__codelineno-6-32"></a><span class="w">  </span><span class="nt">"submit"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-6-33" name="__codelineno-6-33" href="#__codelineno-6-33"></a><span class="w">    </span><span class="nt">"tracking"</span><span class="p">:</span><span class="w"> </span><span class="s2">"account"</span><span class="p">,</span>
+<a id="__codelineno-6-34" name="__codelineno-6-34" href="#__codelineno-6-34"></a><span class="w">    </span><span class="nt">"grading"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-6-35" name="__codelineno-6-35" href="#__codelineno-6-35"></a><span class="w">    </span><span class="nt">"submitted"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-6-36" name="__codelineno-6-36" href="#__codelineno-6-36"></a><span class="w">    </span><span class="nt">"blocked"</span><span class="p">:</span><span class="w"> </span><span class="s2">""</span>
+<a id="__codelineno-6-37" name="__codelineno-6-37" href="#__codelineno-6-37"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-6-38" name="__codelineno-6-38" href="#__codelineno-6-38"></a><span class="w">  </span><span class="nt">"account"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"signed-in"</span><span class="p">,</span><span class="w"> </span><span class="nt">"username"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ada"</span><span class="p">,</span><span class="w"> </span><span class="nt">"site"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://astrona.io"</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-6-39" name="__codelineno-6-39" href="#__codelineno-6-39"></a><span class="w">  </span><span class="nt">"runAgain"</span><span class="p">:</span><span class="w"> </span><span class="s2">"astrona run astrona.io/ATS014/section-010/module-01/lab-02"</span>
+<a id="__codelineno-6-40" name="__codelineno-6-40" href="#__codelineno-6-40"></a><span class="p">}</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>runId</code></td>
+<td>Opaque. Send it back on every mutating request. It changes when the lab is restarted, reset to a new session or run from another config.</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td><code>exam</code> (the lab has <code>exam.timeLimit</code>) or <code>learning</code>.</td>
+</tr>
+<tr>
+<td><code>playground</code></td>
+<td>A playground has no intro and no Start: open the workspace directly.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><code>ready</code> (environment up, Start not clicked), <code>running</code>, <code>expired</code> (exam time is over), <code>stopped</code> (the lab is gone or was restarted; this <code>runId</code> is dead). <code>provisioning</code> and <code>failed</code> are reserved for later milestones.</td>
+</tr>
+<tr>
+<td><code>startedAt</code></td>
+<td>When Start was clicked; <code>null</code> before.</td>
+</tr>
+<tr>
+<td><code>deadlineAt</code></td>
+<td><code>null</code> when there is no clock: learning labs, exams before Start, untimed playgrounds. A playground started from the catalog has its session deadline.</td>
+</tr>
+<tr>
+<td><code>timeLimitSeconds</code></td>
+<td>The exam's time limit, shown on the intro; <code>null</code> for learning labs.</td>
+</tr>
+<tr>
+<td><code>rules</code></td>
+<td><code>strict</code>: a submission after the deadline cannot pass. <code>hintsHidden</code>: hints are never shown.</td>
+</tr>
+<tr>
+<td><code>intro</code></td>
+<td>For the intro page. <code>prerequisitesHtml</code> is <code>""</code> when the lab has none; <code>estimatedDuration</code> is <code>""</code> when its task does not say.</td>
+</tr>
+<tr>
+<td><code>questions</code></td>
+<td>Summaries only, never the text. Today every lab has exactly one question, <code>q1</code>, built from <code>metadata.docs.question</code>. <code>points</code> is <code>null</code> until per-question points exist.</td>
+</tr>
+<tr>
+<td><code>targets</code></td>
+<td>Where terminals run. <code>kind</code> is <code>kind</code> (a Kind cluster) or <code>vm</code> (one VM of a QEMU lab; <code>name</code> is the VM's handle, the lab name for a single-VM lab or <code>&lt;lab&gt;-&lt;vm&gt;</code>). <code>label</code> is the display name (<code>main</code>, a linked cluster's name, or the VM's name in a multi-VM lab). <code>views</code> lists what the target offers: <code>["terminal"]</code> today; a desktop will add <code>"desktop"</code>.</td>
+</tr>
+<tr>
+<td><code>tabs</code></td>
+<td>The right panel, as the lab declares it (lab config <code>tabs</code>). The first is always the focus tab: <code>name</code> <code>main</code>, a terminal on the lab's own cluster. The page opens with these; the learner can close them and open more from the tab bar's <strong>+</strong> menu (another terminal on a target, the task, the prerequisites, the solution guide, a closed lab tab), which the page remembers per run in <code>localStorage</code>. <code>kind</code> is <code>terminal</code> (<code>target</code> says where its shell runs), <code>browser</code> (<code>url</code> is a loopback port forward of the lab), or <code>docs</code>: either <code>url</code> (an <code>https</code> documentation page, shown in a frame) or <code>document: true</code> (Markdown shipped with the lab, fetched from <code>GET /tabs/{name}/doc</code>); <code>solution: true</code> marks a docs tab whose file is the lab's solution, which the page shows only after the learner confirms. A lab that declares no tabs gets only the focus tab. A QEMU lab cannot declare tabs: a single-VM lab gets the focus tab on its VM, a multi-VM lab gets the focus tab on its first VM (titled with the VM's name) and a terminal tab <code>vm-&lt;name&gt;</code> for each further VM.</td>
+</tr>
+<tr>
+<td><code>docLinks</code></td>
+<td>Links to official documentation for the lab, from its <code>resources</code> in the training's <code>astrona.yaml</code>, as <code>{"name", "url"}</code>: <code>https</code> only, a non-empty name, at most 20; invalid entries are dropped. The page shows them as <strong>Relevant resources</strong> badges at the top of the task; each opens as a <code>docs</code> tab of the right panel (see <a href="#get-runslabdoclinksframe"><code>GET /runs/{lab}/doclinks/frame</code></a>). Always <code>[]</code> in an exam, and when the lab lists none.</td>
+</tr>
+<tr>
+<td><code>canSubmit</code></td>
+<td><code>true</code> when <code>POST /submit</code> would grade now: a lab or exam that was started and is still running (an expired exam can still be submitted). Never for a playground.</td>
+</tr>
+<tr>
+<td><code>submit.tracking</code></td>
+<td>Where a result goes. <code>account</code>: the run has an Astrona lab session; the result is sent when astrona is signed in to that site. <code>local-only</code>: never sent. <code>none</code>: no lab session; the result stays on this machine.</td>
+</tr>
+<tr>
+<td><code>submit.grading</code></td>
+<td>A submission of this run is being graded now.</td>
+</tr>
+<tr>
+<td><code>submit.checks</code></td>
+<td>Only while <code>grading</code>, once the checks start: each check and validation script in grading order, as <code>{"name", "state", "startedAt", "seconds"}</code>. <code>state</code> is <code>waiting</code>, <code>running</code>, <code>passed</code> or <code>failed</code>; <code>startedAt</code> is set once it runs, <code>seconds</code> (its duration) once it is done. Never its command or output. Poll <code>GET /runs/{lab}</code> for it while <code>POST /submit</code> waits.</td>
+</tr>
+<tr>
+<td><code>submit.submitted</code></td>
+<td>This run has a saved result (<code>GET /submission</code>).</td>
+</tr>
+<tr>
+<td><code>submit.blocked</code></td>
+<td>Why Submit is not possible now, for the page to show next to the disabled button; <code>""</code> when it is.</td>
+</tr>
+<tr>
+<td><code>account</code></td>
+<td>Whose account this run is saved to, shown as one line on the intro page; the same object as on <code>GET /launches/{id}</code>. <code>astrona run</code> saves it with the run (<code>runs/&lt;lab&gt;/run.json</code>). A run without one, such as a lab started before this field or reopened with <code>astrona ui</code>, gets <code>signed-in</code> (site only) or <code>local-only</code> from its saved lab session, and no <code>account</code> otherwise.</td>
+</tr>
+<tr>
+<td><code>runAgain</code></td>
+<td>The command that starts this lab again, as <code>astrona run</code> was given it: the catalog ID, the <code>--git</code> source, or the config path (<code>-c</code>). Never the cluster name, which <code>astrona run</code> does not accept. <code>""</code> when the source is not known.</td>
+</tr>
+<tr>
+<td><code>solution</code></td>
+<td><code>GET /solution</code> has a solution guide to show (after <strong>Start</strong>). Always <code>false</code> in an exam (a time limit) or a playground.</td>
+</tr>
+</tbody>
+</table>
+<p>Responses never contain the solution document (only <code>GET /solution</code> and a
+solution docs tab serve it, and never in an exam or a playground), validation
+scripts, check commands, expected values, admin credentials or kubeconfigs.</p>
+<h3 id="get-runslabquestionsid"><code>GET /runs/{lab}/questions/{id}</code><a class="headerlink" href="#get-runslabquestionsid" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"q1"</span><span class="p">,</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pod basics"</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">"html"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;h1&gt;Pod basics&lt;/h1&gt;\n&lt;p&gt;Create a Pod named &lt;code&gt;web&lt;/code&gt; …&lt;/p&gt;\n"</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">"points"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nt">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pod-basics"</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nt">"hints"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>html</code> is rendered on the server from the task's Markdown (GitHub-flavoured
+tables, strikethrough, autolinks and task lists). Raw HTML in the Markdown is
+dropped, and links with <code>javascript:</code>, <code>vbscript:</code>, <code>file:</code> or <code>data:</code> URLs are
+removed (except <code>data:image/…</code>, which the CSP's <code>img-src 'self'</code> does not load).
+Insert it as HTML; the page's CSP blocks inline script anyway.
+<code>target</code> is the target the question is about. <code>hints</code> is always empty for now.</p>
+<p>Before Start an exam or learning lab answers <code>409 not_started</code> (a playground
+never does). A question id other than <code>q1</code> gives <code>404 not_found</code>.</p>
+<h3 id="get-runslabtabsnamedoc"><code>GET /runs/{lab}/tabs/{name}/doc</code><a class="headerlink" href="#get-runslabtabsnamedoc" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"notes"</span><span class="p">,</span><span class="w"> </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Notes"</span><span class="p">,</span><span class="w"> </span><span class="nt">"html"</span><span class="p">:</span><span class="w"> </span><span class="s2">"&lt;h1&gt;Notes&lt;/h1&gt;\n&lt;p&gt;…&lt;/p&gt;\n"</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>Rendered and sanitised like the question. Only for a docs tab with
+<code>document: true</code>; any other name is <code>404 not_found</code>. Errors: <code>409 not_started</code>,
+<code>409 run_stopped</code>.</p>
+<h3 id="get-runslabdoclinksframe"><code>GET /runs/{lab}/doclinks/frame</code><a class="headerlink" href="#get-runslabdoclinksframe" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"frame"</span><span class="p">:</span><span class="w"> </span><span class="s2">"refused"</span><span class="p">,</span><span class="w"> </span><span class="nt">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"its X-Frame-Options header refuses it"</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p>Whether the documentation link <code>url</code> (URL-encoded, exactly as listed in the
+run's <code>docLinks</code>) can be shown in a frame. A cross-origin frame cannot tell
+the page that the site refused it, so the server requests the link once and
+reads its response headers; the page then frames the site itself, nothing is
+proxied. <code>frame</code> is:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allowed</code></td>
+<td>No header refuses framing. The page frames the link.</td>
+</tr>
+<tr>
+<td><code>refused</code></td>
+<td>CSP <code>frame-ancestors</code> (anything but <code>*</code>) or <code>X-Frame-Options</code> (<code>DENY</code>, <code>SAMEORIGIN</code>) refuses it, or it redirects to another origin, which the page's <code>frame-src</code> does not name. <code>reason</code> says which. The page shows <strong>This site does not allow embedding</strong> with an <strong>Open in browser</strong> link.</td>
+</tr>
+<tr>
+<td><code>unknown</code></td>
+<td>The check failed (offline, timeout, more than 5 redirects, a redirect away from <code>https</code>). The page tries the frame.</td>
+</tr>
+</tbody>
+</table>
+<p>Only links in the run's <code>docLinks</code> are checked; any other <code>url</code>, and any url
+in an exam, is <code>404 not_found</code>. <code>allowed</code> and <code>refused</code> answers are cached per
+URL for an hour; <code>unknown</code> is not cached. The check has an 8-second timeout.</p>
+<h3 id="post-runslabstart"><code>POST /runs/{lab}/start</code><a class="headerlink" href="#post-runslabstart" title="Permanent link">&para;</a></h3>
+<p>Request: <code>{"runId": "&lt;runId&gt;"}</code></p>
+<p>Response: <code>200</code> with the run, exactly as <code>GET /runs/{lab}</code>, now with
+<code>status: "running"</code> (or <code>"expired"</code>), <code>startedAt</code> and, for an exam,
+<code>deadlineAt</code>.</p>
+<p>Starting is idempotent: a second call, from the same tab or another, returns
+the run with the deadline the first call set. A <code>runId</code> that is not the current
+run gives <code>409 run_changed</code>; a stopped lab gives <code>409 run_stopped</code>. For a
+playground Start is accepted and changes nothing.</p>
+<p>Only now does the exam clock start (<code>astrona status</code> and <code>astrona submit</code> see
+it). A run that declined the browser keeps the old behaviour: the clock starts
+when the lab is ready.</p>
+<p>For a run linked to an Astrona lab session, the first Start also tells the site,
+after <code>start.json</code> is written: <code>POST {site}/api/cli/lab-sessions/{id}/start</code>
+with <code>{"at": "&lt;startedAt&gt;"}</code>, through the outbox like the other clock signals.
+It runs in the background and never changes this answer; offline it waits in the
+outbox, and a failure is a warning in the server log. The site keeps the first
+start. <code>astrona ui &lt;lab&gt;</code> for an exam whose clock already started at readiness
+sends the same signal with that time. A local-only or untracked run sends
+nothing.</p>
+<h3 id="post-runslabsubmit"><code>POST /runs/{lab}/submit</code><a class="headerlink" href="#post-runslabsubmit" title="Permanent link">&para;</a></h3>
+<p>Request: <code>{"runId": "&lt;runId&gt;"}</code> with an <code>Idempotency-Key: &lt;key&gt;</code> header (8 to
+128 letters, digits, <code>-</code> or <code>_</code>; the page makes 32 random hex characters per
+confirmed submission).</p>
+<p>It does what <code>astrona submit</code> does, through the same code
+(<code>labops.Submit</code>), under the lab's lock:</p>
+<ol>
+<li>The lab's checks run against the environment.</li>
+<li>The result is saved in this machine's attempt history.</li>
+<li>It is sent where the run is tracked (<code>submit.tracking</code>). A <code>local-only</code> run
+   is never sent; a run without a lab session stays on this machine.</li>
+<li>Every recorded result ends the attempt, pass or fail: one that was sent or
+   queued, or, for a run without a lab session (<code>local-only</code> or <code>none</code>), one
+   saved here. The environment is then removed: terminals are closed first,
+   then the cluster is deleted. <code>teardown.keepCluster</code> does not keep it. Only
+   a tracked result Astrona refuses, or one that cannot be sent or queued,
+   leaves the environment running (<code>finished</code> is <code>false</code>).</li>
+</ol>
+<p>Grading can take minutes; the response waits for it. The work does not depend
+on the request: if the connection drops, grading goes on and
+<code>GET /submission</code> reports it. Repeating the request with the same key and
+<code>runId</code> waits for, or returns, the same outcome and never grades twice. A
+different key while grading runs gives <code>409 submit_in_progress</code>. The key is
+only remembered by this server process.</p>
+<p>If the checks cannot run (<code>grading_failed</code>, <code>not_trusted</code>, <code>lab_busy</code>),
+nothing is recorded or sent and the lab keeps running.</p>
+<p>Response: <code>200</code> with the submission:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"lab"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pod-basics"</span><span class="p">,</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">"runId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3f1c…"</span><span class="p">,</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="nt">"result"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">    </span><span class="nt">"pass"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"earned"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"max"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"percent"</span><span class="p">:</span><span class="w"> </span><span class="mi">100</span><span class="p">,</span><span class="w"> </span><span class="nt">"passPercent"</span><span class="p">:</span><span class="w"> </span><span class="mi">66</span><span class="p">,</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">    </span><span class="nt">"overTime"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nt">"elapsedSeconds"</span><span class="p">:</span><span class="w"> </span><span class="mi">754</span><span class="p">,</span><span class="w"> </span><span class="nt">"attempt"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">"time"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-09T21:40:00Z"</span><span class="p">,</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="nt">"checks"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pod web is running"</span><span class="p">,</span><span class="w"> </span><span class="nt">"pass"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"points"</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="w"> </span><span class="p">},</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Pod web uses nginx:1.27"</span><span class="p">,</span><span class="w"> </span><span class="nt">"pass"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="nt">"points"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">    </span><span class="p">]</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">  </span><span class="nt">"recorded"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">  </span><span class="nt">"sent"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">  </span><span class="nt">"queued"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">  </span><span class="nt">"finished"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">  </span><span class="nt">"environmentRemoved"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="w">  </span><span class="nt">"messages"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"Sent to your lab page (attempt 2): https://…"</span><span class="p">,</span><span class="w"> </span><span class="s2">"Lab pod-basics deleted."</span><span class="p">]</span>
+<a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="p">}</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>result.checks</code></td>
+<td>Name, pass/fail and points per check. <code>hint</code> only for a failed check of a lab that shows hints. Never the check's command, output or expected value.</td>
+</tr>
+<tr>
+<td><code>result.overTime</code></td>
+<td>A strict exam submitted after its deadline: it cannot pass.</td>
+</tr>
+<tr>
+<td><code>result.elapsedSeconds</code></td>
+<td>Time spent on the run until this submission: an exam's clock, otherwise from Start (or from when the lab became ready when it was not started in the workspace). Left out when unknown.</td>
+</tr>
+<tr>
+<td><code>recorded</code></td>
+<td>Saved in this machine's attempt history.</td>
+</tr>
+<tr>
+<td><code>sent</code></td>
+<td>Recorded on the Astrona lab page.</td>
+</tr>
+<tr>
+<td><code>queued</code></td>
+<td>Not sent yet: kept in the outbox and sent once Astrona can be reached.</td>
+</tr>
+<tr>
+<td><code>finished</code></td>
+<td>The attempt is over, pass or fail: the result was sent or queued, or saved here for a run without a lab session. The environment is then removed.</td>
+</tr>
+<tr>
+<td><code>environmentRemoved</code></td>
+<td>The cluster was deleted after the submission.</td>
+</tr>
+<tr>
+<td><code>messages</code></td>
+<td>What astrona said while sending and cleaning up, as sanitised plain text (at most 40 lines).</td>
+</tr>
+<tr>
+<td><code>cleanupError</code></td>
+<td>Present when the result stands but removing the environment failed.</td>
+</tr>
+</tbody>
+</table>
+<p>The latest submission is kept in <code>runs/&lt;lab&gt;/submission.json</code> until the lab
+is run again.</p>
+<p>Errors: <code>400 invalid_idempotency_key</code>, <code>409 run_changed</code>, <code>409 run_stopped</code>,
+<code>409 not_started</code>, <code>409 no_grading</code>, <code>409 submit_in_progress</code>, <code>409 lab_busy</code>,
+<code>409 not_trusted</code>, <code>500</code>/<code>502 grading_failed</code>.</p>
+<h3 id="get-runslabsubmission"><code>GET /runs/{lab}/submission</code><a class="headerlink" href="#get-runslabsubmission" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"grading"</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"failed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"error"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"code"</span><span class="p">:</span><span class="w"> </span><span class="s2">"grading_failed"</span><span class="p">,</span><span class="w"> </span><span class="nt">"message"</span><span class="p">:</span><span class="w"> </span><span class="s2">"…"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="p">{</span><span class="w"> </span><span class="nt">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"done"</span><span class="p">,</span><span class="w"> </span><span class="nt">"submission"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="err">…as</span><span class="w"> </span><span class="err">above…</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<p><code>grading</code> while a submission runs, <code>failed</code> when the last one this server ran
+could not grade, <code>done</code> with the saved result. <code>404 no_submission</code> when the run
+was never submitted. Read-only.</p>
+<h3 id="post-runslabdestroy"><code>POST /runs/{lab}/destroy</code><a class="headerlink" href="#post-runslabdestroy" title="Permanent link">&para;</a></h3>
+<p>Request: <code>{"runId": "&lt;runId&gt;"}</code>. No grading, nothing is submitted.</p>
+<ul>
+<li>A <strong>playground</strong> is deleted as when the CLI ends it: terminals are closed,
+  the cluster is deleted, and the playground's clock is stopped on the site
+  with a usage report (unless the run is local only). An expired playground
+  can still be ended.</li>
+<li>A <strong>lab</strong> is removed as <code>astrona destroy &lt;lab&gt;</code> does: teardown scripts run
+  when the lab is trusted (skipped with a message otherwise), the cluster is
+  deleted, the exam clock is cleared, and the Astrona lab page is told the lab
+  was removed. A lab from your own files with <code>teardown.keepCluster</code> answers
+  <code>409 environment_kept</code> and nothing is removed; a catalog or tracked lab is
+  always removed.</li>
+</ul>
+<p>Response: <code>200 {"environmentRemoved": true, "messages": ["…"]}</code>.</p>
+<p>Errors: <code>409 run_changed</code>, <code>409 submit_in_progress</code>, <code>409 environment_kept</code>,
+<code>502 destroy_failed</code>.</p>
+<h3 id="get-runslabterminals"><code>GET /runs/{lab}/terminals</code><a class="headerlink" href="#get-runslabterminals" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">"terminals"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Zk3q…"</span><span class="p">,</span><span class="w"> </span><span class="nt">"tab"</span><span class="p">:</span><span class="w"> </span><span class="s2">"main"</span><span class="p">,</span><span class="w"> </span><span class="nt">"target"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pod-basics"</span><span class="p">,</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"running"</span><span class="p">,</span>
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">      </span><span class="nt">"exitCode"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nt">"createdAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-09T21:01:03Z"</span><span class="p">,</span><span class="w"> </span><span class="nt">"attached"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">}</span>
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="p">}</span>
+</code></pre></div>
+<p><code>status</code> is <code>running</code> or <code>ended</code>; <code>exitCode</code> is set once it ended (<code>-1</code> when
+the process was killed by a signal). Ended terminals stay listed until the tab
+opens a new shell, which replaces the ended one, so the page can show "Shell
+ended". <code>POST /terminals/close</code> ends one tab's; <code>astrona ui stop</code> ends them all.</p>
+<h3 id="post-runslabterminals"><code>POST /runs/{lab}/terminals</code><a class="headerlink" href="#post-runslabterminals" title="Permanent link">&para;</a></h3>
+<p>Request: <code>{"runId": "&lt;runId&gt;", "tab": "main"}</code> for one of the run's terminal
+tabs (<code>tab</code> may be omitted for the focus tab), or
+<code>{"runId": "&lt;runId&gt;", "tab": "term-3f9a1c2e", "target": "&lt;target&gt;"}</code> for a
+terminal the learner opened with <strong>+ New terminal</strong>: <code>tab</code> is <code>term-</code> and 4
+to 16 lowercase letters or digits the page picks, and <code>target</code> is the <code>name</code>
+of one of the run's <code>targets</code>. A declared tab may also name its own target.
+The page cannot name a command or anything else: the new shell is the same
+isolated terminal as the focus tab's, on a target of the run. Lab tab names
+cannot have the <code>term-&lt;id&gt;</code> form.</p>
+<p>Each tab has at most one shell. Response: <code>200</code> with the tab's terminal when it
+is still running (nothing new is started), or <code>201</code> with a new one; a new one
+replaces the tab's ended shell. While one request starts a tab's shell, another
+for the same tab gets <code>409 terminal_starting</code>.</p>
+<p>On a <code>kind</code> target this can take a minute the first time on a machine, while
+the terminal image is built. The terminal is a hardened container on the Kind
+network that mounts only the lab's own workspace directory; its prompt is
+<code>astrona-cli &gt;</code> and <code>$HOME</code> is <code>/workspace</code>. If the container cannot start, the
+answer is <code>502 terminal_failed</code> and nothing else is started in its place.</p>
+<p>On a <code>vm</code> target the terminal is an <code>ssh -tt</code> login into that VM as the lab's
+student user, with the lab's own key and known-hosts file, no SSH config
+(<code>-F /dev/null</code>), no agent, no forwarding and no escape character, and a
+10-second connect timeout. The shell starts in <code>~/.astrona/runtime/&lt;lab&gt;</code> in
+the VM. The lab's resources are installed in the student's home first, as for
+<code>astrona ssh</code>. If that fails, the answer is <code>502 terminal_failed</code>. If ssh
+cannot connect, the terminal ends with ssh's error and exit code <code>255</code>. There
+is never a fallback to a shell on the host.</p>
+<p>Errors: <code>409 not_started</code>, <code>409 run_changed</code>, <code>409 run_stopped</code>,
+<code>409 terminal_starting</code>, <code>400 unknown_tab</code>, <code>400 unknown_target</code>,
+<code>429 too_many_terminals</code> (a lab has at most 12 terminals, running or ended,
+across all its tabs), <code>501 unsupported</code>.</p>
+<h3 id="post-runslabterminalsclose"><code>POST /runs/{lab}/terminals/close</code><a class="headerlink" href="#post-runslabterminalsclose" title="Permanent link">&para;</a></h3>
+<p>Request: <code>{"runId": "&lt;runId&gt;", "tab": "term-3f9a1c2e"}</code>. The learner closed a
+terminal tab: its shell ends (a <code>kind</code> terminal's container is removed; a VM's
+ssh login ends) and it no longer counts towards the 12. Files in the lab are
+kept. <code>tab</code> is one of the run's terminal tabs or a <code>term-&lt;id&gt;</code> tab. Response:
+<code>200 {"closed": 1}</code>, or <code>{"closed": 0}</code> when the tab had no shell. Errors:
+<code>409 run_changed</code>, <code>409 terminal_starting</code> (its shell is still starting),
+<code>400 unknown_tab</code>.</p>
+<h3 id="get-runslabsolution"><code>GET /runs/{lab}/solution</code><a class="headerlink" href="#get-runslabsolution" title="Permanent link">&para;</a></h3>
+<p>The lab's solution guide (<code>docs.solution</code>), rendered and sanitised like a
+question: <code>{"title": "Solution guide", "html": "&lt;h1&gt;…"}</code>. The page asks the
+learner before it shows it. Reading it changes nothing: the attempt is not
+marked and nothing is sent. <code>astrona run</code> keeps it in the run record only for
+a learning lab, so in an exam (a time limit) or a playground the answer is
+always <code>404 no_solution</code>, as for a lab without one. Errors: <code>404 no_solution</code>,
+<code>409 not_started</code>, <code>409 run_stopped</code>.</p>
+<h3 id="get-wsv1terminalsidticketticket"><code>GET /ws/v1/terminals/{id}?ticket=&lt;ticket&gt;</code><a class="headerlink" href="#get-wsv1terminalsidticketticket" title="Permanent link">&para;</a></h3>
+<p>A WebSocket upgrade. The request must carry the page's own <code>Origin</code> (browsers
+do). Before the upgrade the server answers with a normal HTTP error:
+<code>401 unauthorized</code> (missing, used or expired ticket), <code>404 not_found</code> (unknown
+terminal), <code>400 bad_request</code> (not an upgrade).</p>
+<p>Frames:</p>
+<ul>
+<li><strong>Binary frames are terminal bytes</strong>, in both directions. Client to server:
+  keyboard input, at most 64 KiB per frame. Server to client: output.</li>
+<li><strong>Text frames are JSON control messages</strong>, never mixed into the byte stream.</li>
+</ul>
+<p>Server to client:</p>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{"type":"attached","terminal":{…terminal object…}}</code></td>
+<td>Always the first frame. Then the buffered output (up to 1 MiB) follows as binary frames, then live output. Clear the screen before writing the replay.</td>
+</tr>
+<tr>
+<td><code>{"type":"ended","exitCode":0}</code></td>
+<td>The shell exited. The connection closes with code <code>1000</code>.</td>
+</tr>
+<tr>
+<td><code>{"type":"takenOver"}</code></td>
+<td>The same terminal was opened in another tab or view. Closes with <code>4001</code>. Do not reconnect automatically.</td>
+</tr>
+<tr>
+<td><code>{"type":"overrun"}</code></td>
+<td>This view fell more than the buffer behind. Closes with <code>4002</code>; reconnect to get a fresh replay.</td>
+</tr>
+<tr>
+<td><code>{"type":"pong"}</code></td>
+<td>Answer to a ping.</td>
+</tr>
+<tr>
+<td><code>{"type":"error","message":"…"}</code></td>
+<td>A control frame was invalid or a resize failed, or input was dropped because a strict exam's time is up. The connection stays open.</td>
+</tr>
+</tbody>
+</table>
+<p>Client to server:</p>
+<table>
+<thead>
+<tr>
+<th>Message</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{"type":"resize","cols":120,"rows":32}</code></td>
+<td>Set the terminal size. Both 1–1000. Send it right after <code>attached</code> and on every resize.</td>
+</tr>
+<tr>
+<td><code>{"type":"ping"}</code></td>
+<td>Keep-alive; answered with <code>pong</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Other close codes: <code>1001</code> when the server shuts down or the terminal is
+replaced, <code>1008</code> for a control frame that is not valid JSON, <code>1009</code> for a frame
+larger than 64 KiB.</p>
+<p>In a strict exam the terminal is read-only once the deadline has passed: the
+server drops keyboard input (and says so once per attachment), while output
+still flows. Submit still works.</p>
+<p>Opening the same terminal again takes it over: only the newest view can type.
+Closing the WebSocket (tab closed, page reloaded) does not end the shell;
+reattaching replays its recent output, so the shell and its history survive a
+reload.</p>
+<h2 id="framing">Framing<a class="headerlink" href="#framing" title="Permanent link">&para;</a></h2>
+<p>The page is served with the strict policy above plus a <code>frame-src</code> that names
+exactly the origins of the current runs' <code>browser</code> tabs, <code>docs</code> URL
+tabs and <code>docLinks</code> (none in an exam), computed when the page is loaded. It never names the server's own
+origin. Entering a run from setup or the lab list automatically reloads the
+document, so tabs for labs created after the page opened can be framed.
+Frames are sandboxed (<code>allow-scripts allow-same-origin
+allow-forms allow-popups allow-downloads</code>); nothing is proxied through the
+server. A lab's <code>docs</code> URL tab whose site refuses to be framed
+(<code>X-Frame-Options</code> or CSP <code>frame-ancestors</code>) stays blank; the tab's <strong>Open in
+new window</strong> shows it in a separate window instead. A tab opened from a
+<code>docLinks</code> badge is checked first with
+<a href="#get-runslabdoclinksframe"><code>GET /runs/{lab}/doclinks/frame</code></a> and shows an
+<strong>Open in browser</strong> fallback instead of a blank frame.</p>
+<h2 id="lifetime">Lifetime<a class="headerlink" href="#lifetime" title="Permanent link">&para;</a></h2>
+<ul>
+<li>The server writes <code>~/.astrona/workspace/server.json</code> (mode 0600) with its
+  PID, port and secret, and removes it when it exits.</li>
+<li>It exits after 15 minutes with no requests, no open WebSocket, no open
+  terminal and no running lab it was opened for. <code>astrona ui stop</code> stops it at
+  once and closes every terminal; labs keep running.</li>
+<li>If the server process ends, its terminals end with it. The lab, its exam
+  clock and the files under <code>/workspace</code> survive.</li>
+</ul>
+<h2 id="where-state-lives">Where state lives<a class="headerlink" href="#where-state-lives" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Written by</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>~/.astrona/workspace/server.json</code></td>
+<td>server</td>
+<td>PID, port, start time, version, per-start secret.</td>
+</tr>
+<tr>
+<td><code>~/.astrona/workspace/server.log</code></td>
+<td>server</td>
+<td>Its log.</td>
+</tr>
+<tr>
+<td><code>~/.astrona/workspace/launches/&lt;id&gt;/launch.json</code></td>
+<td><code>astrona run</code></td>
+<td>A browser-first run before its lab exists: stage, terms notice, setup progress.</td>
+</tr>
+<tr>
+<td><code>~/.astrona/workspace/launches/&lt;id&gt;/answer.json</code></td>
+<td>server</td>
+<td>The page's answer to the terms.</td>
+</tr>
+<tr>
+<td><code>~/.astrona/workspace/runs/&lt;lab&gt;/run.json</code></td>
+<td><code>astrona run</code></td>
+<td>What the page shows for that run: title, mode, rules, the account status, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs), and for a learning lab the solution guide. Never the validation block, and never the solution in an exam or a playground.</td>
+</tr>
+<tr>
+<td><code>~/.astrona/workspace/runs/&lt;lab&gt;/start.json</code></td>
+<td>Start</td>
+<td>When Start was clicked, for which <code>runId</code>. Removed when the lab is deleted (submit, destroy, reset, expiry). <code>astrona submit</code> uses it only while its <code>runId</code> is the lab's current run and it is not earlier than the lab became ready.</td>
+</tr>
+<tr>
+<td><code>~/.astrona/workspace/runs/&lt;lab&gt;/submission.json</code></td>
+<td>Submit</td>
+<td>The latest browser submission for that <code>runId</code>: the result as <code>GET /submission</code> shows it.</td>
+</tr>
+</tbody>
+</table>
+<p>The whole <code>runs/&lt;lab&gt;/</code> folder is removed when the lab is started again, from a terminal or the browser, so a new run never inherits an earlier run's record, Start or result.
+| <code>~/.astrona/exams/&lt;lab&gt;.json</code> | Start (exam labs) | The exam clock, as before. |</p>
+<p>Other profiles use their own home (<code>~/.astrona-dev/…</code>).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../lab-config/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Lab Config Schema">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Lab Config Schema
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../cli/astrona/" class="md-footer__link md-footer__link--next" aria-label="Next: Astrona">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Astrona
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Astrona.io — Apache License 2.0
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/astrona-io/astrona-cli" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://astrona.io" target="_blank" rel="noopener" title="astrona.io" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M351.9 280H161c2.9 64.5 17.2 123.9 37.5 167.4 11.4 24.5 23.7 41.8 35.1 52.4 11.2 10.5 18.9 12.2 22.9 12.2s11.7-1.7 22.9-12.2c11.4-10.6 23.7-28 35.1-52.4 20.3-43.5 34.6-102.9 37.5-167.4zm-191-48h190.9c-2.8-64.5-17.1-123.9-37.4-167.4-11.4-24.4-23.7-41.8-35.1-52.4C268.1 1.7 260.4 0 256.4 0s-11.7 1.7-22.9 12.2c-11.4 10.6-23.7 28-35.1 52.4-20.3 43.5-34.6 102.9-37.5 167.4m-48 0c3.5-85.6 25.6-165.1 57.9-217.3C78.7 47.3 10.9 131.2 1.5 232zM1.5 280c9.4 100.8 77.2 184.7 169.3 217.3-32.3-52.2-54.4-131.7-57.9-217.3zm398.4 0c-3.5 85.6-25.6 165.1-57.9 217.3 92.1-32.7 159.9-116.5 169.3-217.3zm111.4-48C501.9 131.2 434.1 47.3 342 14.7c32.3 52.2 54.4 131.7 57.9 217.3z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.indexes", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link", "content.action.edit"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+        <script src="../../javascripts/motion.js"></script>
+      
+    
+  </body>
+</html>
