@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cli.astrona.io/schema/question-bank.schema.json",
+  "title": "Astrona question bank v1",
+  "description": "A knowledge check (quiz) for a training: one YAML file listed in astrona.yaml as `type: quiz`. `astrona content validate ats` checks the same rules and a few more (source_readings exist, ids are unique).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "id", "questions"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "kind": { "const": "question_bank" },
+    "id": { "type": "string", "minLength": 1, "description": "Stable id of the bank, e.g. ats014-020-01." },
+    "course_id": { "type": "string", "description": "The training this bank belongs to, e.g. ATS014." },
+    "exam_code": { "type": "string", "description": "The exam the questions practise for, if any." },
+    "status": {
+      "enum": ["draft", "reviewed"],
+      "description": "`draft` is allowed but `astrona content validate` warns until a person has reviewed the questions."
+    },
+    "provenance": { "type": "string", "description": "Where the questions come from, e.g. original practice material, not official exam questions." },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id", "title"],
+      "properties": {
+        "type": { "enum": ["module", "section", "domain"] },
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 }
+      }
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 30,
+      "description": "The site uses the first 30 questions.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "prompt", "options", "correct_option"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "description": "Unique in the bank. Keep it stable once published." },
+          "type": { "const": "single_choice", "description": "The only supported type; may be left out." },
+          "difficulty": { "enum": ["beginner", "intermediate", "advanced"] },
+          "learning_objective": { "type": "string" },
+          "source_readings": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Repository paths of readings (as listed in astrona.yaml) to read again. Each must exist."
+          },
+          "prompt": { "type": "string", "minLength": 1 },
+          "options": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 6,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "text"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1, "description": "Unique in the question, e.g. a, b, c." },
+                "text": { "type": "string", "minLength": 1 },
+                "explanation": { "type": "string", "description": "Why this option is right or wrong. Shown after answering; a missing one is a warning." }
+              }
+            }
+          },
+          "correct_option": { "type": "string", "minLength": 1, "description": "The id of one of the options." },
+          "explanation": { "type": "string", "description": "Why the answer is right. A missing one is a warning." }
+        }
+      }
+    }
+  }
+}
