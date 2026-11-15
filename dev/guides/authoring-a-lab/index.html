@@ -1554,6 +1554,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="1. Metadata">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#several-solutions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Several solutions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5476,6 +5493,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="1. Metadata">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#several-solutions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Several solutions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5809,89 +5843,136 @@
 <a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>astrona<span class="w"> </span>docs<span class="w"> </span>case-study<span class="w">      </span><span class="c1"># docs.caseStudy (case-study.md)</span>
 <a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>astrona<span class="w"> </span>docs<span class="w"> </span>prerequisites<span class="w">   </span><span class="c1"># docs.prerequisites (prerequisites.md)</span>
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>astrona<span class="w"> </span>docs<span class="w"> </span>solution<span class="w">        </span><span class="c1"># docs.solution (solution.md) — shown with a "full solution" warning</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>astrona<span class="w"> </span>docs<span class="w"> </span>solutions<span class="w">       </span><span class="c1"># every solution of the lab, by name (--json for scripts)</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>astrona<span class="w"> </span>docs<span class="w"> </span>solution<span class="w"> </span>--name<span class="w"> </span>web-ui<span class="w">   </span><span class="c1"># one extra solution, solution.web-ui.md</span>
 </code></pre></div>
 <p>They're rendered for the terminal (headings, code blocks, lists, inline code, bold, links) and paged; <code>astrona run</code> ends with "Your task: astrona docs question" when the lab has a question. Write them as plain Markdown — tables and HTML are shown as-is. A YAML front-matter block at the very top of a doc (a <code>---</code> line, YAML such as <code>estimated_duration: 20m</code>, a <code>---</code> line) is hidden; if it has a <code>title</code>, that's shown as the doc's heading. A <code>---</code> further down is still a horizontal rule. Doc paths can't point outside the lab directory, and control characters (terminal escape sequences) are stripped before anything is printed. Name the cluster context as <code>kind-astro-&lt;metadata.name&gt;</code> in your docs — or point students at <code>astrona shell &lt;lab&gt;</code>.</p>
 <p>Set an expected working time in the question document's front matter to show
 the UI's lab progress bar:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>---
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>title: Configure a deployment
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="gu">estimated_duration: 20m</span>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="gu">---</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>Create a deployment with three replicas.
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>title: Configure A Deployment
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>estimated_duration: 20m
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="gu">summary: Scale a deployment to three replicas.</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="gu">---</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>Create a deployment with three replicas.
 </code></pre></div>
 <p>Use a positive duration with units, such as <code>45m</code> or <code>1h30m</code>. The UI compares
 this estimate with active time spent and pauses it during idle periods.
 Exceeding it does not stop the lab or change its grade. Missing or invalid
 estimates show as unavailable. This display applies to labs, not playgrounds;
 exam deadlines and playground expiry remain separate.</p>
+<p>The question's <code>title</code> is the lab's readable name: <code>astrona run</code> and the
+browser workspace show it instead of <code>metadata.name</code>, which stays the lab's
+identifier (cluster name, run records, telemetry). Without one, a lab inside a
+training uses its <code>astrona.yaml</code> entry's title without the trailing " Lab",
+and any other lab uses <code>metadata.name</code>. A title is never sent in telemetry.
+<code>astrona validate</code> warns when the question has no <code>title</code>, and when its
+<code>title</code> or <code>estimated_duration</code> differs from the lab's <code>astrona.yaml</code> entry
+(the titles compared without " Lab").</p>
+<h3 id="several-solutions">Several solutions<a class="headerlink" href="#several-solutions" title="Permanent link">&para;</a></h3>
+<p>When a task has more than one practical way to solve it, give each its own
+file. The default solution stays <code>docs.solution</code> (else <code>solution.md</code>); each
+other one is <code>solution.&lt;name&gt;.md</code> next to <code>config.yaml</code>, where <code>&lt;name&gt;</code> is
+lowercase letters and digits joined by single hyphens. No config key lists
+them.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>labs/lab-04/
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>  config.yaml
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>  question.md
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>  solution.md          # default: kubectl
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>  solution.web-ui.md   # the same task in the web UI
+</code></pre></div>
+<p>Each solution's front matter sets how it is listed:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>---
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>title: Web UI
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>order: 20
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="gu">summary: Do the same steps in the dashboard.</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="gu">---</span>
+</code></pre></div>
+<ul>
+<li><code>title</code>: the name in the list. Without it, the first <code>#</code> heading, else
+  "Solution" (the default) or the file's <code>&lt;name&gt;</code>.</li>
+<li><code>order</code>: an integer. Solutions with an order come first, ascending (ties by
+  title, then name); then the rest, the default first, then by title, then
+  name.</li>
+<li><code>summary</code>: one line shown under the title.</li>
+</ul>
+<p><code>astrona docs solutions</code> lists them and <code>astrona docs solution --name &lt;name&gt;</code>
+prints one; <code>--name default</code> is the default. In the browser workspace a lab
+with one solution keeps its "Solution guide" item; with several, the + menu
+has a "Solutions" group, and one confirmation covers all of them for the run.
+Solutions are never shown in an exam or a playground. A lab opened from a URL
+(<code>-c https://…</code>) has only its default solution. <code>astrona validate</code> fails a
+solution it cannot read and warns about a file named like a solution with an
+invalid name, two solutions with the same <code>order</code>, or a solution without a
+<code>title</code> when the lab has more than one.</p>
 <h2 id="2-pick-a-runtime">2. Pick a runtime<a class="headerlink" href="#2-pick-a-runtime" title="Permanent link">&para;</a></h2>
 <p>Omit <code>runtime:</code> entirely for a <code>kind</code> cluster (the default), or see <a href="../../concepts/runtimes/">Runtimes</a> for a <code>qemu</code> VM-backed lab.</p>
 <h2 id="3-bootstrap-what-the-student-starts-with">3. Bootstrap — what the student starts with<a class="headerlink" href="#3-bootstrap-what-the-student-starts-with" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nt">bootstrap</span><span class="p">:</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"echo"</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"hello.sh"</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="w">  </span><span class="nt">manifests</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nt">bootstrap</span><span class="p">:</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"echo"</span>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"hello.sh"</span>
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">  </span><span class="nt">manifests</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
 </code></pre></div>
 <p>Keep this to whatever scaffolding the exercise needs <em>before</em> the student's own work — the actual task (creating the namespace, deploying the app, whatever it is) should not be pre-built here.</p>
 <h2 id="4-testing-your-reference-solution">4. Testing — your reference solution<a class="headerlink" href="#4-testing-your-reference-solution" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nt">testing</span><span class="p">:</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">  </span><span class="nt">manifests</span><span class="p">:</span>
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"solution"</span>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"folder"</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"solution"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="nt">testing</span><span class="p">:</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">manifests</span><span class="p">:</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"solution"</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"folder"</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"solution"</span>
 </code></pre></div>
 <p>This only runs under <code>astrona test</code>, never for a student. Put the finished, correct solution here — the thing a student would produce if they solved the lab perfectly — so <code>astrona test</code> can prove your <code>validation</code> block actually passes against it.</p>
 <h2 id="5-validation-how-its-graded">5. Validation — how it's graded<a class="headerlink" href="#5-validation-how-its-graded" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="nt">validation</span><span class="p">:</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"lab-ns</span><span class="nv"> </span><span class="s">namespace</span><span class="nv"> </span><span class="s">exists"</span>
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"resourceExists"</span>
-<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="s">"namespace/lab-ns"</span>
-<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"hello-config</span><span class="nv"> </span><span class="s">configmap</span><span class="nv"> </span><span class="s">exists"</span>
-<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"resourceExists"</span>
-<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="s">"configmap/hello-config</span><span class="nv"> </span><span class="s">-n</span><span class="nv"> </span><span class="s">lab-ns"</span>
-<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="w">  </span><span class="nt">script</span><span class="p">:</span>
-<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"verify-configmap-content"</span>
-<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Custom</span><span class="nv"> </span><span class="s">script</span><span class="nv"> </span><span class="s">check:</span><span class="nv"> </span><span class="s">confirms</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">configmap's</span><span class="nv"> </span><span class="s">actual</span><span class="nv"> </span><span class="s">content,</span><span class="nv"> </span><span class="s">not</span><span class="nv"> </span><span class="s">just</span><span class="nv"> </span><span class="s">that</span><span class="nv"> </span><span class="s">it</span><span class="nv"> </span><span class="s">exists"</span>
-<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
-<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"validate.sh"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="nt">validation</span><span class="p">:</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="w">  </span><span class="nt">checks</span><span class="p">:</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"lab-ns</span><span class="nv"> </span><span class="s">namespace</span><span class="nv"> </span><span class="s">exists"</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"resourceExists"</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="s">"namespace/lab-ns"</span>
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"hello-config</span><span class="nv"> </span><span class="s">configmap</span><span class="nv"> </span><span class="s">exists"</span>
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"resourceExists"</span>
+<a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a><span class="w">      </span><span class="nt">resource</span><span class="p">:</span><span class="w"> </span><span class="s">"configmap/hello-config</span><span class="nv"> </span><span class="s">-n</span><span class="nv"> </span><span class="s">lab-ns"</span>
+<a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a><span class="w">  </span><span class="nt">script</span><span class="p">:</span>
+<a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"verify-configmap-content"</span>
+<a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a><span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Custom</span><span class="nv"> </span><span class="s">script</span><span class="nv"> </span><span class="s">check:</span><span class="nv"> </span><span class="s">confirms</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">configmap's</span><span class="nv"> </span><span class="s">actual</span><span class="nv"> </span><span class="s">content,</span><span class="nv"> </span><span class="s">not</span><span class="nv"> </span><span class="s">just</span><span class="nv"> </span><span class="s">that</span><span class="nv"> </span><span class="s">it</span><span class="nv"> </span><span class="s">exists"</span>
+<a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a><span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
+<a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a><span class="w">    </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"validate.sh"</span>
 </code></pre></div>
 <p>Start with <code>resourceExists</code>/<code>podReady</code> checks for "does the thing exist," and reach for a <code>script</code> when you need to verify actual content or behavior (see <a href="../../concepts/grading/">Grading</a> for the full check-type reference). A validation script exits <code>0</code> for pass, non-zero for fail — write it the same way you'd write a test assertion.</p>
 <p>Scripts and checks have time limits — <code>30m</code> for a bootstrap, testing or teardown script, <code>5m</code> for a validation script, <code>1m</code> for a check — so a command that hangs can't hang the student's <code>run</code> or <code>submit</code>. A script or check that runs longer is killed with everything it started and reported as <code>timed out after …</code> (a failed check when grading). Set <code>timeout</code> on the entry when it legitimately needs longer (<code>timeout: 45m</code> on a slow install) or should give up sooner (<code>timeout: 20s</code> on a check); see <a href="../../reference/lab-config/#time-limits">Time limits</a>.</p>
 <h2 id="6-teardown">6. Teardown<a class="headerlink" href="#6-teardown" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="nt">teardown</span><span class="p">:</span>
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"dump-logs"</span>
-<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
-<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"teardown/dump-logs.sh"</span>
-<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">  </span><span class="nt">keepCluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="nt">teardown</span><span class="p">:</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="w">  </span><span class="nt">init</span><span class="p">:</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"dump-logs"</span>
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="s">"file"</span>
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">      </span><span class="nt">source</span><span class="p">:</span><span class="w"> </span><span class="s">"teardown/dump-logs.sh"</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">  </span><span class="nt">keepCluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </code></pre></div>
 <p>Usually just <code>keepCluster: false</code> (or omitted — that's the default). Add <code>init</code> scripts only if you need to capture state before the cluster disappears.</p>
 <h3 id="files-the-student-needs-resources">Files the student needs: <code>resources/</code><a class="headerlink" href="#files-the-student-needs-resources" title="Permanent link">&para;</a></h3>
 <p>Instead of asking students to paste a script or a YAML file from <code>question.md</code>, put it in a <code>resources/</code> folder next to <code>config.yaml</code>. When the lab starts, astrona copies it to <code>~/.astrona/resources/&lt;lab&gt;/</code> and lists what's there — nothing runs until the student asks for it:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>sections/section-010/module-01/labs/lab-01/
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>  config.yaml  question.md  solution.md
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>  bootstrap/  solution/  validation/
-<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>  resources/
-<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    setup-db.sh               # runs with bash
-<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>    broken-deployment.yaml    # applied to the lab with kubectl
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>sections/section-010/module-01/labs/lab-01/
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>  config.yaml  question.md  solution.md
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>  bootstrap/  solution/  validation/
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>  resources/
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>    setup-db.sh               # runs with bash
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    broken-deployment.yaml    # applied to the lab with kubectl
 </code></pre></div>
 <p>No config is needed; a <code>resources:</code> list adds descriptions and run commands — see <a href="../../reference/lab-config/#resources"><code>resources</code></a>.</p>
 <h2 id="7-prove-it-works">7. Prove it works<a class="headerlink" href="#7-prove-it-works" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>astrona<span class="w"> </span>validate<span class="w"> </span>-c<span class="w"> </span>path/to/your-lab<span class="w">     </span><span class="c1"># seconds: typos, rules, missing files</span>
-<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>path/to/your-lab<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>astrona<span class="w"> </span>validate<span class="w"> </span>-c<span class="w"> </span>path/to/your-lab<span class="w">     </span><span class="c1"># seconds: typos, rules, missing files</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>path/to/your-lab<span class="w"> </span>--junit-xml<span class="o">=</span>report.xml
 </code></pre></div>
 <p><code>astrona validate</code> catches config mistakes — a misspelled field, a missing script — without creating anything; see <a href="../../reference/lab-config/#editor-support-and-validation">editor support and validation</a> for autocompletion in your editor.</p>
 <p>Before publishing, check the lab isn't flaky:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>path/to/your-lab<span class="w"> </span>--repeat<span class="w"> </span><span class="m">5</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>astrona<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-c<span class="w"> </span>path/to/your-lab<span class="w"> </span>--repeat<span class="w"> </span><span class="m">5</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>Repeat summary — 5 runs:
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>  ✓  Deployment web runs 2 replicas  5/5
-<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>  ⚠  2 web pods exist                3/5  flaky
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>Repeat summary — 5 runs:
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>  ✓  Deployment web runs 2 replicas  5/5
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>  ⚠  2 web pods exist                3/5  flaky
 </code></pre></div>
 <p><code>--repeat N</code> (up to 20) runs the whole lifecycle N times on fresh environments. A check that passes only sometimes almost always means grading raced the cluster — add a <code>waitFor</code> (in <code>testing</code> for the reference solution) for whatever the check depends on. Any failed or flaky run fails the command; with <code>--junit-xml</code>, each check is reported once with "passed k/N runs".</p>
 <p>This is the whole point of the <code>testing</code> stage: it bootstraps your lab, applies your reference solution, submits it to the Proctor, and tears down — proving a student who does everything right will actually pass. Run this locally before publishing, and wire it into CI (see <a href="../ci-integration/">CI Integration</a>) so a later edit to <code>validation</code> can't silently break the lab's own solution.</p>
