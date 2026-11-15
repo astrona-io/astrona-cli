@@ -275,6 +275,16 @@ solution it cannot read and warns about a file named like a solution with an
 invalid name, two solutions with the same `order`, or a solution without a
 `title` when the lab has more than one.
 
+A solution can show images with a relative path, for example
+`![The workflow list](images/02-workflows.png)` with the file in the lab's
+`images/` folder (PNG, JPEG, WebP or GIF). Always write a description: it is
+what a learner sees when the image does not load. The browser workspace only
+shows images that Astrona has published on `cdn.astrona.io`, which happens
+for the labs of official trainings after they are merged; it never reads the
+image from the lab's folder. So in your own lab, or before publication, the
+workspace shows the description instead, and `astrona docs solution` in a
+terminal always shows the Markdown as text.
+
 
 ## 2. Pick a runtime
 
