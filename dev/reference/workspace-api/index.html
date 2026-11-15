@@ -2042,6 +2042,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#images-in-a-solution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Images in a solution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#get-wsv1terminalsidticketticket" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5657,6 +5668,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#images-in-a-solution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Images in a solution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#get-wsv1terminalsidticketticket" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6337,7 +6359,7 @@ scripts, check commands, expected values, admin credentials or kubeconfigs.</p>
 <p><code>html</code> is rendered on the server from the task's Markdown (GitHub-flavoured
 tables, strikethrough, autolinks and task lists). Raw HTML in the Markdown is
 dropped, and links with <code>javascript:</code>, <code>vbscript:</code>, <code>file:</code> or <code>data:</code> URLs are
-removed (except <code>data:image/…</code>, which the CSP's <code>img-src 'self'</code> does not load).
+removed (except <code>data:image/…</code>, which the CSP's <code>img-src</code> does not load).
 Insert it as HTML; the page's CSP blocks inline script anyway.
 <code>target</code> is the target the question is about. <code>hints</code> is always empty for now.</p>
 <p>Before Start an exam or learning lab answers <code>409 not_started</code> (a playground
@@ -6594,6 +6616,42 @@ to the lab's <code>config.yaml</code>. The page asks once per run before it show
 of them. Reading one changes nothing, and telemetry records it as the
 solution tab, never by name or title. Errors: <code>404 no_solution</code> (unknown
 name, or an exam or playground), <code>409 not_started</code>, <code>409 run_stopped</code>.</p>
+<h3 id="images-in-a-solution">Images in a solution<a class="headerlink" href="#images-in-a-solution" title="Permanent link">&para;</a></h3>
+<p>A solution keeps the relative paths of its images (<code>![x](images/01.png)</code>).
+For a lab of an official training (a repository of <code>astrona-io</code> on GitHub),
+Astrona publishes those images on its CDN, and both solution routes and a
+solution docs tab return <code>html</code> whose images point there:</p>
+<ul>
+<li>The server reads the lab's image manifest,
+  <code>https://cdn.astrona.io/courses-content/manifests/astrona-io/&lt;repo&gt;/&lt;lab path&gt;/assets.json</code>
+  (<code>{"images": {"images/01.png": "&lt;sha256&gt;.png"}}</code>, keys relative to the
+  lab's directory), when a solution with a relative image is first asked
+  for: 4 seconds at most, 1 MiB at most, no redirects. It keeps the answer
+  for 5 minutes, and "no manifest" for 1 minute.</li>
+<li>An image source is resolved against the solution file's directory, so
+  <code>images/01.png</code> in <code>solution.md</code> and <code>../images/01.png</code> in
+  <code>docs/solution.md</code> are the same image. Markdown images are rewritten, and
+  an <code>&lt;img src="…"&gt;</code> written as HTML becomes a plain image (its source and
+  <code>alt</code> only; every other raw HTML is still dropped). Code blocks are left
+  alone.</li>
+<li>The rewritten source is always
+  <code>https://cdn.astrona.io/courses-content/assets/&lt;sha256&gt;.&lt;png|jpg|webp|gif&gt;</code>.
+  The manifest only chooses that file name; a value of any other shape is
+  ignored, so it cannot point the page elsewhere. The page's CSP allows
+  images from its own origin and <code>https://cdn.astrona.io</code> only, and the
+  request carries no <code>Referer</code>.</li>
+<li>An image the manifest does not list keeps its source and does not load. So
+  does every image when there is no manifest (an unpublished or changed lab,
+  a lab outside an official training, a lab loaded from a URL) or the CDN
+  cannot be reached (offline). The rest of the guide is unchanged. Image
+  files are never read from the lab's directory or copied to this computer.</li>
+</ul>
+<p>Which lab the manifest belongs to comes from the run record
+(<code>solutionAssets</code>: owner, repository and the lab's path in it), which
+<code>astrona run</code> fills in from the repository the lab was fetched from, or the
+<code>origin</code> of the checkout it runs from, and the lab's path below the
+training's <code>astrona.yaml</code>. Image paths, names and URLs are never part of
+telemetry.</p>
 <h3 id="get-wsv1terminalsidticketticket"><code>GET /ws/v1/terminals/{id}?ticket=&lt;ticket&gt;</code><a class="headerlink" href="#get-wsv1terminalsidticketticket" title="Permanent link">&para;</a></h3>
 <p>A WebSocket upgrade. The request must carry the page's own <code>Origin</code> (browsers
 do). Before the upgrade the server answers with a normal HTTP error:
@@ -6726,7 +6784,7 @@ new window</strong> shows it in a separate window instead. A tab opened from a
 <tr>
 <td><code>~/.astrona/workspace/runs/&lt;lab&gt;/run.json</code></td>
 <td><code>astrona run</code></td>
-<td>What the page shows for that run: title, mode, rules, the account status, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs), and for a learning lab the solution guide. Never the validation block, and never the solution in an exam or a playground.</td>
+<td>What the page shows for that run: title, mode, rules, the account status, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs), and for a learning lab the solution guide and where its published images are (<code>solutionAssets</code>). Never the validation block, and never the solution in an exam or a playground.</td>
 </tr>
 <tr>
 <td><code>~/.astrona/workspace/runs/&lt;lab&gt;/start.json</code></td>

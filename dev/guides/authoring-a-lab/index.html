@@ -5906,6 +5906,15 @@ Solutions are never shown in an exam or a playground. A lab opened from a URL
 solution it cannot read and warns about a file named like a solution with an
 invalid name, two solutions with the same <code>order</code>, or a solution without a
 <code>title</code> when the lab has more than one.</p>
+<p>A solution can show images with a relative path, for example
+<code>![The workflow list](images/02-workflows.png)</code> with the file in the lab's
+<code>images/</code> folder (PNG, JPEG, WebP or GIF). Always write a description: it is
+what a learner sees when the image does not load. The browser workspace only
+shows images that Astrona has published on <code>cdn.astrona.io</code>, which happens
+for the labs of official trainings after they are merged; it never reads the
+image from the lab's folder. So in your own lab, or before publication, the
+workspace shows the description instead, and <code>astrona docs solution</code> in a
+terminal always shows the Markdown as text.</p>
 <h2 id="2-pick-a-runtime">2. Pick a runtime<a class="headerlink" href="#2-pick-a-runtime" title="Permanent link">&para;</a></h2>
 <p>Omit <code>runtime:</code> entirely for a <code>kind</code> cluster (the default), or see <a href="../../concepts/runtimes/">Runtimes</a> for a <code>qemu</code> VM-backed lab.</p>
 <h2 id="3-bootstrap-what-the-student-starts-with">3. Bootstrap — what the student starts with<a class="headerlink" href="#3-bootstrap-what-the-student-starts-with" title="Permanent link">&para;</a></h2>
