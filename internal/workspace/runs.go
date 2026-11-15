@@ -78,6 +78,10 @@ type RunRecord struct {
 	// solution.<name>.md, served by GET /runs/{lab}/solutions/{name}
 	// after Start. Always empty for an exam or a playground.
 	Solutions []RunSolution `json:"solutions,omitempty"`
+	// SolutionAssets names the lab whose published solution images the
+	// page shows (see assets.go); nil for a lab that is not part of an
+	// official training, a lab loaded from a URL, an exam or a playground.
+	SolutionAssets *SolutionAssets `json:"solutionAssets,omitempty"`
 	// DocLinks are the lab's documentation links (its astrona.yaml
 	// entry's resources), shown under the task. Always empty for an exam.
 	DocLinks []DocLink `json:"docLinks,omitempty"`
@@ -96,12 +100,15 @@ type RunRecord struct {
 
 // RunSolution is one of the run's solutions: its name ("default" or the
 // <name> of solution.<name>.md), menu title and summary, and its Markdown
-// (empty for the default, whose Markdown is RunRecord.Solution).
+// (empty for the default, whose Markdown is RunRecord.Solution). File is
+// its file, relative to the lab's directory: the place its relative image
+// paths start from.
 type RunSolution struct {
 	Name     string `json:"name"`
 	Title    string `json:"title"`
 	Summary  string `json:"summary,omitempty"`
 	Markdown string `json:"markdown,omitempty"`
+	File     string `json:"file,omitempty"`
 }
 
 // solutionView is one entry of the run view's solutions.
@@ -166,6 +173,9 @@ func WriteRun(rec RunRecord) error {
 	if !rec.solutionAllowed() {
 		rec.Solution = ""
 		rec.Solutions = nil
+	}
+	if !rec.solutionAllowed() || !rec.SolutionAssets.valid() {
+		rec.SolutionAssets = nil
 	}
 	for _, sol := range rec.Solutions {
 		if sol.Name != config.DefaultSolutionName && !config.ValidSolutionName(sol.Name) {

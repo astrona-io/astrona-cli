@@ -45,7 +45,8 @@
 //     preflight (OPTIONS) requests are refused.
 //   - Response headers. Every response carries a Content Security Policy
 //     that allows only the server's own origin (no inline script, no
-//     external resources, no framing), plus nosniff, X-Frame-Options DENY,
+//     external resources but solution images from Astrona's CDN, no
+//     framing), plus nosniff, X-Frame-Options DENY,
 //     Referrer-Policy no-referrer, same-origin COOP/CORP, a restrictive
 //     Permissions-Policy and Cache-Control no-store.
 //

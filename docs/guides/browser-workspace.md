@@ -256,6 +256,12 @@ The **+** at the right of the tab bar opens more tabs:
   way to solve it (for example in a terminal and in a web UI), one item per
   solution with its title and a one-line summary. It asks once, and that
   answer covers every solution of the run.
+
+Screenshots in a solution of an official Astrona training are loaded from
+`cdn.astrona.io`, where Astrona publishes them; they are not copied to your
+computer. Without a connection, or for a lab whose images are not published
+(your own lab, a changed copy, a lab opened from a URL), the guide shows its
+text and the image's description instead of the picture.
 - **Reopen**: any of the lab's own tabs you closed.
 
 ![The + menu: New terminal, Task, Prerequisites and Solution guide](../assets/browser-workspace-tab-menu.png)
@@ -426,7 +432,8 @@ dark in both: the tools a lab runs colour their output for a dark terminal.
 
 The server only answers on `127.0.0.1`, refuses other `Host` and `Origin`
 headers, and sends a Content Security Policy that allows no inline scripts or
-styles. The page talks to it with a session token it gets in exchange for the
+styles and nothing from another site, except the images of solution guides
+from `https://cdn.astrona.io`. The page talks to it with a session token it gets in exchange for the
 single-use launch code. See the [workspace API reference](../reference/workspace-api.md)
 for the details.
 

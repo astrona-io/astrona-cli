@@ -77,8 +77,10 @@ type Server struct {
 	terms      *terminals
 	subs       submits
 	frames     frameChecks // GET /runs/{lab}/doclinks/frame answers
-	stop       chan struct{}
-	stopOnce   sync.Once
+	// solutionAssets are the image manifests of solution guides (assets.go).
+	solutionAssets assetManifests
+	stop           chan struct{}
+	stopOnce       sync.Once
 }
 
 // New binds 127.0.0.1 and prepares the server. Nothing is served until Serve.

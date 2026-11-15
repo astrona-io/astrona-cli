@@ -340,7 +340,7 @@ scripts, check commands, expected values, admin credentials or kubeconfigs.
 `html` is rendered on the server from the task's Markdown (GitHub-flavoured
 tables, strikethrough, autolinks and task lists). Raw HTML in the Markdown is
 dropped, and links with `javascript:`, `vbscript:`, `file:` or `data:` URLs are
-removed (except `data:image/…`, which the CSP's `img-src 'self'` does not load).
+removed (except `data:image/…`, which the CSP's `img-src` does not load).
 Insert it as HTML; the page's CSP blocks inline script anyway.
 `target` is the target the question is about. `hints` is always empty for now.
 
@@ -593,6 +593,44 @@ of them. Reading one changes nothing, and telemetry records it as the
 solution tab, never by name or title. Errors: `404 no_solution` (unknown
 name, or an exam or playground), `409 not_started`, `409 run_stopped`.
 
+### Images in a solution
+
+A solution keeps the relative paths of its images (`![x](images/01.png)`).
+For a lab of an official training (a repository of `astrona-io` on GitHub),
+Astrona publishes those images on its CDN, and both solution routes and a
+solution docs tab return `html` whose images point there:
+
+- The server reads the lab's image manifest,
+  `https://cdn.astrona.io/courses-content/manifests/astrona-io/<repo>/<lab path>/assets.json`
+  (`{"images": {"images/01.png": "<sha256>.png"}}`, keys relative to the
+  lab's directory), when a solution with a relative image is first asked
+  for: 4 seconds at most, 1 MiB at most, no redirects. It keeps the answer
+  for 5 minutes, and "no manifest" for 1 minute.
+- An image source is resolved against the solution file's directory, so
+  `images/01.png` in `solution.md` and `../images/01.png` in
+  `docs/solution.md` are the same image. Markdown images are rewritten, and
+  an `<img src="…">` written as HTML becomes a plain image (its source and
+  `alt` only; every other raw HTML is still dropped). Code blocks are left
+  alone.
+- The rewritten source is always
+  `https://cdn.astrona.io/courses-content/assets/<sha256>.<png|jpg|webp|gif>`.
+  The manifest only chooses that file name; a value of any other shape is
+  ignored, so it cannot point the page elsewhere. The page's CSP allows
+  images from its own origin and `https://cdn.astrona.io` only, and the
+  request carries no `Referer`.
+- An image the manifest does not list keeps its source and does not load. So
+  does every image when there is no manifest (an unpublished or changed lab,
+  a lab outside an official training, a lab loaded from a URL) or the CDN
+  cannot be reached (offline). The rest of the guide is unchanged. Image
+  files are never read from the lab's directory or copied to this computer.
+
+Which lab the manifest belongs to comes from the run record
+(`solutionAssets`: owner, repository and the lab's path in it), which
+`astrona run` fills in from the repository the lab was fetched from, or the
+`origin` of the checkout it runs from, and the lab's path below the
+training's `astrona.yaml`. Image paths, names and URLs are never part of
+telemetry.
+
 ### `GET /ws/v1/terminals/{id}?ticket=<ticket>`
 
 A WebSocket upgrade. The request must carry the page's own `Origin` (browsers
@@ -671,7 +709,7 @@ new window** shows it in a separate window instead. A tab opened from a
 | `~/.astrona/workspace/server.log` | server | Its log. |
 | `~/.astrona/workspace/launches/<id>/launch.json` | `astrona run` | A browser-first run before its lab exists: stage, terms notice, setup progress. |
 | `~/.astrona/workspace/launches/<id>/answer.json` | server | The page's answer to the terms. |
-| `~/.astrona/workspace/runs/<lab>/run.json` | `astrona run` | What the page shows for that run: title, mode, rules, the account status, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs), and for a learning lab the solution guide. Never the validation block, and never the solution in an exam or a playground. |
+| `~/.astrona/workspace/runs/<lab>/run.json` | `astrona run` | What the page shows for that run: title, mode, rules, the account status, the task and prerequisites Markdown, targets, tabs (with the Markdown of docs tabs), and for a learning lab the solution guide and where its published images are (`solutionAssets`). Never the validation block, and never the solution in an exam or a playground. |
 | `~/.astrona/workspace/runs/<lab>/start.json` | Start | When Start was clicked, for which `runId`. Removed when the lab is deleted (submit, destroy, reset, expiry). `astrona submit` uses it only while its `runId` is the lab's current run and it is not earlier than the lab became ready. |
 | `~/.astrona/workspace/runs/<lab>/submission.json` | Submit | The latest browser submission for that `runId`: the result as `GET /submission` shows it. |
 

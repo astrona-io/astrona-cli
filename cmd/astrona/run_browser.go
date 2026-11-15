@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	slashpath "path"
 	"path/filepath"
 	goruntime "runtime"
 	"strings"
@@ -343,6 +344,9 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 	}
 	if !rec.Exam && !rec.Playground {
 		rec.Solution, rec.Solutions = browserSolutions(cfg, baseDir, flags)
+		if len(rec.Solutions) > 0 {
+			rec.SolutionAssets = solutionAssets(st.Source, baseDir, flags)
+		}
 	}
 	return rec, nil
 }
@@ -371,7 +375,7 @@ func browserSolutions(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 			ui.Warnf("the lab has more than %d solutions; the browser shows the first %d", maxBrowserSolutions, maxBrowserSolutions)
 			break
 		}
-		rs := workspace.RunSolution{Name: s.Name, Title: s.Title, Summary: s.Summary}
+		rs := workspace.RunSolution{Name: s.Name, Title: s.Title, Summary: s.Summary, File: labRelPath(s.File)}
 		if s.Name == config.DefaultSolutionName {
 			def = s.Body
 		} else {
@@ -380,6 +384,52 @@ func browserSolutions(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 		list = append(list, rs)
 	}
 	return def, list
+}
+
+// labRelPath is a document's path as the lab's config names it, relative
+// to the lab's directory and /-separated; "" when it would leave it.
+func labRelPath(file string) string {
+	p := slashpath.Clean(filepath.ToSlash(file))
+	if p == "." || slashpath.IsAbs(p) || p == ".." || strings.HasPrefix(p, "../") {
+		return ""
+	}
+	return p
+}
+
+// solutionAssets names the lab for the images of its solution guides,
+// which Astrona publishes on its CDN for official trainings: the training's
+// repository under catalog.DefaultOrg and the lab's directory in it. The
+// repository is the one the lab was fetched from (a catalog lab, --git),
+// else the origin of the checkout the lab is run from; the directory is the
+// lab's path below the training's astrona.yaml. A lab loaded from a URL, a
+// lab outside a training and another owner's repository have none: their
+// solutions are shown as before, without published images.
+func solutionAssets(src *labstate.Source, baseDir string, flags *rootFlags) *workspace.SolutionAssets {
+	if isURLLab(flags) {
+		return nil
+	}
+	_, rel, err := catalog.FindManifest(baseDir)
+	if err != nil || rel == "." {
+		return nil
+	}
+	origin := ""
+	if src != nil {
+		origin = src.Git
+	}
+	if origin == "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, "git", "-C", baseDir, "config", "--local", "--no-includes", "--get", "remote.origin.url").Output()
+		if err != nil {
+			return nil
+		}
+		origin = strings.TrimSpace(string(out))
+	}
+	repo, ok := catalog.OfficialRepo(origin)
+	if !ok {
+		return nil
+	}
+	return &workspace.SolutionAssets{Owner: catalog.DefaultOrg, Repo: repo, LabPath: rel}
 }
 
 // labDocLinks are the documentation links the training's astrona.yaml
@@ -528,7 +578,9 @@ func browserTabs(cfg *config.LabConfig, targets []workspace.Target, links []clus
 				return nil, fmt.Errorf("the document of tab %s is larger than %d KiB", t.Name, config.MaxTabDocBytes>>10)
 			}
 			_, tab.Doc = docFrontMatter(labops.SanitizeTerminalText(text))
-			tab.Solution = config.IsSolutionFile(cfg, t.File)
+			if tab.Solution = config.IsSolutionFile(cfg, t.File); tab.Solution {
+				tab.File = labRelPath(t.File)
+			}
 		}
 		tabs = append(tabs, tab)
 	}

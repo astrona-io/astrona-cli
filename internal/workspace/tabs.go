@@ -41,6 +41,9 @@ type Tab struct {
 	// Solution marks a docs tab whose file is the lab's solution: the page
 	// asks before it shows it. Never in an exam or a playground.
 	Solution bool `json:"solution,omitempty"`
+	// File is a solution docs tab's file, relative to the lab's directory:
+	// the place its relative image paths start from.
+	File string `json:"file,omitempty"`
 }
 
 // tabView is a tab as GET /runs/{lab} shows it.
@@ -279,7 +282,11 @@ func (s *Server) handleTabDoc(w http.ResponseWriter, r *http.Request) {
 		writeErrorCode(w, http.StatusConflict, "not_started", "click Start first")
 		return
 	}
-	html, err := renderMarkdown(t.Doc)
+	var images func(string) (string, bool)
+	if t.Solution {
+		images = s.solutionImages(r.Context(), rec, t.File)
+	}
+	html, err := renderMarkdownImages(t.Doc, images)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -327,6 +334,17 @@ func (r RunRecord) solutionMarkdown(name string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// solutionFile is the file of the solution called name, relative to the
+// lab's directory ("" when the record does not say).
+func (r RunRecord) solutionFile(name string) string {
+	for _, s := range r.Solutions {
+		if s.Name == name {
+			return s.File
+		}
+	}
+	return ""
 }
 
 // solutionTitle is the menu title of the solution called name.
@@ -377,7 +395,7 @@ func (s *Server) serveSolution(w http.ResponseWriter, r *http.Request, name, tit
 		writeErrorCode(w, http.StatusConflict, "not_started", "click Start first")
 		return
 	}
-	html, err := renderMarkdown(text)
+	html, err := renderMarkdownImages(text, s.solutionImages(r.Context(), rec, rec.solutionFile(name)))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

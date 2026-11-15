@@ -43,4 +43,5 @@ After that it's an ordinary local lab — `run`, `test`, `reset`, `submit` work 
 - **No `type: url` scripts or manifests** — they're fetched at run time; make them local files.
 - **Not the `gatewayAPI` addon yet** — Envoy Gateway starts its proxy image at runtime and it isn't listed in its manifest.
 - **[Linked clusters](linked-labs.md) must pin their node image** (`version` or `image` on each `runtime.kind.clusters` entry) — offline, an unpinned cluster would boot kind's default image, which may not be the one in the bundle. Their node images, preload images and addon manifests are bundled with the lab's (each once), and addon images are preloaded into every cluster that installs addons.
+- **Solution images need a connection** — the browser workspace loads the screenshots of a solution guide from `cdn.astrona.io` and never from the lab's folder, so offline the guide shows its text and each image's description.
 - Bundles are per CPU architecture.
