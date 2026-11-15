@@ -73,6 +73,11 @@ type RunRecord struct {
 	// /runs/{lab}/solution after Start. Always empty for an exam or a
 	// playground.
 	Solution string `json:"solution,omitempty"`
+	// Solutions are all of the lab's solutions, in display order: the
+	// default ("default", whose Markdown is Solution) and each
+	// solution.<name>.md, served by GET /runs/{lab}/solutions/{name}
+	// after Start. Always empty for an exam or a playground.
+	Solutions []RunSolution `json:"solutions,omitempty"`
 	// DocLinks are the lab's documentation links (its astrona.yaml
 	// entry's resources), shown under the task. Always empty for an exam.
 	DocLinks []DocLink `json:"docLinks,omitempty"`
@@ -87,6 +92,23 @@ type RunRecord struct {
 	// another command, such as astrona ui, wrote the record).
 	Account   *AccountStatus `json:"account,omitempty"`
 	CreatedAt time.Time      `json:"createdAt"`
+}
+
+// RunSolution is one of the run's solutions: its name ("default" or the
+// <name> of solution.<name>.md), menu title and summary, and its Markdown
+// (empty for the default, whose Markdown is RunRecord.Solution).
+type RunSolution struct {
+	Name     string `json:"name"`
+	Title    string `json:"title"`
+	Summary  string `json:"summary,omitempty"`
+	Markdown string `json:"markdown,omitempty"`
+}
+
+// solutionView is one entry of the run view's solutions.
+type solutionView struct {
+	Name    string `json:"name"`
+	Title   string `json:"title"`
+	Summary string `json:"summary,omitempty"`
 }
 
 // DocLink is one documentation link shown under the task: an https URL and
@@ -143,6 +165,12 @@ func WriteRun(rec RunRecord) error {
 	}
 	if !rec.solutionAllowed() {
 		rec.Solution = ""
+		rec.Solutions = nil
+	}
+	for _, sol := range rec.Solutions {
+		if sol.Name != config.DefaultSolutionName && !config.ValidSolutionName(sol.Name) {
+			return fmt.Errorf("solution name %q is not valid", sol.Name)
+		}
 	}
 	if !rec.docLinksAllowed() {
 		rec.DocLinks = nil
@@ -324,6 +352,9 @@ type runView struct {
 	// Solution: GET /runs/{lab}/solution has a solution guide to show
 	// (after Start). Never in an exam or a playground.
 	Solution bool `json:"solution"`
+	// Solutions lists every solution GET /runs/{lab}/solutions/{name}
+	// shows (after Start), in order. Empty in an exam or a playground.
+	Solutions []solutionView `json:"solutions"`
 	// DocLinks are the lab's documentation links; empty in an exam.
 	DocLinks  []DocLink  `json:"docLinks"`
 	CanSubmit bool       `json:"canSubmit"`
@@ -383,6 +414,7 @@ func buildView(rec RunRecord, now time.Time) (v runView, err error) {
 		Targets:   rec.Targets,
 		Tabs:      tabViews(rec.tabs()),
 		Solution:  rec.solutionAllowed() && rec.Solution != "",
+		Solutions: rec.solutionViews(),
 		DocLinks:  []DocLink{},
 		Submit:    submitView{Tracking: TrackingNone},
 		RunAgain:  rec.RunAgain,

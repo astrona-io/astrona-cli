@@ -83,12 +83,12 @@ func TestLabDocsAndList(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	printDocList(&buf, "x", docs)
+	printDocList(&buf, "x", docs, nil)
 	if !strings.Contains(buf.String(), "astrona docs question") || strings.Contains(buf.String(), "case-study") {
 		t.Errorf("list = %q", buf.String())
 	}
 	buf.Reset()
-	printDocList(&buf, "x", nil)
+	printDocList(&buf, "x", nil, nil)
 	if !strings.Contains(buf.String(), "has no docs") {
 		t.Errorf("empty list = %q", buf.String())
 	}

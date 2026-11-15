@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	"astrona/internal/labops"
-
-	"gopkg.in/yaml.v3"
 )
 
 // stripFrontMatter removes a YAML front-matter block — a "---" line, YAML,
@@ -21,27 +19,7 @@ func stripFrontMatter(src string) (title, body string) {
 	return title, body
 }
 
-func docFrontMatter(src string) (map[string]any, string) {
-	lines := strings.Split(src, "\n")
-	if len(lines) < 2 || strings.TrimRight(lines[0], " ") != "---" {
-		return nil, src
-	}
-	end := -1
-	for i := 1; i < len(lines); i++ {
-		if strings.TrimRight(lines[i], " ") == "---" {
-			end = i
-			break
-		}
-	}
-	if end < 0 {
-		return nil, src
-	}
-	var meta map[string]any
-	if err := yaml.Unmarshal([]byte(strings.Join(lines[1:end], "\n")), &meta); err != nil {
-		return nil, src
-	}
-	return meta, strings.TrimLeft(strings.Join(lines[end+1:], "\n"), "\n")
-}
+func docFrontMatter(src string) (map[string]any, string) { return labops.DocFrontMatter(src) }
 
 var (
 	mdHeading    = regexp.MustCompile(`^(#{1,6})\s+(.*)$`)

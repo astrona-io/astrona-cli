@@ -198,6 +198,8 @@ astrona docs question        # docs.question (question.md) — the task
 astrona docs case-study      # docs.caseStudy (case-study.md)
 astrona docs prerequisites   # docs.prerequisites (prerequisites.md)
 astrona docs solution        # docs.solution (solution.md) — shown with a "full solution" warning
+astrona docs solutions       # every solution of the lab, by name (--json for scripts)
+astrona docs solution --name web-ui   # one extra solution, solution.web-ui.md
 ```
 
 They're rendered for the terminal (headings, code blocks, lists, inline code, bold, links) and paged; `astrona run` ends with "Your task: astrona docs question" when the lab has a question. Write them as plain Markdown — tables and HTML are shown as-is. A YAML front-matter block at the very top of a doc (a `---` line, YAML such as `estimated_duration: 20m`, a `---` line) is hidden; if it has a `title`, that's shown as the doc's heading. A `---` further down is still a horizontal rule. Doc paths can't point outside the lab directory, and control characters (terminal escape sequences) are stripped before anything is printed. Name the cluster context as `kind-astro-<metadata.name>` in your docs — or point students at `astrona shell <lab>`.
@@ -207,8 +209,9 @@ the UI's lab progress bar:
 
 ```markdown
 ---
-title: Configure a deployment
+title: Configure A Deployment
 estimated_duration: 20m
+summary: Scale a deployment to three replicas.
 ---
 
 Create a deployment with three replicas.
@@ -219,6 +222,58 @@ this estimate with active time spent and pauses it during idle periods.
 Exceeding it does not stop the lab or change its grade. Missing or invalid
 estimates show as unavailable. This display applies to labs, not playgrounds;
 exam deadlines and playground expiry remain separate.
+
+The question's `title` is the lab's readable name: `astrona run` and the
+browser workspace show it instead of `metadata.name`, which stays the lab's
+identifier (cluster name, run records, telemetry). Without one, a lab inside a
+training uses its `astrona.yaml` entry's title without the trailing " Lab",
+and any other lab uses `metadata.name`. A title is never sent in telemetry.
+`astrona validate` warns when the question has no `title`, and when its
+`title` or `estimated_duration` differs from the lab's `astrona.yaml` entry
+(the titles compared without " Lab").
+
+### Several solutions
+
+When a task has more than one practical way to solve it, give each its own
+file. The default solution stays `docs.solution` (else `solution.md`); each
+other one is `solution.<name>.md` next to `config.yaml`, where `<name>` is
+lowercase letters and digits joined by single hyphens. No config key lists
+them.
+
+```text
+labs/lab-04/
+  config.yaml
+  question.md
+  solution.md          # default: kubectl
+  solution.web-ui.md   # the same task in the web UI
+```
+
+Each solution's front matter sets how it is listed:
+
+```markdown
+---
+title: Web UI
+order: 20
+summary: Do the same steps in the dashboard.
+---
+```
+
+- `title`: the name in the list. Without it, the first `# ` heading, else
+  "Solution" (the default) or the file's `<name>`.
+- `order`: an integer. Solutions with an order come first, ascending (ties by
+  title, then name); then the rest, the default first, then by title, then
+  name.
+- `summary`: one line shown under the title.
+
+`astrona docs solutions` lists them and `astrona docs solution --name <name>`
+prints one; `--name default` is the default. In the browser workspace a lab
+with one solution keeps its "Solution guide" item; with several, the + menu
+has a "Solutions" group, and one confirmation covers all of them for the run.
+Solutions are never shown in an exam or a playground. A lab opened from a URL
+(`-c https://…`) has only its default solution. `astrona validate` fails a
+solution it cannot read and warns about a file named like a solution with an
+invalid name, two solutions with the same `order`, or a solution without a
+`title` when the lab has more than one.
 
 
 ## 2. Pick a runtime

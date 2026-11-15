@@ -45,6 +45,8 @@ export interface WorkspaceTab extends RunTab {
   questionId?: string
   /** A lab tab that shows the solution: the learner already confirmed. */
   confirmed?: boolean
+  /** solution: which of the lab's solutions ("default" or its name). */
+  solutionName?: string
 }
 
 export interface ViewHandle {

@@ -7,7 +7,7 @@
 //     new window. A site that refuses framing stays blank; FrameView says so
 //     and offers the window. Nothing is proxied.
 import { onMounted, ref } from 'vue'
-import { getQuestion, getSolution, getTabDoc, isRunGone, isUnauthorized, type TabDoc } from '../api'
+import { getNamedSolution, getQuestion, getSolution, getTabDoc, isRunGone, isUnauthorized, type TabDoc } from '../api'
 import { useCopyCode } from '../copyCode'
 import FrameView from './FrameView.vue'
 import type { ViewHandle, ViewProps, ViewStatus } from './types'
@@ -37,7 +37,8 @@ async function fetchDoc(): Promise<TabDoc> {
     case 'prerequisites':
       return { name: tab.name, title: tab.title, html: tab.html ?? '' }
     case 'solution': {
-      const s = await getSolution(props.lab)
+      const name = tab.solutionName ?? 'default'
+      const s = name === 'default' ? await getSolution(props.lab) : await getNamedSolution(props.lab, name)
       return { name: tab.name, title: s.title, html: s.html }
     }
     default:

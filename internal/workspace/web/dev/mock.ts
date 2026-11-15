@@ -172,6 +172,7 @@ function run() {
     tabs: TABS,
     // The mock is an exam (or a playground): never a solution guide.
     solution: false,
+    solutions: [],
     // An exam never shows documentation links; the playground does.
     docLinks: playground
       ? [

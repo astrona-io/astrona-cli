@@ -116,6 +116,7 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | `GET /runs/{lab}/tabs/{name}/doc` | A docs tab's Markdown, rendered to HTML. After **Start** only. |
 | `GET /runs/{lab}/doclinks/frame?url=…` | Whether one of the run's `docLinks` can be shown in a frame. |
 | `GET /runs/{lab}/solution` | The solution guide, rendered to HTML. After **Start** only; never in an exam or a playground. |
+| `GET /runs/{lab}/solutions/{name}` | One of the lab's solutions by name (`default` is the solution guide), rendered to HTML. After **Start** only; never in an exam or a playground. |
 | `POST /runs/{lab}/terminals` | Open the shell of a terminal tab, or of a new terminal on a target. After **Start** only. |
 | `POST /runs/{lab}/terminals/close` | End the shell of a terminal tab the learner closed. |
 | `POST /runs/{lab}/submit` | Grade the run, record and send the result. Needs an `Idempotency-Key` header. |
@@ -317,6 +318,7 @@ answer; Kind labs are then missing from the list.
 | `account` | Whose account this run is saved to, shown as one line on the intro page; the same object as on `GET /launches/{id}`. `astrona run` saves it with the run (`runs/<lab>/run.json`). A run without one, such as a lab started before this field or reopened with `astrona ui`, gets `signed-in` (site only) or `local-only` from its saved lab session, and no `account` otherwise. |
 | `runAgain` | The command that starts this lab again, as `astrona run` was given it: the catalog ID, the `--git` source, or the config path (`-c`). Never the cluster name, which `astrona run` does not accept. `""` when the source is not known. |
 | `solution` | `GET /solution` has a solution guide to show (after **Start**). Always `false` in an exam (a time limit) or a playground. |
+| `solutions` | The lab's solutions in display order, as `{"name", "title", "summary"}` (`summary` may be `""`); each is served by `GET /solutions/{name}`. The default solution is named `default`. Empty in an exam or a playground, and for a lab without a solution. Never the solution text. |
 
 Responses never contain the solution document (only `GET /solution` and a
 solution docs tab serve it, and never in an exam or a playground), validation
@@ -580,6 +582,16 @@ marked and nothing is sent. `astrona run` keeps it in the run record only for
 a learning lab, so in an exam (a time limit) or a playground the answer is
 always `404 no_solution`, as for a lab without one. Errors: `404 no_solution`,
 `409 not_started`, `409 run_stopped`.
+
+### `GET /runs/{lab}/solutions/{name}`
+
+One solution from the run view's `solutions`, rendered and sanitised the same
+way: `{"title": "Web UI", "html": "<p>…"}`. `default` is the solution guide
+(the same as `GET /solution`); any other name is a `solution.<name>.md` next
+to the lab's `config.yaml`. The page asks once per run before it shows any
+of them. Reading one changes nothing, and telemetry records it as the
+solution tab, never by name or title. Errors: `404 no_solution` (unknown
+name, or an exam or playground), `409 not_started`, `409 run_stopped`.
 
 ### `GET /ws/v1/terminals/{id}?ticket=<ticket>`
 

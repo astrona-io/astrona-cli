@@ -3,9 +3,10 @@
 // focus tab (the terminal on the lab's own cluster) first. The learner can
 // close any tab with its ×, except the last terminal, and open more from the
 // + menu: another terminal (on a VM or cluster of the run, when there are
-// several), the task, the prerequisites, the solution guide (after a
-// confirmation; never in an exam or a playground), the lab's documentation
-// links and any of the lab's own tabs that were closed. A documentation
+// several), the task, the prerequisites, the solution guide or, when the
+// lab has several, each solution from a Solutions group (after one
+// confirmation for all of them; never in an exam or a playground), the
+// lab's documentation links and any of the lab's own tabs that were closed. A documentation
 // badge above the task opens its link here too (openResource), or shows its
 // tab when it is already open. Closing a terminal ends its shell, after a
 // confirmation. The open tabs are remembered per run in localStorage, so a
@@ -20,7 +21,7 @@
 // Home/End move between tabs, Enter or Space shows the focused one, Delete
 // closes it. The + menu is an ARIA menu: Up/Down move, Esc closes it.
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, reactive, ref, type Component } from 'vue'
-import { closeTerminalTab, isRunGone, isUnauthorized, type Run, type RunTab, type TabKind } from '../api'
+import { closeTerminalTab, isRunGone, isUnauthorized, type Run, type RunTab, type SolutionSummary, type TabKind } from '../api'
 import { views, type TabSource, type ViewHandle, type ViewStatus, type WorkspaceTab } from '../views/types'
 import type { EndCopy } from '../endSession'
 import { resourceTabName, shownDocLinks, type ShownDocLink } from '../docLinks'
@@ -62,6 +63,8 @@ interface StoredTab {
   confirmed?: boolean
   /** resource: the documentation link it shows. */
   url?: string
+  /** solution: which of the lab's solutions. */
+  solutionName?: string
 }
 
 interface Stored {
@@ -91,6 +94,7 @@ function save(): void {
       questionId: t.questionId,
       confirmed: t.confirmed || undefined,
       url: t.source === 'resource' ? t.url : undefined,
+      solutionName: t.source === 'solution' ? t.solutionName : undefined,
     })),
   }
   try {
@@ -126,9 +130,26 @@ function prerequisitesTab(): WorkspaceTab | null {
   return { name: '@prerequisites', title: 'Prerequisites', kind: 'docs', focus: false, document: true, source: 'prerequisites', html }
 }
 
-function solutionTab(): WorkspaceTab | null {
-  if (!props.run.solution) return null
-  return { name: '@solution', title: 'Solution guide', kind: 'docs', focus: false, document: true, source: 'solution', solution: true }
+/**
+ * The lab's solutions, in order. An older server lists none but may still
+ * have the default (run.solution).
+ */
+const solutions = computed<SolutionSummary[]>(() => {
+  const list = props.run.solutions ?? []
+  if (list.length > 0) return list
+  return props.run.solution ? [{ name: 'default', title: 'Solution guide' }] : []
+})
+
+/**
+ * The tab of one solution. The default keeps the name @solution; with one
+ * solution it is the "Solution guide", with several each is its title.
+ */
+function solutionTab(name = 'default'): WorkspaceTab | null {
+  const s = solutions.value.find((x) => x.name === name)
+  if (!s) return null
+  const title = solutions.value.length === 1 ? 'Solution guide' : s.title
+  const tabName = name === 'default' ? '@solution' : `@solution-${name}`
+  return { name: tabName, title, kind: 'docs', focus: false, document: true, source: 'solution', solution: true, solutionName: name, confirmed: solutionsConfirmed.value || undefined }
 }
 
 function resourceTab(link: ShownDocLink): WorkspaceTab {
@@ -158,8 +179,11 @@ function restore(s: StoredTab): WorkspaceTab | null {
       return link ? resourceTab(link) : null
     }
     case 'solution': {
-      const t = solutionTab()
-      if (t) t.confirmed = !!s.confirmed
+      const t = solutionTab(s.solutionName ?? 'default')
+      if (t && s.confirmed) {
+        t.confirmed = true
+        solutionsConfirmed.value = true
+      }
       return t
     }
     default:
@@ -167,8 +191,13 @@ function restore(s: StoredTab): WorkspaceTab | null {
   }
 }
 
+// One confirmation covers every solution of the run: once the learner has
+// said yes to one, the others open without asking again.
+const solutionsConfirmed = ref(false)
+
 function initialTabs(): { tabs: WorkspaceTab[]; active: string } {
   const stored = readStored()
+  if (stored?.open.some((s) => s && (s.source === 'solution' || s.source === 'lab') && s.confirmed)) solutionsConfirmed.value = true
   let tabs: WorkspaceTab[] = []
   if (stored) {
     const seen = new Set<string>()
@@ -180,7 +209,8 @@ function initialTabs(): { tabs: WorkspaceTab[]; active: string } {
       }
     }
   }
-  if (!tabs.some((t) => t.kind === 'terminal')) tabs = labTabs.value.map((t) => fromLab(t))
+  if (!tabs.some((t) => t.kind === 'terminal')) tabs = labTabs.value.map((t) => fromLab(t, solutionsConfirmed.value))
+  if (solutionsConfirmed.value) for (const t of tabs) if (t.solution) t.confirmed = true
   const usable = (name: string | undefined) => tabs.find((t) => t.name === name && !(t.solution && !t.confirmed))
   const first = tabs.find((t) => !(t.solution && !t.confirmed))
   return { tabs, active: usable(stored?.active)?.name ?? first?.name ?? '' }
@@ -344,11 +374,14 @@ const dialogCopy = computed<EndCopy>(() => {
       busy: 'Closing the terminal…',
     }
   }
+  const several = solutions.value.length > 1
   return {
     button: 'Show solution',
-    title: 'Show the solution guide?',
+    title: several ? 'Show the solutions?' : 'Show the solution guide?',
     paragraphs: [
-      'This shows the full solution. Your attempt still counts.',
+      several
+        ? 'This shows a full solution, and then every other solution of this lab without asking again. Your attempt still counts.'
+        : 'This shows the full solution. Your attempt still counts.',
       'Try the task on your own first: working it out is how it sticks.',
     ],
     confirm: 'Show solution',
@@ -357,6 +390,11 @@ const dialogCopy = computed<EndCopy>(() => {
 })
 
 function askSolution(tab: WorkspaceTab): void {
+  if (solutionsConfirmed.value) {
+    tab.confirmed = true
+    add(tab)
+    return
+  }
   dialog.value = { kind: 'solution', tab }
   dialogError.value = null
 }
@@ -372,6 +410,8 @@ async function confirmDialog(): Promise<void> {
   if (!d) return
   if (d.kind === 'solution') {
     dialog.value = null
+    solutionsConfirmed.value = true
+    for (const t of open) if (t.solution) t.confirmed = true
     d.tab.confirmed = true
     add(d.tab)
     return
@@ -453,12 +493,14 @@ const groups = computed<MenuGroup[]>(() => {
   }
   const pre = prerequisitesTab()
   if (pre) docs.push({ key: pre.name, label: pre.title, run: () => add(find(pre.name) ?? pre) })
-  const sol = solutionTab()
-  if (sol) {
-    docs.push({
+  const solutionItems: MenuItem[] = []
+  for (const s of solutions.value) {
+    const sol = solutionTab(s.name)
+    if (!sol) continue
+    solutionItems.push({
       key: sol.name,
       label: sol.title,
-      hint: 'Asks first',
+      hint: solutions.value.length > 1 && s.summary ? s.summary : solutionsConfirmed.value ? undefined : 'Asks first',
       run: () => {
         const existing = find(sol.name)
         if (existing) select(existing.name)
@@ -466,7 +508,11 @@ const groups = computed<MenuGroup[]>(() => {
       },
     })
   }
+  // One solution stays the "Solution guide" among the documents; several
+  // get their own group, each with its title and summary.
+  if (solutionItems.length === 1) docs.push(solutionItems[0])
   if (docs.length > 0) out.push({ label: 'Documents', items: docs })
+  if (solutionItems.length > 1) out.push({ label: 'Solutions', items: solutionItems })
   if (docLinks.value.length > 0) {
     out.push({
       label: 'Resources',
