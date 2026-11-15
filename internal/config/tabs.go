@@ -216,12 +216,23 @@ func validateTabFile(cfg *LabConfig, file string) error {
 }
 
 // IsSolutionFile reports whether file (a path relative to config.yaml) is
-// the lab's solution: metadata.docs.solution, the older guide, or the
-// default solution.md.
+// one of the lab's solutions: metadata.docs.solution, the older guide,
+// the default solution.md, or any solution.<name>.md next to config.yaml
+// (an extra solution — whether or not its name is valid).
 func IsSolutionFile(cfg *LabConfig, file string) bool {
 	clean := path.Clean(file)
 	for _, secret := range []string{cfg.Metadata.Docs.Solution, cfg.Metadata.Docs.Guide, DocFileNames["solution"]} {
 		if secret != "" && strings.EqualFold(clean, path.Clean(secret)) {
+			return true
+		}
+	}
+	for _, s := range cfg.Metadata.Docs.Solutions {
+		if strings.EqualFold(clean, s.File) {
+			return true
+		}
+	}
+	if !strings.Contains(clean, "/") {
+		if _, ok := solutionFileStem(clean); ok {
 			return true
 		}
 	}

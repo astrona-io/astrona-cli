@@ -276,7 +276,7 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 	rec := workspace.RunRecord{
 		Lab:         name,
 		RunID:       workspace.RunDigest(labops.RunID(st)),
-		Title:       labops.SanitizeLine(cfg.Metadata.Name),
+		Title:       labDisplayTitle(cfg, baseDir, flags),
 		Exam:        cfg.Exam.Enabled(),
 		Playground:  st.Session.IsPlayground() || labops.IsPlaygroundName(flags.catalogLab) || filepath.Base(baseDir) == "playground",
 		Strict:      cfg.Exam.Strict,
@@ -341,20 +341,45 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 	if !rec.Exam {
 		rec.DocLinks = labDocLinks(baseDir, flags)
 	}
-	if doc := cfg.Metadata.Docs.Solution; doc != "" && !rec.Exam && !rec.Playground {
-		// The solution is optional for the page: a lab whose guide cannot be
-		// read still opens, without "Solution guide" in the tab menu.
-		text, err := readLabDocument(doc, baseDir, flags)
-		switch {
-		case err != nil:
-			ui.Warnf("the solution guide is not available in the browser: %s", err)
-		case len(text) > maxBrowserSolutionBytes:
-			ui.Warnf("the solution guide is larger than %d KiB and is not available in the browser", maxBrowserSolutionBytes>>10)
-		default:
-			_, rec.Solution = docFrontMatter(labops.SanitizeTerminalText(text))
-		}
+	if !rec.Exam && !rec.Playground {
+		rec.Solution, rec.Solutions = browserSolutions(cfg, baseDir, flags)
 	}
 	return rec, nil
+}
+
+// browserSolutions are the solutions the page may show, in order: the
+// default's Markdown (served by GET /runs/{lab}/solution) and the list of
+// all of them (GET /runs/{lab}/solutions/{name}; the default's Markdown is
+// not repeated there). Solutions are optional for the page: one that
+// cannot be read or is too large is left out, with a warning.
+func browserSolutions(cfg *config.LabConfig, baseDir string, flags *rootFlags) (string, []workspace.RunSolution) {
+	read := func(file string) (string, error) {
+		text, err := readLabDocument(file, baseDir, flags)
+		if err == nil && len(text) > maxBrowserSolutionBytes {
+			err = fmt.Errorf("%s is larger than %d KiB", file, maxBrowserSolutionBytes>>10)
+		}
+		return text, err
+	}
+	var def string
+	var list []workspace.RunSolution
+	for _, s := range labops.LabSolutions(cfg, read) {
+		if s.Err != nil {
+			ui.Warnf("the solution %q is not available in the browser: %s", s.Name, s.Err)
+			continue
+		}
+		if len(list) == maxBrowserSolutions {
+			ui.Warnf("the lab has more than %d solutions; the browser shows the first %d", maxBrowserSolutions, maxBrowserSolutions)
+			break
+		}
+		rs := workspace.RunSolution{Name: s.Name, Title: s.Title, Summary: s.Summary}
+		if s.Name == config.DefaultSolutionName {
+			def = s.Body
+		} else {
+			rs.Markdown = s.Body
+		}
+		list = append(list, rs)
+	}
+	return def, list
 }
 
 // labDocLinks are the documentation links the training's astrona.yaml
@@ -364,69 +389,59 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 // loaded from a URL, has none. They are optional for the page: a manifest
 // that cannot be read only costs the links.
 func labDocLinks(baseDir string, flags *rootFlags) []workspace.DocLink {
-	if strings.HasPrefix(flags.configPath, "https://") || strings.HasPrefix(flags.configPath, "http://") {
+	if isURLLab(flags) {
 		return nil
 	}
-	labDir, err := filepath.Abs(baseDir)
+	data, rel, err := catalog.FindManifest(baseDir)
 	if err != nil {
 		return nil
 	}
-	dir := labDir
-	for range maxManifestDepth {
-		data, err := readManifest(filepath.Join(dir, "astrona.yaml"))
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		if err == nil {
-			rel, err := filepath.Rel(dir, labDir)
-			if err != nil {
-				return nil
-			}
-			found, err := catalog.LabDocLinks(data, filepath.ToSlash(rel))
-			if err != nil {
-				ui.Warnf("the lab's documentation links are not available in the browser: %s", err)
-				return nil
-			}
-			links := make([]workspace.DocLink, 0, len(found))
-			for _, l := range found {
-				links = append(links, workspace.DocLink{Name: labops.SanitizeLine(l.Name), URL: l.URL})
-			}
-			return links
-		}
-		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
-			return nil // the repository root, without a manifest
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return nil
-		}
-		dir = parent
-	}
-	return nil
-}
-
-// maxManifestDepth bounds how far labDocLinks looks above the lab's
-// directory (sections/section-010/module-01/labs/lab-02 is five levels).
-const maxManifestDepth = 8
-
-// readManifest reads a training's astrona.yaml, a regular file of at most
-// maxManifestBytes.
-func readManifest(path string) ([]byte, error) {
-	info, err := os.Stat(path)
+	found, err := catalog.LabDocLinks(data, rel)
 	if err != nil {
-		return nil, err
+		ui.Warnf("the lab's documentation links are not available in the browser: %s", err)
+		return nil
 	}
-	if !info.Mode().IsRegular() || info.Size() > maxManifestBytes {
-		return nil, fmt.Errorf("%s is not a regular file of at most %d KiB", path, maxManifestBytes>>10)
+	links := make([]workspace.DocLink, 0, len(found))
+	for _, l := range found {
+		links = append(links, workspace.DocLink{Name: labops.SanitizeLine(l.Name), URL: l.URL})
 	}
-	return os.ReadFile(path)
+	return links
 }
 
-// maxManifestBytes bounds the astrona.yaml labDocLinks reads.
-const maxManifestBytes = 2 << 20
+func isURLLab(flags *rootFlags) bool {
+	return strings.HasPrefix(flags.configPath, "https://") || strings.HasPrefix(flags.configPath, "http://")
+}
 
-// maxBrowserSolutionBytes bounds the solution guide the run record keeps.
+// labDisplayTitle is the lab's readable title, for people only: the
+// question's front matter title, else (for a lab in a local training) its
+// astrona.yaml title without a trailing " Lab", else metadata.name.
+// metadata.name stays the identifier everywhere else, and a title never
+// goes into telemetry.
+func labDisplayTitle(cfg *config.LabConfig, baseDir string, flags *rootFlags) string {
+	if doc := cfg.Metadata.Docs.Question; doc != "" {
+		if text, err := readLabDocument(doc, baseDir, flags); err == nil {
+			if title, _ := stripFrontMatter(labops.SanitizeTerminalText(text)); title != "" {
+				return title
+			}
+		}
+	}
+	if !isURLLab(flags) {
+		if data, rel, err := catalog.FindManifest(baseDir); err == nil {
+			if entry, ok, err := catalog.FindLabEntry(data, rel); err == nil && ok {
+				if title := labops.SanitizeLine(entry.DisplayTitle()); title != "" {
+					return title
+				}
+			}
+		}
+	}
+	return labops.SanitizeLine(cfg.Metadata.Name)
+}
+
+// maxBrowserSolutionBytes bounds each solution the run record keeps.
 const maxBrowserSolutionBytes = 256 << 10
+
+// maxBrowserSolutions bounds how many solutions the run record keeps.
+const maxBrowserSolutions = 20
 
 // isQEMULab reports whether cfg runs on QEMU VMs rather than Kind.
 func isQEMULab(cfg *config.LabConfig) bool { return cfg.Runtime.Type == "qemu" }

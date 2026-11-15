@@ -125,7 +125,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer configCleanup()
 			if flags.launch != nil {
-				flags.launch.SetTitle(labops.SanitizeLine(cfg.Metadata.Name))
+				flags.launch.SetTitle(labDisplayTitle(cfg, baseDir, flags))
 			}
 
 			// Resolve restart consent before account access or runtime changes.

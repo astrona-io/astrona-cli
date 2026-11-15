@@ -252,6 +252,10 @@ The **+** at the right of the tab bar opens more tabs:
   because it shows the whole answer; your attempt still counts and nothing
   records that you looked. It is not offered in an exam (a lab with a time
   limit) or a playground.
+- **Solutions**: instead of **Solution guide** when the lab has more than one
+  way to solve it (for example in a terminal and in a web UI), one item per
+  solution with its title and a one-line summary. It asks once, and that
+  answer covers every solution of the run.
 - **Reopen**: any of the lab's own tabs you closed.
 
 ![The + menu: New terminal, Task, Prerequisites and Solution guide](../assets/browser-workspace-tab-menu.png)

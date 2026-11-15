@@ -1,0 +1,46 @@
+---
+title: Manifest
+order: 20
+summary: Write the Deployment and the Service as YAML and apply them.
+---
+
+A second way to solve the same task. Every `solution.<name>.md` next to
+`config.yaml` is an extra solution; `astrona docs solutions` lists them in
+`order`, and `astrona docs solution --name manifest` shows this one.
+
+```sh
+astrona shell [[.Name]]
+kubectl apply -f - <<'YAML'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: shop
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: web}
+  template:
+    metadata:
+      labels: {app: web}
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports: [{containerPort: 80}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: shop
+spec:
+  selector: {app: web}
+  ports: [{port: 80, targetPort: 80}]
+YAML
+kubectl -n shop get deploy,pods,svc
+exit
+astrona submit
+```
+
+The pod label `app=web` is what both the Service selector and the checks look for.

@@ -37,6 +37,10 @@ type DocsConfig struct {
 	// Solution; still read, folded into them by LoadLabConfig.
 	ExamQuestion string `yaml:"examQuestion"`
 	Guide        string `yaml:"guide"`
+	// Solutions are the lab's extra solutions, solution.<name>.md next to
+	// config.yaml, by name. They are found, never listed in config.yaml,
+	// so a config fetched from a URL has none.
+	Solutions []SolutionFile `yaml:"-"`
 }
 
 // DocFileNames are the file names a doc is found by when metadata.docs
@@ -75,6 +79,11 @@ func (d *DocsConfig) resolve(dir string) error {
 			*field = DocFileNames[key]
 		}
 	}
+	found, _, err := DiscoverSolutionFiles(dir, d.Solution)
+	if err != nil {
+		return err
+	}
+	d.Solutions = found
 	return nil
 }
 

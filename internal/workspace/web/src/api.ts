@@ -99,6 +99,12 @@ export interface Run {
   tabs: RunTab[]
   /** GET /solution has a solution guide (after Start); never in an exam or a playground. */
   solution: boolean
+  /**
+   * Every solution GET /solutions/{name} shows (after Start), in order; the
+   * default is named "default". Empty in an exam or a playground; absent
+   * from an older server, which has only the default.
+   */
+  solutions?: SolutionSummary[]
   /** Badges above the task; each opens as a tab. Empty in an exam and when the lab lists none. */
   docLinks: DocLink[]
   /** True when POST /submit would grade now; submit.blocked says why not. */
@@ -527,7 +533,6 @@ export function closeTerminalTab(id: string, runId: string, tab: string): Promis
   return request<{ closed: number }>('POST', `${lab(id)}/terminals/close`, { runId, tab }, true, { timeoutMs: QUICK_TIMEOUT_MS })
 }
 
-/** The lab's solution guide, rendered. 404 no_solution in an exam or a playground. */
 /**
  * Whether a documentation link can be shown in a frame, as the server read
  * it from the site's headers: "refused" (X-Frame-Options or CSP
@@ -539,8 +544,21 @@ export function getDocLinkFrame(id: string, url: string): Promise<{ frame: Frame
   return request<{ frame: FrameCheck; reason?: string }>('GET', `${lab(id)}/doclinks/frame?url=${encodeURIComponent(url)}`)
 }
 
+/** One of the lab's solutions as the + menu lists it. */
+export interface SolutionSummary {
+  name: string
+  title: string
+  summary?: string
+}
+
+/** The lab's solution guide, rendered. 404 no_solution in an exam or a playground. */
 export function getSolution(id: string): Promise<{ title: string; html: string }> {
   return request<{ title: string; html: string }>('GET', `${lab(id)}/solution`)
+}
+
+/** One of the lab's solutions by name, rendered; 404 no_solution like getSolution. */
+export function getNamedSolution(id: string, name: string): Promise<{ title: string; html: string }> {
+  return request<{ title: string; html: string }>('GET', `${lab(id)}/solutions/${encodeURIComponent(name)}`)
 }
 
 /** Another request is starting this tab's terminal: try again shortly. */

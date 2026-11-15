@@ -69,6 +69,8 @@ type manifestContent struct {
 	Type  string `yaml:"type"`
 	Title string `yaml:"title"`
 	Path  string `yaml:"path"`
+	// EstimatedDuration is a lab's estimate ("15m"), as written.
+	EstimatedDuration string `yaml:"estimated_duration"`
 	// Resources is a lab's list of documentation links ({name, url}),
 	// read leniently by LabDocLinks: a malformed list never fails the
 	// manifest.
@@ -176,6 +178,37 @@ func LabDocLinks(data []byte, labPath string) ([]DocLink, error) {
 		return links, nil
 	}
 	return nil, nil
+}
+
+// LabEntry is what a training's astrona.yaml says about one lab.
+type LabEntry struct {
+	Title             string // as written, e.g. "Create Deployments From Workflow Inputs Lab"
+	EstimatedDuration string // as written, e.g. "15m"
+}
+
+// DisplayTitle is the entry's title without a trailing " Lab" — the
+// readable lab title when question.md has none.
+func (e LabEntry) DisplayTitle() string {
+	return strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(e.Title), " Lab"))
+}
+
+// FindLabEntry returns the manifest's entry for the lab at labPath (a
+// directory relative to the repository), and whether it lists one.
+func FindLabEntry(data []byte, labPath string) (LabEntry, bool, error) {
+	var m manifest
+	if err := yaml.Unmarshal(data, &m); err != nil {
+		return LabEntry{}, false, fmt.Errorf("astrona.yaml isn't valid YAML: %w", err)
+	}
+	want, ok := cleanLabPath(labPath)
+	if !ok {
+		return LabEntry{}, false, nil
+	}
+	for _, c := range m.content() {
+		if p, ok := cleanLabPath(c.Path); ok && p == want && c.Type == "lab" {
+			return LabEntry{Title: c.Title, EstimatedDuration: c.EstimatedDuration}, true, nil
+		}
+	}
+	return LabEntry{}, false, nil
 }
 
 // httpsURL accepts an absolute https URL with a host and no credentials.

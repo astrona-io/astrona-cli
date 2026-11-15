@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -61,7 +62,7 @@ func TestDocsByFileName(t *testing.T) {
 		t.Errorf("listed + found = %+v, %v", d, err)
 	}
 	// Nothing there, nothing listed.
-	if d, err = loadDocs(t, "metadata:\n  name: lab\n"); err != nil || d != (DocsConfig{}) {
+	if d, err = loadDocs(t, "metadata:\n  name: lab\n"); err != nil || !reflect.DeepEqual(d, DocsConfig{}) {
 		t.Errorf("none = %+v, %v", d, err)
 	}
 }

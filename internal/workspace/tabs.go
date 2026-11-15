@@ -297,16 +297,70 @@ func (r RunRecord) solutionAllowed() bool { return !r.Exam && !r.Playground }
 // about outside help.
 func (r RunRecord) docLinksAllowed() bool { return !r.Exam }
 
-// handleSolution is GET /runs/{lab}/solution: the lab's solution guide,
-// rendered and sanitised like the question. After Start only, never in an
-// exam or a playground. Reading it changes nothing: the attempt is not
-// marked and nothing is reported.
+// solutionViews are the solutions the run view lists: none in an exam or
+// a playground; the default only while its Markdown is there.
+func (r RunRecord) solutionViews() []solutionView {
+	out := []solutionView{}
+	if !r.solutionAllowed() {
+		return out
+	}
+	if len(r.Solutions) == 0 && r.Solution != "" {
+		// A record from before several solutions: only the default.
+		return append(out, solutionView{Name: config.DefaultSolutionName, Title: "Solution guide"})
+	}
+	for _, s := range r.Solutions {
+		if _, ok := r.solutionMarkdown(s.Name); ok {
+			out = append(out, solutionView{Name: s.Name, Title: s.Title, Summary: s.Summary})
+		}
+	}
+	return out
+}
+
+// solutionMarkdown is the Markdown of the solution called name.
+func (r RunRecord) solutionMarkdown(name string) (string, bool) {
+	if name == config.DefaultSolutionName {
+		return r.Solution, r.Solution != ""
+	}
+	for _, s := range r.Solutions {
+		if s.Name == name {
+			return s.Markdown, s.Markdown != ""
+		}
+	}
+	return "", false
+}
+
+// solutionTitle is the menu title of the solution called name.
+func (r RunRecord) solutionTitle(name string) string {
+	for _, s := range r.Solutions {
+		if s.Name == name && s.Title != "" {
+			return s.Title
+		}
+	}
+	return "Solution guide"
+}
+
+// handleSolution is GET /runs/{lab}/solution: the lab's default solution
+// guide, rendered and sanitised like the question. After Start only, never
+// in an exam or a playground. Reading it changes nothing: the attempt is
+// not marked and nothing is reported.
 func (s *Server) handleSolution(w http.ResponseWriter, r *http.Request) {
+	s.serveSolution(w, r, config.DefaultSolutionName, "Solution guide")
+}
+
+// handleNamedSolution is GET /runs/{lab}/solutions/{name}: one of the
+// lab's solutions ("default" or the <name> of solution.<name>.md), on the
+// same terms as handleSolution, titled with its menu title.
+func (s *Server) handleNamedSolution(w http.ResponseWriter, r *http.Request) {
+	s.serveSolution(w, r, r.PathValue("name"), "")
+}
+
+func (s *Server) serveSolution(w http.ResponseWriter, r *http.Request, name, title string) {
 	rec, ok := loadRun(w, r.PathValue("lab"))
 	if !ok {
 		return
 	}
-	if !rec.solutionAllowed() || rec.Solution == "" {
+	text, found := rec.solutionMarkdown(name)
+	if !rec.solutionAllowed() || !found {
 		writeErrorCode(w, http.StatusNotFound, "no_solution", "this lab has no solution to show")
 		return
 	}
@@ -323,11 +377,15 @@ func (s *Server) handleSolution(w http.ResponseWriter, r *http.Request) {
 		writeErrorCode(w, http.StatusConflict, "not_started", "click Start first")
 		return
 	}
-	html, err := renderMarkdown(rec.Solution)
+	html, err := renderMarkdown(text)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if title == "" {
+		title = rec.solutionTitle(name)
+	}
+	// Which solution was opened is not recorded: the tab is "solution".
 	telemetry.RecordTab(rec.Lab, telemetry.TabOpened, "solution", "solution", nil)
-	writeJSON(w, http.StatusOK, map[string]string{"title": "Solution guide", "html": html})
+	writeJSON(w, http.StatusOK, map[string]string{"title": title, "html": html})
 }
