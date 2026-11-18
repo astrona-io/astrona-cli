@@ -1,12 +1,14 @@
 package hypervisor
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -444,7 +446,7 @@ func acquireBaseImageUnchecked(img config.QEMUImageSource, baseDir, stateDir, ho
 	var unverifiedDataPath, unverifiedMetaPath string
 	if !verify && networkSourced {
 		var hitPath string
-		hitPath, unverifiedDataPath, unverifiedMetaPath, unverifiedMeta = unverifiedCacheHit(source, sourceType, rep)
+		hitPath, unverifiedDataPath, unverifiedMetaPath, unverifiedMeta = unverifiedCacheHit(source, unverifiedCacheSource(img, source, ociArch), sourceType, ociArch, rep)
 		if unverifiedMeta == nil {
 			return hitPath, noopCleanup, nil
 		}
@@ -471,7 +473,7 @@ func acquireBaseImageUnchecked(img config.QEMUImageSource, baseDir, stateDir, ho
 		path = tmpPath
 		cleanup = clean
 	case "oci":
-		tmpPath, clean, err := pullOCIImage(source, file, stateDir, out)
+		tmpPath, clean, err := pullOCIImage(source, ociArch, file, stateDir, out)
 		if err != nil {
 			return "", noopCleanup, err
 		}
@@ -828,18 +830,96 @@ func checkURLFreshness(source string, prior *ImageCacheMeta) (fresh bool, etag, 
 }
 
 // orasDescriptor is the subset of `oras manifest fetch --descriptor`'s JSON
-// output checkOCIFreshness needs. That command fetches only the manifest's
-// own descriptor (a few hundred bytes: digest, size, mediaType) rather than
-// the manifest body or any blob/layer — the cheapest way to learn "has this
-// ref moved" ORAS offers, deliberately not a full `oras pull`.
+// output checkOCIFreshness and pullOCIImage need. That command fetches only
+// the manifest's own descriptor (a few hundred bytes: digest, size,
+// mediaType) rather than the manifest body or any blob/layer — the cheapest
+// way to learn "has this ref moved" ORAS offers, deliberately not a full
+// `oras pull`.
 type orasDescriptor struct {
-	Digest string `json:"digest"`
+	MediaType string `json:"mediaType"`
+	Digest    string `json:"digest"`
 }
 
-// checkOCIFreshness resolves ref's current manifest digest via `oras
-// manifest fetch --descriptor` and compares it against prior's stored
-// digest. fresh is only true when prior is non-nil and its digest matches.
-func checkOCIFreshness(ref string, prior *ImageCacheMeta) (fresh bool, digest string, err error) {
+// isOCIIndex reports whether mediaType is a multi-platform image index (OCI
+// image index or Docker manifest list) rather than a single manifest.
+func isOCIIndex(mediaType string) bool {
+	return mediaType == "application/vnd.oci.image.index.v1+json" ||
+		mediaType == "application/vnd.docker.distribution.manifest.list.v2+json"
+}
+
+// unverifiedCacheSource is the key a checksum-less image is cached under. An
+// "oci" source with no "{ARCH}" in it may be a multi-arch image index — one
+// ref for several images — so its key carries the arch; every other source
+// is already per-arch (or arch-independent) and keeps its plain key.
+func unverifiedCacheSource(img config.QEMUImageSource, source, ociArch string) string {
+	if strings.EqualFold(img.Type, "oci") && !strings.Contains(img.Source, "{ARCH}") {
+		return source + "#" + ociPlatform(ociArch)
+	}
+	return source
+}
+
+// ociPlatform is the OCI platform ("linux/arm64") of a guest arch.
+func ociPlatform(ociArch string) string {
+	return "linux/" + ociArch
+}
+
+// fetchOCIDescriptor runs `oras manifest fetch --descriptor` for ref. With a
+// platform set, oras resolves ref as an image index and returns the
+// descriptor of that platform's manifest instead.
+func fetchOCIDescriptor(ctx context.Context, orasPath, ref, platform string) (orasDescriptor, error) {
+	args := []string{"manifest", "fetch", "--descriptor"}
+	if platform != "" {
+		args = append(args, "--platform", platform)
+	}
+	out, err := exec.CommandContext(ctx, orasPath, append(args, ref)...).Output()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(bytes.TrimSpace(exitErr.Stderr)) > 0 {
+			return orasDescriptor{}, fmt.Errorf("%w: %s", err, bytes.TrimSpace(exitErr.Stderr))
+		}
+		return orasDescriptor{}, err
+	}
+
+	var desc orasDescriptor
+	if err := json.Unmarshal(out, &desc); err != nil {
+		return orasDescriptor{}, fmt.Errorf("failed to parse oras manifest descriptor for '%s': %w", ref, err)
+	}
+	if desc.Digest == "" {
+		return orasDescriptor{}, fmt.Errorf("oras returned no digest for '%s'", ref)
+	}
+	return desc, nil
+}
+
+// resolveOCIManifest returns the descriptor of the manifest astrona boots
+// from ref on ociArch, and the platform to hand oras for it. A single
+// manifest (one image per arch, usually picked with "{ARCH}" in the tag)
+// comes back as-is with no platform: oras can't match a platform against an
+// artifact's empty config, so passing one would fail. A multi-arch image
+// index resolves to its "linux/<arch>" manifest — pulling the index itself
+// would download every arch's image — and that manifest's digest is the
+// one to track, since the index's own digest moves whenever any arch is
+// republished.
+func resolveOCIManifest(ctx context.Context, orasPath, ref, ociArch string) (orasDescriptor, string, error) {
+	desc, err := fetchOCIDescriptor(ctx, orasPath, ref, "")
+	if err != nil {
+		return orasDescriptor{}, "", fmt.Errorf("failed to resolve manifest digest for '%s': %w", ref, err)
+	}
+	if !isOCIIndex(desc.MediaType) {
+		return desc, "", nil
+	}
+
+	platform := ociPlatform(ociArch)
+	desc, err = fetchOCIDescriptor(ctx, orasPath, ref, platform)
+	if err != nil {
+		return orasDescriptor{}, "", fmt.Errorf("image index '%s' has no usable %s image: %w", ref, platform, err)
+	}
+	return desc, platform, nil
+}
+
+// checkOCIFreshness resolves the digest of the manifest ref boots on ociArch
+// (see resolveOCIManifest) and compares it against prior's stored digest.
+// fresh is only true when prior is non-nil and its digest matches.
+func checkOCIFreshness(ref, ociArch string, prior *ImageCacheMeta) (fresh bool, digest string, err error) {
 	orasPath, lookErr := exec.LookPath("oras")
 	if lookErr != nil {
 		return false, "", fmt.Errorf("oras not found in PATH (required to check qemu image type 'oci' for updates): %w", lookErr)
@@ -848,17 +928,9 @@ func checkOCIFreshness(ref string, prior *ImageCacheMeta) (fresh bool, digest st
 	ctx, cancel := context.WithTimeout(context.Background(), freshnessCheckTimeout)
 	defer cancel()
 
-	out, err := exec.CommandContext(ctx, orasPath, "manifest", "fetch", "--descriptor", ref).Output()
+	desc, _, err := resolveOCIManifest(ctx, orasPath, ref, ociArch)
 	if err != nil {
-		return false, "", fmt.Errorf("failed to resolve manifest digest for '%s': %w", ref, err)
-	}
-
-	var desc orasDescriptor
-	if err := json.Unmarshal(out, &desc); err != nil {
-		return false, "", fmt.Errorf("failed to parse oras manifest descriptor for '%s': %w", ref, err)
-	}
-	if desc.Digest == "" {
-		return false, "", fmt.Errorf("oras returned no digest for '%s'", ref)
+		return false, "", err
 	}
 
 	if prior != nil {
@@ -882,8 +954,8 @@ func checkOCIFreshness(ref string, prior *ImageCacheMeta) (fresh bool, digest st
 //     then persist the result at dataPath/metaPath using the returned meta
 //     (pre-filled with whatever ETag/Last-Modified/Digest this check learned,
 //     so that gets recorded even though this run still had to fetch).
-func unverifiedCacheHit(source, sourceType string, rep *ui.Reporter) (hitPath, dataPath, metaPath string, meta *ImageCacheMeta) {
-	dataPath, metaPath, err := unverifiedCachePaths(source)
+func unverifiedCacheHit(source, cacheSource, sourceType, ociArch string, rep *ui.Reporter) (hitPath, dataPath, metaPath string, meta *ImageCacheMeta) {
+	dataPath, metaPath, err := unverifiedCachePaths(cacheSource)
 	if err != nil {
 		rep.Warn("could not resolve image cache dir, not caching this run: %s", err)
 		return "", "", "", nil
@@ -904,7 +976,7 @@ func unverifiedCacheHit(source, sourceType string, rep *ui.Reporter) (hitPath, d
 	if sourceType == "url" {
 		fresh, etag, lastModified, checkErr = checkURLFreshness(source, prior)
 	} else {
-		fresh, digest, checkErr = checkOCIFreshness(source, prior)
+		fresh, digest, checkErr = checkOCIFreshness(source, ociArch, prior)
 	}
 
 	next := &ImageCacheMeta{
@@ -940,8 +1012,9 @@ func unverifiedCacheHit(source, sourceType string, rep *ui.Reporter) (hitPath, d
 // called on an image-cache miss (see acquireBaseImage) — a lab whose
 // checksum is already cached never reaches this function.
 // wantFile (config.QEMUImageSource.File) picks which *.qcow2 to use when the
-// artifact contains more than one — see findQcow2InPull.
-func pullOCIImage(ref, wantFile, stateDir string, out io.Writer) (string, func(), error) {
+// artifact contains more than one — see findQcow2InPull. A multi-arch image
+// index is pulled for ociArch only (see resolveOCIManifest).
+func pullOCIImage(ref, ociArch, wantFile, stateDir string, out io.Writer) (string, func(), error) {
 	noopCleanup := func() {}
 
 	orasPath, err := exec.LookPath("oras")
@@ -956,7 +1029,19 @@ func pullOCIImage(ref, wantFile, stateDir string, out io.Writer) (string, func()
 	}
 	cleanup := func() { os.RemoveAll(pullDir) }
 
-	cmd := exec.Command(orasPath, "pull", ref, "-o", pullDir)
+	ctx, cancel := context.WithTimeout(context.Background(), freshnessCheckTimeout)
+	_, platform, err := resolveOCIManifest(ctx, orasPath, ref, ociArch)
+	cancel()
+	if err != nil {
+		cleanup()
+		return "", noopCleanup, err
+	}
+
+	args := []string{"pull", ref, "-o", pullDir}
+	if platform != "" {
+		args = append(args, "--platform", platform)
+	}
+	cmd := exec.Command(orasPath, args...)
 	cmd.Stdout = out
 	cmd.Stderr = out
 	if err := cmd.Run(); err != nil {

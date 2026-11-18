@@ -299,6 +299,10 @@ Key differences from `kind`:
 | `url` | an `http(s)://` URL to a `.qcow2`/cloud image | downloaded and cached; `checksum`/`checksums` recommended |
 | `oci` | an OCI registry reference (e.g. `ghcr.io/...`) | pulled via [`oras`](https://oras.land/) |
 
+`{ARCH}` in `source` (and `file`) is replaced with the guest arch (`amd64` or `arm64`), so one config can name a tag per arch: `ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-cks-{ARCH}`.
+
+An `oci` source can also be a multi-arch image index — one tag that lists an image per platform, such as `ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-cks`. astrona picks the `linux/<arch>` image out of the index and pulls only that one; an index with no image for the guest arch fails with an error naming the platform. Without a checksum, astrona follows the digest of that platform's image, so a republished image for another arch does not trigger a new download.
+
 ### Single VM vs multi-VM
 
 `runtime.qemu` is always a list. A single-VM lab is a one-element list whose entry has no `name` — the original shape every qemu lab used. Its entry may still carry its own `bootstrap`/`validation` block: it runs in the one VM right after the root one. Add a second entry (each one now named) to make it a multi-VM lab:
