@@ -5780,6 +5780,8 @@ Kind workspace files. Copy anything you want to keep out before deleting a run.<
 </tr>
 </tbody>
 </table>
+<p><code>{ARCH}</code> in <code>source</code> (and <code>file</code>) is replaced with the guest arch (<code>amd64</code> or <code>arm64</code>), so one config can name a tag per arch: <code>ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-cks-{ARCH}</code>.</p>
+<p>An <code>oci</code> source can also be a multi-arch image index — one tag that lists an image per platform, such as <code>ghcr.io/astrona-io/ubuntu-qcow2-image:24.04-cks</code>. astrona picks the <code>linux/&lt;arch&gt;</code> image out of the index and pulls only that one; an index with no image for the guest arch fails with an error naming the platform. Without a checksum, astrona follows the digest of that platform's image, so a republished image for another arch does not trigger a new download.</p>
 <h3 id="single-vm-vs-multi-vm">Single VM vs multi-VM<a class="headerlink" href="#single-vm-vs-multi-vm" title="Permanent link">&para;</a></h3>
 <p><code>runtime.qemu</code> is always a list. A single-VM lab is a one-element list whose entry has no <code>name</code> — the original shape every qemu lab used. Its entry may still carry its own <code>bootstrap</code>/<code>validation</code> block: it runs in the one VM right after the root one. Add a second entry (each one now named) to make it a multi-VM lab:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">runtime</span><span class="p">:</span>
