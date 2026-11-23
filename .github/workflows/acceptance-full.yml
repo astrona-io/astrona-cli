@@ -46,7 +46,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
 
       - name: Build astrona
         env:
@@ -109,7 +109,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
 
       - name: Build astrona
         env:
@@ -226,7 +226,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
 
       - name: Build astrona
         env:
@@ -299,7 +299,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
 
       - name: Build astrona
         env:
@@ -362,7 +362,7 @@ jobs:
           go-version-file: 'go.mod'
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.3
+        uses: astral-sh/setup-uv@v10.4.0
 
       - name: Build astrona
         env:
