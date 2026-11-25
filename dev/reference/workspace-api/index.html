@@ -6635,7 +6635,7 @@ solution docs tab return <code>html</code> whose images point there:</p>
   <code>alt</code> only; every other raw HTML is still dropped). Code blocks are left
   alone.</li>
 <li>The rewritten source is always
-  <code>https://cdn.astrona.io/courses-content/assets/&lt;sha256&gt;.&lt;png|jpg|webp|gif&gt;</code>.
+  <code>https://cdn.astrona.io/courses-content/&lt;owner&gt;/&lt;repo&gt;/assets/&lt;sha256&gt;.&lt;png|jpg|webp|gif|svg&gt;</code>.
   The manifest only chooses that file name; a value of any other shape is
   ignored, so it cannot point the page elsewhere. The page's CSP allows
   images from its own origin and <code>https://cdn.astrona.io</code> only, and the
