@@ -41,7 +41,8 @@ func LoadLabForCommand(flags *rootFlags) (cfg *config.LabConfig, baseDir string,
 		// Say which lab when it came from `astrona use` — it isn't on the
 		// command line. Terminal only, so $(…) captures stay clean.
 		AnnounceLab: flags.fromCurrent && isatty.IsTerminal(os.Stderr.Fd()),
-		Log:         os.Stderr,
+		// A run that set up in the browser shows its warnings there too.
+		Log: flags.launch.WarnWriter(os.Stderr),
 	})
 	if err != nil {
 		return nil, "", func() {}, err

@@ -56,6 +56,33 @@ var schemaForbidden = map[string]struct {
 	"QEMUVM.validation": {[]string{"passPercent"}, "A VM's own checks and scripts. passPercent is not allowed here: the pass mark is the root validation.passPercent."},
 }
 
+// schemaCustom are fields whose YAML takes more than one shape (a custom
+// UnmarshalYAML), same keys as schemaEnums. Filled by init: the entries call
+// schemaFor, which reads this map.
+var schemaCustom map[string]func(defs map[string]any) map[string]any
+
+func init() {
+	schemaCustom = map[string]func(defs map[string]any) map[string]any{
+		// An entry is a command string or {command, label}.
+		"MetadataConfig.suggestedCommands": suggestedCommandsSchema,
+	}
+}
+
+func suggestedCommandsSchema(defs map[string]any) map[string]any {
+	entry := schemaFor(reflect.TypeOf(SuggestedCommand{}), defs)
+	if def, ok := defs["SuggestedCommand"].(map[string]any); ok {
+		def["required"] = []string{"command"}
+	}
+	return map[string]any{
+		"type":     "array",
+		"maxItems": MaxSuggestedCommands,
+		"items": map[string]any{"anyOf": []any{
+			map[string]any{"type": "string", "minLength": 1, "maxLength": MaxSuggestedCommandRunes},
+			entry,
+		}},
+	}
+}
+
 // Schema returns the JSON Schema (draft 2020-12) for config.yaml,
 // generated from the LabConfig structs — every object rejects unknown
 // keys, matching `astrona validate`.
@@ -114,7 +141,12 @@ func schemaFor(t reflect.Type, defs map[string]any) map[string]any {
 				if key == "" || key == "-" || !f.IsExported() {
 					continue
 				}
-				p := schemaFor(f.Type, defs)
+				var p map[string]any
+				if custom, ok := schemaCustom[name+"."+key]; ok {
+					p = custom(defs)
+				} else {
+					p = schemaFor(f.Type, defs)
+				}
 				if enum, ok := schemaEnums[name+"."+key]; ok {
 					p["enum"] = enum
 				}

@@ -39,11 +39,25 @@ func (r *Reporter) wrap(code, s string) string {
 	return code + s + "\033[0m"
 }
 
+// ColorWriter is a writer that wraps another (a tee to a terminal, say)
+// and says whether what it writes still goes to a color terminal.
+type ColorWriter interface {
+	io.Writer
+	ColorTTY() bool
+}
+
+// IsColorTTY reports whether w is an interactive terminal that should get
+// color (see screenIsColorTTY).
+func IsColorTTY(w io.Writer) bool { return screenIsColorTTY(w) }
+
 // screenIsColorTTY reports whether w is an interactive terminal that should
 // receive ANSI styling. Honors the NO_COLOR convention.
 func screenIsColorTTY(w io.Writer) bool {
 	if _, ok := os.LookupEnv("NO_COLOR"); ok {
 		return false
+	}
+	if c, ok := w.(ColorWriter); ok {
+		return c.ColorTTY()
 	}
 	f, ok := w.(*os.File)
 	if !ok {

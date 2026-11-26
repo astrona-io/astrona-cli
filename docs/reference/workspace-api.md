@@ -54,6 +54,7 @@ See the [browser workspace guide](../guides/browser-workspace.md).
   | 502 | `terminal_failed` | The terminal container could not be started. Nothing else was started instead. |
   | 500, 502 | `grading_failed` | The checks could not run (config not loadable, container engine down). Nothing was recorded or sent; the lab keeps running. |
   | 502 | `destroy_failed` | Removing the environment failed. The message says what is left. |
+  | 502 | `catalog_unavailable` | `GET /catalog/suggestions`: the lab catalog could not be read. Never answered with an empty or made-up list instead. |
   | 503 | `unavailable` | The server is stopping; no new terminal is started. |
 
 ## Authentication
@@ -112,6 +113,7 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | `GET /runs/{lab}` | One run: identity, mode, status, clock, questions, targets, tabs. |
 | `GET /runs/{lab}/questions/{id}` | One question rendered to HTML. After **Start** only. |
 | `POST /runs/{lab}/start` | The **Start** button. Idempotent. |
+| `POST /runs/{lab}/extend` | **Need more time**: 30 more minutes on the run's Astrona lab session. Not an exam. |
 | `GET /runs/{lab}/terminals` | Open terminals. |
 | `GET /runs/{lab}/tabs/{name}/doc` | A docs tab's Markdown, rendered to HTML. After **Start** only. |
 | `GET /runs/{lab}/doclinks/frame?url=…` | Whether one of the run's `docLinks` can be shown in a frame. |
@@ -122,6 +124,7 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | `POST /runs/{lab}/submit` | Grade the run, record and send the result. Needs an `Idempotency-Key` header. |
 | `GET /runs/{lab}/submission` | The run's latest submission, or that one is being graded. |
 | `POST /runs/{lab}/destroy` | Remove the environment without grading: ends a playground, or removes a lab as `astrona destroy` does. |
+| `GET /catalog/suggestions?lab=<lab>` | Other labs of the run's training section, from the catalog. |
 | `GET /ws/v1/terminals/{id}?ticket=…` | Attach to a terminal (WebSocket). |
 | *later* `PUT /runs/{lab}/progress`, `GET /runs/{lab}/events` | Not implemented yet. |
 
@@ -135,7 +138,7 @@ GET routes never change saved state, so polling them is safe.
   "profile": ".astrona",
   "startedAt": "2026-11-09T21:00:00Z",
   "serverNow": "2026-11-09T21:05:12Z",
-  "features": ["runs", "terminals", "tabs", "submit"],
+  "features": ["runs", "terminals", "tabs", "submit", "environment", "catalog-suggestions"],
   "assets": "built"
 }
 ```
@@ -178,6 +181,17 @@ command knows whether the tab is still open.
 | `failed` | `error` says why. |
 | `declined` | The terms were declined; nothing was started. |
 | `ended` | The command stopped without a lab for this page; `message` says why. |
+
+Event `kind` is `section`, `step`, `ok`, `fail`, `skip` or `warn` (the
+reporter's events). A `warn` event is a non-fatal setup warning, shown
+without stopping setup: one from a setup step, and every `[WARN]` line the
+CLI prints while loading the lab config and bringing the lab up (for example
+"kubectl was not switched to this lab"). Its `label` is the warning as one
+line, with terminal colour removed.
+
+At `ready`, `environment` is the run's environment, the same object as on
+[`GET /runs/{lab}`](#get-runslab), so the setup page can show what was built
+before it opens the run.
 
 `alive` is false once the `astrona run` process has exited; with a stage that
 is not final, the command was stopped. `answered` (`accepted` or `declined`)
@@ -290,7 +304,42 @@ answer; Kind labs are then missing from the list.
     "blocked": ""
   },
   "account": { "state": "signed-in", "username": "ada", "site": "https://astrona.io" },
-  "runAgain": "astrona run astrona.io/ATS014/section-010/module-01/lab-02"
+  "runAgain": "astrona run astrona.io/ATS014/section-010/module-01/lab-02",
+  "environment": {
+    "runtime": "kind",
+    "kubernetesVersion": "v1.35.0",
+    "engine": "docker",
+    "nodes": [
+      { "name": "pod-basics-control-plane", "role": "control-plane" },
+      { "name": "pod-basics-worker", "role": "worker" }
+    ],
+    "network": "kindnet",
+    "images": ["nginx:1.29.3"],
+    "context": "kind-pod-basics",
+    "namespace": "default",
+    "connect": "kubectl --context kind-pod-basics get nodes",
+    "vms": []
+  },
+  "suggestedCommands": [],
+  "canExtend": false,
+  "extendMinutes": 30
+}
+```
+
+A QEMU lab's `environment`:
+
+```json
+{
+  "runtime": "vm",
+  "kubernetesVersion": "",
+  "engine": "",
+  "nodes": [],
+  "network": "",
+  "images": [],
+  "context": "",
+  "namespace": "",
+  "connect": "astrona ssh linux-basics",
+  "vms": [ { "name": "linux-basics", "os": "Ubuntu 24.04", "cpus": 2, "memoryMiB": 2048 } ]
 }
 ```
 
@@ -301,7 +350,7 @@ answer; Kind labs are then missing from the list.
 | `playground` | A playground has no intro and no Start: open the workspace directly. |
 | `status` | `ready` (environment up, Start not clicked), `running`, `expired` (exam time is over), `stopped` (the lab is gone or was restarted; this `runId` is dead). `provisioning` and `failed` are reserved for later milestones. |
 | `startedAt` | When Start was clicked; `null` before. |
-| `deadlineAt` | `null` when there is no clock: learning labs, exams before Start, untimed playgrounds. A playground started from the catalog has its session deadline. |
+| `deadlineAt` | `null` when there is no clock: learning labs (the CLI keeps no deadline for them, even when extended), exams before Start, untimed playgrounds. A playground started from the catalog has its session deadline, moved by renew and extend. |
 | `timeLimitSeconds` | The exam's time limit, shown on the intro; `null` for learning labs. |
 | `rules` | `strict`: a submission after the deadline cannot pass. `hintsHidden`: hints are never shown. |
 | `intro` | For the intro page. `prerequisitesHtml` is `""` when the lab has none; `estimatedDuration` is `""` when its task does not say. |
@@ -317,8 +366,24 @@ answer; Kind labs are then missing from the list.
 | `submit.blocked` | Why Submit is not possible now, for the page to show next to the disabled button; `""` when it is. |
 | `account` | Whose account this run is saved to, shown as one line on the intro page; the same object as on `GET /launches/{id}`. `astrona run` saves it with the run (`runs/<lab>/run.json`). A run without one, such as a lab started before this field or reopened with `astrona ui`, gets `signed-in` (site only) or `local-only` from its saved lab session, and no `account` otherwise. |
 | `runAgain` | The command that starts this lab again, as `astrona run` was given it: the catalog ID, the `--git` source, or the config path (`-c`). Never the cluster name, which `astrona run` does not accept. `""` when the source is not known. |
+| `environment` | What the lab runs on, for the environment panel. `astrona run` saves it with the run from the lab config and one container engine call that lists the cluster's node containers; polling never looks anything up. A value that is not known is `""` or `[]`, never a guess; lists are never `null`. Never a kubeconfig, credential or address. A run saved before this field has only `runtime`. See the table below. |
+| `suggestedCommands` | Commands a playground's page offers to copy into the terminal, as `{"command", "label"}` (`label` may be `""`). The playground's own `metadata.suggestedCommands` ([lab config](lab-config.md#metadata)), or, when it lists none, defaults for its runtime: Kind `kubectl get nodes -o wide`, `kubectl get pods -A`, `kubectl run demo --image=busybox:1.37.0 -- sleep 3600`, `kubectl get svc -n kube-system`; VM `uname -a`, `ip -br addr`, `df -h`, `systemctl --failed`. At most 8, each one line of at most 200 characters. Always `[]` for a lab or an exam. |
+| `canExtend` | `true` when [`POST /extend`](#post-runslabextend) may add time now: the run is not an exam, has an Astrona lab session (`submit.tracking` `account`) and its `account` is `signed-in` to that session's site, `status` is `running` (a lab after **Start**), and a playground has a `deadlineAt`. Worked out from saved state only: polling never asks the site, so the site can still refuse (see the route). |
+| `extendMinutes` | The minutes one extension adds, `30`. There is no limit on how often. |
 | `solution` | `GET /solution` has a solution guide to show (after **Start**). Always `false` in an exam (a time limit) or a playground. |
 | `solutions` | The lab's solutions in display order, as `{"name", "title", "summary"}` (`summary` may be `""`); each is served by `GET /solutions/{name}`. The default solution is named `default`. Empty in an exam or a playground, and for a lab without a solution. Never the solution text. |
+
+| `environment` field | Meaning |
+| --- | --- |
+| `runtime` | `kind` (a Kind cluster) or `vm` (QEMU VMs). |
+| `kubernetesVersion` | The Kubernetes version of a `kindest/node` image (`runtime.kind.nodeImage`, else the control plane's image); `""` for another image or a VM lab. |
+| `engine` | `docker` or `podman`, the engine running the nodes; `""` when it could not be asked, and for a VM lab. |
+| `nodes` | The lab's own cluster's nodes as `{"name", "role"}`, control planes first; `role` is `control-plane` or `worker`. The HA load balancer is not a node. When the engine could not be asked, the nodes the config asks for, by Kind's naming. Linked clusters are not included. |
+| `network` | The CNI: `Calico` (the addon), `kindnet` (the default), `""` when the lab installs its own. |
+| `images` | `runtime.kind.preloadImages`, loaded before the lab starts. |
+| `context`, `namespace` | The kubectl context (`kind-<lab>`) and default namespace (`default`); `""` for a VM lab. |
+| `connect` | A command that reaches the lab from the student's own terminal: `kubectl --context kind-<lab> get nodes`, or `astrona ssh <lab>` (the first VM, `astrona ssh <lab>-<vm>`, in a multi-VM lab). |
+| `vms` | A VM lab's machines as `{"name", "os", "cpus", "memoryMiB"}`; `os` is read from the image's name (`Ubuntu 24.04`), `""` when the name does not say. `[]` for Kind. |
 
 Responses never contain the solution document (only `GET /solution` and a
 solution docs tab serve it, and never in an exam or a playground), validation
@@ -404,6 +469,34 @@ outbox, and a failure is a warning in the server log. The site keeps the first
 start. `astrona ui <lab>` for an exam whose clock already started at readiness
 sends the same signal with that time. A local-only or untracked run sends
 nothing.
+
+### `POST /runs/{lab}/extend`
+
+Request: `{"runId": "<runId>"}`
+
+Response: `200` with the run, exactly as `GET /runs/{lab}`. For a playground
+`deadlineAt` has moved by `extendMinutes` (or by more, when the site has more
+time for it, such as an extension from the lab page).
+
+It does what `astrona run extend` does at a terminal: `POST
+{site}/api/cli/lab-sessions/{id}/extend` (no body, the CLI's sign-in and device
+proof), at once and not through the outbox, under the lab's lock and after the
+same `runId` check as the other mutating routes. Each call adds 30 minutes;
+there is no limit on how often. A playground's new deadline is saved with its
+lab session and its watchdog is replaced with one for that deadline, so the
+playground is removed that much later. A lab gets the time on its expected time
+on the site (and on its time limit when it needs it); the CLI keeps no deadline
+for a lab, so its `deadlineAt` stays `null`. The run is marked as extended on
+the student's account and keeps its score.
+
+| Status and `code` | When |
+| --- | --- |
+| `409 run_changed` | `runId` is not the lab's current run. |
+| `409 run_stopped` | The lab is no longer running. |
+| `409 not_extendable` | An exam; a run without an Astrona lab session (local-only, signed out, a lab from your own files); not signed in to the session's site; a lab before **Start** or a playground past its time limit; or the site says the clock has not started (`not_started`), the run already ended (`ended`), the lab has no expected time (`no_expected_time`) or the session is not the student's. `error` says which. |
+| `409 conflict` | Another extension, a renew or a stop changed the run on the site at the same moment. Nothing was added: try again. |
+| `429 rate_limited` | The site's limit on lab session requests. |
+| `502 site_unreachable` | The site could not be reached or answered with an error; `error` has the message. Nothing was saved. |
 
 ### `POST /runs/{lab}/submit`
 
@@ -630,6 +723,44 @@ Which lab the manifest belongs to comes from the run record
 `origin` of the checkout it runs from, and the lab's path below the
 training's `astrona.yaml`. Image paths, names and URLs are never part of
 telemetry.
+
+### `GET /catalog/suggestions?lab=<lab>`
+
+Labs to try next, for the run's end screen: up to 5 other labs of the same
+training section in the catalog `astrona labs` reads, the labs after this one
+first (in the training's manifest order), its own module's before the rest of
+the section.
+
+```json
+{
+  "labs": [
+    { "id": "astrona.io/ATS014/section-010/module-01/lab-03", "title": "Pod logs",
+      "summary": "", "kind": "lab",
+      "url": "https://astrona.io/labs/astrona.io/ATS014/section-010/module-01/lab-03",
+      "runCommand": "astrona run astrona.io/ATS014/section-010/module-01/lab-03" }
+  ],
+  "catalogUrl": "https://astrona.io/labs"
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `id` | The catalog ID, as `astrona run` takes it. |
+| `title` | The lab's title from the catalog, one line; its ID when it has none. |
+| `summary` | `""` today: the catalog has no lab summaries. |
+| `kind` | `playground` (a `playground` lab) or `lab`. |
+| `url` | The lab's page on the site, for an official training; `""` otherwise. |
+| `runCommand` | `astrona run <id>`. |
+| `catalogUrl` | The site's lab catalog. |
+
+The site is the one the CLI reads its catalog from (`ASTRONA_URL`, then the
+saved sign-in, then the profile default), never a value from lab content.
+`labs` is `[]` for a lab from local files or `--git` (no catalog ID), or a lab
+the catalog does not list. A catalog read is kept for 10 minutes; a failed
+read is not kept. GET only: the route never changes saved state.
+
+Errors: `404 not_found` (no run for `lab`); `502 catalog_unavailable` (the
+catalog could not be read), never an empty list in its place.
 
 ### `GET /ws/v1/terminals/{id}?ticket=<ticket>`
 

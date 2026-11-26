@@ -287,6 +287,14 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 	}
 	if st.Source != nil {
 		rec.RunAgain = labops.SourceCommand("run", st.Source)
+		rec.CatalogLab = st.Source.Catalog
+	}
+	if rec.CatalogLab == "" {
+		rec.CatalogLab = flags.catalogLab
+	}
+	rec.Environment = browserEnvironment(cfg, name)
+	if rec.Playground && !rec.Exam {
+		rec.SuggestedCommands = browserSuggestedCommands(cfg)
 	}
 	if rec.Exam {
 		rec.TimeLimitSeconds = int64(cfg.Exam.Limit() / time.Second)

@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"astrona/internal/apphome"
+	"astrona/internal/catalog"
 	"astrona/internal/workspace"
 )
 
@@ -49,7 +50,9 @@ func serveWorkspace(parent context.Context, port int) error {
 	}
 	srv, err := workspace.New(workspace.Config{
 		Port: port, Version: Version, Profile: apphome.Name(), IdleTimeout: workspace.IdleTimeout,
-		PrepareVM: prepareVMResourceWorkspace,
+		PrepareVM:   prepareVMResourceWorkspace,
+		Catalog:     func() (catalog.Catalog, error) { return loadCatalog(false) },
+		CatalogSite: catalogSite(),
 	})
 	if err != nil {
 		return err

@@ -94,6 +94,10 @@ type MetadataConfig struct {
 	// before its clock stops and its cluster is removed. Empty: the site's
 	// default (2h). Only playgrounds started from the catalog are timed.
 	TimeLimit string `yaml:"timeLimit"`
+	// SuggestedCommands are commands a playground's browser workspace
+	// offers to copy into the terminal (SuggestedCommand). Empty: the
+	// workspace's defaults for the runtime. Ignored for labs.
+	SuggestedCommands []SuggestedCommand `yaml:"suggestedCommands"`
 }
 
 // MinTimeLimit and MaxTimeLimit bound metadata.timeLimit.

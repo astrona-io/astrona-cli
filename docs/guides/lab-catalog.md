@@ -89,7 +89,7 @@ Signed in to any site other than astrona.io — a local or self-hosted Astrona �
 [WARN] Not astrona.io — sending your lab results to http://localhost:3000
 ```
 
-It is shown for the sign-in, a new lab session, `astrona submit`, `astrona run renew`, stopping a playground's clock and `astrona logout`; for astrona.io itself nothing extra is printed.
+It is shown for the sign-in, a new lab session, `astrona submit`, `astrona run renew`, `astrona run extend`, stopping a playground's clock and `astrona logout`; for astrona.io itself nothing extra is printed.
 
 ## Playgrounds
 
@@ -111,11 +111,25 @@ astrona run renew astrona.io/ATS014/section-000/module-01/playground
 Renewed astro-…: it now stops and is removed at 18:35 (in 2h0m0s).
 ```
 
+Need a little more instead? `astrona run extend` adds 30 minutes to the playground's time limit, each time you run it (there is no limit on how often), the same as **Need more time** on the lab page or in the browser workspace. It saves the new deadline and replaces the watchdog with one for it:
+
+```sh
+astrona run extend                                             # the only running lab
+astrona run extend astrona.io/ATS014/section-000/module-01/playground
+```
+
+```text
+Added 30 minutes to astro-…: it now stops and is removed at 17:10 (in 1h5m0s).
+```
+
+`astrona run extend` works on a signed-in catalog lab too: the 30 minutes go on its expected time on Astrona (and on its time limit when it needs them); the lab itself has no local timer. A hands-on exam is never extended, and a `--local-only`, signed-out or own-files run has no Astrona time limit to extend.
+
 A playground that already stopped can't be renewed — run it again. `astrona reset` of a playground does what `run` does: a fresh playground session with a new clock and watchdog once it is rebuilt. If a playground fails to build, its session is stopped, so no time is counted for it.
 
 Before removing a playground, the watchdog locks it and rechecks the run,
 session, and deadline. A watchdog left over from before a renew, or from a
-replaced run, cannot stop the playground or remove the lab.
+replaced run, or one from before an `astrona run extend`, cannot stop the
+playground or remove the lab.
 
 ## Resource usage
 

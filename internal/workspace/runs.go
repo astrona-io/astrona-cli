@@ -94,8 +94,18 @@ type RunRecord struct {
 	RunAgain string `json:"runAgain,omitempty"`
 	// Account is the account astrona run saved this run to (nil when
 	// another command, such as astrona ui, wrote the record).
-	Account   *AccountStatus `json:"account,omitempty"`
-	CreatedAt time.Time      `json:"createdAt"`
+	Account *AccountStatus `json:"account,omitempty"`
+	// Environment is what the run runs on (nil in a record from before
+	// environments: the page then gets only the runtime).
+	Environment *Environment `json:"environment,omitempty"`
+	// SuggestedCommands are a playground's own suggested commands
+	// (metadata.suggestedCommands); empty uses the runtime's defaults.
+	SuggestedCommands []SuggestedCommand `json:"suggestedCommands,omitempty"`
+	// CatalogLab is the lab's catalog name (ATS014/section-010/module-01/lab-02),
+	// "" for a lab from the student's own files. GET /catalog/suggestions
+	// reads it.
+	CatalogLab string    `json:"catalogLab,omitempty"`
+	CreatedAt  time.Time `json:"createdAt"`
 }
 
 // RunSolution is one of the run's solutions: its name ("default" or the
@@ -169,6 +179,17 @@ func WriteRun(rec RunRecord) error {
 	}
 	if err := validateTabs(rec); err != nil {
 		return err
+	}
+	if rec.Environment != nil {
+		if err := rec.Environment.validate(); err != nil {
+			return err
+		}
+	}
+	if err := validateSuggestedCommands(rec.SuggestedCommands); err != nil {
+		return err
+	}
+	if !rec.Playground || rec.Exam {
+		rec.SuggestedCommands = nil
 	}
 	if !rec.solutionAllowed() {
 		rec.Solution = ""
@@ -372,6 +393,14 @@ type runView struct {
 	RunAgain  string     `json:"runAgain"`
 	// Account is the account this run is saved to; absent when unknown.
 	Account *AccountStatus `json:"account,omitempty"`
+	// Environment is what the run runs on.
+	Environment *Environment `json:"environment"`
+	// SuggestedCommands: a playground's commands to try; empty otherwise.
+	SuggestedCommands []SuggestedCommand `json:"suggestedCommands"`
+	// CanExtend: POST /runs/{lab}/extend may add ExtendMinutes to the run
+	// (canExtend says when).
+	CanExtend     bool `json:"canExtend"`
+	ExtendMinutes int  `json:"extendMinutes"`
 }
 
 // submitView is what ending the run does, for the page to explain before
@@ -429,6 +458,10 @@ func buildView(rec RunRecord, now time.Time) (v runView, err error) {
 		Submit:    submitView{Tracking: TrackingNone},
 		RunAgain:  rec.RunAgain,
 		Account:   rec.Account,
+
+		Environment:       rec.environment(),
+		SuggestedCommands: rec.suggestedCommands(),
+		ExtendMinutes:     ExtendMinutes,
 	}
 	if rec.docLinksAllowed() && len(rec.DocLinks) > 0 {
 		v.DocLinks = rec.DocLinks
@@ -472,6 +505,9 @@ func buildView(rec RunRecord, now time.Time) (v runView, err error) {
 			v.Submit.Blocked = "start the lab first"
 		default:
 			v.CanSubmit = true
+		}
+		if err == nil {
+			v.CanExtend = canExtend(rec, st, v)
 		}
 	}()
 	if rec.Playground {

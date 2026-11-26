@@ -13,7 +13,6 @@ import (
 	"astrona/internal/config"
 	"astrona/internal/hypervisor"
 	"astrona/internal/labstate"
-	"astrona/internal/ui"
 )
 
 // PlaygroundExists reports whether any part of a playground's lab still
@@ -126,16 +125,7 @@ func RenewPlayground(ctx context.Context, warn io.Writer, clusterName string) (*
 	}
 	// A fresh watchdog for the new deadline: the running one may be gone
 	// (a reboot) or come from an astrona that doesn't follow renewals.
-	StopWatchdog(st.Session.WatchdogPID, clusterName)
-	if pid, err := SpawnWatchdog(clusterName); err != nil {
-		ui.Fwarnf(warn, "couldn't restart the playground's timer (%s) — run `astrona destroy %s` when you are done", err, clusterName)
-	} else {
-		_ = labstate.Update(clusterName, func(s *labstate.State) {
-			if s.Session != nil {
-				s.Session.WatchdogPID = pid
-			}
-		})
-	}
+	restartWatchdog(warn, clusterName, st.Session.WatchdogPID)
 	return &RenewResult{
 		Cluster:  clusterName,
 		Banked:   (time.Duration(renewed.BankedSeconds) * time.Second).Round(time.Minute),

@@ -483,3 +483,120 @@ func (c *Client) postRenew(ctx context.Context, cr *Credentials, sessionID strin
 	}
 	return &out, nil
 }
+
+// ExtendedSession is POST {site}/api/cli/lab-sessions/{id}/extend's answer:
+// "Need more time" added ExtendMinutes to the running lab or playground. A
+// playground's DeadlineAt (RFC 3339) moved by that much; a lab's extra time
+// goes on its expected-time target, and its DeadlineAt (the hard limit) only
+// moves when the target would pass it. ExtraMinutes is the total added so
+// far, ExtendCount how often.
+type ExtendedSession struct {
+	ID           string `json:"id"`
+	Lab          string `json:"lab"`
+	Kind         string `json:"kind"`
+	DeadlineAt   string `json:"deadline_at"`
+	ExpiresAt    string `json:"expires_at"`
+	MaxMinutes   int    `json:"max_minutes"`
+	ExtendedAt   string `json:"extended_at"`
+	ExtraMinutes int    `json:"extra_minutes"`
+	ExtendCount  int    `json:"extend_count"`
+}
+
+// Codes of an ExtendRefusedError the site sends (409 and 422).
+const (
+	ExtendNotStarted     = "not_started"      // the clock hasn't started yet
+	ExtendEnded          = "ended"            // the run already ended
+	ExtendConflict       = "conflict"         // another extension, renew or stop won a race: try again
+	ExtendNoExpectedTime = "no_expected_time" // a lab without an expected time
+	ExtendRateLimited    = "rate_limited"     // 429: too many requests
+)
+
+// ExtendRefusedError is the site's refusal to extend a session (HTTP 409, 422 or
+// 429). Code is one of the Extend* codes ("" when the site sent none);
+// Message is the site's, made safe to show.
+type ExtendRefusedError struct {
+	Status  int
+	Code    string
+	Message string
+}
+
+func (e *ExtendRefusedError) Error() string {
+	if e.Message != "" {
+		return e.Message
+	}
+	switch e.Code {
+	case ExtendNotStarted:
+		return "the run's clock hasn't started yet"
+	case ExtendEnded:
+		return "the run has already ended"
+	case ExtendConflict:
+		return "the run changed on the site at the same moment; try again"
+	case ExtendNoExpectedTime:
+		return "this lab has no expected time to extend"
+	case ExtendRateLimited:
+		return "too many requests; try again later"
+	}
+	return fmt.Sprintf("the site refused to add time (HTTP %d)", e.Status)
+}
+
+// ErrSiteUnreachable: the request never got an answer from the site
+// (offline, DNS, a timeout).
+var ErrSiteUnreachable = errors.New("could not reach the Astrona site")
+
+// ExtendLabSession adds time to the student's own running lab or playground
+// (`astrona run extend`, the browser workspace's Need more time). A rejected
+// access token is renewed once. 404 wraps ErrSessionGone (unknown, someone
+// else's, or a hands-on exam task); 409, 422 and 429 are *ExtendRefusedError; no
+// answer at all wraps ErrSiteUnreachable.
+func (c *Client) ExtendLabSession(ctx context.Context, s Store, cr *Credentials, sessionID string) (*ExtendedSession, error) {
+	if sessionID == "" || strings.ContainsAny(sessionID, "/?#") {
+		return nil, fmt.Errorf("invalid lab session id %q", sessionID)
+	}
+	out, status, err := c.postExtend(ctx, cr, sessionID)
+	var he *httpError
+	if errors.As(err, &he) && he.Status == http.StatusUnauthorized {
+		renewed, rerr := c.Renew(ctx, s, cr)
+		if rerr != nil {
+			return nil, rerr
+		}
+		out, status, err = c.postExtend(ctx, renewed, sessionID)
+	}
+	if err == nil {
+		return out, nil
+	}
+	if IsProofError(err) {
+		return nil, err
+	}
+	if !errors.As(err, &he) {
+		if status == 0 { // no answer at all
+			return nil, fmt.Errorf("%w %s to add time: %w", ErrSiteUnreachable, cr.Site, err)
+		}
+		return nil, fmt.Errorf("%s couldn't add time: %w", cr.Site, err)
+	}
+	switch he.Status {
+	case http.StatusUnauthorized:
+		return nil, fmt.Errorf("the Astrona site %s didn't accept your sign-in: %w", cr.Site, ErrSignedOut)
+	case http.StatusNotFound:
+		return nil, withMessage(ErrSessionGone, he.Message)
+	case http.StatusConflict, http.StatusUnprocessableEntity:
+		return nil, &ExtendRefusedError{Status: he.Status, Code: he.Code, Message: he.Message}
+	case http.StatusTooManyRequests:
+		return nil, &ExtendRefusedError{Status: he.Status, Code: ExtendRateLimited, Message: he.Message}
+	default:
+		return nil, fmt.Errorf("%s couldn't add time (%w)", cr.Site, he)
+	}
+}
+
+func (c *Client) postExtend(ctx context.Context, cr *Credentials, sessionID string) (*ExtendedSession, int, error) {
+	endpoint := cr.Site + "/api/cli/lab-sessions/" + url.PathEscape(sessionID) + "/extend"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
+	if err != nil {
+		return nil, -1, err
+	}
+	var out ExtendedSession
+	status, err := c.send(req, cr, &out)
+	if err != nil {
+		return nil, status, err
+	}
+	return &out, status, nil
+}
