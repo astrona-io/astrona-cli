@@ -189,8 +189,10 @@ function onRunUpdated(r: Run): void {
 
 async function openFromHome(lab: string): Promise<void> {
   try {
+    leavingOnPurpose = true
     await enterRun(lab, getNavigationCode)
   } catch (err) {
+    leavingOnPurpose = false
     showError(err)
   }
 }
@@ -437,7 +439,12 @@ function backToWorkspace(): void {
 // A leave-page confirmation while a session runs or a submission is being
 // graded: browser shortcuts such as Ctrl+W close the tab even when the shell
 // wanted them.
+// Set when the page itself navigates on purpose (switching to another lab):
+// the lab keeps running, so there is nothing to warn about.
+let leavingOnPurpose = false
+
 function beforeUnload(ev: BeforeUnloadEvent): void {
+  if (leavingOnPurpose) return
   if (screen.value.kind === 'workspace' || dialogBusy.value) ev.preventDefault()
 }
 
