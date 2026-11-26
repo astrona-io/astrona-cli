@@ -141,7 +141,7 @@ func openBrowserWorkspace(cfg *config.LabConfig, baseDir string, flags *rootFlag
 		// The tab that followed the setup opens the lab itself.
 		flags.launch.Ready(rec.Lab)
 		if flags.launch.pageOpen() {
-			fmt.Printf("\nThe lab is ready in your browser: click Begin this session. Closed the tab? `astrona ui %s` opens it again.\n", uiLabArg(rec.Lab))
+			fmt.Printf("\nThe lab is ready in your browser: click Begin session. Closed the tab? `astrona ui %s` opens it again.\n", uiLabArg(rec.Lab))
 			printRunsInBackground(rec.Lab)
 			return nil
 		}
