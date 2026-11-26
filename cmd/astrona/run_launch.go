@@ -1,17 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
+	"regexp"
 	goruntime "runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	"astrona/internal/labops"
 	"astrona/internal/settings"
 	"astrona/internal/terms"
 	"astrona/internal/ui"
@@ -329,4 +334,57 @@ func browserTerms(cmd *cobra.Command, flags *rootFlags, s terms.Store) error {
 		case <-tick.C:
 		}
 	}
+}
+
+// WarnWriter is w for setup output that is not a Reporter step (labops'
+// Warn and Log writers): everything still goes to w, and each "[WARN] …"
+// line also becomes a warn event on the setup page. Without a launch it is
+// w itself.
+func (l *browserLaunch) WarnWriter(w io.Writer) io.Writer {
+	if l == nil {
+		return w
+	}
+	return &launchWarnWriter{l: l, w: w}
+}
+
+// launchWarnWriter is browserLaunch.WarnWriter's tee.
+type launchWarnWriter struct {
+	l   *browserLaunch
+	w   io.Writer
+	mu  sync.Mutex
+	buf []byte
+}
+
+// maxWarnLine bounds a line kept while waiting for its end.
+const maxWarnLine = 4 << 10
+
+// ansiEscape is an ANSI escape sequence (the color of a [WARN] tag).
+var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+
+func (t *launchWarnWriter) ColorTTY() bool { return ui.IsColorTTY(t.w) }
+
+func (t *launchWarnWriter) Write(p []byte) (int, error) {
+	n, err := t.w.Write(p)
+	t.mu.Lock()
+	t.buf = append(t.buf, p...)
+	var lines []string
+	for {
+		i := bytes.IndexByte(t.buf, '\n')
+		if i < 0 {
+			break
+		}
+		lines = append(lines, string(t.buf[:i]))
+		t.buf = t.buf[i+1:]
+	}
+	if len(t.buf) > maxWarnLine {
+		t.buf = t.buf[:0]
+	}
+	t.mu.Unlock()
+	for _, line := range lines {
+		plain := strings.TrimSpace(ansiEscape.ReplaceAllString(line, ""))
+		if msg, ok := strings.CutPrefix(plain, "[WARN] "); ok && strings.TrimSpace(msg) != "" {
+			t.l.Observe(ui.Event{Kind: "warn", Label: labops.SanitizeLine(strings.TrimSpace(msg))})
+		}
+	}
+	return n, err
 }

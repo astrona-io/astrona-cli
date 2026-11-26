@@ -375,7 +375,7 @@ func bringUpLab(ctx context.Context, cfg *config.LabConfig, baseDir string, flag
 		Parallel:       flags.parallel,
 		Session:        sess,
 		ConfigChecks:   authoring.CheckConfig,
-		Warn:           os.Stderr,
+		Warn:           flags.launch.WarnWriter(os.Stderr),
 		DeferExamClock: flags.browserRun,
 	}, rep)
 	if err != nil {
