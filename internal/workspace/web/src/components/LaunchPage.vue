@@ -1,10 +1,20 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { answerTerms, getLaunch, isLaunchGone, isUnauthorized, type Launch, type LaunchEvent } from '../api'
+import {
+  answerTerms,
+  getLaunch,
+  isLaunchGone,
+  isUnauthorized,
+  linkLaunchSession,
+  type Launch,
+  type LaunchEvent,
+  type SignIn,
+} from '../api'
 import { envSpecs } from '../environment'
 import { useCopyText } from '../copyText'
 import AccountNotice from './AccountNotice.vue'
 import BrandMark from './BrandMark.vue'
+import LaunchSignIn from './LaunchSignIn.vue'
 
 // What `astrona run` shows before its lab exists: the CLI terms (when they
 // still need accepting), then the lab being set up, step by step, as the
@@ -248,6 +258,44 @@ watch(
   },
 )
 
+// ---------------------------------------------------------------- sign in
+
+// A signed-out run of a catalog lab or playground can still be saved to an
+// account: signing in here before Begin links it (never --local-only, whose
+// account state is local-only).
+const canSignIn = computed(() => {
+  const a = launch.value?.account
+  return !!a && a.state === 'signed-out' && !!a.site
+})
+
+function onSignedIn(s: SignIn): void {
+  const l = launch.value
+  if (!l) return
+  launch.value = { ...l, account: { state: 'signed-in', username: s.username, site: s.site }, signedInHere: true }
+}
+
+// Begin: after a sign-in on this page the run's lab session is started on
+// that account first; Start then starts its clock as for a signed-in run.
+const linking = ref(false)
+const linkError = ref<string | null>(null)
+async function begin(link = true): Promise<void> {
+  const lab = readyLab.value
+  if (!lab || linking.value) return
+  if (link && launch.value?.signedInHere) {
+    linking.value = true
+    linkError.value = null
+    try {
+      await linkLaunchSession(props.id)
+    } catch (err) {
+      linking.value = false
+      if (isUnauthorized(err)) emit('unauthorized')
+      else linkError.value = err instanceof Error ? err.message : String(err)
+      return
+    }
+  }
+  emit('ready', lab)
+}
+
 // ---------------------------------------------------------------- terms
 
 const termsDialog = ref<HTMLDialogElement>()
@@ -324,10 +372,23 @@ async function answer(accept: boolean): Promise<void> {
         <p class="launch__lead muted">{{ lead }}</p>
 
         <div v-if="readyLab" class="launch__begin">
-          <button type="button" class="btn btn--go launch__cta" @click="emit('ready', readyLab)">
-            Begin session <span aria-hidden="true">→</span>
+          <button type="button" class="btn btn--go launch__cta" :disabled="linking" @click="begin()">
+            {{ linking ? 'Saving to your account…' : 'Begin session' }} <span aria-hidden="true">→</span>
           </button>
           <p class="small muted launch__timer">Timer starts on click · <span class="mono">00:00</span></p>
+        </div>
+        <p v-if="readyLab && launch?.signedInHere && !linkError" class="small muted">
+          Signed in{{ launch.account?.username ? ` as ${launch.account.username}` : '' }}: Begin session saves this
+          {{ launch.playground ? 'playground' : 'run' }} to your Astrona account.
+        </p>
+        <div v-if="linkError" class="dialog__error" role="alert">
+          <p>This run could not be saved to your account: {{ linkError }}</p>
+          <div class="account__actions">
+            <button type="button" class="btn btn--primary btn--sm" :disabled="linking" @click="begin()">Try again</button>
+            <button type="button" class="btn btn--ghost btn--sm" :disabled="linking" @click="begin(false)">
+              Begin without saving
+            </button>
+          </div>
         </div>
 
         <p v-if="launch && !final && !readyLab && launch.stage !== 'terms'" class="readiness readiness--busy" role="status">
@@ -349,7 +410,17 @@ async function answer(accept: boolean): Promise<void> {
         v-if="launch?.account && launch.account.state !== 'signed-in' && (readyLab || !final)"
         :account="launch.account"
         :playground="launch.playground"
-      />
+      >
+        <template v-if="canSignIn" #default>
+          <LaunchSignIn
+            :launch-id="id"
+            :site="launch.account.site"
+            :playground="launch.playground"
+            @signed-in="onSignedIn"
+            @unauthorized="emit('unauthorized')"
+          />
+        </template>
+      </AccountNotice>
 
       <ol v-if="readyLab && stages.length" class="stages" aria-label="Setup stages">
         <li v-for="st in stages" :key="st.key" class="stage" :class="{ 'stage--warn': st.warnings, 'stage--fail': st.failed }">

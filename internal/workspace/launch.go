@@ -232,6 +232,10 @@ type launchView struct {
 	// Environment is the ready lab's environment (its run record's), absent
 	// before the launch is ready.
 	Environment *Environment `json:"environment,omitempty"`
+	// SignedInHere: the run started signed out and the student signed in
+	// on this page (Account is that account); Begin then sends POST
+	// /launches/{id}/session before Start.
+	SignedInHere bool `json:"signedInHere,omitempty"`
 }
 
 func (s *Server) handleLaunch(w http.ResponseWriter, r *http.Request) {
@@ -252,6 +256,11 @@ func (s *Server) handleLaunch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	v := launchView{Launch: l, Alive: processAlive(l.PID)}
+	if a := s.signIns.signedIn(id); a != nil && l.Account != nil && l.Account.State == AccountSignedOut {
+		// Signed in on this page: Begin links the run to that account.
+		v.Account = a
+		v.SignedInHere = true
+	}
 	if a, err := ReadLaunchAnswer(id); err == nil {
 		v.Answered = "declined"
 		if a.Accepted {

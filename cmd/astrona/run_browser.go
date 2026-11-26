@@ -293,6 +293,9 @@ func browserRunRecord(cfg *config.LabConfig, baseDir string, flags *rootFlags) (
 		rec.CatalogLab = flags.catalogLab
 	}
 	rec.Environment = browserEnvironment(cfg, name)
+	if rec.Playground {
+		rec.PlaygroundMinutes, _ = cfg.Metadata.TimeLimitMinutes() // checked by lifecycle.Validate
+	}
 	if rec.Playground && !rec.Exam {
 		rec.SuggestedCommands = browserSuggestedCommands(cfg)
 	}

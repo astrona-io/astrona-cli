@@ -10,10 +10,7 @@ import (
 
 	"astrona/internal/account"
 	"astrona/internal/apphome"
-	"astrona/internal/guestrun"
 	"astrona/internal/labops"
-	"astrona/internal/transport"
-	"astrona/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -86,47 +83,28 @@ func login(ctx context.Context, client *account.Client, store account.Store, sit
 }
 
 func loginWithBrowser(ctx context.Context, client *account.Client, store account.Store, site string, device account.Device, openBrowser bool) error {
-	// An earlier sign-in is replaced; its refresh token is revoked once the
-	// new one is saved. One that can't be read is simply overwritten.
-	previous, _ := store.Load()
-
 	fmt.Printf("Signing in to %s…\n", site)
-	sc, err := client.FetchSiteConfig(ctx, site)
+	signIn, err := labops.BeginSignIn(ctx, os.Stderr, client, store, site, device)
 	if account.IsNotFound(err) {
 		return fmt.Errorf("%w\n%s doesn't offer astrona sign-in (no %s/api/cli/config) — for another site, e.g. a local one: astrona login --site http://localhost:3000", err, site, site)
 	}
 	if err != nil {
 		return err
 	}
-	labops.NoticeOtherSite(os.Stderr, site, "your sign-in (this device's name)")
-	if previous != nil && previous.Site == site {
-		// Signing this computer in again replaces its sign-in rather than
-		// counting as another computer against the account's limit.
-		device.PreviousRefreshToken = previous.RefreshToken
-	}
-	// A new device key for every sign-in; the previous one is dropped once
-	// this sign-in is saved. Without one (no random source) the sign-in
-	// still works, as it did before device keys.
-	if key, err := transport.Generate(); err == nil {
-		device = device.WithKey(key)
-	}
-	dc, err := client.StartDeviceFlow(ctx, site, sc, device)
-	if err != nil {
-		return err
-	}
 
+	page := signIn.VerificationURL()
 	if openBrowser {
-		fmt.Printf("\nOpening your browser to sign in… If it doesn't open, go to %s\n", dc.VerificationURIComplete)
+		fmt.Printf("\nOpening your browser to sign in… If it doesn't open, go to %s\n", page)
 	} else {
-		fmt.Printf("\nTo sign in, open %s on any device.\n", dc.VerificationURIComplete)
+		fmt.Printf("\nTo sign in, open %s on any device.\n", page)
 	}
-	fmt.Printf("Confirm the code %s matches the one in your browser.\n", dc.UserCode)
-	if openBrowser && !browserOpener(dc.VerificationURIComplete) {
+	fmt.Printf("Confirm the code %s matches the one in your browser.\n", signIn.UserCode())
+	if openBrowser && !browserOpener(page) {
 		fmt.Println("(No browser here — open that link on any device; this terminal waits for you.)")
 	}
 	fmt.Println("Waiting for you to authorize this computer… (Ctrl+C cancels)")
 
-	tokens, err := client.PollToken(ctx, sc, dc)
+	creds, err := signIn.Finish(ctx, os.Stderr)
 	switch {
 	case errors.Is(err, context.Canceled):
 		return fmt.Errorf("sign-in cancelled — you're not signed in")
@@ -138,29 +116,6 @@ func loginWithBrowser(ctx context.Context, client *account.Client, store account
 		return err // the site's own message: which computers to sign out, and where
 	case err != nil:
 		return err
-	}
-
-	creds := account.NewCredentials(site, device, tokens, client.Now())
-	release, err := store.Lock(ctx)
-	if err != nil {
-		return err
-	}
-	defer release()
-	// A reporter may have renewed the old sign-in during authorization.
-	// Revoke the credentials being replaced, using their current token.
-	previous, _ = store.Load()
-	if err := store.SaveSignIn(creds); err != nil {
-		return err
-	}
-	// Guest runs after this sign-in never share the anonymous install id
-	// of the ones before it.
-	if err := guestrun.RotateInstallID(); err != nil {
-		ui.Warnf("could not replace the anonymous install id: %s", err)
-	}
-	if previous != nil && previous.RefreshToken != creds.RefreshToken {
-		rctx, cancel := context.WithTimeout(context.Background(), revokeTimeout)
-		_ = client.Revoke(rctx, previous.Site, previous.RefreshToken) // best effort
-		cancel()
 	}
 
 	if creds.Username != "" {

@@ -52,14 +52,39 @@ it when it is not. `astrona run` decides that when it starts the lab:
 - **Not signed in** (a catalog lab, signed out): the run is not saved to an
   account; the time and your result stay on this computer. The card links to
   **Create a free Astrona account** on the site astrona signs in to (opened in
-  a new tab) and tells you to run `astrona login` and start the lab again.
-  Signing in while this run is open does not link it: a run is linked to an
-  account only when `astrona run` starts.
+  a new tab), and offers **Sign in to save your time and result** (a
+  playground: *your time*) before you click **Begin session**. See
+  [Sign in before Begin](#sign-in-before-begin). Signing in from a terminal
+  while this run is open does not link it.
 - **Local only** (`--local-only`): nothing from the run is sent.
 - A lab from your own files or `--git` has no account, and shows no card.
 
 The intro page repeats this as one line, with the sign-up link when you are
 not signed in.
+
+### Sign in before Begin
+
+A signed-out run of a catalog lab or playground can still be saved to your
+account, as long as it has not begun:
+
+1. Click **Sign in to save your time and result** on the setup page. The
+   workspace server starts the same sign-in as `astrona login`, on the site
+   astrona signs in to.
+2. The page shows a code and **Open <site> to authorize**, a link that opens
+   the site's authorize page in a new tab. Check that the site shows the same
+   code, sign in there if you need to, and click **Authorize**. The setup page
+   notices by itself; **Cancel** stops waiting.
+3. The chip and the card now show your account. You are signed in on this
+   computer, as after `astrona login`.
+4. **Begin session** starts the run's lab session on your account first
+   (*Saving to your account…*), then the run as before. From then on it is a
+   signed-in run: the time, and for a lab the submitted result, are saved to
+   your account.
+
+If the run cannot be saved (the site cannot be reached, for example), the page
+says why and offers **Try again** or **Begin without saving**. Not signing in
+keeps the run as it was: nothing is saved to an account. A `--local-only` run
+never offers the sign-in. Only one launch page signs in at a time.
 
 Some questions are still asked in the terminal: whether to start a running lab
 over, whether to log in, and whether to trust a lab's repository. The tab says

@@ -53,6 +53,8 @@ func serveWorkspace(parent context.Context, port int) error {
 		PrepareVM:   prepareVMResourceWorkspace,
 		Catalog:     func() (catalog.Catalog, error) { return loadCatalog(false) },
 		CatalogSite: catalogSite(),
+		// Sign-in from the launch page names this computer as astrona login does.
+		SignInDevice: thisDevice,
 	})
 	if err != nil {
 		return err

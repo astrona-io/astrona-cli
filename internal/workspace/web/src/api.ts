@@ -471,6 +471,11 @@ export interface Launch {
   /** False once the command in the terminal has exited. */
   alive: boolean
   answered?: 'accepted' | 'declined'
+  /**
+   * The run started signed out and the student signed in on this page
+   * (account is that account): Begin sends linkLaunchSession first.
+   */
+  signedInHere?: boolean
 }
 
 export function isLaunchGone(err: unknown): boolean {
@@ -484,6 +489,50 @@ export function getLaunch(id: string): Promise<Launch> {
 /** Accepts or declines the terms shown by launch id; sha256 is the notice the page showed. */
 export function answerTerms(id: string, accept: boolean, sha256: string): Promise<{ accepted: boolean }> {
   return request('POST', `/launches/${encodeURIComponent(id)}/terms`, { accept, sha256 }, true, { timeoutMs: QUICK_TIMEOUT_MS })
+}
+
+/**
+ * A sign-in from the launch page (GET/POST/DELETE /launches/{id}/signin):
+ * the same sign-in as `astrona login`. Only the user code (to compare with
+ * the one on the site) and the site's authorize page come to the page.
+ */
+export type SignInState = 'none' | 'pending' | 'signed-in' | 'denied' | 'expired' | 'device_limit' | 'cancelled' | 'failed'
+
+export interface SignIn {
+  state: SignInState
+  /** The run's Astrona site, the one signed in to. */
+  site?: string
+  /** While pending: the code shown on the site's page too. */
+  userCode?: string
+  /** While pending: the site's page where the student authorizes this computer. */
+  verificationUrl?: string
+  expiresAt?: string
+  /** Once signed in. */
+  username?: string
+  /** Why it ended, when it did not sign in. */
+  message?: string
+}
+
+export function getSignIn(id: string): Promise<SignIn> {
+  return request<SignIn>('GET', `/launches/${encodeURIComponent(id)}/signin`, undefined, true, { timeoutMs: QUICK_TIMEOUT_MS })
+}
+
+/** Starts signing in for launch id (or returns the one pending or done). */
+export function startSignIn(id: string): Promise<SignIn> {
+  return request<SignIn>('POST', `/launches/${encodeURIComponent(id)}/signin`, {}, true, { timeoutMs: 40_000 })
+}
+
+/** Stops waiting for launch id's pending sign-in. */
+export function cancelSignIn(id: string): Promise<SignIn> {
+  return request<SignIn>('DELETE', `/launches/${encodeURIComponent(id)}/signin`, undefined, true, { timeoutMs: QUICK_TIMEOUT_MS })
+}
+
+/**
+ * Begin after signing in on the launch page: starts the ready run's lab
+ * session on that account, so Start then starts its clock on the site.
+ */
+export function linkLaunchSession(id: string): Promise<{ lab: string; runId: string; account: AccountStatus }> {
+  return request('POST', `/launches/${encodeURIComponent(id)}/session`, {}, true, { timeoutMs: 70_000 })
 }
 
 /** One astrona lab on this machine (GET /labs), opened in the browser or not. */

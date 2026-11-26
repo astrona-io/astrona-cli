@@ -108,6 +108,10 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | `GET /server` | Version, profile, features. |
 | `GET /launches/{id}` | A browser-first `astrona run` before its lab exists: terms, setup progress, outcome. |
 | `POST /launches/{id}/terms` | Accept or decline the CLI terms for that run. |
+| `GET /launches/{id}/signin` | The sign-in started on that launch page, if any. |
+| `POST /launches/{id}/signin` | **Sign in to save your time and result**: start the `astrona login` sign-in from a signed-out launch. |
+| `DELETE /launches/{id}/signin` | Cancel a pending sign-in. |
+| `POST /launches/{id}/session` | **Begin session** after that sign-in: start the run's lab session on the account. |
 | `GET /labs` | Every lab on this computer, opened in the browser or not. |
 | `GET /runs` | Labs the workspace was opened for. |
 | `GET /runs/{lab}` | One run: identity, mode, status, clock, questions, targets, tabs. |
@@ -214,9 +218,94 @@ no attempts, so the card does not mention a result.
 `account` only ever holds `state`, `username` and `site`, never a token,
 device ID or key ID. `site` is the site the CLI resolved itself (`ASTRONA_URL`,
 then the saved sign-in, then the profile default), never a value from lab
-content. The state describes this run: signing in later does not change it.
+content. The state describes this run: signing in from a terminal later does
+not change it. Signing in on the launch page does: once that sign-in is done,
+this route answers `account` as `signed-in` (the account signed in) with
+`signedInHere: true`, which tells the page that **Begin session** must call
+[`POST /launches/{id}/session`](#post-launchesidsession) first.
 
 Errors: `404 launch_gone` (removed, or never existed).
+
+### `GET /launches/{id}/signin`
+
+The sign-in started on this launch page. Never changes state; the page polls
+it every 2 seconds while it is `pending`, and reads it once on load to pick a
+sign-in up again after a reload.
+
+```json
+{
+  "state": "pending",
+  "site": "https://astrona.io",
+  "userCode": "WDJB-MJHT",
+  "verificationUrl": "https://astrona.io/cli/authorize?code=WDJB-MJHT",
+  "expiresAt": "…"
+}
+```
+
+| `state` | Meaning |
+| --- | --- |
+| `none` | No sign-in was started on this page. Nothing else is set. |
+| `pending` | Waiting for the student to authorize this computer on the site. `userCode` is the code to compare, `verificationUrl` the site's authorize page (opened in a new tab by a link, never a popup), `expiresAt` when the code stops working. |
+| `signed-in` | Done: the credentials are saved as `astrona login` saves them. `username` and `site` say which account. |
+| `denied` | Declined on the site. |
+| `expired` | The code expired before it was authorized. |
+| `device_limit` | The account has too many computers signed in. |
+| `cancelled` | Cancelled on the page. |
+| `failed` | Any other failure. |
+
+A state after `pending` carries `message`, the sentence the page shows. The
+device code that the site exchanges for tokens, and the tokens, stay in the
+server process: this route only ever returns the user code the student
+compares, and the authorize link that `astrona login` prints too. The sign-in
+lives in the server's memory, so it is gone when the server restarts.
+
+Errors: `404 launch_gone`; `409 signin_not_offered` (the run's account is not
+`signed-out`: signed in already, `--local-only`, or a lab from local files);
+`409 launch_over` (the launch failed, was declined or ended).
+
+### `POST /launches/{id}/signin`
+
+Request: `{}`. Starts the same sign-in as `astrona login` on the site the run
+resolved (`account.site`), and answers as `GET` does, normally `pending`. The
+server polls the site until the sign-in is authorized, declined or expired
+(at most 30 minutes). Idempotent: a pending or finished sign-in of this launch
+is returned as it is; one that ended (`denied`, `expired`, …) is started
+again. When this computer is already signed in to that site, for example
+through `astrona login` in a terminal, it answers `signed-in` without a new
+sign-in. Signing in replaces the saved sign-in as `astrona login` does
+(a new install ID; the previous refresh token is revoked).
+
+Errors: those of `GET`; `409 signin_busy` (a sign-in is pending on another
+launch page); `409 signin_unavailable` (this server cannot sign in, or the
+site does not offer the CLI sign-in); `502 site_unreachable`.
+
+### `DELETE /launches/{id}/signin`
+
+Cancels a pending sign-in and answers as `GET` does (`cancelled`). Does
+nothing to a sign-in that is not pending.
+
+Errors: those of `GET`.
+
+### `POST /launches/{id}/session`
+
+Request: `{}`. **Begin session** after a sign-in on this page. Starts the
+run's Astrona lab session on that account, as a signed-in `astrona run`
+does at the start of a run: a lab is then started and graded as on the
+account, a playground gets its time limit from the session. Then the page
+calls `POST /runs/{lab}/start` as before, which starts the session's clock.
+The run's record (`runs/<lab>/run.json`) is rewritten with the account and
+the new `runId`.
+
+Response: `200 {"lab": "…", "runId": "…", "account": {"state": "signed-in", "username": "ada", "site": "https://astrona.io"}}`.
+Idempotent: a run that is linked already answers the same.
+
+Errors: `404 launch_gone`; `409 not_ready` (the launch is not at `ready`);
+`409 not_signed_in` (no finished sign-in on this page, or it can no longer
+be used); `409 not_linkable` (`--local-only`, a lab from local files, a run
+that has a lab session, or a lab that was already started); `409 run_stopped`;
+`409 run_changed` (the lab was started again); `409 busy` (another command is
+changing the lab); `502 site_unreachable`. On an error the run is not linked
+and the page offers **Begin without saving**.
 
 ### `POST /launches/{id}/terms`
 

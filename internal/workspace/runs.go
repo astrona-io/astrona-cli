@@ -104,8 +104,13 @@ type RunRecord struct {
 	// CatalogLab is the lab's catalog name (ATS014/section-010/module-01/lab-02),
 	// "" for a lab from the student's own files. GET /catalog/suggestions
 	// reads it.
-	CatalogLab string    `json:"catalogLab,omitempty"`
-	CreatedAt  time.Time `json:"createdAt"`
+	CatalogLab string `json:"catalogLab,omitempty"`
+	// PlaygroundMinutes is a playground's time limit (its
+	// metadata.timeLimitMinutes), for the lab session a signed-out run gets
+	// when the student signs in on the launch page (labops.LinkRun); 0 for
+	// a lab. Never shown to the page.
+	PlaygroundMinutes int       `json:"playgroundMinutes,omitempty"`
+	CreatedAt         time.Time `json:"createdAt"`
 }
 
 // RunSolution is one of the run's solutions: its name ("default" or the
