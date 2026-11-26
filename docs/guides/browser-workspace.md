@@ -17,19 +17,33 @@ opens it in your default browser. You can follow everything from that tab:
    changed, the tab shows them in a dialog. **Accept and continue** goes on;
    **Decline and stop** stops the command before anything is downloaded or
    started. Nothing else happens, and no time counts, until you answer.
-2. **Setup.** The tab shows each step in a terminal-style window, as the
-   terminal does: what it is doing, ✓ / – / ✗ with how long each step took,
+2. **Setup.** The tab shows each step in a terminal-style **Setup log**, as the
+   terminal does: what it is doing, ✓ / ! / – / ✗ with how long each step took,
    and what a long step is waiting on. If setup fails, the tab shows the error
    and where the log is.
-3. **The lab.** Once the lab is ready the tab says so and waits for you.
-   Nothing counts yet. **Begin this session** starts the lab and opens the
+3. **The lab.** Once the lab is ready the tab shows **Lab ready**, how long
+   setup took and how many steps passed, and waits for you. Below that:
+   - one card per setup stage (such as Engine, Cluster, Images, Bootstrap)
+     with its time, its passed steps and any warnings;
+   - **What's in your lab**: the Kubernetes version and runtime, container
+     engine, nodes, network, VMs and preloaded images, as far as astrona
+     reports them;
+   - **Connect from your terminal**: the command to reach the lab from your
+     own terminal (`kubectl --context …`, or `astrona ssh <lab>` for a QEMU
+     lab), with a **Copy** button;
+   - when a step warned, a note with **See it in the log**, which opens the
+     setup log at that step. The log is folded once the lab is ready;
+     **Show N steps** opens it.
+
+   Nothing counts yet. **Begin session** starts the lab and opens the
    workspace straight away: the timer, and an exam's clock, start then. If the
    start fails, the intro page shows the error and a **Start** button to try
    again. A lab opened another way (`astrona ui`, *Labs on this computer*)
    still shows its intro page and starts on **Start**.
 
-While the lab is set up, a card shows whether this run is saved to your
-Astrona account. `astrona run` decides that when it starts the lab:
+While the lab is set up, a chip in the page header shows whether this run is
+saved to your Astrona account (your username when it is), and a card explains
+it when it is not. `astrona run` decides that when it starts the lab:
 
 - **Signed in** (a catalog lab, signed in): *Signed in as <username> on
   <site>*. The time you spend and your submitted result, pass or fail, are
@@ -132,7 +146,8 @@ removed are listed on one line below.
 To get there:
 
 - `astrona ui` with no lab name, when no lab or several labs are running;
-- **All labs** at the bottom of the workspace's task panel;
+- **Every lab on this computer, with stopped ones** in the workspace's
+  **All labs** drawer (see [All labs and About](#all-labs-and-about));
 - **See all labs on this computer** after a playground ended or a lab was
   removed.
 
@@ -189,6 +204,12 @@ run sends nothing.
   top-level heading (such as `# Exam Question: <lab>`) is left out, since the
   panel already shows the task; the lab's name is in the browser tab's title.
   **All labs** and **About Astrona** sit at the bottom of the panel.
+- **Free explore** (left, in a playground): a playground has no task, so the
+  panel says so and offers **Try a command — click to paste**: clicking a
+  command types it into the terminal without pressing Enter, so you can read
+  or change it first. **Your lab** lists what the playground is made of
+  (Kubernetes version, nodes, network, images). **Hide** folds the panel like
+  **Hide task**.
 - **Copy**: every inline `code` in the task and in a docs tab carries a small
   copy icon; click it (or focus it and press <kbd>Enter</kbd>) to copy its
   text. A code block shows a **Copy** button in its corner. Both say
@@ -209,16 +230,48 @@ run sends nothing.
   none, and they are never shown in an exam.
 - **Terminal** (right): a shell on the lab with `kubectl` pointed at its
   cluster (on a QEMU lab, an SSH login into its VM; see [QEMU labs](#qemu-labs)). Keyboard focus moves into the terminal after **Start** and when the
-  page opens. Press <kbd>F6</kbd> to leave the terminal; <kbd>Shift</kbd>+<kbd>F6</kbd>
-  works too. The skip links at the top move focus between task and terminal.
+  page opens. Press <kbd>F6</kbd> to leave the terminal (the tab bar shows this
+  hint); <kbd>Shift</kbd>+<kbd>F6</kbd> works too. A status bar under the
+  terminal shows the kubectl context (`ctx`), namespace (`ns`) and Kubernetes
+  version (`k8s`), when astrona reports them. The skip links at the top move focus between task and terminal.
 - **Divider**: drag it, or focus it and use the arrow keys (<kbd>Shift</kbd> for
   bigger steps, <kbd>Home</kbd> / <kbd>End</kbd> for the limits). The task
   panel starts at 25% of the width and can take 15% to 70%; it never gets
   narrower than 280 pixels. The browser remembers the width you chose.
 - **Hide task**: the button next to **Task** collapses the task panel to a
   thin rail, so the terminal gets the whole width. Click **Show task** on the
-  rail (or use **Skip to task**) to show the task again; **All labs** (⌂) and **About** (ⓘ) stay at
+  rail (or use **Skip to task**) to show the task again; **All labs** (▦) and **About** (ⓘ) stay at
   the bottom of the rail. The browser remembers this choice too.
+
+### Top bar
+
+The top bar shows whether it is a lab, exam or playground and the lab's name,
+the connection, and the time: **Time left** (H:MM:SS) when the run has a
+deadline, **Time spent** otherwise. When a playground's time can be extended,
+**+ Extend** next to the timer adds time (astrona says how much); the button is
+not shown when the run cannot be extended.
+
+With 10 minutes or less left, a banner says how many minutes remain and that
+the lab is shut down when time runs out, with **Extend time** when the run can
+be extended. **Dismiss** hides it for the rest of this run.
+
+### All labs and About
+
+**All labs** opens a drawer over the workspace:
+
+- **Running now**: this run (*You're here*, with the time left) and every
+  other lab running on this computer. **Switch** opens another one in this tab;
+  the lab you leave and its timer keep running until you end it.
+- **Every lab on this computer, with stopped ones** opens
+  [Labs on this computer](#labs-on-this-computer).
+- **Continue learning**: labs to try next from the Astrona catalog, with the
+  `astrona run` command for each, and a link to the full catalog. When
+  astrona.io cannot be reached, it shows the error instead.
+
+**About Astrona** shows links to the website, GitHub, YouTube and Open
+Collective, the documentation and source code, the licence and the
+open-source projects the workspace is built with, and the astrona-cli version
+and lab name.
 
 When you are done, use **Submit** in the top bar (see
 [Submit or end from the browser](#submit-or-end-from-the-browser));
@@ -295,7 +348,7 @@ The shell runs on your machine, held by the workspace server, not by the page:
 Output longer than the screen scrolls back like a local terminal: use the
 mouse wheel or trackpad, drag the scrollbar on the right (shown once there is
 history), or press Shift+Page Up / Shift+Page Down. The terminal keeps the last
-5000 lines. The prompt line always sits above the hint bar at the bottom, and
+5000 lines. The prompt line always sits above the status bar at the bottom, and
 the shell's size (`stty size`) follows the visible area when you resize the
 window, hide the task or drag the divider.
 
