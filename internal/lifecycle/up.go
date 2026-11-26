@@ -60,6 +60,9 @@ func Validate(cfg *config.LabConfig) error {
 	if err := config.ValidateTabs(cfg); err != nil {
 		return err
 	}
+	if err := config.ValidateSuggestedCommands(cfg); err != nil {
+		return err
+	}
 	return nil
 }
 
