@@ -264,6 +264,12 @@ onBeforeUnmount(() => {
 
 defineExpose({
   focus: () => term.value?.focus(),
+  // As a paste, so a shell with bracketed paste does not run it: the learner
+  // reads it and presses Enter.
+  paste: (text: string) => {
+    term.value?.paste(text)
+    term.value?.focus()
+  },
 })
 </script>
 
@@ -272,7 +278,8 @@ defineExpose({
     <!-- The fit addon sizes the terminal to its parent's computed height,
          which counts the parent's padding (border-box). The padding is on
          .term__host and xterm opens in .term__screen, which has none, so the
-         rows it proposes always fit above the hint bar. -->
+         rows it proposes always fit. The F6 hint and the status bar are in
+         LabTabs, under every tab. -->
     <div class="term__host">
       <div
         ref="host"
@@ -287,8 +294,5 @@ defineExpose({
         {{ notice.action }}
       </button>
     </div>
-    <p class="term__hint small muted">
-      Press <kbd>F6</kbd> to leave the terminal. Your shell keeps running when you reload or close this page.
-    </p>
   </div>
 </template>

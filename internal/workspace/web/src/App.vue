@@ -181,6 +181,12 @@ function showHome(): void {
   screen.value = { kind: 'home' }
 }
 
+// The workspace extended the run's time: its answer is the run as it is now.
+function onRunUpdated(r: Run): void {
+  run.value = r
+  syncServerClock(r.serverNow)
+}
+
 async function openFromHome(lab: string): Promise<void> {
   try {
     await enterRun(lab, getNavigationCode)
@@ -473,7 +479,7 @@ onMounted(async () => {
     }
     rememberLab(labId)
     await refresh()
-    // "Begin this session" on the launch page already means start: skip the
+    // "Begin session" on the launch page already means start: skip the
     // intro. A failed Start leaves the intro with its error and Start button.
     if (launch.begin && screen.value.kind === 'intro' && run.value?.status === 'ready') await start()
     if (screen.value.kind === 'intro' || screen.value.kind === 'workspace') schedule()
@@ -482,7 +488,7 @@ onMounted(async () => {
   }
 })
 
-// The launch's lab is ready and the learner clicked "Begin this session":
+// The launch's lab is ready and the learner clicked "Begin session":
 // open it in this tab and start it, without the intro in between.
 async function onLaunchReady(lab: string): Promise<void> {
   try {
@@ -554,6 +560,8 @@ watchEffect(() => {
     @run-gone="onRunGone"
     @end="openDialog('end')"
     @home="showHome"
+    @open-lab="openFromHome"
+    @run-updated="onRunUpdated"
   />
   <ResultsPage
     v-else-if="screen.kind === 'results'"

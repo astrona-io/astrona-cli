@@ -6,7 +6,7 @@
 //
 // The fragment the CLI prints is "#code=<code>", optionally with "&lab=<id>"
 // or "&launch=<id>" (an `astrona run` whose lab is not ready yet), and "&begin=1"
-// when the launch page's "Begin this session" opened the lab. After this
+// when the launch page's "Begin session" opened the lab. After this
 // module the address bar shows "#/runs/<lab>", "#/launches/<id>", "#/labs"
 // (every lab on this computer) or nothing.
 
@@ -17,7 +17,7 @@ export interface Launch {
   lab: string | null
   /** An `astrona run` still starting: terms, then setup, then its lab. */
   launchId: string | null
-  /** "Begin this session" opened the lab: start it instead of showing the intro. */
+  /** "Begin session" opened the lab: start it instead of showing the intro. */
   begin: boolean
 }
 

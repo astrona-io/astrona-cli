@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, toRef, watch } from 'vue'
 import { useCountdown } from '../clock'
-import { getQuestion, isRunGone, isUnauthorized, type Question, type Run } from '../api'
+import { extendRun, getQuestion, isRunGone, isUnauthorized, type Question, type Run } from '../api'
+import { envSpecs } from '../environment'
+import { dismissLowTime, LOW_TIME_MS, lowTimeDismissed } from '../lowTime'
 import { connectionLost, reconnectAttempt, resetConnectivity } from '../connectivity'
 import { useCopyCode } from '../copyCode'
 import type { ShownDocLink } from '../docLinks'
@@ -10,6 +12,7 @@ import AboutDialog from './AboutDialog.vue'
 import ConnectionLostDialog from './ConnectionLostDialog.vue'
 import DocLinks from './DocLinks.vue'
 import LabTabs from './LabTabs.vue'
+import LabsDrawer from './LabsDrawer.vue'
 import TopBar from './TopBar.vue'
 import SplitDivider from './SplitDivider.vue'
 
@@ -17,7 +20,16 @@ import SplitDivider from './SplitDivider.vue'
 // environment closes the terminals on purpose, so their drop is not a lost
 // connection and the "connection lost" dialog stays away.
 const props = defineProps<{ run: Run; ending?: boolean }>()
-const emit = defineEmits<{ unauthorized: []; runGone: []; end: []; home: [] }>()
+const emit = defineEmits<{
+  unauthorized: []
+  runGone: []
+  end: []
+  home: []
+  /** Switch to another lab running on this computer. */
+  openLab: [lab: string]
+  /** The server's run after a change made here (more time). */
+  runUpdated: [run: Run]
+}>()
 
 // ---------------------------------------------------------------- time up
 
@@ -25,6 +37,45 @@ const emit = defineEmits<{ unauthorized: []; runGone: []; end: []; home: [] }>()
 // exam's terminal stops taking input on the server at the deadline.
 const left = useCountdown(toRef(() => props.run.deadlineAt))
 const timeUp = computed(() => props.run.status === 'expired' || left.value === 0)
+
+// ---------------------------------------------------------------- low time
+
+// At ten minutes or less: a banner that says what happens at the end, with
+// Extend when the server allows it. Dismissed once per run, in this browser.
+const dismissed = ref(lowTimeDismissed(props.run.runId))
+watch(
+  () => props.run.runId,
+  (id) => (dismissed.value = lowTimeDismissed(id)),
+)
+const lowTime = computed(() => !timeUp.value && left.value !== null && left.value <= LOW_TIME_MS && !dismissed.value)
+const minutesLeft = computed(() => (left.value === null ? 0 : Math.ceil(left.value / 60_000)))
+
+function dismiss(): void {
+  dismissed.value = true
+  dismissLowTime(props.run.runId)
+}
+
+// ---------------------------------------------------------------- extend
+
+const canExtend = computed(() => props.run.canExtend === true)
+const extending = ref(false)
+const extendError = ref<string | null>(null)
+
+async function extend(): Promise<void> {
+  if (extending.value) return
+  extending.value = true
+  extendError.value = null
+  try {
+    const r = await extendRun(props.run.lab, props.run.runId)
+    emit('runUpdated', r)
+  } catch (err) {
+    if (isUnauthorized(err)) emit('unauthorized')
+    else if (isRunGone(err)) emit('runGone')
+    else extendError.value = err instanceof Error ? err.message : String(err)
+  } finally {
+    extending.value = false
+  }
+}
 
 // ---------------------------------------------------------------- task
 
@@ -56,9 +107,26 @@ const copyCode = useCopyCode(prose, () => question.value?.html)
 // ---------------------------------------------------------------- view
 
 // LabTabs: focus() like a view, and openResource() for a documentation badge.
-const viewRef = ref<(ViewHandle & { openResource(link: ShownDocLink): void }) | null>(null)
+const viewRef = ref<
+  (ViewHandle & { openResource(link: ShownDocLink): void; paste(text: string): Promise<boolean> }) | null
+>(null)
 const status = ref<ViewStatus>({ tone: 'busy', label: 'Connecting' })
 const aboutOpen = ref(false)
+const labsOpen = ref(false)
+
+// ---------------------------------------------------------------- free explore
+
+// A playground has no task: its panel offers commands to try and what the
+// lab is made of instead. Only what the server sent.
+const noTask = computed(() => props.run.playground && props.run.questions.length === 0)
+const suggested = computed(() => props.run.suggestedCommands ?? [])
+const specs = computed(() => envSpecs(props.run.environment))
+const pasteNote = ref('')
+
+async function pasteCommand(command: string): Promise<void> {
+  const ok = (await viewRef.value?.paste(command)) ?? false
+  pasteNote.value = ok ? `Pasted into the terminal: ${command}. Press Enter to run it.` : 'No terminal to paste into.'
+}
 
 // ---------------------------------------------------------------- layout
 
@@ -184,7 +252,25 @@ onBeforeUnmount(() => {
       <button type="button" class="skip__link" @click="focusTask">Skip to task</button>
     </nav>
 
-    <TopBar :run="run" :status="status" @end="emit('end')" />
+    <TopBar
+      :run="run"
+      :status="status"
+      :extending="extending"
+      :extend-error="extendError"
+      @end="emit('end')"
+      @extend="extend"
+    />
+
+    <div v-if="lowTime" class="lowtime" role="status">
+      <p class="lowtime__text">
+        <strong>{{ minutesLeft }} {{ minutesLeft === 1 ? 'minute' : 'minutes' }} left.</strong>
+        When time runs out, the lab is shut down.
+      </p>
+      <button type="button" class="lowtime__dismiss" @click="dismiss">Dismiss</button>
+      <button v-if="canExtend" type="button" class="btn btn--soft btn--sm" :disabled="extending" @click="extend">
+        {{ extending ? 'Extending…' : 'Extend time' }}
+      </button>
+    </div>
 
     <div v-if="timeUp && run.playground" class="timeup" role="status">
       <p class="timeup__text">
@@ -215,16 +301,16 @@ onBeforeUnmount(() => {
           class="task-rail__button"
           aria-controls="task-panel"
           aria-expanded="false"
-          title="Show the task"
+          :title="run.playground ? 'Show the panel' : 'Show the task'"
           @click="setCollapsed(false)"
         >
           <span class="task-rail__icon" aria-hidden="true">›</span>
-          <span class="task-rail__label" aria-hidden="true">Show task</span>
-          <span class="visually-hidden">Show the task</span>
+          <span class="task-rail__label" aria-hidden="true">{{ run.playground ? 'Show panel' : 'Show task' }}</span>
+          <span class="visually-hidden">{{ run.playground ? 'Show the panel' : 'Show the task' }}</span>
         </button>
         <div class="task-rail__links">
-          <button type="button" class="task-rail__link" title="All labs on this computer" @click="emit('home')">
-            <span aria-hidden="true">⌂</span>
+          <button type="button" class="task-rail__link" title="All labs" aria-haspopup="dialog" @click="labsOpen = true">
+            <span aria-hidden="true">▦</span>
             <span class="visually-hidden">All labs</span>
           </button>
           <button type="button" class="task-rail__link" title="About Astrona" aria-haspopup="dialog" @click="aboutOpen = true">
@@ -243,7 +329,8 @@ onBeforeUnmount(() => {
       >
         <div class="task__body">
           <div class="task__bar">
-            <p id="task-heading" class="eyebrow">
+            <p v-if="run.playground" id="task-heading" class="eyebrow">Free explore</p>
+            <p v-else id="task-heading" class="eyebrow">
               Task<template v-if="question?.points"> · {{ question.points }} points</template>
             </p>
             <button
@@ -251,19 +338,46 @@ onBeforeUnmount(() => {
               class="task__link task__collapse"
               aria-controls="task-panel"
               aria-expanded="true"
-              title="Hide the task for more room"
+              :title="run.playground ? 'Hide the panel for more room' : 'Hide the task for more room'"
               @click="setCollapsed(true)"
             >
               <span class="task__link-icon" aria-hidden="true">‹</span>
-              Hide task
+              {{ run.playground ? 'Hide' : 'Hide task' }}
             </button>
           </div>
+          <template v-if="run.playground">
+            <div v-if="noTask" class="explore__intro">
+              <h2 class="explore__title">No task — it's your sandbox</h2>
+              <p class="muted small">This playground has no task document. Break things, try ideas, poke around the cluster.</p>
+            </div>
+            <section v-if="suggested.length" class="explore__block" aria-labelledby="explore-try">
+              <h3 id="explore-try" class="explore__heading small muted">Try a command — click to paste</h3>
+              <ul class="explore__cmds">
+                <li v-for="c in suggested" :key="c.command">
+                  <button type="button" class="cmd" :title="c.label || undefined" @click="pasteCommand(c.command)">
+                    <span class="cmd__prompt" aria-hidden="true">$</span>
+                    <span class="cmd__text mono">{{ c.command }}</span>
+                    <span v-if="c.label" class="visually-hidden"> — {{ c.label }}</span>
+                  </button>
+                </li>
+              </ul>
+            </section>
+            <section v-if="specs.length" class="explore__block" aria-labelledby="explore-lab">
+              <h3 id="explore-lab" class="eyebrow">Your lab</h3>
+              <dl class="specs">
+                <template v-for="(sp, i) in specs" :key="i">
+                  <dt class="specs__label">{{ sp.label }}</dt>
+                  <dd class="specs__value mono">{{ sp.value }}</dd>
+                </template>
+              </dl>
+            </section>
+          </template>
           <DocLinks :links="run.docLinks ?? []" @open="openResource" />
-          <p v-if="questionError" class="error" role="alert">Could not load the task: {{ questionError }}</p>
-          <p v-else-if="!question" class="muted">Loading the task…</p>
+          <p v-if="questionError && !noTask" class="error" role="alert">Could not load the task: {{ questionError }}</p>
+          <p v-else-if="!question && !noTask" class="muted">Loading the task…</p>
           <!-- Rendered and sanitised on the server; innerHTML never runs scripts and CSP blocks inline handlers. -->
           <article
-            v-else
+            v-else-if="question"
             ref="prose"
             class="prose"
             @click="copyCode.onClick"
@@ -272,8 +386,8 @@ onBeforeUnmount(() => {
           />
         </div>
         <footer class="task__foot">
-          <button type="button" class="task__link" title="Every lab running on this computer" @click="emit('home')">
-            <span class="task__link-icon" aria-hidden="true">⌂</span>
+          <button type="button" class="task__link" title="Labs running on this computer" aria-haspopup="dialog" @click="labsOpen = true">
+            <span class="task__link-icon" aria-hidden="true">▦</span>
             All labs
           </button>
           <button type="button" class="task__link" aria-haspopup="dialog" @click="aboutOpen = true">
@@ -300,8 +414,17 @@ onBeforeUnmount(() => {
     </div>
   </div>
 
-  <AboutDialog v-if="aboutOpen" @close="aboutOpen = false" />
+  <AboutDialog v-if="aboutOpen" :lab="run.lab" @close="aboutOpen = false" />
+  <LabsDrawer
+    v-if="labsOpen"
+    :run="run"
+    @close="labsOpen = false"
+    @open="emit('openLab', $event)"
+    @home="emit('home')"
+    @unauthorized="emit('unauthorized')"
+  />
   <ConnectionLostDialog v-if="lostShown" :lab="run.lab" :attempt="reconnectAttempt" />
   <p class="visually-hidden" aria-live="assertive">{{ announcement }}</p>
   <p class="visually-hidden" aria-live="polite">{{ copyCode.announcement.value }}</p>
+  <p class="visually-hidden" aria-live="polite">{{ pasteNote }}</p>
 </template>

@@ -616,9 +616,41 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onOutside, tru
 
 save()
 
+// A suggested command: into the active terminal, or the first terminal tab
+// (shown first) when the active tab is not one. Never with Enter.
+async function paste(text: string): Promise<boolean> {
+  let tab = find(active.value)
+  if (tab?.kind !== 'terminal') tab = open.find((t) => t.kind === 'terminal')
+  if (!tab) return false
+  if (tab.name !== active.value) select(tab.name)
+  // A terminal shown for the first time loads its view first.
+  for (let i = 0; i < 40 && !handles[tab.name]?.paste; i++) {
+    await nextTick()
+    await new Promise((r) => window.setTimeout(r, 50))
+  }
+  const handle = handles[tab.name]
+  if (!handle?.paste) return false
+  handle.paste(text)
+  return true
+}
+
+// The status bar under the tabs: which cluster the terminals talk to.
+const env = computed(() => props.run.environment)
+const statusBits = computed(() => {
+  const e = env.value
+  if (!e) return []
+  const out: { key: string; value: string }[] = []
+  if (e.context) out.push({ key: 'ctx', value: e.context })
+  if (e.namespace) out.push({ key: 'ns', value: e.namespace })
+  if (e.kubernetesVersion) out.push({ key: 'k8s', value: e.kubernetesVersion })
+  return out
+})
+const hasTerminal = computed(() => open.some((t) => t.kind === 'terminal'))
+
 defineExpose({
   focus: () => handles[active.value]?.focus(),
   openResource,
+  paste,
 })
 </script>
 
@@ -664,6 +696,7 @@ defineExpose({
           </button>
         </div>
       </div>
+      <p v-if="hasTerminal" class="tabs__hint small muted"><kbd>F6</kbd> leave terminal</p>
       <div ref="menuRoot" class="tabs__add">
         <button
           ref="menuButton"
@@ -724,6 +757,13 @@ defineExpose({
       />
     </div>
     <p v-if="open.length === 0" class="view__empty muted" role="status">This lab has nothing to show here.</p>
+    <footer v-if="hasTerminal" class="statusbar small">
+      <p v-for="b in statusBits" :key="b.key" class="statusbar__item">
+        <span class="statusbar__key">{{ b.key }}</span>
+        <span class="statusbar__value mono">{{ b.value }}</span>
+      </p>
+      <p class="statusbar__note muted">Your shell keeps running if you reload or close this page</p>
+    </footer>
   </div>
 
   <ConfirmDialog

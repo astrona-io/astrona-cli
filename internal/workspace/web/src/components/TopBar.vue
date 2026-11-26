@@ -4,10 +4,16 @@ import type { Run } from '../api'
 import { formatDuration, useCountdown, useElapsed } from '../clock'
 import type { ViewStatus } from '../views/types'
 import { endSessionCopy } from '../endSession'
+import { LOW_TIME_MS } from '../lowTime'
 import BrandMark from './BrandMark.vue'
 
-const props = defineProps<{ run: Run; status: ViewStatus }>()
-const emit = defineEmits<{ end: [] }>()
+// extending: POST /extend is on its way; extendError: why the last one failed.
+const props = defineProps<{ run: Run; status: ViewStatus; extending?: boolean; extendError?: string | null }>()
+const emit = defineEmits<{ end: []; extend: [] }>()
+
+const kind = computed(() => (props.run.playground ? 'Playground' : props.run.mode === 'exam' ? 'Exam' : 'Lab'))
+// Only when the server says so: an older server never sends canExtend.
+const canExtend = computed(() => props.run.canExtend === true)
 
 // Submit for a lab or exam, End for a playground. A playground can always be
 // ended while it runs; a lab only when the server says it can be graded now,
@@ -25,7 +31,7 @@ const showEnd = computed(() => props.run.status !== 'stopped' && props.run.statu
 // without one shows the time since Start instead.
 const deadline = toRef(() => props.run.deadlineAt)
 const left = useCountdown(deadline)
-const lowTime = computed(() => left.value !== null && left.value <= 5 * 60_000)
+const lowTime = computed(() => left.value !== null && left.value <= LOW_TIME_MS)
 // A started lab without a deadline (learning mode) counts up from Start instead.
 const startedAt = toRef(() =>
   !props.run.playground && !props.run.deadlineAt && props.run.status === 'running' ? props.run.startedAt : null,
@@ -65,34 +71,55 @@ watch(left, (ms) => {
   <header class="topbar">
     <div class="topbar__brand">
       <BrandMark size="sm" />
-      <span class="eyebrow eyebrow--page topbar__kind">{{ run.playground ? 'Playground' : run.mode === 'exam' ? 'Exam' : 'Lab' }}</span>
+      <p class="crumbs">
+        <span class="crumbs__kind">{{ kind }}</span>
+        <span class="crumbs__sep" aria-hidden="true">/</span>
+        <span class="crumbs__lab mono">{{ run.lab }}</span>
+      </p>
     </div>
     <div class="topbar__meta">
-      <p class="conn" :class="`conn--${status.tone}`">
-        <span class="dot" aria-hidden="true" />
-        <span>{{ status.label }}</span>
-      </p>
-      <p v-if="left !== null" class="timer" :class="{ 'timer--low': lowTime }">
-        <span class="visually-hidden">Time left: </span>
-        <span class="timer__value" aria-hidden="true">{{ formatDuration(left) }}</span>
-        <span class="visually-hidden">{{ Math.ceil(left / 60_000) }} minutes</span>
-      </p>
-      <p v-else-if="elapsed !== null" class="timer timer--elapsed" title="Time since you clicked Start; learning labs have no time limit">
-        <span class="visually-hidden">Time spent: </span>
-        <span class="timer__value" aria-hidden="true">{{ formatDuration(elapsed) }}</span>
-        <span class="visually-hidden">{{ Math.floor(elapsed / 60_000) }} minutes</span>
+      <div class="seg">
+        <p class="seg__item conn" :class="`conn--${status.tone}`">
+          <span class="dot" aria-hidden="true" />
+          <span>{{ status.label }}</span>
+        </p>
+        <p v-if="left !== null" class="seg__item timer" :class="{ 'timer--low': lowTime }">
+          <span class="timer__label">Time left</span>
+          <span class="timer__value mono" aria-hidden="true">{{ formatDuration(left, { hours: true }) }}</span>
+          <span class="visually-hidden">{{ Math.ceil(left / 60_000) }} minutes</span>
+        </p>
+        <p v-else-if="elapsed !== null" class="seg__item timer timer--elapsed" title="Time since you clicked Start; learning labs have no time limit">
+          <span class="timer__label">Time spent</span>
+          <span class="timer__value mono" aria-hidden="true">{{ formatDuration(elapsed, { hours: true }) }}</span>
+          <span class="visually-hidden">{{ Math.floor(elapsed / 60_000) }} minutes</span>
+        </p>
+        <button
+          v-if="canExtend"
+          type="button"
+          class="seg__item seg__button"
+          :disabled="extending"
+          :aria-describedby="extendError ? 'extend-error' : undefined"
+          :title="run.extendMinutes ? `Add ${run.extendMinutes} minutes` : 'Add time'"
+          @click="emit('extend')"
+        >
+          {{ extending ? 'Extending…' : '+ Extend' }}
+        </button>
+      </div>
+      <p v-if="extendError" id="extend-error" class="topbar__blocked small error" role="alert">
+        Could not extend: {{ extendError }}
       </p>
       <div v-if="showEnd" class="topbar__end">
         <p v-if="endBlocked" id="end-blocked" class="topbar__blocked small muted">{{ endBlocked }}</p>
         <button
           type="button"
           class="btn btn--sm"
-          :class="run.playground ? 'btn--ghost' : 'btn--primary'"
+          :class="run.playground ? 'btn--danger' : 'btn--primary'"
           :disabled="!!endBlocked"
           :aria-describedby="endBlocked ? 'end-blocked' : undefined"
           aria-haspopup="dialog"
           @click="emit('end')"
         >
+          <span v-if="run.playground" class="btn__stop" aria-hidden="true" />
           {{ endLabel }}
         </button>
       </div>
