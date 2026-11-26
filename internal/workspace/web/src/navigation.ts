@@ -3,6 +3,14 @@ interface BrowserNavigation {
   history: Pick<History, 'replaceState'>
 }
 
+let entering = false
+
+// True once enterRun is reloading into a run: the page's leave warning is not
+// for this (the current lab keeps running).
+export function isEnteringRun(): boolean {
+  return entering
+}
+
 // A run may have been created after this page loaded. Fetch a new document so
 // its CSP includes the run's frame origins. A fresh code also works when the
 // current token lives only in memory; the bearer token never enters the URL.
@@ -18,5 +26,6 @@ export async function enterRun(
   if (begin) fragment.set('begin', '1')
   const { location, history } = browser
   history.replaceState(null, '', `${location.pathname}${location.search}#${fragment}`)
+  entering = true
   location.reload()
 }

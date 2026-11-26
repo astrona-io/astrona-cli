@@ -145,51 +145,369 @@
 
 /* ---------------------------------------------------------------- launch */
 
+.launch-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* The page header of the launch screen: brand left, account chip right. */
+.runbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--chrome);
+}
+
+.runbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.runbar__name {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Whose account: a filled green dot when signed in, a hollow one when not. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--pill);
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chip__dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border: 1.5px solid var(--muted);
+  border-radius: var(--pill);
+}
+
+.chip--on .chip__dot {
+  border-color: var(--green);
+  background: var(--green);
+}
+
+.chip__name {
+  color: var(--ink);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
 .launch {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   width: min(1040px, 100%);
+  margin: 0 auto;
+  padding: clamp(24px, 6vh, 64px) 16px 40px;
+}
+
+.launch__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 28px 32px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.launch__hero--ready {
+  border-color: var(--green-line);
+}
+
+.launch__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--pill);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.badge--ready {
+  border-color: var(--green-line);
+  background: var(--tint-green);
+  color: var(--green);
+}
+
+.launch__title {
+  font-size: clamp(28px, 4vw, 40px);
+  letter-spacing: -0.01em;
+}
+
+.launch__lab {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.launch__lab-name {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--panel-3);
+  color: var(--violet);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.launch__lead {
+  max-width: 60ch;
+  margin: 0;
+}
+
+.launch__begin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  margin-top: 4px;
+}
+
+.launch__cta {
+  min-height: 52px;
+  padding: 14px 28px;
+  font-size: 17px;
+}
+
+.launch__cta:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 3px;
+}
+
+.launch__timer {
+  margin: 0;
+}
+
+/* One card per setup section. */
+.stages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+}
+
+.stage p {
+  margin: 0;
+}
+
+.stage__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.stage__mark {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.stage--warn .stage__mark {
+  color: var(--amber);
+}
+
+.stage--fail .stage__mark {
+  color: var(--red);
+}
+
+.stage__name {
+  flex: 1;
+  font-weight: 700;
+}
+
+.launch__info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.launch__box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+}
+
+/* Label and value rows: what a lab is made of. */
+.specs {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 18px;
+  margin: 0;
+}
+
+.specs__label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.specs__value {
+  margin: 0;
+  min-width: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.connect {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-xs);
+  background: var(--panel-3);
+}
+
+.connect__cmd {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.connect__prompt {
+  color: var(--green);
+}
+
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.callout--warn {
+  border-color: var(--amber-line);
+  background: var(--tint-amber);
+  color: var(--amber-ink);
+}
+
+.callout--warn .link-btn {
+  color: var(--amber);
+}
+
+.callout__mark {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: var(--pill);
+  background: var(--amber);
+  color: var(--tint-amber);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 /* The setup log is drawn as a terminal window: dark in both themes, like
    the lab terminal itself. */
 .launch__term {
   overflow: hidden;
-  border: 1px solid rgba(236, 231, 245, 0.12);
+  border: 1px solid rgba(238, 234, 246, 0.12);
   border-radius: var(--radius-sm);
   background: var(--term-bg);
-  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.6);
+  scroll-margin-top: 16px;
 }
 
 .launch__bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 7px;
-  padding: 9px 12px;
-  border-bottom: 1px solid rgba(236, 231, 245, 0.08);
-  background: rgba(236, 231, 245, 0.04);
+  gap: 6px 14px;
+  padding: 9px 14px;
+  background: rgba(238, 234, 246, 0.04);
 }
 
-.launch__light {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #ff5f57;
-}
-
-.launch__light:nth-child(2) {
-  background: #febc2e;
-}
-
-.launch__light:nth-child(3) {
-  background: #28c840;
+.launch__log-title {
+  margin: 0;
+  color: rgba(238, 234, 246, 0.85);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .launch__cmd {
   flex: 1;
-  margin-right: 40px;
-  color: rgba(236, 231, 245, 0.55);
-  font-family: var(--font-mono, ui-monospace, monospace);
+  min-width: 0;
+  color: rgba(238, 234, 246, 0.55);
+  font-family: var(--font-mono);
   font-size: 12px;
-  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.launch__toggle {
+  padding: 4px 10px;
+  border: 1px solid rgba(238, 234, 246, 0.16);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: rgba(238, 234, 246, 0.8);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.launch__toggle:hover,
+.launch__toggle:focus-visible {
+  border-color: rgba(238, 234, 246, 0.4);
+  color: #eeeaf6;
 }
 
 .launch__steps {
@@ -197,13 +515,14 @@
   flex-direction: column;
   gap: 4px;
   max-height: 52vh;
-  min-height: 220px;
+  min-height: 160px;
   margin: 0;
   padding: 14px 16px;
   overflow-y: auto;
+  border-top: 1px solid rgba(238, 234, 246, 0.08);
   color: var(--term-fg);
   list-style: none;
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.55;
   scrollbar-color: var(--term-scrollbar) transparent;
@@ -235,25 +554,6 @@
   font-weight: 700;
 }
 
-.launch__begin {
-  display: flex;
-}
-
-/* The one thing to do once the lab is ready: as wide as the log above it. */
-.launch__cta {
-  flex: 1;
-  min-height: 60px;
-  padding: 18px 32px;
-  font-size: 19px;
-  letter-spacing: 0.01em;
-  box-shadow: 0 6px 24px -8px var(--orange);
-}
-
-.launch__cta:focus-visible {
-  outline: 3px solid var(--orange-hover);
-  outline-offset: 3px;
-}
-
 .launch__section {
   margin-top: 8px;
   color: var(--ansi-6);
@@ -268,14 +568,16 @@
   display: grid;
   grid-template-columns: 1.2em 1fr auto;
   gap: 8px;
-  color: rgba(236, 231, 245, 0.72);
+  color: rgba(238, 234, 246, 0.72);
 }
 
 .launch__step--ok .launch__mark {
   color: var(--ansi-2);
 }
 
-.launch__step--skip .launch__mark {
+.launch__step--skip .launch__mark,
+.launch__step--warn,
+.launch__step--warn .launch__mark {
   color: var(--ansi-3);
 }
 
@@ -296,8 +598,12 @@
 }
 
 .launch__detail {
-  color: rgba(236, 231, 245, 0.45);
+  color: rgba(238, 234, 246, 0.45);
   font-size: 12px;
+}
+
+.launch__time {
+  color: rgba(238, 234, 246, 0.45);
 }
 
 .terms {
@@ -363,9 +669,92 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px 24px;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--chrome);
+}
+
+/* PLAYGROUND / <lab> */
+.crumbs {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+}
+
+.crumbs__kind {
+  color: var(--violet);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.crumbs__sep {
+  color: var(--dim);
+}
+
+.crumbs__lab {
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Connected | Time left | + Extend, as one segmented control. */
+.seg {
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--panel-2);
+}
+
+.seg__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 12px;
+}
+
+.seg__item + .seg__item {
+  border-left: 1px solid var(--line);
+}
+
+.seg__button {
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  background: var(--accent-bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.seg__button:hover:not(:disabled),
+.seg__button:focus-visible {
+  color: var(--violet);
+}
+
+.seg__button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* The square on End playground. */
+.btn__stop {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 2px;
+  background: currentColor;
 }
 
 .topbar__brand {
@@ -422,8 +811,9 @@
 
 .topbar__meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 20px;
+  gap: 8px 14px;
 }
 
 .conn {
@@ -451,21 +841,29 @@
 }
 
 .timer {
-  padding: 4px 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--pill);
-  font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: 13px;
+}
+
+.timer__label {
+  color: var(--muted);
+}
+
+.timer__value {
+  color: var(--ink);
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
 
-.timer--elapsed {
+.timer--elapsed .timer__value {
   color: var(--muted);
 }
 
 .timer--low {
-  border-color: var(--amber);
   background: var(--tint-amber);
+}
+
+.timer--low .timer__label,
+.timer--low .timer__value {
   color: var(--amber);
 }
 
@@ -483,7 +881,7 @@
   /* Readable on narrow windows: the panel never gets narrower than this,
      whatever the saved percentage. */
   min-width: 280px;
-  background: var(--bg);
+  background: var(--panel-2);
 }
 
 /* The task text scrolls; the links below it stay at the bottom. */
@@ -654,6 +1052,75 @@
   padding: 24px;
 }
 
+/* ---------------------------------------------------------------- free explore */
+
+/* A playground's panel: no task, commands to try and what the lab is. */
+.explore__intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.explore__intro p,
+.explore__title {
+  margin: 0;
+}
+
+.explore__title {
+  font-size: 18px;
+}
+
+.explore__block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.explore__heading {
+  margin: 0;
+  font-weight: 500;
+}
+
+.explore__cmds {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cmd {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--panel-3);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cmd:hover,
+.cmd:focus-visible {
+  border-color: var(--violet);
+}
+
+.cmd__prompt {
+  color: var(--green);
+  font-family: var(--font-mono);
+}
+
+.cmd__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* ---------------------------------------------------------------- lab tabs */
 
 .tabs {
@@ -666,8 +1133,15 @@
 .tabs__bar {
   display: flex;
   align-items: flex-end;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--chrome);
+}
+
+.tabs__hint {
+  flex: none;
+  align-self: center;
+  margin: 0 4px 0 8px;
+  white-space: nowrap;
 }
 
 .tabs__list {
@@ -980,10 +1454,43 @@
   color: var(--ink);
 }
 
-.term__hint {
-  padding: 6px 12px;
-  border-top: 1px solid var(--line);
-  background: var(--panel);
+/* Under the tabs: the cluster the terminals talk to. */
+.statusbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 18px;
+  padding: 5px 12px;
+  border-top: 1px solid var(--line-soft);
+  background: var(--chrome);
+}
+
+.statusbar p {
+  margin: 0;
+}
+
+.statusbar__item {
+  display: inline-flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.statusbar__key {
+  color: var(--violet);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.statusbar__value {
+  color: var(--ink);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.statusbar__note {
+  margin-left: auto;
 }
 
 /* ---------------------------------------------------------------- task prose */
@@ -1296,6 +1803,46 @@
 
 .topbar__blocked {
   max-width: 260px;
+  margin: 0;
+}
+
+/* N minutes left: amber, under the top bar, dismissable per run. */
+.lowtime {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--amber-line);
+  background: var(--tint-amber);
+  color: var(--amber-ink);
+  font-size: 14px;
+}
+
+.lowtime__text {
+  flex: 1;
+  min-width: 12em;
+  margin: 0;
+}
+
+.lowtime__text strong {
+  color: var(--amber);
+}
+
+.lowtime__dismiss {
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: var(--amber-ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.lowtime__dismiss:hover,
+.lowtime__dismiss:focus-visible {
+  color: var(--amber);
+  text-decoration: underline;
 }
 
 .timeup {
@@ -1305,7 +1852,7 @@
   justify-content: space-between;
   gap: 8px 16px;
   padding: 10px 20px;
-  border-bottom: 1px solid var(--amber);
+  border-bottom: 1px solid var(--amber-line);
   background: var(--tint-amber);
 }
 
@@ -1360,28 +1907,177 @@
   margin: 0;
 }
 
-.about a {
-  color: var(--orange-ink);
+.about p {
+  margin: 0;
 }
 
-.about__links,
-.about__credits {
+.about a {
+  color: var(--violet);
+}
+
+.about__head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
+  align-items: center;
+  gap: 14px;
+}
+
+.about__sub {
+  margin-top: 2px;
+}
+
+.about__mission {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* Website, GitHub, YouTube, Support us: two columns of label and sub. */
+.about__links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.about__credits {
+.about .about__link {
+  display: flex;
   flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: var(--panel-2);
+  color: var(--ink);
+  text-decoration: none;
 }
 
-.about__heading {
-  margin: 0 0 6px;
+.about .about__link:hover,
+.about .about__link:focus-visible {
+  border-color: var(--violet);
+}
+
+.about__link-label {
+  font-weight: 500;
+}
+
+.about__more {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.about__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* "All labs": a modal drawer from the left edge. */
+.drawer {
+  width: min(420px, 100%);
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  margin: 0 auto 0 0;
+  border-width: 0 1px 0 0;
+  border-radius: 0;
+  background: var(--panel-2);
+}
+
+.drawer__card {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 20px;
+}
+
+.drawer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.drawer__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drawer__section p {
+  margin: 0;
+}
+
+.drawer__section a {
+  color: var(--violet);
+}
+
+.drawer__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labcard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.labcard--here {
+  border-color: var(--green-line);
+  background: var(--tint-running);
+}
+
+.labcard__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.labcard__name {
   color: var(--ink);
-  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.drawer__section a.labcard__name {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.drawer__section a.labcard__name:hover,
+.drawer__section a.labcard__name:focus-visible {
+  color: var(--violet);
+}
+
+.labcard__here {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--pill);
+  background: var(--tint-green);
+  color: var(--green);
+  font-weight: 500;
+}
+
+.labcard__cmd {
+  margin-top: 4px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .dialog__busy {

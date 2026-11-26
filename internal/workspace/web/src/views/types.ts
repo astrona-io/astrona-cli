@@ -51,6 +51,8 @@ export interface WorkspaceTab extends RunTab {
 
 export interface ViewHandle {
   focus(): void
+  /** A terminal: types text at the prompt as a paste, without Enter. */
+  paste?(text: string): void
 }
 
 /** The view component for each tab kind. */

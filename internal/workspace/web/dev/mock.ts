@@ -4,6 +4,9 @@
 //   npm run dev                       mock server (exam lab)
 //   MOCK_KIND=playground npm run dev  mock playground
 //   MOCK_KIND=qemu npm run dev        mock QEMU lab with two VMs (exam)
+//   MOCK_LEFT_MINUTES=9 MOCK_KIND=playground npm run dev   a playground with 9
+//                                     minutes left (the low-time banner); default 120
+//   MOCK_CATALOG=down npm run dev     GET /catalog/suggestions answers 502
 //   MOCK_ACCOUNT=signed-out npm run dev   account status: signed-in (default),
 //                                     signed-out, local-only or untracked
 //   open http://127.0.0.1:5173/#code=dev&lab=demo   (code "expired" shows the 401 page)
@@ -89,7 +92,13 @@ const tracking =
 // GET /launches/{id}: a browser-first `astrona run` that sets up for
 // LAUNCH_SECONDS from its first poll (a new id starts over), then hands the page lab "demo".
 const LAUNCH_SECONDS = 40
-const LAUNCH_STEPS = ['Check the container engine', 'Create kind cluster', 'Install Calico', 'Apply lab resources', 'Wait for pods']
+const LAUNCH_SECTIONS: { label: string; steps: string[] }[] = [
+  { label: 'Engine', steps: ['Check the container engine'] },
+  { label: 'Cluster', steps: ['Create kind cluster', 'Install Calico'] },
+  { label: 'Images', steps: ['Load lab images'] },
+  { label: 'Bootstrap', steps: ['Apply lab resources', 'Wait for pods'] },
+]
+const LAUNCH_STEPS = LAUNCH_SECTIONS.flatMap((s) => s.steps.map((label) => ({ section: s.label, label })))
 const launchFirstPoll = new Map<string, number>()
 
 function mockLaunch(id: string) {
@@ -98,11 +107,21 @@ function mockLaunch(id: string) {
   const per = LAUNCH_SECONDS / LAUNCH_STEPS.length
   const done = Math.min(LAUNCH_STEPS.length, Math.floor(elapsed / per))
   const at = new Date().toISOString()
-  const events: Record<string, unknown>[] = [{ at, kind: 'section', label: 'Cluster' }]
-  LAUNCH_STEPS.forEach((label, i) => {
+  const events: Record<string, unknown>[] = []
+  let section = ''
+  LAUNCH_STEPS.forEach(({ section: s, label }, i) => {
     if (i > done) return
+    if (s !== section) {
+      section = s
+      events.push({ at, kind: 'section', label: s })
+    }
     events.push({ at, kind: 'step', label })
-    if (i < done) events.push({ at, kind: 'ok', label, seconds: per })
+    if (i < done) {
+      if (label === 'Load lab images') {
+        events.push({ at, kind: 'warn', label: 'busybox:1.37.0 was pulled from the registry', detail: 'not in the local cache; later runs reuse it' })
+      }
+      events.push({ at, kind: 'ok', label, seconds: per })
+    }
   })
   const ready = done >= LAUNCH_STEPS.length
   return {
@@ -111,7 +130,7 @@ function mockLaunch(id: string) {
     pid: 1,
     stage: ready ? 'ready' : 'preparing',
     title: playground ? 'Kubernetes playground' : QUESTION_TITLE,
-    ...(ready ? { lab: 'demo' } : { status: `waiting · ${Math.round(elapsed % per)}s` }),
+    ...(ready ? { lab: 'demo', environment: environment() } : { status: `waiting · ${Math.round(elapsed % per)}s` }),
     events,
     account,
     ...(playground ? { playground } : {}),
@@ -119,9 +138,55 @@ function mockLaunch(id: string) {
   }
 }
 
+// What the lab is made of (Run.environment, and a ready launch's).
+function environment() {
+  if (qemu) {
+    return {
+      runtime: 'vm',
+      kubernetesVersion: '',
+      engine: '',
+      nodes: [],
+      network: '',
+      images: [],
+      context: '',
+      namespace: '',
+      connect: 'astrona ssh demo',
+      vms: [
+        { name: 'control', os: 'Debian 13', cpus: 2, memoryMiB: 2048 },
+        { name: 'worker', os: 'Debian 13', cpus: 1, memoryMiB: 1024 },
+      ],
+    }
+  }
+  return {
+    runtime: 'kind',
+    kubernetesVersion: 'v1.35.0',
+    engine: 'podman',
+    nodes: [
+      { name: 'demo-control-plane', role: 'control-plane' },
+      { name: 'demo-worker', role: 'worker' },
+    ],
+    network: 'Calico',
+    images: ['busybox:1.37.0', 'nginx:1.29.3'],
+    context: 'kind-demo',
+    namespace: 'default',
+    connect: 'kubectl --context kind-demo get nodes',
+    vms: [],
+  }
+}
+
+const SUGGESTED_COMMANDS = [
+  { command: 'kubectl get nodes -o wide', label: 'See the cluster nodes' },
+  { command: 'kubectl get pods -A', label: 'Every pod in every namespace' },
+  { command: 'kubectl create deployment web --image=nginx:1.29.3 --replicas=2', label: 'Run a deployment' },
+  { command: 'kubectl api-resources | less', label: 'What the API can do' },
+]
+const EXTEND_MINUTES = 30
+const leftMinutes = Number(process.env.MOCK_LEFT_MINUTES ?? 120)
+
 const state = {
   startedAt: null as string | null,
-  deadlineAt: null as string | null,
+  // A catalog playground has its session deadline from the start.
+  deadlineAt: playground ? new Date(Date.now() + leftMinutes * 60_000).toISOString() : (null as string | null),
   tokens: new Set<string>(),
   tickets: new Set<string>(),
   grading: false,
@@ -159,7 +224,8 @@ function run() {
       prerequisitesHtml: playground ? '' : '<p>Know how NetworkPolicy <code>podSelector</code> and <code>from</code> rules combine.</p>\n',
       estimatedDuration: playground ? '' : '30m',
     },
-    questions: [{ id: 'q1', title: QUESTION_TITLE, points: null }],
+    // A playground has no task document.
+    questions: playground ? [] : [{ id: 'q1', title: QUESTION_TITLE, points: null }],
     targets: qemu
       ? [
           { name: TARGET, label: 'control', kind: 'vm', views: ['terminal'] },
@@ -192,7 +258,16 @@ function run() {
     },
     runAgain: 'astrona run astrona.io/ATS014/section-010/module-01/lab-02',
     ...(accountState === 'untracked' ? {} : { account }),
+    environment: environment(),
+    suggestedCommands: playground ? SUGGESTED_COMMANDS : [],
+    canExtend: canExtend(),
+    extendMinutes: EXTEND_MINUTES,
   }
+}
+
+// A signed-in playground that still runs can have more time.
+function canExtend(): boolean {
+  return playground && !state.removed && accountState === 'signed-in'
 }
 
 function submitBlocked(): string {
@@ -349,7 +424,7 @@ function mockPlugin(): Plugin {
             profile: 'mock',
             startedAt: new Date().toISOString(),
             serverNow: new Date().toISOString(),
-            features: ['runs', 'terminals', 'tabs', 'tab-menu', 'submit'],
+            features: ['runs', 'terminals', 'tabs', 'tab-menu', 'submit', 'environment', 'catalog-suggestions'],
             assets: 'built',
           })
         }
@@ -360,6 +435,75 @@ function mockPlugin(): Plugin {
           return send(res, 200, { runs: [{ lab: r.lab, title: r.title, mode: r.mode, playground: r.playground, status: r.status }] })
         }
         if (m === 'GET' && p === '/runs/demo') return send(res, 200, run())
+        if (m === 'POST' && p === '/runs/demo/extend') {
+          const { runId } = await readJSON(req)
+          if (runId !== run().runId) return fail(res, 409, 'run_changed', 'the lab was restarted; reload the run')
+          if (state.removed) return fail(res, 409, 'run_stopped', 'the playground is no longer running')
+          if (!canExtend()) return fail(res, 409, 'not_extendable', 'this run cannot be extended')
+          const from = Math.max(Date.now(), Date.parse(state.deadlineAt ?? new Date().toISOString()))
+          state.deadlineAt = new Date(from + EXTEND_MINUTES * 60_000).toISOString()
+          return send(res, 200, run())
+        }
+        if (m === 'GET' && p === '/labs') {
+          const r = run()
+          return send(res, 200, {
+            labs: [
+              {
+                lab: 'demo',
+                name: 'demo',
+                title: r.title,
+                runtime: qemu ? 'qemu' : 'kind',
+                state: state.removed ? 'stopped' : 'running',
+                uptime: '12m',
+                mode: r.mode,
+                playground,
+                ...(r.deadlineAt ? { deadlineAt: r.deadlineAt } : {}),
+                workspace: true,
+                runId: r.runId,
+                runStatus: r.status,
+              },
+              {
+                lab: 'astro-pod-basics',
+                name: 'pod-basics',
+                title: 'Pod basics',
+                runtime: 'kind',
+                state: 'running',
+                uptime: '2h',
+                mode: 'learning',
+                playground: false,
+                workspace: true,
+                runId: 'e'.repeat(64),
+                runStatus: 'running',
+              },
+            ],
+          })
+        }
+        if (m === 'GET' && p === '/catalog/suggestions') {
+          if (process.env.MOCK_CATALOG === 'down') return fail(res, 502, 'catalog_unavailable', 'astrona.io did not answer')
+          return send(res, 200, {
+            // Like the server: summary is always "", kind nearly always "lab".
+            labs: [
+              {
+                id: 'ATS014/section-010/module-02/lab-01',
+                title: 'Scale a Deployment',
+                summary: '',
+                kind: 'lab',
+                url: 'https://astrona.io/labs/ATS014/section-010/module-02/lab-01',
+                runCommand: 'astrona run astrona.io/ATS014/section-010/module-02/lab-01',
+              },
+              {
+                id: 'ATS014/section-020/module-01/playground',
+                title: 'Networking playground',
+                summary: '',
+                kind: 'lab',
+                // Only official trainings have a page on astrona.io.
+                url: '',
+                runCommand: 'astrona run astrona.io/ATS014/section-020/module-01/playground',
+              },
+            ],
+            catalogUrl: 'https://astrona.io/labs',
+          })
+        }
         if (m === 'POST' && p === '/runs/demo/start') {
           const { runId } = await readJSON(req)
           if (runId !== run().runId) return fail(res, 409, 'run_changed', 'the lab was restarted; reload the run')
