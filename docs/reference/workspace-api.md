@@ -113,6 +113,7 @@ All paths are under `/api/v1` unless they start with `/ws/`.
 | `GET /runs/{lab}` | One run: identity, mode, status, clock, questions, targets, tabs. |
 | `GET /runs/{lab}/questions/{id}` | One question rendered to HTML. After **Start** only. |
 | `POST /runs/{lab}/start` | The **Start** button. Idempotent. |
+| `POST /runs/{lab}/extend` | **Need more time**: 30 more minutes on the run's Astrona lab session. Not an exam. |
 | `GET /runs/{lab}/terminals` | Open terminals. |
 | `GET /runs/{lab}/tabs/{name}/doc` | A docs tab's Markdown, rendered to HTML. After **Start** only. |
 | `GET /runs/{lab}/doclinks/frame?url=…` | Whether one of the run's `docLinks` can be shown in a frame. |
@@ -349,7 +350,7 @@ A QEMU lab's `environment`:
 | `playground` | A playground has no intro and no Start: open the workspace directly. |
 | `status` | `ready` (environment up, Start not clicked), `running`, `expired` (exam time is over), `stopped` (the lab is gone or was restarted; this `runId` is dead). `provisioning` and `failed` are reserved for later milestones. |
 | `startedAt` | When Start was clicked; `null` before. |
-| `deadlineAt` | `null` when there is no clock: learning labs, exams before Start, untimed playgrounds. A playground started from the catalog has its session deadline. |
+| `deadlineAt` | `null` when there is no clock: learning labs (the CLI keeps no deadline for them, even when extended), exams before Start, untimed playgrounds. A playground started from the catalog has its session deadline, moved by renew and extend. |
 | `timeLimitSeconds` | The exam's time limit, shown on the intro; `null` for learning labs. |
 | `rules` | `strict`: a submission after the deadline cannot pass. `hintsHidden`: hints are never shown. |
 | `intro` | For the intro page. `prerequisitesHtml` is `""` when the lab has none; `estimatedDuration` is `""` when its task does not say. |
@@ -367,8 +368,8 @@ A QEMU lab's `environment`:
 | `runAgain` | The command that starts this lab again, as `astrona run` was given it: the catalog ID, the `--git` source, or the config path (`-c`). Never the cluster name, which `astrona run` does not accept. `""` when the source is not known. |
 | `environment` | What the lab runs on, for the environment panel. `astrona run` saves it with the run from the lab config and one container engine call that lists the cluster's node containers; polling never looks anything up. A value that is not known is `""` or `[]`, never a guess; lists are never `null`. Never a kubeconfig, credential or address. A run saved before this field has only `runtime`. See the table below. |
 | `suggestedCommands` | Commands a playground's page offers to copy into the terminal, as `{"command", "label"}` (`label` may be `""`). The playground's own `metadata.suggestedCommands` ([lab config](lab-config.md#metadata)), or, when it lists none, defaults for its runtime: Kind `kubectl get nodes -o wide`, `kubectl get pods -A`, `kubectl run demo --image=busybox:1.37.0 -- sleep 3600`, `kubectl get svc -n kube-system`; VM `uname -a`, `ip -br addr`, `df -h`, `systemctl --failed`. At most 8, each one line of at most 200 characters. Always `[]` for a lab or an exam. |
-| `canExtend` | Reserved: always `false` until extending is available. |
-| `extendMinutes` | Reserved: `canExtend` is always `false` until extending is available. The minutes one extension would add, `30`. There is no extend route yet. |
+| `canExtend` | `true` when [`POST /extend`](#post-runslabextend) may add time now: the run is not an exam, has an Astrona lab session (`submit.tracking` `account`) and its `account` is `signed-in` to that session's site, `status` is `running` (a lab after **Start**), and a playground has a `deadlineAt`. Worked out from saved state only: polling never asks the site, so the site can still refuse (see the route). |
+| `extendMinutes` | The minutes one extension adds, `30`. There is no limit on how often. |
 | `solution` | `GET /solution` has a solution guide to show (after **Start**). Always `false` in an exam (a time limit) or a playground. |
 | `solutions` | The lab's solutions in display order, as `{"name", "title", "summary"}` (`summary` may be `""`); each is served by `GET /solutions/{name}`. The default solution is named `default`. Empty in an exam or a playground, and for a lab without a solution. Never the solution text. |
 
@@ -468,6 +469,34 @@ outbox, and a failure is a warning in the server log. The site keeps the first
 start. `astrona ui <lab>` for an exam whose clock already started at readiness
 sends the same signal with that time. A local-only or untracked run sends
 nothing.
+
+### `POST /runs/{lab}/extend`
+
+Request: `{"runId": "<runId>"}`
+
+Response: `200` with the run, exactly as `GET /runs/{lab}`. For a playground
+`deadlineAt` has moved by `extendMinutes` (or by more, when the site has more
+time for it, such as an extension from the lab page).
+
+It does what `astrona run extend` does at a terminal: `POST
+{site}/api/cli/lab-sessions/{id}/extend` (no body, the CLI's sign-in and device
+proof), at once and not through the outbox, under the lab's lock and after the
+same `runId` check as the other mutating routes. Each call adds 30 minutes;
+there is no limit on how often. A playground's new deadline is saved with its
+lab session and its watchdog is replaced with one for that deadline, so the
+playground is removed that much later. A lab gets the time on its expected time
+on the site (and on its time limit when it needs it); the CLI keeps no deadline
+for a lab, so its `deadlineAt` stays `null`. The run is marked as extended on
+the student's account and keeps its score.
+
+| Status and `code` | When |
+| --- | --- |
+| `409 run_changed` | `runId` is not the lab's current run. |
+| `409 run_stopped` | The lab is no longer running. |
+| `409 not_extendable` | An exam; a run without an Astrona lab session (local-only, signed out, a lab from your own files); not signed in to the session's site; a lab before **Start** or a playground past its time limit; or the site says the clock has not started (`not_started`), the run already ended (`ended`), the lab has no expected time (`no_expected_time`) or the session is not the student's. `error` says which. |
+| `409 conflict` | Another extension, a renew or a stop changed the run on the site at the same moment. Nothing was added: try again. |
+| `429 rate_limited` | The site's limit on lab session requests. |
+| `502 site_unreachable` | The site could not be reached or answered with an error; `error` has the message. Nothing was saved. |
 
 ### `POST /runs/{lab}/submit`
 
