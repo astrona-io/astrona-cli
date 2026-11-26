@@ -370,6 +370,22 @@
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
           "type": "string"
         },
+        "suggestedCommands": {
+          "items": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/SuggestedCommand"
+              }
+            ]
+          },
+          "maxItems": 8,
+          "type": "array"
+        },
         "timeLimit": {
           "type": "string"
         }
@@ -611,6 +627,21 @@
           "type": "string"
         }
       },
+      "type": "object"
+    },
+    "SuggestedCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "command"
+      ],
       "type": "object"
     },
     "Tab": {

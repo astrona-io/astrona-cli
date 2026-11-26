@@ -2288,6 +2288,8 @@
       
         
       
+        
+      
     
     
     
@@ -2740,6 +2742,34 @@
     
   
     Astrona ui stop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/astrona_run_extend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona run extend
   
 
     
@@ -5804,6 +5834,11 @@
 <td><code>timeLimit</code></td>
 <td>duration</td>
 <td>Playgrounds only: how long a module's playground may run before its clock stops and its cluster is removed, written like <code>90m</code>, <code>2h</code> or <code>1h30m</code>; between <code>5m</code> and <code>24h</code>. Empty: the site's default (2h). Ignored for labs, which have no such limit — see <a href="../../guides/lab-catalog/#playgrounds">Playgrounds</a></td>
+</tr>
+<tr>
+<td><code>suggestedCommands</code></td>
+<td>list</td>
+<td>Playgrounds only: commands the browser workspace offers to copy into the terminal. Each entry is the command as a string, or <code>{command, label}</code> with a short label. At most 8 entries; a command is one line of at most 200 characters, a label one line of at most 80; <code>astrona validate</code> fails otherwise. Empty: defaults for the runtime (<code>kubectl get nodes -o wide</code>, <code>kubectl get pods -A</code>, … for Kind; <code>uname -a</code>, <code>ip -br addr</code>, … for QEMU) — see <a href="../workspace-api/#get-runslab"><code>GET /runs/{lab}</code></a>. Ignored for labs and exams</td>
 </tr>
 </tbody>
 </table>

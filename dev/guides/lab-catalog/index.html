@@ -2100,6 +2100,8 @@
       
         
       
+        
+      
     
     
     
@@ -2552,6 +2554,34 @@
     
   
     Astrona ui stop
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/astrona_run_extend/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Astrona run extend
   
 
     
@@ -5422,7 +5452,7 @@ select another site:</p>
 <p>Signed in to any site other than astrona.io — a local or self-hosted Astrona — every command that sends it something says so first, so nothing goes to an unexpected place unnoticed:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>[WARN] Not astrona.io — sending your lab results to http://localhost:3000
 </code></pre></div>
-<p>It is shown for the sign-in, a new lab session, <code>astrona submit</code>, <code>astrona run renew</code>, stopping a playground's clock and <code>astrona logout</code>; for astrona.io itself nothing extra is printed.</p>
+<p>It is shown for the sign-in, a new lab session, <code>astrona submit</code>, <code>astrona run renew</code>, <code>astrona run extend</code>, stopping a playground's clock and <code>astrona logout</code>; for astrona.io itself nothing extra is printed.</p>
 <h2 id="playgrounds">Playgrounds<a class="headerlink" href="#playgrounds" title="Permanent link">&para;</a></h2>
 <p>A module's playground (<code>astrona run ATS014/section-000/module-01/playground</code>) is a clean environment to try things in — nothing to submit, no lab page. Instead it is timed, and that time is recorded on your account as playground time:</p>
 <ol>
@@ -5437,10 +5467,18 @@ select another site:</p>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>Renewed astro-…: it now stops and is removed at 18:35 (in 2h0m0s).
 </code></pre></div>
+<p>Need a little more instead? <code>astrona run extend</code> adds 30 minutes to the playground's time limit, each time you run it (there is no limit on how often), the same as <strong>Need more time</strong> on the lab page or in the browser workspace. It saves the new deadline and replaces the watchdog with one for it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>astrona<span class="w"> </span>run<span class="w"> </span>extend<span class="w">                                             </span><span class="c1"># the only running lab</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>astrona<span class="w"> </span>run<span class="w"> </span>extend<span class="w"> </span>astrona.io/ATS014/section-000/module-01/playground
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Added 30 minutes to astro-…: it now stops and is removed at 17:10 (in 1h5m0s).
+</code></pre></div>
+<p><code>astrona run extend</code> works on a signed-in catalog lab too: the 30 minutes go on its expected time on Astrona (and on its time limit when it needs them); the lab itself has no local timer. A hands-on exam is never extended, and a <code>--local-only</code>, signed-out or own-files run has no Astrona time limit to extend.</p>
 <p>A playground that already stopped can't be renewed — run it again. <code>astrona reset</code> of a playground does what <code>run</code> does: a fresh playground session with a new clock and watchdog once it is rebuilt. If a playground fails to build, its session is stopped, so no time is counted for it.</p>
 <p>Before removing a playground, the watchdog locks it and rechecks the run,
 session, and deadline. A watchdog left over from before a renew, or from a
-replaced run, cannot stop the playground or remove the lab.</p>
+replaced run, or one from before an <code>astrona run extend</code>, cannot stop the
+playground or remove the lab.</p>
 <h2 id="resource-usage">Resource usage<a class="headerlink" href="#resource-usage" title="Permanent link">&para;</a></h2>
 <p>While a signed-in lab or playground runs, <code>astrona run</code> also starts a <strong>usage reporter</strong> — another detached <code>astrona</code> process — that measures what the lab uses on your computer and sends it to the lab session every 15 seconds: CPU in cores and memory in bytes, for the kind cluster and its linked clusters (<code>docker stats</code> / <code>podman stats</code>) or the lab's QEMU VMs (<code>ps</code>). Nothing else is sent: no command output, no file contents, no process names. Astrona uses it to show what labs really cost to run, and what practising locally saves against the cloud.</p>
 <p>The reporter ends on its own when the lab is destroyed or run again, when its session is gone or expired, or when the site stops taking samples (a lab that passed). It follows <code>astrona run renew</code>. Its output goes to <code>~/.astrona/labs/&lt;lab&gt;.usage.log</code>. <code>astrona submit</code> and playground deletion also send a short summary (average and peak CPU and memory), which the site uses when no sample reached it. A run that is not signed in sends nothing.</p>
@@ -5485,7 +5523,7 @@ sources you added send nothing.</p>
 <p>The catalog is cached for an hour in <code>~/.astrona/catalog.json</code>; <code>--refresh</code> reads it again. When it can't be refreshed (offline), the last copy is used, with a warning. <code>ASTRONA_CATALOG_ORG</code> points it at another organization, found with a GitHub search (unauthenticated, so GitHub's search limit applies); empty lists only your own sources.</p>
 <h2 id="lab-names">Lab names<a class="headerlink" href="#lab-names" title="Permanent link">&para;</a></h2>
 <p>A training's <code>astrona.yaml</code> lists its labs (<code>content</code> entries of <code>type: lab</code>, in <code>modules</code>, or in <code>sections</code> with their <code>modules</code> and <code>capstone</code>). A lab's name is the training id and the lab's path, without <code>sections/</code> and <code>labs/</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>sections/section-050/module-01/labs/lab-01   →   ATS014/section-050/module-01/lab-01
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>sections/section-050/module-01/labs/lab-01   →   ATS014/section-050/module-01/lab-01
 </code></pre></div>
 <p>The training id (<code>training.id</code>, else the repository name) must be a plain name — letters, digits, <code>-</code> and <code>_</code> — and can't be an owner name (<code>astrona-io</code>, <code>astrona.io</code>): a name like <code>astrona.io/ATS014/…</code> always means the <code>astrona-io</code> repositories, never a training called <code>astrona.io</code>. A training with such an id is skipped, and listed among the catalog's errors.</p>
 <p>Training ids are unique (in any case). When two sources declare the same id, the one from the <code>astrona-io</code> organization wins (else the first by repository URL); the other is skipped, and the catalog's errors name both repositories — so a source you add can't take over the name of a published training.</p>
@@ -5493,19 +5531,19 @@ sources you added send nothing.</p>
 <p>A lab from the catalog is a remote lab: astrona fetches the training's repository with git and <strong>asks for your trust</strong> before running it, showing what it will do — like any <code>--git</code> lab (<code>--trust</code> approves it up front, e.g. in CI). An official training's lab (<code>astrona-io</code>) skips the prompt only when the fetched commit is the one astrona.io publishes for that training and the checkout is unchanged; any mismatch asks as usual (see <a href="../remote-config/#official-labs">Official labs</a>). Everything a manifest says is treated as data: a lab path that would leave the repository is rejected. A path that exists on your disk always wins over a catalog name.</p>
 <h2 id="publishing-a-training">Publishing a training<a class="headerlink" href="#publishing-a-training" title="Permanent link">&para;</a></h2>
 <p>Give the repository an <code>astrona.yaml</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">training</span><span class="p">:</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ATS014</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"ICA:</span><span class="nv"> </span><span class="s">Traffic</span><span class="nv"> </span><span class="s">Management"</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">…</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nt">modules</span><span class="p">:</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">module-010</span>
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">    </span><span class="nt">content</span><span class="p">:</span>
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lab</span>
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">        </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"Route</span><span class="nv"> </span><span class="s">Requests</span><span class="nv"> </span><span class="s">By</span><span class="nv"> </span><span class="s">Header</span><span class="nv"> </span><span class="s">Lab"</span>
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">        </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sections/section-010/module-01/labs/lab-01</span><span class="w">   </span><span class="c1"># a lab directory with config.yaml</span>
-<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">        </span><span class="nt">resources</span><span class="p">:</span><span class="w">                                         </span><span class="c1"># optional: official docs for this lab</span>
-<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"Istio:</span><span class="nv"> </span><span class="s">Request</span><span class="nv"> </span><span class="s">Routing"</span>
-<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">            </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://istio.io/latest/docs/tasks/traffic-management/request-routing/</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">training</span><span class="p">:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ATS014</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"ICA:</span><span class="nv"> </span><span class="s">Traffic</span><span class="nv"> </span><span class="s">Management"</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">…</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="nt">modules</span><span class="p">:</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">module-010</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">    </span><span class="nt">content</span><span class="p">:</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">lab</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">        </span><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"Route</span><span class="nv"> </span><span class="s">Requests</span><span class="nv"> </span><span class="s">By</span><span class="nv"> </span><span class="s">Header</span><span class="nv"> </span><span class="s">Lab"</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">        </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sections/section-010/module-01/labs/lab-01</span><span class="w">   </span><span class="c1"># a lab directory with config.yaml</span>
+<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">        </span><span class="nt">resources</span><span class="p">:</span><span class="w">                                         </span><span class="c1"># optional: official docs for this lab</span>
+<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">"Istio:</span><span class="nv"> </span><span class="s">Request</span><span class="nv"> </span><span class="s">Routing"</span>
+<a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">            </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://istio.io/latest/docs/tasks/traffic-management/request-routing/</span>
 </code></pre></div>
 <p>A lab's <code>resources</code> show as <strong>Relevant resources</strong> badges at the top of the
 task in the <a href="../browser-workspace/#the-workspace">browser workspace</a>, each
