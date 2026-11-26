@@ -91,7 +91,8 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
   astrona run ./labs/my-lab --browser                 # browser workspace
   astrona run ./labs/my-lab --headless --accept-terms # setup for external checks
   astrona run --git https://github.com/org/labs -c labs/net-01
-  astrona run renew                                  # a running playground: its full time limit again`,
+  astrona run renew                                  # a running playground: its full time limit again
+  astrona run extend                                 # a running lab or playground: 30 more minutes`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			defer func() { flags.launch.finish(err) }()
@@ -296,6 +297,7 @@ func newRunCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&flags.adoptSession, "session", "", "Run the lab session the website started for this device (used by astrona connect)")
 	_ = cmd.Flags().MarkHidden("session")
 	cmd.AddCommand(newRunRenewCmd())
+	cmd.AddCommand(newRunExtendCmd())
 	return cmd
 }
 

@@ -397,8 +397,8 @@ type runView struct {
 	Environment *Environment `json:"environment"`
 	// SuggestedCommands: a playground's commands to try; empty otherwise.
 	SuggestedCommands []SuggestedCommand `json:"suggestedCommands"`
-	// CanExtend and ExtendMinutes are reserved: CanExtend is always false
-	// until extending a playground is available.
+	// CanExtend: POST /runs/{lab}/extend may add ExtendMinutes to the run
+	// (canExtend says when).
 	CanExtend     bool `json:"canExtend"`
 	ExtendMinutes int  `json:"extendMinutes"`
 }
@@ -505,6 +505,9 @@ func buildView(rec RunRecord, now time.Time) (v runView, err error) {
 			v.Submit.Blocked = "start the lab first"
 		default:
 			v.CanSubmit = true
+		}
+		if err == nil {
+			v.CanExtend = canExtend(rec, st, v)
 		}
 	}()
 	if rec.Playground {

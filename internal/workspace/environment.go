@@ -12,10 +12,6 @@ const (
 	RuntimeVM   = "vm"
 )
 
-// ExtendMinutes is how much time extending a playground would add. Extending
-// is not available yet: runView.CanExtend is always false.
-const ExtendMinutes = 30
-
 // Environment describes what a run runs on, for the page's environment
 // panel: the lab's main Kind cluster (a multi-cluster lab's own cluster,
 // not its linked ones) or its VMs. `astrona run` fills it in from the lab

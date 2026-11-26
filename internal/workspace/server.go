@@ -267,6 +267,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/runs/{lab}", s.requireToken(s.handleRun))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/questions/{id}", s.requireToken(s.handleQuestion))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/start", s.requireToken(s.handleStart))
+	mux.HandleFunc("POST /api/v1/runs/{lab}/extend", s.requireToken(s.handleExtend))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/tabs/{name}/doc", s.requireToken(s.handleTabDoc))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/solution", s.requireToken(s.handleSolution))
 	mux.HandleFunc("GET /api/v1/runs/{lab}/solutions/{name}", s.requireToken(s.handleNamedSolution))
