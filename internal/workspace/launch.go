@@ -12,6 +12,8 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	"astrona/internal/config"
 )
 
 // A launch is one `astrona run` that opened the browser before the lab
@@ -227,6 +229,9 @@ type launchView struct {
 	Launch
 	Alive    bool   `json:"alive"`
 	Answered string `json:"answered,omitempty"`
+	// Environment is the ready lab's environment (its run record's), absent
+	// before the launch is ready.
+	Environment *Environment `json:"environment,omitempty"`
 }
 
 func (s *Server) handleLaunch(w http.ResponseWriter, r *http.Request) {
@@ -251,6 +256,11 @@ func (s *Server) handleLaunch(w http.ResponseWriter, r *http.Request) {
 		v.Answered = "declined"
 		if a.Accepted {
 			v.Answered = "accepted"
+		}
+	}
+	if l.Stage == LaunchReady && config.ValidateName(l.Lab) == nil {
+		if rec, err := ReadRun(l.Lab); err == nil {
+			v.Environment = rec.environment()
 		}
 	}
 	writeJSON(w, http.StatusOK, v)
