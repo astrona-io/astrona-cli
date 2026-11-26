@@ -160,6 +160,38 @@ kbd {
   border-color: var(--line-bright);
 }
 
+/* The one go-ahead on a page: Begin session. */
+.btn--go {
+  background: var(--green);
+  color: var(--on-green);
+  font-weight: 700;
+}
+
+.btn--go:hover:not(:disabled) {
+  background: var(--green-hover);
+}
+
+/* Ending a lab or playground: red outline. */
+.btn--danger {
+  border-color: var(--red-line);
+  color: var(--red);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--tint-red);
+}
+
+/* A secondary control: Extend, copy. */
+.btn--soft {
+  border-color: var(--line-strong);
+  background: var(--accent-bg);
+  color: var(--ink);
+}
+
+.btn--soft:hover:not(:disabled) {
+  border-color: var(--violet);
+}
+
 .btn--ghost:hover {
   background: var(--hover);
 }
@@ -194,6 +226,59 @@ kbd {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* A button that reads as a link, inside running text. */
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--violet);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* A small Copy button beside a value. */
+.copy-btn {
+  flex: none;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--accent-bg);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.copy-btn:hover,
+.copy-btn:focus-visible {
+  border-color: var(--violet);
+  color: var(--ink);
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--accent-bg);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  line-height: 1.5;
+  text-align: center;
 }
 
 .dot {

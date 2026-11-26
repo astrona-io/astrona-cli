@@ -114,6 +114,53 @@ export interface Run {
   runAgain: string
   /** The account this run is saved to; absent when unknown. */
   account?: AccountStatus
+  /** What the lab is made of and how to reach it; absent from an older server. */
+  environment?: Environment
+  /** A playground's "try a command" list; empty otherwise, absent from an older server. */
+  suggestedCommands?: SuggestedCommand[]
+  /** True when POST /extend would add extendMinutes to the deadline now. */
+  canExtend?: boolean
+  /** How many minutes one extend adds. */
+  extendMinutes?: number
+}
+
+/** One node of a Kind cluster. */
+export interface EnvNode {
+  name: string
+  role: 'control-plane' | 'worker' | string
+}
+
+/** One QEMU VM of a lab. */
+export interface EnvVM {
+  name: string
+  os: string
+  cpus: number
+  memoryMiB: number
+}
+
+/**
+ * What a lab's environment is made of, for the launch page and the
+ * playground panel. A string is "" when it does not apply (a VM lab has no
+ * Kubernetes version); every field may be absent from an older server.
+ */
+export interface Environment {
+  runtime?: 'kind' | 'vm' | string
+  kubernetesVersion?: string
+  engine?: string
+  nodes?: EnvNode[]
+  network?: string
+  images?: string[]
+  context?: string
+  namespace?: string
+  /** The command that reaches the lab from the student's own terminal. */
+  connect?: string
+  vms?: EnvVM[]
+}
+
+/** A command a playground offers to paste into the terminal. */
+export interface SuggestedCommand {
+  command: string
+  label: string
 }
 
 /**
@@ -419,6 +466,8 @@ export interface Launch {
   account?: AccountStatus
   /** Set with account: the lab is a playground (time, no attempts). */
   playground?: boolean
+  /** Once ready: what the lab is made of. Absent from an older server. */
+  environment?: Environment
   /** False once the command in the terminal has exited. */
   alive: boolean
   answered?: 'accepted' | 'declined'
@@ -473,6 +522,41 @@ export async function listRuns(): Promise<RunListItem[]> {
 
 export function getRun(id: string): Promise<Run> {
   return request<Run>('GET', lab(id), undefined, true, { timeoutMs: QUICK_TIMEOUT_MS })
+}
+
+/**
+ * Adds extendMinutes to the run's deadline (Run.canExtend). Errors: 409
+ * run_changed, run_stopped or not_extendable; 502 site_unreachable.
+ */
+export function extendRun(id: string, runId: string): Promise<Run> {
+  return request<Run>('POST', `${lab(id)}/extend`, { runId })
+}
+
+/** A lab from the catalog to try next. */
+export interface CatalogSuggestion {
+  id: string
+  title: string
+  summary: string
+  kind: 'lab' | 'playground' | string
+  url: string
+  runCommand: string
+}
+
+export interface CatalogSuggestions {
+  labs: CatalogSuggestion[]
+  catalogUrl: string
+}
+
+/** What to try after lab, from the Astrona catalog. 502 catalog_unavailable when the site does not answer. */
+export async function getCatalogSuggestions(labId: string): Promise<CatalogSuggestions> {
+  const res = await request<CatalogSuggestions>(
+    'GET',
+    `/catalog/suggestions?lab=${encodeURIComponent(labId)}`,
+    undefined,
+    true,
+    { timeoutMs: QUICK_TIMEOUT_MS },
+  )
+  return { labs: res.labs ?? [], catalogUrl: res.catalogUrl }
 }
 
 /** 409 not_started before Start (never for a playground). */

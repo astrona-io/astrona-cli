@@ -50,11 +50,12 @@ export function useElapsed(startedAt: Ref<string | null>) {
   })
 }
 
-export function formatDuration(ms: number): string {
+/** H:MM:SS, or MM:SS under an hour unless hours is set. */
+export function formatDuration(ms: number, { hours = false }: { hours?: boolean } = {}): string {
   const total = Math.ceil(ms / 1000)
   const h = Math.floor(total / 3600)
   const m = Math.floor((total % 3600) / 60)
   const s = total % 60
   const pad = (n: number) => String(n).padStart(2, '0')
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`
+  return h > 0 || hours ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`
 }
