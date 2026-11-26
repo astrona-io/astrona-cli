@@ -89,14 +89,18 @@ const signedInAs = computed(() => {
         Create a free Astrona account <span aria-hidden="true">↗</span>
       </a>
     </div>
-    <p class="muted">
-      Then run <code>astrona login</code> in your terminal and start the {{ playground ? 'playground' : 'lab' }} again: that run is saved to your
-      account.
-    </p>
-    <p class="small muted">
-      Signing in now does not link this run. A run is linked to an account when <code>astrona run</code> starts, and
-      this one started without one.
-    </p>
+    <!-- The launch page puts its sign-in here: this run can still be linked. -->
+    <slot v-if="$slots.default" />
+    <template v-else>
+      <p class="muted">
+        Then run <code>astrona login</code> in your terminal and start the {{ playground ? 'playground' : 'lab' }} again: that run is saved to your
+        account.
+      </p>
+      <p class="small muted">
+        Signing in now does not link this run. A run is linked to an account when <code>astrona run</code> starts, and
+        this one started without one.
+      </p>
+    </template>
   </section>
 
   <section v-else-if="state === 'local-only'" class="account" aria-labelledby="account-title">

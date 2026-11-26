@@ -8,7 +8,9 @@
 //                                     minutes left (the low-time banner); default 120
 //   MOCK_CATALOG=down npm run dev     GET /catalog/suggestions answers 502
 //   MOCK_ACCOUNT=signed-out npm run dev   account status: signed-in (default),
-//                                     signed-out, local-only or untracked
+//                                     signed-out, local-only or untracked;
+//                                     signed-out offers "Sign in" on the launch
+//                                     page (authorized after 8 s; MOCK_SIGNIN=denied declines)
 //   open http://127.0.0.1:5173/#code=dev&lab=demo   (code "expired" shows the 401 page)
 //   open http://127.0.0.1:5173/#code=dev&launch=<32 hex digits>   the setup page,
 //                                     ready after 40 s of polling
@@ -85,9 +87,38 @@ const account: Record<string, string> =
 
 // MOCK_TRACKING=account|local-only|none picks where a result goes (from
 // MOCK_ACCOUNT unless given).
-const tracking =
+let tracking =
   process.env.MOCK_TRACKING ??
   (accountState === 'signed-in' ? 'account' : accountState === 'local-only' ? 'local-only' : 'none')
+
+// /launches/{id}/signin and /session: with MOCK_ACCOUNT=signed-out the
+// launch page offers "Sign in". A started sign-in is authorized after
+// SIGNIN_SECONDS of polling (MOCK_SIGNIN=denied declines it instead); Begin
+// then links the run, which becomes signed in.
+const SIGNIN_SECONDS = 8
+const signInOutcome = process.env.MOCK_SIGNIN === 'denied' ? 'denied' : 'signed-in'
+const signIns = new Map<string, { state: string; startedAt: number; userCode: string; message?: string }>()
+
+function mockSignIn(id: string): Record<string, unknown> {
+  const s = signIns.get(id)
+  if (!s) return { state: 'none' }
+  if (s.state === 'pending' && Date.now() - s.startedAt > SIGNIN_SECONDS * 1000) {
+    s.state = signInOutcome
+    if (s.state === 'denied') s.message = 'Sign-in was declined in the browser.'
+  }
+  const site = account.site ?? 'https://astrona.io'
+  if (s.state === 'pending') {
+    return {
+      state: 'pending',
+      site,
+      userCode: s.userCode,
+      verificationUrl: `${site}/cli/authorize?code=${s.userCode}`,
+      expiresAt: new Date(s.startedAt + 15 * 60_000).toISOString(),
+    }
+  }
+  if (s.state === 'signed-in') return { state: 'signed-in', site, username: 'ada' }
+  return { state: s.state, site, ...(s.message ? { message: s.message } : {}) }
+}
 
 // GET /launches/{id}: a browser-first `astrona run` that sets up for
 // LAUNCH_SECONDS from its first poll (a new id starts over), then hands the page lab "demo".
@@ -132,7 +163,9 @@ function mockLaunch(id: string) {
     title: playground ? 'Kubernetes playground' : QUESTION_TITLE,
     ...(ready ? { lab: 'demo', environment: environment() } : { status: `waiting · ${Math.round(elapsed % per)}s` }),
     events,
-    account,
+    ...(account.state === 'signed-out' && signIns.get(id)?.state === 'signed-in'
+      ? { account: { state: 'signed-in', username: 'ada', site: account.site }, signedInHere: true }
+      : { account }),
     ...(playground ? { playground } : {}),
     alive: true,
   }
@@ -430,6 +463,31 @@ function mockPlugin(): Plugin {
         }
         const launchMatch = /^\/launches\/([0-9a-f]{32})$/.exec(p)
         if (m === 'GET' && launchMatch) return send(res, 200, mockLaunch(launchMatch[1]))
+        const signInMatch = /^\/launches\/([0-9a-f]{32})\/signin$/.exec(p)
+        if (signInMatch) {
+          const id = signInMatch[1]
+          if (m === 'GET') return send(res, 200, mockSignIn(id))
+          if (m === 'DELETE') {
+            const s = signIns.get(id)
+            if (s?.state === 'pending') Object.assign(s, { state: 'cancelled', message: 'Sign-in was cancelled.' })
+            return send(res, 200, mockSignIn(id))
+          }
+          if (m === 'POST') {
+            if (account.state !== 'signed-out') return fail(res, 409, 'signin_not_offered', 'this run does not offer signing in')
+            const s = signIns.get(id)
+            if (!s || (s.state !== 'pending' && s.state !== 'signed-in')) {
+              signIns.set(id, { state: 'pending', startedAt: Date.now(), userCode: 'WDJB-MJHT' })
+            }
+            return send(res, 200, mockSignIn(id))
+          }
+        }
+        const sessionMatch = /^\/launches\/([0-9a-f]{32})\/session$/.exec(p)
+        if (m === 'POST' && sessionMatch) {
+          if (signIns.get(sessionMatch[1])?.state !== 'signed-in') return fail(res, 409, 'not_signed_in', 'sign in on this page first')
+          Object.assign(account, { state: 'signed-in', username: 'ada' })
+          tracking = 'account'
+          return send(res, 200, { lab: 'demo', runId: run().runId, account })
+        }
         if (m === 'GET' && p === '/runs') {
           const r = run()
           return send(res, 200, { runs: [{ lab: r.lab, title: r.title, mode: r.mode, playground: r.playground, status: r.status }] })

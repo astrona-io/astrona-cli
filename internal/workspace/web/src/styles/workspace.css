@@ -143,6 +143,32 @@
   margin: 0;
 }
 
+/* Signing in from the launch page (LaunchSignIn.vue), inside .account. */
+.signin {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.signin__step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.signin__code {
+  padding: 6px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--panel-3);
+  color: var(--cyan);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  overflow-wrap: anywhere;
+}
+
 /* ---------------------------------------------------------------- launch */
 
 .launch-page {

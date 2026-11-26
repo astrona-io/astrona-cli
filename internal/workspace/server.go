@@ -17,6 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"astrona/internal/account"
 	"astrona/internal/catalog"
 	"astrona/internal/config"
 	"astrona/internal/workspace/web"
@@ -60,6 +61,9 @@ type Config struct {
 	// CatalogSite is the Astrona site the catalog comes from (the CLI's
 	// own resolved site): suggestion links point there.
 	CatalogSite string
+	// SignInDevice names this computer for a sign-in from the launch page
+	// (as `astrona login` does); nil answers signin_unavailable.
+	SignInDevice func() account.Device
 }
 
 // Server is the loopback workspace server. Create it with New, then call
@@ -88,6 +92,7 @@ type Server struct {
 	// solutionAssets are the image manifests of solution guides (assets.go).
 	solutionAssets assetManifests
 	catalog        catalogCache // GET /catalog/suggestions
+	signIns        signIns      // sign-ins from launch pages (signin.go)
 	stop           chan struct{}
 	stopOnce       sync.Once
 }
@@ -262,6 +267,10 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/server", s.requireToken(s.handleServer))
 	mux.HandleFunc("GET /api/v1/launches/{id}", s.requireToken(s.handleLaunch))
 	mux.HandleFunc("POST /api/v1/launches/{id}/terms", s.requireToken(s.handleLaunchTerms))
+	mux.HandleFunc("GET /api/v1/launches/{id}/signin", s.requireToken(s.handleSignIn))
+	mux.HandleFunc("POST /api/v1/launches/{id}/signin", s.requireToken(s.handleSignInStart))
+	mux.HandleFunc("DELETE /api/v1/launches/{id}/signin", s.requireToken(s.handleSignInCancel))
+	mux.HandleFunc("POST /api/v1/launches/{id}/session", s.requireToken(s.handleLaunchSession))
 	mux.HandleFunc("GET /api/v1/labs", s.requireToken(s.handleLabs))
 	mux.HandleFunc("GET /api/v1/runs", s.requireToken(s.handleRuns))
 	mux.HandleFunc("GET /api/v1/runs/{lab}", s.requireToken(s.handleRun))
