@@ -17,6 +17,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"astrona/internal/catalog"
 	"astrona/internal/config"
 	"astrona/internal/workspace/web"
 )
@@ -52,6 +53,13 @@ type Config struct {
 	// a VM before its terminal logs in (cmd's resource workspace, as
 	// `astrona ssh` does); nil skips it.
 	PrepareVM func(ctx context.Context, lab string, h *config.QEMUHandle) error
+	// Catalog reads the lab catalog `astrona labs` lists, for GET
+	// /catalog/suggestions (which keeps it for 10 minutes); nil answers
+	// catalog_unavailable.
+	Catalog func() (catalog.Catalog, error)
+	// CatalogSite is the Astrona site the catalog comes from (the CLI's
+	// own resolved site): suggestion links point there.
+	CatalogSite string
 }
 
 // Server is the loopback workspace server. Create it with New, then call
@@ -79,6 +87,7 @@ type Server struct {
 	frames     frameChecks // GET /runs/{lab}/doclinks/frame answers
 	// solutionAssets are the image manifests of solution guides (assets.go).
 	solutionAssets assetManifests
+	catalog        catalogCache // GET /catalog/suggestions
 	stop           chan struct{}
 	stopOnce       sync.Once
 }
@@ -268,6 +277,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/runs/{lab}/terminals", s.requireToken(s.handleTerminals))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/terminals", s.requireToken(s.handleOpenTerminal))
 	mux.HandleFunc("POST /api/v1/runs/{lab}/terminals/close", s.requireToken(s.handleCloseTerminal))
+	mux.HandleFunc("GET /api/v1/catalog/suggestions", s.requireToken(s.handleCatalogSuggestions))
 	mux.HandleFunc("/api/", s.requireToken(func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "not found")
 	}))
@@ -330,7 +340,7 @@ func (s *Server) handleServer(w http.ResponseWriter, _ *http.Request) {
 		"profile":   s.cfg.Profile,
 		"startedAt": s.startedAt.UTC(),
 		"serverNow": time.Now().UTC(),
-		"features":  []string{"runs", "terminals", "tabs", "tab-menu", "submit"},
+		"features":  []string{"runs", "terminals", "tabs", "tab-menu", "submit", "environment", "catalog-suggestions"},
 		"assets":    s.assetsKind(),
 	})
 }
