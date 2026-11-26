@@ -1247,6 +1247,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Open a lab in the browser">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sign-in-before-begin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign in before Begin
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5372,6 +5389,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Open a lab in the browser">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sign-in-before-begin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign in before Begin
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -5630,14 +5664,37 @@ it when it is not. <code>astrona run</code> decides that when it starts the lab:
 <li><strong>Not signed in</strong> (a catalog lab, signed out): the run is not saved to an
   account; the time and your result stay on this computer. The card links to
   <strong>Create a free Astrona account</strong> on the site astrona signs in to (opened in
-  a new tab) and tells you to run <code>astrona login</code> and start the lab again.
-  Signing in while this run is open does not link it: a run is linked to an
-  account only when <code>astrona run</code> starts.</li>
+  a new tab), and offers <strong>Sign in to save your time and result</strong> (a
+  playground: <em>your time</em>) before you click <strong>Begin session</strong>. See
+  <a href="#sign-in-before-begin">Sign in before Begin</a>. Signing in from a terminal
+  while this run is open does not link it.</li>
 <li><strong>Local only</strong> (<code>--local-only</code>): nothing from the run is sent.</li>
 <li>A lab from your own files or <code>--git</code> has no account, and shows no card.</li>
 </ul>
 <p>The intro page repeats this as one line, with the sign-up link when you are
 not signed in.</p>
+<h3 id="sign-in-before-begin">Sign in before Begin<a class="headerlink" href="#sign-in-before-begin" title="Permanent link">&para;</a></h3>
+<p>A signed-out run of a catalog lab or playground can still be saved to your
+account, as long as it has not begun:</p>
+<ol>
+<li>Click <strong>Sign in to save your time and result</strong> on the setup page. The
+   workspace server starts the same sign-in as <code>astrona login</code>, on the site
+   astrona signs in to.</li>
+<li>The page shows a code and <strong>Open <site> to authorize</strong>, a link that opens
+   the site's authorize page in a new tab. Check that the site shows the same
+   code, sign in there if you need to, and click <strong>Authorize</strong>. The setup page
+   notices by itself; <strong>Cancel</strong> stops waiting.</li>
+<li>The chip and the card now show your account. You are signed in on this
+   computer, as after <code>astrona login</code>.</li>
+<li><strong>Begin session</strong> starts the run's lab session on your account first
+   (<em>Saving to your account…</em>), then the run as before. From then on it is a
+   signed-in run: the time, and for a lab the submitted result, are saved to
+   your account.</li>
+</ol>
+<p>If the run cannot be saved (the site cannot be reached, for example), the page
+says why and offers <strong>Try again</strong> or <strong>Begin without saving</strong>. Not signing in
+keeps the run as it was: nothing is saved to an account. A <code>--local-only</code> run
+never offers the sign-in. Only one launch page signs in at a time.</p>
 <p>Some questions are still asked in the terminal: whether to start a running lab
 over, whether to log in, and whether to trust a lab's repository. The tab says
 so while it waits. If you stop the command (Ctrl+C), the tab says that astrona
